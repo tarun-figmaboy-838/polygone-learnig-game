@@ -1,0 +1,23 @@
+{
+  "name": "swiftee-polygons",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Swiftee & the Polygons — diagonals, convex and concave, regular and irregular. A 39-screen guided lesson. The game itself is plain scripts and needs no build; everything here is for the test gates and the Swiftee frame table.",
+  "scripts": {
+    "test": "node tests/polygon-math.test.js && node tests/director.test.js && node tests/quest.test.js && node tests/screens.test.js && node tests/swiftee.test.js && node tests/playthrough.jsdom.js",
+    "test:math": "node tests/polygon-math.test.js",
+    "test:director": "node tests/director.test.js",
+    "test:screens": "node tests/screens.test.js",
+    "test:swiftee": "node tests/swiftee.test.js",
+    "test:play": "node tests/playthrough.jsdom.js",
+    "test:browser": "node tests/playthrough.browser.js",
+    "test:browser:checks": "node tests/playthrough.browser.js --checks",
+    "test:all": "npm test && npm run test:browser",
+    "build:frames": "node tools/build-swiftee-frames.js",
+    "start": "node serve.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0",
+    "playwright": "^1.63.0"
+  }
+}

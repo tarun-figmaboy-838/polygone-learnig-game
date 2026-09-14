@@ -1,0 +1,162 @@
+# Swiftee &amp; the Polygons
+
+A 39-screen guided lesson: diagonals, convex and concave, regular and irregular.
+Plain scripts, no build step, no framework. Open it and it runs.
+
+```
+npm install          # test tooling only; the game itself needs nothing
+npm start            # http://localhost:8000
+npm test             # logic, storyboard and a full headless playthrough
+npm run test:browser # the same lesson played in a real Chrome
+```
+
+It works over `file://` too — there is nothing to fetch that a file page cannot
+load.
+
+---
+
+## Layout
+
+```
+index.html                 the page: markup, styling, script order
+serve.js                   local static server
+vercel.json                static deploy: no build, cache rules
+
+src/
+  core/
+    director.js            runs each screen as awaited beats — timing only
+    input.js               one pointer stream, routed by mode
+    polygon-math.js        every right/wrong judgement the game makes
+  game/
+    screens.js             the storyboard, page by page, as data
+    stage.js               everything the learner sees and touches
+    game.js                wiring, layout, HUD, the screen loop
+    dual-coding.js         binds each spoken term to the thing it names
+  character/
+    swiftee.js             the companion, driven by the sprite sheets
+    swiftee-frames.js      GENERATED from the manifest — do not edit
+  audio/
+    sfx.js                 fourteen cues, synthesised; no audio files
+  fx/
+    juice.js               pops, wobbles, confetti
+    transition.js          the snow wipe between screens
+
+assets/
+  bg/ice-vista.png         the painted backdrop
+  swiftee/                 the character sprite sheets + the manifest
+
+tools/
+  build-swiftee-frames.js  manifest -> src/character/swiftee-frames.js
+  list-sprites.js          which sheets the game actually plays
+
+tests/                     see "Test gates"
+docs/BUILD.md              the original build handoff and deck review
+```
+
+---
+
+## How it fits together
+
+```
+screens.js  ──  what happens, in what order, with what words   (data)
+     │
+     ▼
+director.js ──  runs each screen as awaited beats               (timing)
+     │
+     ▼
+handlers    ──  stage, swiftee, say, input, sfx, juice          (game.js)
+     │
+     ▼
+polygon-math.js ── every right/wrong judgement                  (truth)
+```
+
+**`screens.js` is the single source of the storyboard.** If a line of copy
+changes, it changes there and nowhere else.
+
+**`director.js` owns timing and nothing else.** Every beat is awaited. Three
+properties are tested rather than promised: a screen change aborts everything
+inside the previous one; no beat can hang the lesson; a tap fast-forwards
+narration but can never skip an input or its feedback.
+
+**`polygon-math.js` decides right and wrong.** Nothing is ever hard-coded —
+"this pentagon is convex" is `Poly.classify(v).convex` on the live vertices, so
+an art change or a child dragging further than expected cannot desync the shape
+from its answer key.
+
+---
+
+## The character
+
+`assets/swiftee/` is a rendered Rive rig: 82 animations, each a uniform grid of
+512px cells (256 @1x), pivot at the exact cell centre, feet on a baseline 87.7%
+down the cell, 20 fps. Those four facts are why swapping expressions never makes
+him jump, and nothing in the code may break them.
+
+Nothing hardcodes a frame count or a grid. `tools/build-swiftee-frames.js` reads
+`assets/swiftee/swiftee.manifest.json`, checks it against the files on disk, and
+generates `src/character/swiftee-frames.js`. Re-run it after replacing any sheet;
+it fails the build if the art and the manifest disagree.
+
+The lesson speaks sixteen semantic states (`wave`, `think`, `celebrate`…). The
+translation to rig states lives in one table at the top of `swiftee.js`, and the
+storyboard never had to change to accommodate the art. Most expressions ship as
+`start → loop → stop` and all three are played — cutting between loops skips the
+transition the animator drew.
+
+`node tools/list-sprites.js` prints exactly which sheets the game plays, what
+each is for, and which 25 animations it never touches.
+
+---
+
+## Test gates
+
+| Suite | What it guards |
+| --- | --- |
+| `tests/polygon-math.test.js` | 77 checks. Every geometric judgement, including page 21's rhombus and rectangle traps |
+| `tests/director.test.js` | 38 checks. Ordering, cancellation, never-stuck, skip safety, branching |
+| `tests/screens.test.js` | 45 checks. Unique ids and VO ids, the instruction card simulated across all 39 screens, no wrong path containing words, no answer ghosts |
+| `tests/swiftee.test.js` | 26 checks. The frame table still matches the manifest, every grid can address every frame, every sheet exists, no reaction outruns the beat ceiling |
+| `tests/playthrough.jsdom.js` | A scripted child plays all 39 screens, trying a wrong answer first on every judged one |
+| `tests/playthrough.browser.js` | The same lesson in a real Chrome, via Playwright |
+
+The browser suite exists because jsdom has no hit testing, and that is a whole
+class of bug it cannot see: a faded-out Start button sitting over the middle of
+the screen swallowing every tap, an invisible ghost line covering the vertex a
+child has to grab, answer buttons drawn below the bottom edge of the stage. All
+three shipped green through the headless suite.
+
+`--checks` runs only the rendering and layout assertions (about six seconds);
+the full play needs real memory headroom for a software-rendered headless Chrome.
+
+## Deploying
+
+There is nothing to build. The repo root **is** the site: `index.html` plus
+`src/` and `assets/`.
+
+```
+vercel            # preview
+vercel --prod     # production
+```
+
+`vercel.json` pins that: no install step, no build step, output directory `.`.
+The two cache rules matter — `assets/` is immutable for a year (the sprite
+sheets and the backdrop are 9.5 MB and never change without a filename change),
+while `index.html` and `src/` must revalidate, or a child gets yesterday's
+lesson against today's storyboard.
+
+`.vercelignore` keeps the tests, the tools and the screenshot artifacts out of
+the deployment; they are development gates, not part of the game.
+
+Any static host works the same way — GitHub Pages, Netlify, an S3 bucket.
+Serve the root, open `/`.
+
+---
+
+## Not done
+
+- **No narration.** The lesson is read, not spoken: the bubble shows the line and
+  the director's reading time paces it.
+- **No music.** `SFX.musicBus()` exists and `SFX.duck()` can pull it down; no loop is wired.
+- **Not tested on a real tablet.** Everything here is from Chrome and jsdom on a
+  desktop. The playthroughs prove the lesson cannot get stuck and that every
+  screen completes; they say nothing about how it feels in a child's hands.

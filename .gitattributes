@@ -1,0 +1,6 @@
+# The repo stores LF; Windows checkouts get CRLF. Without this, every file
+# looks modified on a machine with a different core.autocrlf.
+* text=auto eol=lf
+
+*.png  binary
+*.webp binary

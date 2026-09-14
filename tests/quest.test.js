@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const { create, chapters } = require('../src/game/quest');
+const q = create();
+assert.equal(q.award('3:multi-choice'), 25);
+assert.equal(q.award('3:multi-choice'), 0, 'Repeated completion cannot farm XP');
+q.mistake();
+assert.equal(q.snapshot().xp, 25, 'Mistakes preserve earned XP');
+assert.equal(q.award('5:vertex-pick'), 25);
+assert.equal(q.complete(2), null, 'Badge waits for chapter completion');
+chapters.forEach(c => { assert.equal(q.complete(c.end).name, c.name); assert.equal(q.complete(c.end), null); });
+assert.equal(q.snapshot().badges.length, 5);
+q.snapshot().badges.pop();
+assert.equal(q.snapshot().badges.length, 5, 'Snapshots cannot mutate rewards');
+assert.equal(create().snapshot().xp, 0, 'Replay begins a fresh adventure');
+console.log('quest: reward deduplication, retries, badges and replay passed');

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Swiftee — Polygons</title>
+<!-- inline, so the page never fires a 404 for a favicon it does not have -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>%F0%9F%90%A6</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- the backdrop is the first thing on screen; fetch it alongside the scripts -->
+<link rel="preload" as="image" href="assets/bg/ice-vista.png">
+<style>
+  :root {
+    --ink: #1c2a4a;
+    --sky: #bfe3fb;
+    --bubble: #ffffff;
+    --bubble-edge: #9fd6fb;
+    --card: #fffdf4;
+    --sans: "Nunito", "Segoe UI", system-ui, sans-serif;
+    /* Comic ink: one outline weight and one hard offset shadow, reused by the
+       bubble, the card and every button, so they read as one drawn set
+       instead of three unrelated widgets. */
+    --ink-w: 3px;
+    --ink-shadow: 4px 5px 0 rgba(28, 42, 74, .85);
+    --tail-h: 18px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #a9d6f4; font-family: var(--sans); color: var(--ink); overflow: hidden; }
+
+  #game { position: fixed; inset: 0; background: linear-gradient(#bfe3fb, #f7fcff); }
+  #stage { position: absolute; inset: 0; }
+
+  /* Swiftee is an HTML/SVG overlay positioned by game.js */
+  .swiftee { z-index: 3; }
+
+  /* ---- speech bubble: warm cream paper, one orange rim -----------------
+     ONE STROKE. An earlier pass had four concentric edges — an orange rim, a
+     teal ring outside it, a pale keyline inside it, and the tail's own pair —
+     and at a glance they read as a stack of outlines rather than as an object.
+     There is now a single rim, and the only other edge on the whole bubble is
+     the underside, which is painted in the rim's own darker orange so it reads
+     as the thickness of the paper rather than as a second line around it.
+
+     WIDTH IS A CAP, NOT A SIZE. The supplied `width: min(820px, 68vw)` is kept
+     as a maximum; the real width is measured at runtime by game.js, which finds
+     the free space beside the polygon and fits the bubble to it. A fixed 820px
+     would sit straight over the shape on any screen narrower than a desktop.
+  */
+  #bubble {
+    --cream: #fff8e7;
+    --cream-light: #fffdf5;
+    --orange: #ffb515;
+    --orange-dark: #e08200;
+    --text: #064d68;
+    --rim: 5px;
+    --lip: 9px;
+    --tail: 46px;
+
+    position: absolute; z-index: 4;
+    box-sizing: border-box;
+    max-width: min(820px, 68vw);
+    min-width: 280px;
+    min-height: 104px;
+    padding: 26px 44px;
+    display: flex; align-items: center; justify-content: center;
+
+    /* Two faint flecks and a warm fall from top to bottom: enough for the
+       panel to read as paper rather than as a flat rectangle of colour, and
+       not enough to compete with the words sitting on it. */
+    background:
+      radial-gradient(circle at 7% 66%, rgba(222, 159, 72, .13) 0 5px, transparent 6px),
+      radial-gradient(circle at 92% 71%, rgba(222, 159, 72, .11) 0 6px, transparent 7px),
+      linear-gradient(180deg, var(--cream-light) 0%, var(--cream) 70%, #fff2d6 100%);
+
+    /* Asymmetric corners, so it never reads as a website card. */
+    border-radius: 56px 62px 52px 58px / 46px 50px 47px 52px;
+    border: var(--rim) solid var(--orange);
+
+    box-shadow:
+      0 var(--lip) 0 var(--orange-dark),
+      0 16px 24px rgba(20, 70, 92, .20),
+      inset 0 3px 0 rgba(255, 255, 255, .9);
+
+    opacity: 0; pointer-events: none;
+    transition: opacity 160ms ease;
+  }
+  #bubble.show {
+    opacity: 1; pointer-events: auto; cursor: pointer;
+    animation: dialogue-enter 430ms cubic-bezier(.22, 1.45, .42, 1);
+  }
+
+  .dialogue-inner {
+    position: relative; z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text);
+    font-family: "Fredoka", "Baloo 2", "Arial Rounded MT Bold", var(--sans);
+    /* Large, but it has to share a screen with a polygon. The solo screens,
+       where nothing else is competing for room, get the full size. */
+    font-size: clamp(20px, 2.3vw, 33px);
+    font-weight: 600; line-height: 1.2;
+    letter-spacing: -.4px; text-align: center; text-wrap: balance;
+  }
+  #bubble.solo { min-height: 164px; padding: 34px 52px; }
+  #bubble.solo .dialogue-inner { font-size: clamp(26px, 3.15vw, 46px); }
+
+  /* Mood tints the paper and nothing else. The rim and the lip are the
+     bubble's identity and never change, so a win does not arrive looking
+     like a different widget. */
+  #bubble[data-mood="win"]   { --cream: #f3fce9; --cream-light: #fdfff8; }
+  #bubble[data-mood="hint"]  { --cream: #fff1cf; --cream-light: #fffbee; }
+  #bubble[data-mood="think"] { --cream: #f1f9fb; --cream-light: #fbfeff; }
+
+  /* ---- tail: a rotated square tucked under the body ----
+     Its two outer edges carry the same rim, and its shadow is the same lip
+     rotated with it (9px straight down is 6.4px on each of a 45-degree
+     square's axes), so body and tail share one silhouette. */
+  .dialogue-tail {
+    position: absolute; bottom: calc(var(--tail) / -2 - 7px);
+    left: 50%; margin-left: calc(var(--tail) / -2);
+    width: var(--tail); height: var(--tail);
+    box-sizing: border-box;
+    transform: rotate(45deg);
+    background: var(--cream);
+    border-right: var(--rim) solid var(--orange);
+    border-bottom: var(--rim) solid var(--orange);
+    border-radius: 0 0 9px 0;
+    box-shadow: 6.4px 6.4px 0 var(--orange-dark);
+    z-index: -1;
+  }
+  /* A tail has one job, so it moves to whichever side the speaker is on. */
+  #bubble.tail-left  .dialogue-tail { left: 18%; }
+  #bubble.tail-right .dialogue-tail { left: 82%; }
+
+  @keyframes dialogue-enter {
+    0%   { opacity: 0; transform: translateY(16px) scale(.86); }
+    62%  { opacity: 1; transform: translateY(-3px) scale(1.028); }
+    82%  { transform: translateY(1px) scale(.994); }
+    100% { transform: translateY(0) scale(1); }
+  }
+
+  @media (max-width: 900px) {
+    #bubble {
+      padding: 22px 34px; --rim: 4px; --lip: 7px; --tail: 40px;
+      min-width: 240px; min-height: 88px;
+      border-radius: 46px 51px 43px 48px / 38px 41px 39px 43px;
+    }
+    #bubble.solo { padding: 28px 40px; min-height: 132px; }
+    .dialogue-inner { font-size: clamp(18px, 2.6vw, 27px); }
+  }
+  @media (max-width: 600px) {
+    #bubble {
+      padding: 16px 22px; --rim: 4px; --lip: 6px; --tail: 32px;
+      min-width: 190px; min-height: 68px;
+      border-radius: 34px 38px 32px 36px / 28px 31px 30px 33px;
+      box-shadow:
+        0 var(--lip) 0 var(--orange-dark),
+        0 11px 16px rgba(20, 70, 92, .18),
+        inset 0 2px 0 rgba(255, 255, 255, .9);
+    }
+    #bubble.solo { padding: 20px 26px; min-height: 92px; }
+    .dialogue-inner, #bubble.solo .dialogue-inner { font-size: clamp(16px, 4.6vw, 23px); }
+    .dialogue-tail { box-shadow: 4.2px 4.2px 0 var(--orange-dark); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #bubble.show { animation: none; }
+  }
+
+  /* ---- the line arrives a word at a time ----
+     Each word is its own span, faded in on a timer. They are hidden with
+     opacity rather than display, so the bubble is laid out at its FINAL size
+     from the first frame: it never grows as the words arrive, which means it
+     never jitters and never has to be re-placed against the lesson mid-line. */
+  .bubble-line .w, .bubble-line .dc-term {
+    transition: opacity 170ms ease, transform 170ms cubic-bezier(.34,1.56,.64,1);
+  }
+  .bubble-line.revealing .w, .bubble-line.revealing .dc-term { opacity: 0; transform: translateY(4px); }
+  .bubble-line .w.in, .bubble-line .dc-term.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .bubble-line .w, .bubble-line .dc-term { transition: none; }
+  }
+
+  /* ---- dual coding: the term is tinted, and the thing it names lights
+     up on the stage in that same colour, as the word appears ---- */
+  .dc-term {
+    display: inline-block;
+    padding: .04em .34em; margin: 0 .03em;
+    border-radius: .4em; font-weight: 800; white-space: nowrap;
+  }
+
+  /* ---- instruction card ---- */
+  /* A taped-on note. Same ink as the bubble, tilted the other way so the two
+     never read as parallel. Its width is capped in game.js against the live
+     stage panel rather than guessed here, so it can never grow into the
+     shape the child is working on. */
+  #card {
+    position: absolute; z-index: 4; left: 3%; top: 4%; max-width: 44%;
+    background: var(--card); border: var(--ink-w) solid var(--ink); border-radius: 14px;
+    padding: 11px 20px; font-size: clamp(15px, 1.6vw, 21px); font-weight: 800;
+    box-shadow: var(--ink-shadow);
+    opacity: 0; transform: translateY(-10px) rotate(-1.2deg) scale(.94);
+    transition: opacity 180ms ease, transform 300ms cubic-bezier(.34,1.56,.64,1);
+    display: flex; align-items: center; gap: 12px;
+  }
+  #card.show { opacity: 1; transform: rotate(-1.2deg); }
+  .dc-gesture { flex: none; width: 26px; height: 26px; }
+  #card .card-text { display: inline; }
+
+  /* ---- HUD ---- */
+  #hud { position: absolute; z-index: 6; right: 14px; top: 12px; display: flex; gap: 10px; align-items: center; }
+  #hud button {
+    font: inherit; font-weight: 800; color: var(--ink); background: #fff;
+    border: var(--ink-w) solid var(--ink); border-radius: 999px; width: 46px; height: 46px;
+    cursor: pointer; display: grid; place-items: center; font-size: 18px;
+    box-shadow: 3px 4px 0 rgba(28, 42, 74, .8);
+    transition: transform 90ms, box-shadow 90ms;
+  }
+  /* Press the button into its own shadow — the cheapest way to make a
+     control feel physical, and it costs no extra art. */
+  #hud button:active { transform: translate(3px, 4px); box-shadow: 0 0 0 rgba(28, 42, 74, .8); }
+  #hud button.on { background: #ffe3ea; }
+  #hud .replay { width: auto; padding: 0 22px; display: none; background: #63e0a4; }
+  #hud .replay.show { display: grid; }
+
+  /* ---- Next: the one deliberate way to move on ----
+     Advancing used to be a tap anywhere, so the same gesture both dismissed a
+     line and poked whatever was underneath it. It is a button now. It appears
+     only while the game is genuinely waiting, and it nudges itself every few
+     seconds so a child who has finished reading knows where to look. */
+  #next {
+    position: absolute; z-index: 6; right: 22px; bottom: 26px;
+    font: inherit; font-weight: 800; font-size: clamp(17px, 2vw, 23px); color: #fff;
+    background: #ff9f1c; border: var(--ink-w) solid var(--ink); border-radius: 999px;
+    padding: 13px 26px 13px 30px; cursor: pointer; display: none; align-items: center; gap: 10px;
+    box-shadow: var(--ink-shadow); text-shadow: 0 2px 0 rgba(150, 80, 0, .45);
+    transition: transform 90ms, box-shadow 90ms, opacity 160ms;
+  }
+  #next.show { display: inline-flex; animation: nextNudge 2.1s ease-in-out infinite; }
+  #next:active { transform: translate(4px, 5px); box-shadow: 0 0 0 rgba(28, 42, 74, .85); animation: none; }
+  #next .chev { font-size: 1.1em; line-height: 1; }
+  @keyframes nextNudge {
+    0%, 70%, 100% { transform: translateX(0); }
+    80% { transform: translateX(5px); }
+    90% { transform: translateX(1px); }
+  }
+  @media (max-width: 760px) { #next { right: 14px; bottom: 18px; padding: 11px 20px 11px 24px; } }
+  #progress-track { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255,255,255,.35); }
+  #progress { height: 100%; width: 0; background: #3d8bff; transition: width 400ms ease; }
+
+  /* ---- loading / start gate ---- */
+  #loading {
+    position: absolute; inset: 0; z-index: 10; display: grid; place-items: center;
+    background: radial-gradient(120% 90% at 50% 20%, #d9effc 0%, #a9d6f4 70%);
+    transition: opacity 400ms ease, visibility 0s linear 400ms;
+  }
+  /* `pointer-events: none` here is not enough on its own: #start re-enables
+     it for itself below, so the faded-out button would keep swallowing every
+     tap in the middle of the screen. visibility takes the whole overlay out
+     of hit-testing, and the delayed transition lets the fade finish first. */
+  #loading.gone { opacity: 0; pointer-events: none; visibility: hidden; }
+  #loading.gone #start { pointer-events: none; }
+  #loading .box { text-align: center; }
+  #loading h1 { margin: 0 0 6px; font-size: clamp(30px, 5vw, 54px); font-weight: 800; letter-spacing: -.02em; }
+  #loading p { margin: 0 0 22px; font-weight: 600; opacity: .75; }
+  #start {
+    font: inherit; font-weight: 800; font-size: clamp(20px, 2.6vw, 28px); color: #fff;
+    background: #3d8bff; border: 0; border-radius: 999px; padding: 16px 44px; cursor: pointer;
+    box-shadow: 0 8px 0 #1f5fc4, 0 14px 24px rgba(31, 95, 196, .35);
+    transform: translateY(0); transition: transform 90ms, box-shadow 90ms; opacity: .4; pointer-events: none;
+  }
+  #loading.ready #start { opacity: 1; pointer-events: auto; }
+  #start:active { transform: translateY(6px); box-shadow: 0 2px 0 #1f5fc4, 0 6px 12px rgba(31, 95, 196, .3); }
+
+  @media (prefers-reduced-motion: reduce) {
+    #bubble, #card, #progress, #next, #hud button { transition: none; }
+    #next.show { animation: none; }
+  }
+
+  .bubble-line { display: block; }
+  #reward { position: absolute; z-index: 7; bottom: 76px; left: 16px; max-width: calc(100% - 32px); padding: 9px 15px; border: 2px solid var(--ink); border-radius: 12px; background: #ffe283; font-weight: 800; box-shadow: 3px 3px 0 var(--ink); pointer-events: none; opacity: 0; transform: translateY(8px); transition: opacity 180ms, transform 180ms; }
+  #reward.show { opacity: 1; transform: translateY(0); }
+  @media (max-width: 600px) { #loading .box { padding: 24px; } }
+  @media (prefers-reduced-motion: reduce) { #reward { transition: none; } }
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="stage"></div>
+  <div id="bubble" role="status" aria-live="polite" aria-atomic="true">
+    <div class="dialogue-inner"><span class="bubble-line"></span></div>
+    <span class="dialogue-tail" aria-hidden="true"></span>
+  </div>
+  <div id="reward" role="status" aria-live="polite"></div>
+  <div id="card" role="note"></div>
+  <div id="hud">
+    <button class="replay" type="button">Play again</button>
+    <button class="mute" type="button" aria-label="Mute" aria-pressed="false">🔊</button>
+    <button class="restart" type="button" aria-label="Restart">↻</button>
+  </div>
+  <button id="next" type="button" aria-label="Next"><span>Next</span><span class="chev" aria-hidden="true">&#9654;</span></button>
+  <div id="progress-track"><div id="progress"></div></div>
+
+  <div id="loading">
+    <div class="box">
+      <h1>Swiftee &amp; the Polygons</h1>
+      <p>One curious bird. Five badges. A whole world of shapes.</p><p>Complete challenges to earn XP. Mistakes are part of the adventure!</p>
+      <button id="start" type="button">Start</button>
+    </div>
+  </div>
+</div>
+
+<!-- Load order is the dependency order: each module reads the ones above it. -->
+<script src="src/audio/sfx.js"></script>
+<script src="src/fx/juice.js"></script>
+<script src="src/fx/transition.js"></script>
+<script src="src/core/input.js"></script>
+<script src="src/core/polygon-math.js"></script>
+<script src="src/core/director.js"></script>
+<script src="src/game/screens.js"></script>
+<!-- generated from assets/swiftee/swiftee.manifest.json by tools/build-swiftee-frames.js -->
+<script src="src/character/swiftee-frames.js"></script>
+<script src="src/character/swiftee.js"></script>
+<script src="src/game/stage.js"></script>
+<script src="src/game/dual-coding.js"></script>
+<script src="src/game/quest.js"></script>
+<script src="src/game/game.js"></script>
+</body>
+</html>
