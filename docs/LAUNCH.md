@@ -104,7 +104,7 @@ by a gate that fails the build, not by looking at it once.
 
 ## Played as a child plays
 
- — see [QA.md](QA.md). The other suites play the lesson
+`npm run test:qa` — see [QA.md](QA.md). The other suites play the lesson
 correctly; this one taps the scenery, mashes Play five times, triple-taps Next
 on every screen, resizes the window mid-sentence and leans on the arrow keys.
 
