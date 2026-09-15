@@ -642,56 +642,66 @@
      * than looped, so the gait can slow into the stop instead of cutting off
      * mid-stride.
      */
+    /**
+     * The arrival: he rides in on the reindeer sled.
+     *
+     * Three sprite sheets and about six seconds of it, all of which belongs
+     * to SleighIntro — see src/fx/sleigh-intro.js for why three separately
+     * drawn sheets need that much care to read as one animation.
+     *
+     * ONE BIRD. The departure sheet draws Swiftee itself, so this element
+     * stays hidden for the whole intro and is revealed on the last frame,
+     * standing where the drawn one was standing. The intro is scaled FROM
+     * this element's own drawn height rather than to some chosen size, so the
+     * bird the intro leaves behind and the bird the lesson takes over are the
+     * same to the pixel.
+     *
+     * If anything at all goes wrong — a sheet missing, no canvas, the module
+     * not loaded — it falls through to simply being here. An arrival is worth
+     * six seconds; it is not worth a lesson that will not start.
+     */
     enter: function (o) {
-      var from = (o && o.from === 'right') ? 1 : -1;
-      el.style.opacity = '1';
       var g = fresh(); stateName = 'enter'; rigLoop = null;
+      var container = (el && el.parentNode) || null;
 
-      var RIDE = (F.clips.driving && F.clips.driving.ms) || 2533;
-      var X = from * 900;                       // off-stage, on the ground line
+      if (!global.SleighIntro || !container || !global.SleighFrames) {
+        el.style.opacity = '1';
+        return rest();
+      }
+
+      el.style.opacity = '0';
+      var box = api.bounds();
+      var cr = container.getBoundingClientRect();
+      var mark = box ? {
+        markX: (box.left + box.right) / 2 - cr.left,
+        markY: box.bottom - cr.top,
+        birdHeight: box.height
+      } : {};
 
       if (global.SFX) {
         SFX.play('sleighBells', { n: 7, spread: 0.055, gain: 0.05 });
-        // hooves across the ride, slowing into the stop
-        var beats = 11, t = 0, step = 0.16;
-        for (var i = 0; i < beats; i++) {
+        var t = 0, stepMs = 0.16;
+        for (var i = 0; i < 12; i++) {
           SFX.play('hoofbeat', { delay: t, gain: 0.085 - i * 0.004 });
-          t += step;
-          step *= 1.06;                          // each stride a little longer
+          t += stepMs; stepMs *= 1.05;
         }
+        setTimeout(function () { if (!stale(g) && global.SFX) SFX.play('zip', { gain: 0.06 }); }, 3300);
+        setTimeout(function () { if (!stale(g) && global.SFX) SFX.play('pop'); }, 4900);
+        setTimeout(function () {
+          if (stale(g) || !global.SFX) return;
+          SFX.play('sleighBells', { n: 4, spread: 0.09, gain: 0.03 });
+          for (var k = 0; k < 5; k++) SFX.play('hoofbeat', { delay: k * 0.2, gain: 0.05 - k * 0.008 });
+        }, 5200);
       }
 
-      var ride = clip('driving', 1);
-
-      // He comes in along the ground, easing out of the drive rather than
-      // stopping dead: a sleigh has weight.
-      var travel = anim([
-        { transform: 'translate(' + X + 'px,0) scale(1)', opacity: 0 },
-        { transform: 'translate(' + (X * 0.86) + 'px,0) scale(1)', opacity: 1, offset: 0.1 },
-        { transform: 'translate(' + (X * 0.30) + 'px,0) scale(1)', opacity: 1, offset: 0.62 },
-        { transform: 'translate(' + (X * 0.06) + 'px,0) scale(1)', opacity: 1, offset: 0.88 },
-        { transform: 'translate(0,0) scale(1)', opacity: 1 }
-      ], { duration: RIDE, easing: 'cubic-bezier(.16,.62,.24,1)' });
-
-      // The shadow travels with him and is full the whole way — he never
-      // leaves the ground on this arrival, so it never has to shrink.
-      if (shadowEl && shadowEl.animate && !reduced) {
-        try {
-          shadowEl.animate([
-            { opacity: 0 }, { opacity: .85, offset: 0.12 }, { opacity: 1 }
-          ], { duration: RIDE, easing: 'ease-out' });
-        } catch (e) {}
-      }
-
-      return Promise.all([ride, travel.finished]).then(function () {
+      return SleighIntro.play(container, mark).then(function () {
         if (stale(g)) return;
-        // pulling up: the bells settle and he steps down
-        if (global.SFX) SFX.play('sleighBells', { n: 4, spread: 0.08, gain: 0.035 });
-        return clip('drive_away', 1);
-      }).then(function () {
+        el.style.opacity = '1';
+        if (global.Juice) Juice.squash(el, { amount: 0.1 });
+        return rest();
+      }, function () {
         if (stale(g)) return;
-        if (global.SFX) SFX.play('pop');
-        if (global.Juice) Juice.squash(el, { amount: 0.16 });
+        el.style.opacity = '1';
         return rest();
       });
     },

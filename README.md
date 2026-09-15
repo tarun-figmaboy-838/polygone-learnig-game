@@ -39,6 +39,7 @@ src/
     sfx.js                 fourteen cues, synthesised; no audio files
   fx/
     juice.js               pops, wobbles, confetti, the shower
+    sleigh-intro.js        the arrival: three sprite sheets, one animation
     snowflake.js           the shape of a crystal — shared by all three below
     titlefx.js             the title screen's weather and its sparkle
     transition.js          the fairy-snow wipe between screens
@@ -53,6 +54,8 @@ assets/
 
 tools/
   build-swiftee-frames.js  manifest -> src/character/swiftee-frames.js
+  build-sleigh-frames.js   measures the three intro sheets from their alpha
+                           -> src/character/sleigh-frames.js
   list-sprites.js          which sheets the game actually plays
   export-used-sprites.js   copies those sheets into swiftee-in-use/,
                            one folder per state, for re-costuming

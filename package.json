@@ -15,7 +15,8 @@
     "test:all": "npm test && npm run test:browser && npm run test:qa",
     "build:frames": "node tools/build-swiftee-frames.js",
     "start": "node serve.js",
-    "test:qa": "node tests/qa.browser.js"
+    "test:qa": "node tests/qa.browser.js",
+    "build:sleigh": "node tools/build-sleigh-frames.js"
   },
   "devDependencies": {
     "jsdom": "^24.0.0",

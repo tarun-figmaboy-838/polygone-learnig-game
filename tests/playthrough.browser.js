@@ -168,7 +168,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     return {
       visible: getComputedStyle(el).opacity !== '0',
       state: window.Swiftee.state,
-      airborne: /driving/.test(getComputedStyle(window.Swiftee.el.lastChild).backgroundImage),
+      // The arrival is a canvas now, not a sprite sheet on his element: three
+      // separately drawn sheets, none of which is a uniform grid, rendered by
+      // src/fx/sleigh-intro.js. What says it is happening is that the canvas
+      // has ink on it while he himself is still hidden.
+      airborne: (function () {
+        var c = document.querySelector('canvas.sleigh-intro');
+        return !!(c && c.style.display !== 'none' && getComputedStyle(window.Swiftee.el).opacity === '0');
+      })(),
       y: Math.round(r.bottom), settledY: Math.round(settled.bottom)
     };
   }), {});
@@ -177,7 +184,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // driving clip and is still off his mark, and a moment later he is standing
   // on it. 'airborne' asked whether the flapping sheet was bound, which is no
   // longer what an arrival looks like.
-  t('he rides in on the sleigh', inFlight.visible && inFlight.state === 'enter', JSON.stringify(inFlight));
+  // NOT inFlight.visible. His own element is deliberately hidden for the
+  // whole arrival: the departure sheet draws Swiftee itself, so showing the
+  // element as well would put two birds on the screen. What says the arrival
+  // is happening is the canvas having ink on it WHILE he is hidden, which is
+  // exactly what 'airborne' measures now.
+  t('he rides in on the sleigh', inFlight.airborne && inFlight.state === 'enter', JSON.stringify(inFlight));
 
   // Wait for the landing rather than guessing how long it takes. A fixed
   // sleep passes on a fast machine and fails on a busy one, which says
@@ -192,6 +204,30 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     grounded: !getComputedStyle(window.Swiftee.el.lastChild).backgroundImage.includes('flapping')
   })), {});
   t('he lands and settles into talking', landed.visible && landed.grounded, JSON.stringify(landed));
+
+  // ONE BIRD, AND NOTHING LEFT BEHIND.
+  //
+  // The departure sheet draws Swiftee itself, so for six seconds there are
+  // two things that could be him: the canvas and his own element. Exactly one
+  // of them is ever visible, and when the intro ends the canvas has to be
+  // both hidden and empty — a cleared-but-shown canvas would sit over the
+  // lesson catching nothing, and a hidden-but-inked one would flash the last
+  // frame back on the next resize.
+  const handoff = await safe(() => page.evaluate(() => {
+    const c = document.querySelector('canvas.sleigh-intro');
+    let ink = 0;
+    if (c && c.width) {
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      for (let i = 3; i < d.length; i += 400) if (d[i] > 24) ink++;
+    }
+    return {
+      canvasHidden: !c || c.style.display === 'none',
+      ink: ink,
+      swifteeShown: getComputedStyle(window.Swiftee.el).opacity === '1'
+    };
+  }), { canvasHidden: false, ink: -1, swifteeShown: false });
+  t('the intro hands over to exactly one bird and leaves nothing behind',
+    handoff.canvasHidden && handoff.ink === 0 && handoff.swifteeShown, JSON.stringify(handoff));
 
   // A baseline for the leak gate at the end of the run. Taken here rather than
   // straight after the start button, because the arrival checks above have to
