@@ -797,6 +797,12 @@
       var n = spec.sides || 3;
       var P = polygonIn(p, n, { dy: -30, rScale: 0.32 });
       st.verts = P.verts; st.cx = P.cx; st.cy = P.cy; st.r = P.r; st.n = n; st.showVerts = true;
+      // A vertex that can be dragged is dressed as a handle — cream core,
+      // dark amber ring, larger — wherever that is true. It was only being
+      // set where a vertex is PICKED, so on "Drag any vertex to make this
+      // polygon concave" the handles were plain blue dots on a blue shape
+      // and there was nothing to say what to take hold of.
+      st.touchVerts = true;
       st.polyG = mk('g', { 'class': 'polygon' }, layers.poly);
       st.diagonals = [];
       renderPoly();
@@ -874,6 +880,87 @@
     g._home = { x: x, y: y }; g._name = name; g._verts = shapeVerts(name, 40, 0, 0);
     if (!reduced()) { g.style.opacity = 0; setTimeout(function () { g.style.opacity = 1; enter(g, 'pop'); }, i * 90); }
     return g;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * The one button
+   *
+   * Every pressable thing on this stage drew its own rectangle: a pale
+   * pastel fill, a thin outline, dark text. Several places, several slightly
+   * different versions, and all of them looking like a slide — an option
+   * looked the same as the card behind it, a badge looked the same as an
+   * option, and none of them looked like they could be pressed.
+   *
+   *   a saturated face — the colour carries the meaning, so it has to BE a
+   *                      colour, not a tint of white
+   *   a darker lip     — underneath, not around. Thickness is what makes a
+   *                      thing look pressable; an outline makes it look
+   *                      printed. Same grammar as the speech bubble, the
+   *                      instruction card and the ice panel, so the whole
+   *                      game is made of one material
+   *   a top highlight  — light across the upper half, so the face reads as
+   *                      curved rather than flat
+   *   white bold type  — on the colour, not dark type on a tint
+   *
+   * `press: true` sets the cursor, and that is the signal Stage.alive()
+   * keys off — so anything pressable inherits the halo, the breathing and
+   * the squash for free. A badge is the same object without it: same
+   * material, obviously not a control.
+   */
+  var PILL_TONES = {
+    green: ['#58c47c', '#2e8a4e'],
+    pink:  ['#f0789e', '#b93c66'],
+    amber: ['#ffb515', '#d07f00'],
+    blue:  ['#4f9df5', '#2b6fc4']
+  };
+
+  function pill(parent, o) {
+    var tone = PILL_TONES[o.tone] || PILL_TONES.blue;
+    var w = o.w, h = o.h == null ? 62 : o.h;
+    var x = o.x, y = o.y;                        // y is the CENTRE of the face
+    var r = o.r == null ? Math.min(20, h * 0.34) : o.r;
+    var lip = o.lip == null ? Math.max(4, h * 0.13) : o.lip;
+
+    var g = mk('g', o.attrs || {}, parent);
+    mk('rect', { x: x, y: y - h / 2 + lip, width: w, height: h, rx: r, fill: tone[1] }, g);
+    mk('rect', { x: x, y: y - h / 2, width: w, height: h, rx: r, fill: tone[0] }, g);
+    mk('rect', { x: x + w * 0.05, y: y - h / 2 + h * 0.1, width: w * 0.9, height: h * 0.34,
+                 rx: r * 0.7, fill: '#ffffff', opacity: 0.22 }, g);
+    var t = mk('text', {
+      x: x + w / 2, y: y + h * 0.14,
+      'text-anchor': 'middle', 'font-size': o.size || Math.round(h * 0.44),
+      'font-weight': 700, fill: o.ink || '#ffffff', text: o.label
+    }, g);
+
+    // The face and the lip are kept, because a badge can change what it
+    // says WHILE the child drags — the shape turns concave under their hand
+    // and the badge has to follow. Retinting means both, not just the face:
+    // a green face over a pink lip is a different bug, not a fix.
+    g._text = t; g._face = g.childNodes[1]; g._lip = g.childNodes[0];
+    g._retint = function (tone) {
+      var p = PILL_TONES[tone] || PILL_TONES.blue;
+      g._face.setAttribute('fill', p[0]);
+      g._lip.setAttribute('fill', p[1]);
+    };
+    if (o.press) g.style.cursor = 'pointer';
+    return g;
+  }
+
+  /**
+   * A y below the shape with real clearance, never past the panel.
+   *
+   * Anything that sits "under the polygon" has to clear the LOWEST VERTEX,
+   * not a fixed height. A hexagon has a vertex at the very bottom where a
+   * pentagon has a flat side well above it, and a fixed height put the word
+   * through the corner of one and left a gap under the other.
+   */
+  function belowShape(gap, floorPad) {
+    var lowest = st.verts && st.verts.length
+      ? st.verts.reduce(function (m, p) { return p.y > m ? p.y : m; }, -Infinity)
+      : null;
+    var floorY = st.panel ? st.panel.y + st.panel.h - (floorPad == null ? 18 : floorPad) : H - 30;
+    if (lowest == null) return floorY;
+    return Math.min(floorY, lowest + (gap == null ? 52 : gap));
   }
 
   function button(parent, x, y, w, h, label, fill, color) {
@@ -995,13 +1082,22 @@
       st.badges = st.badges || {};
       if (st.badges[key]) st.badges[key].remove();
       var x, y;
-      if (b.under && st.compare && st.compare[b.under.split('.')[1]]) { var pnl = st.compare[b.under.split('.')[1]].panel; x = pnl.x + pnl.w / 2; y = pnl.y + pnl.h + 46; }
-      else { x = st.cx; y = st.panel.y + st.panel.h - 44; }
-      var tone = (b.tone || (b.text === 'Concave' ? 'pink' : 'green')) === 'pink' ? ['#f6c9d6', '#7a1b3a', '#c0537a'] : ['#a7dcb0', '#1d4d2a', '#5da86e'];
-      var g = mk('g', { 'class': 'badge' }, layers.ui);
-      mk('rect', { x: x - 90, y: y - 28, width: 180, height: 56, rx: 14, fill: tone[0], stroke: tone[2], 'stroke-width': 3 }, g);
-      var t = mk('text', { x: x, y: y + 10, 'text-anchor': 'middle', 'font-size': 28, 'font-weight': 700, fill: tone[1], text: b.text }, g);
-      g._text = t; g._rect = g.firstChild; st.badges[key] = g; if (b.live) st.liveBadge = g;
+      if (b.under && st.compare && st.compare[b.under.split('.')[1]]) {
+        var pnl = st.compare[b.under.split('.')[1]].panel;
+        x = pnl.x + pnl.w / 2; y = pnl.y + pnl.h + 46;
+      } else {
+        // Clear of the SHAPE, not at a fixed height above the panel's foot —
+        // which a hexagon's bottom vertex reached straight through.
+        x = st.cx;
+        y = belowShape(58, 34);
+        if (st.choiceEls && st.choiceEls.length) y = Math.min(y, H - 64 - 60);
+      }
+      var g = pill(layers.ui, {
+        x: x - 96, y: y, w: 192, h: 56,
+        label: b.text, tone: b.tone || (b.text === 'Concave' ? 'pink' : 'green'),
+        attrs: { 'class': 'badge' }
+      });
+      st.badges[key] = g; if (b.live) st.liveBadge = g;
       if (b.enter && !reduced()) enter(g, 'pop');
     },
     ghost: function (gh) { st.ghost = gh ? { from: resolveVertex(gh.from), to: resolveVertex(gh.to) } : null; renderPoly(); },
@@ -1024,7 +1120,7 @@
       if (st.choiceG) { st.choiceG.remove(); st.choiceG = null; }
       if (!list) return;
       var g = mk('g', { 'class': 'choices' }, layers.ui); st.choiceG = g; st.choiceEls = [];
-      var bw = 210, gap = 20, bh = 60;
+      var bw = 216, gap = 26, bh = 64;
       var row = list.length * bw + (list.length - 1) * gap;
       var x0 = (st.panel ? st.panel.x + st.panel.w / 2 : W / 2) - row / 2;
       // Keep the row on the stage. `panel.y + panel.h + 44` is 564 for the
@@ -1032,15 +1128,24 @@
       // the buttons were drawn mostly below the visible area, clipped, and
       // unclickable. Sit them just inside the edge instead, and keep them
       // inside the left and right edges for the same reason.
-      var y = Math.min((st.panel ? st.panel.y + st.panel.h + 44 : 480), H - bh / 2 - 12);
-      x0 = Math.max(12, Math.min(x0, W - row - 12));
+      // Along the bottom edge of the stage, always. Measured from the panel
+      // they collided with whatever was under the shape: the row came out over
+      // the shape's own label on a tall panel, and past the bottom of the
+      // viewBox on a taller one — clipped, and unclickable.
+      var y = H - bh / 2 - 14;
+      x0 = Math.max(14, Math.min(x0, W - row - 14));
       list.forEach(function (label, i) {
         var x = x0 + i * (bw + gap);
-        var b = mk('g', { 'class': 'choice', 'data-label': label }, g);
-        mk('rect', { x: x, y: y - 30, width: bw, height: 60, rx: 14, fill: 'rgba(255,255,255,.9)', stroke: '#9fd6fb', 'stroke-width': 3 }, b);
-        mk('text', { x: x + bw / 2, y: y + 10, 'text-anchor': 'middle', 'font-size': 28, 'font-weight': 600, fill: '#1c2a4a', text: label }, b);
-        b.style.cursor = 'pointer'; st.choiceEls.push(b);
-        if (!reduced()) { b.style.opacity = 0; setTimeout(function () { b.style.opacity = 1; enter(b, 'rise'); }, 80 * i); }
+        // Two tones, so a pair of options reads as a CHOICE rather than as
+        // two copies of one control — the same green/pink the sorting bins
+        // and the swipe zones already use for the same pairs.
+        var b = pill(g, {
+          x: x, y: y, w: bw, h: bh, label: label,
+          tone: ['green', 'pink', 'amber', 'blue'][i % 4],
+          press: true, attrs: { 'class': 'choice', 'data-label': label }
+        });
+        st.choiceEls.push(b);
+        if (!reduced()) { b.style.opacity = 0; setTimeout(function () { b.style.opacity = 1; enter(b, 'rise'); }, 90 * i); }
       });
     },
     checklist: function (c) {
@@ -1338,7 +1443,11 @@
             var np = Poly.clampSimple(st.verts, i, p);
             st.verts[i] = np;
             updatePoly();
-            if (spec.live === 'badge' && st.liveBadge) { var c = Poly.classify(st.verts); st.liveBadge._text.textContent = c.concave ? 'Concave' : 'Convex'; st.liveBadge._rect.setAttribute('fill', c.concave ? '#f6c9d6' : '#a7dcb0'); }
+            if (spec.live === 'badge' && st.liveBadge) {
+              var c = Poly.classify(st.verts);
+              st.liveBadge._text.textContent = c.concave ? 'Concave' : 'Convex';
+              if (st.liveBadge._retint) st.liveBadge._retint(c.concave ? 'pink' : 'green');
+            }
             var reached = spec.until === 'concave' ? Poly.classify(st.verts).concave
                         : spec.until === 'irregular' ? (!Poly.isRegular(st.verts) && Math.hypot(np.x - start.x, np.y - start.y) >= (spec.minMove || 0))
                         : false;
