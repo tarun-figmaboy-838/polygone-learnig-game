@@ -199,6 +199,31 @@
   .dc-keep { white-space: nowrap; }
   .dc-keep > .w, .dc-keep > .dc-punct { margin-left: -.26em; }
 
+  /* ---- the interaction language ------------------------------------------
+     One rule for the whole game: anything the child can touch right now is
+     lifted off the scene by a warm halo, in the same amber as the Next
+     button, the play button and the speech bubble's rim. Stage.alive() puts
+     the class on and takes it off, keyed off the one signal every touchable
+     thing already sets — its own cursor — so a new interaction inherits this
+     without anybody remembering to.
+
+     A halo rather than a recolouring, because the lesson is already using
+     colour to mean things: a picked vertex is yellow, a diagonal that falls
+     outside is red. An affordance must not overwrite a fact. */
+  #stage .touchable {
+    filter: drop-shadow(0 0 5px rgba(255, 181, 21, .95))
+            drop-shadow(0 0 14px rgba(255, 181, 21, .5));
+  }
+  /* The polygon's own vertices carry it themselves — they are redrawn amber
+     and larger while they are the target — so a halo on top would only blur
+     them. */
+  #stage .vertex.touchable { filter: none; }
+  @media (prefers-reduced-motion: reduce) {
+    #stage .touchable {
+      filter: drop-shadow(0 0 5px rgba(255, 181, 21, .95));
+    }
+  }
+
   /* ---- instruction card --------------------------------------------------
      The task, not the speech. It shares the bubble's paper so the two belong
      to one game, and differs in every other way so they are never mistaken

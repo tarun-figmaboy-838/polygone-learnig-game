@@ -1,0 +1,294 @@
+
+  SPRITES THIS GAME PLAYS
+  ==========================================================================
+  57 of 82 rig animations, 1053 frames in total.
+  Cell 512px @2x / 256px @1x, pivot dead centre, feet on the 87.7% baseline, 20 fps.
+  Keep all four when you redraw, or expressions will jump when they swap.
+
+  CELEBRATE
+    a correct answer — awaited, so it gates every right answer
+    rig state: celebrating
+      celebrate_start        8 frames
+        assets/swiftee/spritesheets/1x/swiftee_celebrate_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_celebrate_start@2x.webp
+      celebrating           50 frames
+        assets/swiftee/spritesheets/1x/swiftee_celebrating@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_celebrating@2x.webp
+      celebrate_stop        10 frames
+        assets/swiftee/spritesheets/1x/swiftee_celebrate_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_celebrate_stop@2x.webp
+
+  CONFUSED
+    the wrong answer itself
+    rig state: confused
+      confused_start         7 frames
+        assets/swiftee/spritesheets/1x/swiftee_confused_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_confused_start@2x.webp
+      confused              40 frames
+        assets/swiftee/spritesheets/1x/swiftee_confused@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_confused@2x.webp
+      confused_stop          7 frames
+        assets/swiftee/spritesheets/1x/swiftee_confused_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_confused_stop@2x.webp
+
+  ENCOURAGE
+    after a wrong answer; warm, never a telling-off
+    rig state: love
+      love_start             8 frames
+        assets/swiftee/spritesheets/1x/swiftee_love_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_love_start@2x.webp
+      love                  37 frames
+        assets/swiftee/spritesheets/1x/swiftee_love@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_love@2x.webp
+      love_stop              8 frames
+        assets/swiftee/spritesheets/1x/swiftee_love_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_love_stop@2x.webp
+
+  ENTER
+    the arrival — he flies in from off-stage and lands
+    rig state: flapping
+      flapping              27 frames
+        assets/swiftee/spritesheets/1x/swiftee_flapping@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_flapping@2x.webp
+
+  EXCITED
+    the finale, the biggest reaction in the game
+    rig state: excited
+      excited_start          7 frames
+        assets/swiftee/spritesheets/1x/swiftee_excited_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_excited_start@2x.webp
+      excited               72 frames
+        assets/swiftee/spritesheets/1x/swiftee_excited@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_excited_p0@2x.webp
+        assets/swiftee/spritesheets/2x/swiftee_excited_p1@2x.webp
+      excited_stop           7 frames
+        assets/swiftee/spritesheets/1x/swiftee_excited_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_excited_stop@2x.webp
+
+  EXIT
+    leaving
+    rig state: flapping
+      flapping              27 frames
+        assets/swiftee/spritesheets/1x/swiftee_flapping@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_flapping@2x.webp
+
+  EXPLAIN
+    mouth moves for exactly as long as a spoken line lasts
+    rig state: talking
+      talk_start             3 frames
+        assets/swiftee/spritesheets/1x/swiftee_talk_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_talk_start@2x.webp
+      talking                8 frames
+        assets/swiftee/spritesheets/1x/swiftee_talking@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_talking@2x.webp
+      talk_stop              5 frames
+        assets/swiftee/spritesheets/1x/swiftee_talk_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_talk_stop@2x.webp
+
+  INSPECT
+    looking closely at the shape ("the sides look suspiciously alike")
+    rig state: focussed
+      focussed_start         7 frames
+        assets/swiftee/spritesheets/1x/swiftee_focussed_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_focussed_start@2x.webp
+      focussed              37 frames
+        assets/swiftee/spritesheets/1x/swiftee_focussed@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_focussed@2x.webp
+      focussed_stop          7 frames
+        assets/swiftee/spritesheets/1x/swiftee_focussed_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_focussed_stop@2x.webp
+
+  LOOK
+    glancing at whatever was just pointed out
+    rig state: curious
+      curious_start          8 frames
+        assets/swiftee/spritesheets/1x/swiftee_curious_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_curious_start@2x.webp
+      curious               33 frames
+        assets/swiftee/spritesheets/1x/swiftee_curious@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_curious@2x.webp
+      curious_stop           8 frames
+        assets/swiftee/spritesheets/1x/swiftee_curious_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_curious_stop@2x.webp
+
+  MISCHIEF
+    "Let’s make a change" before breaking the shape
+    rig state: playful
+      playful_start         10 frames
+        assets/swiftee/spritesheets/1x/swiftee_playful_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_playful_start@2x.webp
+      playful               30 frames
+        assets/swiftee/spritesheets/1x/swiftee_playful@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_playful@2x.webp
+      playful_stop          10 frames
+        assets/swiftee/spritesheets/1x/swiftee_playful_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_playful_stop@2x.webp
+
+  MOVE
+    crossing to a new position
+    rig state: flapping
+      flapping              27 frames
+        assets/swiftee/spritesheets/1x/swiftee_flapping@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_flapping@2x.webp
+
+  NOD
+    agreeing, moving the lesson on
+    rig state: happy
+      happy_start            7 frames
+        assets/swiftee/spritesheets/1x/swiftee_happy_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_happy_start@2x.webp
+      happy                 40 frames
+        assets/swiftee/spritesheets/1x/swiftee_happy@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_happy@2x.webp
+      happy_stop             7 frames
+        assets/swiftee/spritesheets/1x/swiftee_happy_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_happy_stop@2x.webp
+
+  POINT
+    drawing attention to a vertex, a side, a panel
+    rig state: calling
+      callstart              7 frames
+        assets/swiftee/spritesheets/1x/swiftee_callstart@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_callstart@2x.webp
+      calling               27 frames
+        assets/swiftee/spritesheets/1x/swiftee_calling@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_calling@2x.webp
+      callstop               7 frames
+        assets/swiftee/spritesheets/1x/swiftee_callstop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_callstop@2x.webp
+
+  STEP-BACK
+    getting out of the way so the child can work
+    rig state: relieved
+      relieved_start         8 frames
+        assets/swiftee/spritesheets/1x/swiftee_relieved_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_relieved_start@2x.webp
+      relieved              45 frames
+        assets/swiftee/spritesheets/1x/swiftee_relieved@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_relieved@2x.webp
+      relieved_stop          8 frames
+        assets/swiftee/spritesheets/1x/swiftee_relieved_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_relieved_stop@2x.webp
+
+  SURPRISED
+    the "Whoa!" when a diagonal falls outside
+    rig state: surprised
+      surprised_start        8 frames
+        assets/swiftee/spritesheets/1x/swiftee_surprised_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_surprised_start@2x.webp
+      surprised             47 frames
+        assets/swiftee/spritesheets/1x/swiftee_surprised@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_surprised@2x.webp
+      surprised_stop         8 frames
+        assets/swiftee/spritesheets/1x/swiftee_surprised_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_surprised_stop@2x.webp
+
+  THINK
+    a question is on screen and he is waiting with the child
+    rig state: thinking
+      thinking_start        10 frames
+        assets/swiftee/spritesheets/1x/swiftee_thinking_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_thinking_start@2x.webp
+      thinking              47 frames
+        assets/swiftee/spritesheets/1x/swiftee_thinking@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_thinking@2x.webp
+      thinking_stop          8 frames
+        assets/swiftee/spritesheets/1x/swiftee_thinking_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_thinking_stop@2x.webp
+
+  WAVE
+    the greeting, right after he lands
+    rig state: waving
+      wave_start             7 frames
+        assets/swiftee/spritesheets/1x/swiftee_wave_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_wave_start@2x.webp
+      waving                30 frames
+        assets/swiftee/spritesheets/1x/swiftee_waving@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_waving@2x.webp
+      wave_stop              8 frames
+        assets/swiftee/spritesheets/1x/swiftee_wave_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_wave_stop@2x.webp
+
+  DAYDREAM  (not in the storyboard; reached by the game itself)
+    idle about 30 seconds
+    rig state: daydreaming
+      daydream_start         8 frames
+        assets/swiftee/spritesheets/1x/swiftee_daydream_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_daydream_start@2x.webp
+      daydreaming           40 frames
+        assets/swiftee/spritesheets/1x/swiftee_daydreaming@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_daydreaming@2x.webp
+      daydreaming_stop       7 frames
+        assets/swiftee/spritesheets/1x/swiftee_daydreaming_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_daydreaming_stop@2x.webp
+
+  HAPPY  (not in the storyboard; reached by the game itself)
+    a small yes
+    rig state: happy
+      happy_start            7 frames
+        assets/swiftee/spritesheets/1x/swiftee_happy_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_happy_start@2x.webp
+      happy                 40 frames
+        assets/swiftee/spritesheets/1x/swiftee_happy@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_happy@2x.webp
+      happy_stop             7 frames
+        assets/swiftee/spritesheets/1x/swiftee_happy_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_happy_stop@2x.webp
+
+  IDLE  (not in the storyboard; reached by the game itself)
+    resting — the default between everything else
+    rig state: blinking
+      blinking              40 frames
+        assets/swiftee/spritesheets/1x/swiftee_blinking@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_blinking@2x.webp
+
+  PROUD  (not in the storyboard; reached by the game itself)
+    the end of the lesson
+    rig state: proud
+      proud_start            7 frames
+        assets/swiftee/spritesheets/1x/swiftee_proud_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_proud_start@2x.webp
+      proud                 40 frames
+        assets/swiftee/spritesheets/1x/swiftee_proud@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_proud@2x.webp
+      proud_stop             7 frames
+        assets/swiftee/spritesheets/1x/swiftee_proud_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_proud_stop@2x.webp
+
+  SLEEP  (not in the storyboard; reached by the game itself)
+    idle a long time
+    rig state: sleeping
+      sleep_start           17 frames
+        assets/swiftee/spritesheets/1x/swiftee_sleep_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_sleep_start@2x.webp
+      sleeping              40 frames
+        assets/swiftee/spritesheets/1x/swiftee_sleeping@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_sleeping@2x.webp
+
+  STUCK  (not in the storyboard; reached by the game itself)
+    held in reserve for a child who keeps missing
+    rig state: puzzleing
+      puzzle_start           7 frames
+        assets/swiftee/spritesheets/1x/swiftee_puzzle_start@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_puzzle_start@2x.webp
+      puzzleing             37 frames
+        assets/swiftee/spritesheets/1x/swiftee_puzzleing@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_puzzleing@2x.webp
+      puzzle_stop            7 frames
+        assets/swiftee/spritesheets/1x/swiftee_puzzle_stop@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_puzzle_stop@2x.webp
+
+  STANDALONE
+    wake / reset — leaving the sleep pose, and a hard neutral reset
+        assets/swiftee/spritesheets/1x/swiftee_wake@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_wake@2x.webp
+        assets/swiftee/spritesheets/1x/swiftee_reset@1x.webp
+        assets/swiftee/spritesheets/2x/swiftee_reset@2x.webp
+
+  THE ARRIVAL
+    He flies in on `flapping` and lands. There is no separate art:
+    the entrance IS the rig, so redrawing flapping redraws the intro.
+
+  AFTER REPLACING ANY RIG SHEET: node tools/build-swiftee-frames.js
+  (it regenerates the frame table and fails if the art and manifest disagree)
+

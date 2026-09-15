@@ -439,11 +439,48 @@
     st.measG = mk('g', { 'class': 'measurements' }, g);
     if (st.measure) drawMeasurements(st.measG);
 
-    // vertices
+    // ---- vertices ----
+    //
+    // THE ONE THING A CHILD HAS TO SEE IS WHAT THEY CAN TOUCH.
+    //
+    // These were #1030c8 dots on a #5a8dee polygon — dark blue on mid blue,
+    // nine units across on a thousand-unit stage. On the screen where the
+    // instruction is "Pick any vertex", there was nothing to tell a
+    // seven-year-old which part of the picture was theirs. Colour alone is
+    // never the signal either, so a touchable vertex is bigger AND amber AND
+    // ringed AND breathing (see alive()).
+    //
+    // A CREAM CORE WITH A DARK AMBER RING, because a vertex sits ON the
+    // outline: half of it is over the blue fill and half over the pale panel,
+    // and no single colour reads against both. Measured against #5a8dee and
+    // #f2fbff: the old dot managed 2.84 and 8.78, solid amber managed 1.83,
+    // and this manages 3.06 and 9.46 — it fixes the weak side without giving
+    // up the strong one. Warm, so it still speaks the same language as the
+    // Next button, the play button and the speech bubble's rim: in this game
+    // warm means "you can touch this".
+    //
+    // NO SEPARATE HIT CIRCLE. A wider transparent circle over each vertex is
+    // the usual way to give small fingers a bigger target, and here it stalled
+    // the lesson outright: the handlers for picking and dragging are bound to
+    // the vertex ELEMENTS, so a tap that landed on the invisible disc over the
+    // top reached something with no handler and nothing happened. The target
+    // grows by growing the dot instead — nine units to fourteen — and the
+    // glow, the breathing and the press response do the rest of the work of
+    // being findable.
     st.vertEls = [];
+    var touch = !!st.touchVerts;
     for (var j = 0; j < n; j++) {
       var col = st.vcolor && st.vcolor[j] ? st.vcolor[j] : null;
-      var c = mk('circle', { cx: v[j].x, cy: v[j].y, r: col ? 13 : 9, fill: col || '#1030c8', stroke: col ? '#5a4a00' : 'none', 'stroke-width': 2, 'class': 'vertex', 'data-i': j, opacity: col || st.showVerts ? 1 : 0 }, g);
+      var c = mk('circle', {
+        cx: v[j].x, cy: v[j].y,
+        r: col ? 13 : (touch ? 14 : 9),
+        fill: col || (touch ? '#fff8e7' : '#1030c8'),
+        stroke: col ? '#5a4a00' : (touch ? '#6b3400' : 'none'),
+        'stroke-width': col ? 2 : (touch ? 3.5 : 2),
+        'class': 'vertex', 'data-i': j,
+        opacity: col || st.showVerts ? 1 : 0
+      }, g);
+      if (touch) c.style.pointerEvents = 'all';
       st.vertEls.push(c);
     }
   }
@@ -563,7 +600,7 @@
     alive(false);
     endInteraction();
     clear('panel'); clear('poly'); clear('ui'); clear('fx');
-    st = { showVerts: false };
+    st = { showVerts: false, touchVerts: false };
   }
 
   var BUILD = {
@@ -1055,7 +1092,7 @@
     'vertex-pick': function (spec, ctx) {
       return new Promise(function (resolve) {
         if (global.Input) Input.mode('polygon');
-        st.showVerts = true; renderPoly();
+        st.showVerts = true; st.touchVerts = true; renderPoly();
         st.vertEls.forEach(function (c, i) {
           c.style.cursor = 'pointer';
           on(c, 'pointerdown', function (e) {
@@ -1152,7 +1189,7 @@
         if (global.Input) Input.mode('polygon');
         var isSides = spec.targets === 'sides', seen = {}, count = 0, need = spec.count || st.n;
         st.measure = st.measure || {}; st.measure[isSides ? 'sides' : 'angles'] = [];
-        st.showVerts = !isSides; renderPoly();
+        st.showVerts = !isSides; st.touchVerts = !isSides; renderPoly();
         var cls = isSides ? 'edge' : 'vertex';
         (isSides ? st.edgeEls : st.vertEls).forEach(function (el) { el.style.cursor = 'pointer'; });
         // Delegated: renderPoly() runs after every reveal.
@@ -1222,7 +1259,7 @@
     return new Promise(function (resolve) {
       if (global.Input) Input.mode('polygon');
       var from = spec.from === 'picked' ? (st.picked == null ? 0 : st.picked) : spec.from;
-      st.picked = from; st.vcolor = {}; st.vcolor[from] = '#ffe600'; st.showVerts = true; renderPoly();
+      st.picked = from; st.vcolor = {}; st.vcolor[from] = '#ffe600'; st.showVerts = true; st.touchVerts = true; renderPoly();
       var made = 0, active = false;
       var rubber = mk('line', { x1: st.verts[from].x, y1: st.verts[from].y, x2: st.verts[from].x, y2: st.verts[from].y, stroke: '#ffe600', 'stroke-width': 7, 'stroke-linecap': 'round', opacity: 0 }, layers.fx);
       function used(j) { var k = [Math.min(from, j), Math.max(from, j)].join('-'); return (st.diagonals || []).some(function (d) { return d.join('-') === k; }); }
@@ -1285,11 +1322,23 @@
   function alive(on) {
     aliveAnims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
     aliveAnims = [];
-    if (!on || !svg || reduced()) return;
+    if (svg) {
+      var was = svg.querySelectorAll('.touchable');
+      for (var k = 0; k < was.length; k++) was[k].classList.remove('touchable');
+    }
+    if (!on || !svg) return;
+    // The dressing survives reduced motion even though the breathing does
+    // not: someone who has asked for less movement still has to be able to
+    // see what they are meant to touch.
+    if (reduced()) return;
 
     var els = svg.querySelectorAll('[style*="cursor: pointer"],[style*="cursor:pointer"]');
     for (var i = 0; i < els.length; i++) {
       var e = els[i];
+      // The same signal that earns the breath earns the look. A class rather
+      // than inline paint, so it cannot fight whatever the lesson is already
+      // saying with colour — a picked vertex, an outside diagonal in red.
+      if (e.classList) e.classList.add('touchable');
       if (!e.animate) continue;
       pivot(e);
       try {
