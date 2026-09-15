@@ -30,7 +30,7 @@
  *                      learner pays a search cost that cancels the benefit.
  *
  *   3. GESTURE GLYPH   The instruction card is words only: "Drag the vertex
- *                      inward". It now carries a pictogram of the gesture
+                      inward".
  *                      beside the words, so the action is coded twice too.
  *
  * Everything here is additive and fails soft. If Stage is not mounted, if
@@ -39,7 +39,6 @@
  *
  *   DualCode.markup(text)        -> HTML for the bubble, terms chipped
  *   DualCode.cue(text)           -> halo whatever those terms name, on stage
- *   DualCode.gesture(text)       -> HTML pictogram for the instruction card
  *   DualCode.taught()            -> the terms encountered so far
  */
 (function (global) {
@@ -61,9 +60,16 @@
   // which points at the wrong noun.
   var TERMS = {
     polygon:   { color: '#1030c8', tint: '#e3e9ff', target: 'polygon',          mode: 'ring' },
-    vertex:    { color: '#c47800', tint: '#fff2d6', target: 'polygon.vertices', mode: 'ring' },
+    // Amber on cream is the one pairing in this table that does not survive
+    // the arithmetic: at #c47800 this read 3.14:1 against its own chip, well
+    // under the 4.5:1 floor for body text, and 3.29:1 against the bubble's
+    // paper. Darkened to 6.0:1. The hue is what binds the word to the halo on
+    // stage, so it stays amber — it only stops being pale.
+    vertex:    { color: '#8a5200', tint: '#fff2d6', target: 'polygon.vertices', mode: 'ring' },
     side:      { color: '#0b7a5e', tint: '#d8f5ec', target: 'polygon.sides',    mode: 'trace' },
-    diagonal:  { color: '#a86a00', tint: '#fff4cc', target: 'polygon.diagonals', mode: 'trace' },
+    // Same problem, 4.03:1, and it has to stay distinct from vertex as well as
+    // legible — so this one goes redder rather than browner. 7.2:1.
+    diagonal:  { color: '#8a3d00', tint: '#fff4cc', target: 'polygon.diagonals', mode: 'trace' },
     angle:     { color: '#1d7a2e', tint: '#ddf6e1', target: 'polygon.vertices', mode: 'ring' },
     convex:    { color: '#1d6b3a', tint: '#ddf1e3', target: 'polygon',          mode: 'ring' },
     concave:   { color: '#a3245a', tint: '#fbe0ea', target: 'polygon',          mode: 'ring' },
@@ -167,48 +173,6 @@
     return terms;
   }
 
-  /* ------------------------------------------------------------------ *
-   * The instruction card — code the gesture, not just the words
-   * ------------------------------------------------------------------ */
-
-  var GESTURES = {
-    tap:  '<circle cx="12" cy="12" r="4.2" fill="CUR"/>' +
-          '<circle cx="12" cy="12" r="8.4" fill="none" stroke="CUR" stroke-width="1.8" opacity=".55"><animate attributeName="r" values="5;10.5" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" values=".6;0" dur="1.4s" repeatCount="indefinite"/></circle>',
-    drag: '<path d="M4 16h13" stroke="CUR" stroke-width="1.8" stroke-dasharray="3 3" opacity=".6" fill="none"/>' +
-          '<path d="M14.5 12.5 18.5 16l-4 3.5" fill="none" stroke="CUR" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity=".6"/>' +
-          '<circle cx="6" cy="16" r="4" fill="CUR"><animate attributeName="cx" values="6;15;6" dur="2.2s" repeatCount="indefinite"/></circle>',
-    draw: '<path d="M5 19 19 5" stroke="CUR" stroke-width="2.2" stroke-linecap="round" fill="none" stroke-dasharray="20" stroke-dashoffset="20"><animate attributeName="stroke-dashoffset" values="20;0;0" dur="2s" repeatCount="indefinite"/></path>' +
-          '<circle cx="5" cy="19" r="2.4" fill="CUR"/><circle cx="19" cy="5" r="2.4" fill="CUR" opacity=".55"/>',
-    pick: '<path d="M12 3 21 10 17.6 20.5H6.4L3 10Z" fill="none" stroke="CUR" stroke-width="1.6" opacity=".45" stroke-linejoin="round"/>' +
-          '<circle cx="12" cy="3" r="3.2" fill="CUR"><animate attributeName="r" values="2.6;4;2.6" dur="1.4s" repeatCount="indefinite"/></circle>'
-  };
-
-  /** Match the card's own verb. The deck writes the verb first, every time. */
-  function gestureFor(text) {
-    var s = String(text || '').toLowerCase();
-    if (/\bdraw\b/.test(s)) return 'draw';
-    if (/\bdrag\b/.test(s)) return 'drag';
-    if (/\b(pick|choose|select)\b/.test(s)) return 'pick';
-    if (/\btap\b/.test(s)) return 'tap';
-    return null;
-  }
-
-  function gesture(text) {
-    var kind = gestureFor(text);
-    if (!kind) return '';
-    var body = GESTURES[kind].split('CUR').join('#3d8bff');
-    return '<svg class="dc-gesture" viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" focusable="false">' + body + '</svg>';
-  }
-
-  /**
-   * Halo one term, now.
-   *
-   * `cue()` fires a whole line's terms on a fixed stagger, which was the best
-   * it could do when the line appeared all at once. Now that the words arrive
-   * one at a time, the caller can fire each halo at the moment its own word
-   * does — which is what the contiguity principle actually asks for, and a
-   * tighter binding than any guessed delay.
-   */
   function cueTerm(term) {
     var def = TERMS[term];
     if (!def || !global.Stage || !Stage.halo) return false;
@@ -221,8 +185,6 @@
     markup: markup,
     cue: cue,
     cueTerm: cueTerm,
-    gesture: gesture,
-    gestureFor: gestureFor,
     termsIn: termsIn,
     taught: function () { return Object.keys(seen); },
     reset: function () { seen = {}; },

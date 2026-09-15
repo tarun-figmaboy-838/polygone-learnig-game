@@ -72,6 +72,7 @@
     // rather than remembering it at each element.
     layers.fx.setAttribute('pointer-events', 'none');
     drawVista();
+    armPress();
 
     // A backgrounded tab should not be paying for snow it cannot show.
     if (document.addEventListener) {
@@ -132,6 +133,7 @@
     img.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', VISTA_SRC);
 
     ambientLife();
+
 
     // A soft vignette ties the panels and Swiftee to the painting instead of
     // letting them float on top of it.
@@ -504,6 +506,7 @@
    * ------------------------------------------------------------------ */
 
   function reset() {
+    alive(false);
     endInteraction();
     clear('panel'); clear('poly'); clear('ui'); clear('fx');
     st = { showVerts: false };
@@ -1197,10 +1200,116 @@
     item.setAttribute('transform', 'translate(' + item._home.x + ',' + item._home.y + ')');
   }
 
+  /* ------------------------------------------------------------------ *
+   * Keeping the interaction alive
+   * ------------------------------------------------------------------ */
+
+  var aliveAnims = [];
+
+  /**
+   * Breathe whatever the child is meant to touch, for as long as they have
+   * to decide.
+   *
+   * focus() pulses a target three times and stops. That is right as an
+   * announcement and useless as an invitation: a seven-year-old thinking for
+   * fifteen seconds spends twelve of them looking at a still picture, and a
+   * still picture of a shape is a slide. Everything touchable now keeps a
+   * slow breath until the answer is in — staggered, so the screen ripples
+   * rather than throbbing in unison, which is the difference between a scene
+   * that is alive and one that is flashing at you.
+   *
+   * Touchables are found by their inline cursor rather than from a list.
+   * Every one of them sets cursor:pointer as it is built, so this cannot fall
+   * out of step with a new interaction the way a hand-kept set of selectors
+   * would — and there is exactly one thing to remember when adding one.
+   *
+   * It animates `scale`, never `transform`. Half the furniture on this stage
+   * is positioned by a transform attribute, and animating transform replaces
+   * it — which is how the sort items once spent half a second stacked at the
+   * SVG origin.
+   */
+  function alive(on) {
+    aliveAnims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+    aliveAnims = [];
+    if (!on || !svg || reduced()) return;
+
+    var els = svg.querySelectorAll('[style*="cursor: pointer"],[style*="cursor:pointer"]');
+    for (var i = 0; i < els.length; i++) {
+      var e = els[i];
+      if (!e.animate) continue;
+      pivot(e);
+      try {
+        aliveAnims.push(e.animate(
+          [{ scale: '1' }, { scale: '1.055' }, { scale: '1' }],
+          {
+            duration: 1500 + (i % 5) * 130,
+            delay: (i % 7) * 95,
+            iterations: Infinity,
+            easing: 'ease-in-out'
+          }
+        ));
+      } catch (err) {}
+    }
+  }
+
+  /**
+   * Turn an element about its own middle — but never overwrite a pivot it
+   * already has. A sprite or a marker with its own transform-origin has it
+   * for a reason, and quietly replacing it is how the character once sat
+   * twenty-two pixels below the ground for a whole session.
+   */
+  function pivot(e) {
+    if (e.style && !e.style.transformOrigin) {
+      e.style.transformBox = 'fill-box';
+      e.style.transformOrigin = 'center';
+    }
+    return e;
+  }
+
+  /**
+   * Press feedback, for anything at all that can be touched.
+   *
+   * One delegated listener rather than a handler per element: it finds the
+   * nearest touchable ancestor of whatever was hit and squashes it. Without
+   * this a tap is answered only by whatever the lesson does next, which on a
+   * wrong answer can be most of a second later — long enough for a child to
+   * wonder whether the screen noticed them at all.
+   */
+  function armPress() {
+    if (!svg) return;
+    on(svg, 'pointerdown', function (ev) {
+      if (reduced()) return;
+      var t = ev.target;
+      while (t && t !== svg && !(t.style && /pointer/.test(t.style.cursor))) t = t.parentNode;
+      if (!t || t === svg || !t.animate) return;
+      pivot(t);
+      try {
+        t.animate([{ scale: '1' }, { scale: '.9' }, { scale: '1.04' }, { scale: '1' }],
+                  { duration: 260, easing: 'cubic-bezier(.3,1.35,.5,1)' });
+      } catch (e) {}
+    });
+  }
+
   function waitFor(spec, ctx) {
     var fn = INTERACT[spec.type];
     if (!fn) { if (global.console) console.warn('Stage: no interaction "' + spec.type + '"'); return Promise.resolve({ result: 'correct' }); }
-    return fn(spec, ctx);
+
+    // tap-anywhere is reading, not doing. Breathing the polygon's vertices
+    // while the child is only meant to read the line invites a tap that does
+    // nothing, which is worse than no invitation at all.
+    var invite = spec.type !== 'tap-anywhere';
+    // A frame late on purpose: the interaction builds its own furniture — the
+    // choice row, the sort tray — inside fn(), so asking now would find the
+    // previous screen's.
+    if (invite) setTimeout(function () { alive(true); }, 60);
+
+    var p;
+    try { p = fn(spec, ctx); }
+    catch (e) { alive(false); throw e; }
+    return Promise.resolve(p).then(
+      function (r) { alive(false); return r; },
+      function (e) { alive(false); throw e; }
+    );
   }
 
   /**
@@ -1277,7 +1386,7 @@
     mount: mount, apply: apply, focus: focus, waitFor: waitFor, element: element, halo: halo,
     isEmpty: isEmpty, contentBox: contentBox, contentParts: contentParts,
     onTap: function (fn) { onTap = fn || function () {}; },
-    ambient: ambientPlay, flurry: flurry,
+    ambient: ambientPlay, flurry: flurry, alive: alive,
     get svg() { return svg; }, get state() { return st; },
     shapeVerts: shapeVerts, PANELS: PANELS, HORIZON: HORIZON
   };

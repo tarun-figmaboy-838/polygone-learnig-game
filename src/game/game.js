@@ -298,10 +298,105 @@
     }
     bubble.classList.remove('out');
     bubble.classList.add('show');
-    // Place it at full size FIRST, then start hiding words. The other order
-    // would measure an empty bubble.
-    placeBubble();
+    // Size and place it at full size FIRST, then start hiding words. The other
+    // order would measure an empty bubble.
+    fitLine();
     reveal(line, ms);
+  }
+
+  /**
+   * Keep the line on one row, and the box no wider than the line.
+   *
+   * Two faults with one cause. The bubble's width is capped by the free space
+   * beside the lesson, so a sentence longer than that cap wraps — and once it
+   * wraps, `text-wrap: balance` evens the rows out, which leaves every row
+   * shorter than the box and a band of empty paper down both sides. A short
+   * sentence in a wide frame reads as a mistake.
+   *
+   * So: shrink the TYPE until the sentence fits on one row, down to two
+   * thirds of its size and no further — past that it is a genuinely long
+   * sentence and wrapping is the right answer, not six-point text. Then snap
+   * the cap to the widest row that actually rendered, which takes the empty
+   * band away whether it wrapped or not.
+   *
+   * Only the type shrinks, never #bubble's own font-size: padding, radius and
+   * the horn are all em of that, and shrinking it would shrink the frame and
+   * the horn along with the words.
+   */
+  function fitLine() {
+    var inner = bubble.querySelector('.dialogue-inner');
+    var line = bubble.querySelector('.bubble-line');
+    if (!inner || !line) { placeBubble(); paintSkin(); return; }
+
+    inner.style.fontSize = '';
+    bubble.style.maxWidth = '';
+
+    // ONE full placement. It picks the slot beside the lesson and the width
+    // cap that goes with it, and it is expensive — it measures the stage's
+    // content box, tries every slot, and corrects itself. Calling it inside
+    // the loop below turned a hundred-and-twenty-second playthrough into a
+    // seven-hundred-second one.
+    placeBubble();
+
+    // Everything after this resizes the type inside that fixed cap, which is
+    // a layout read and nothing more.
+    var base = parseFloat(getComputedStyle(inner).fontSize) || 20;
+
+    // Rows are counted from where the WORDS sit, not from the line's height
+    // and not from getClientRects().
+    //
+    // getClientRects() is out because the line is a block: it reports one
+    // rect however many rows are inside it. Height over line-height is out
+    // because a dual-coding chip is an inline-block with its own padding, so
+    // it makes its line box taller than the line-height — every sentence
+    // containing a tinted term measured as two rows when it was one.
+    var rowTops = function () {
+      var kids = line.childNodes, seen = {}, k, r;
+      for (k = 0; k < kids.length; k++) {
+        if (!kids[k].getBoundingClientRect) continue;
+        r = kids[k].getBoundingClientRect();
+        if (!r.width) continue;
+        var key = Math.round(r.top / 2) * 2;   // a chip sits a pixel off its neighbours
+        if (!seen[key]) seen[key] = { l: r.left, r: r.right };
+        else { if (r.left < seen[key].l) seen[key].l = r.left; if (r.right > seen[key].r) seen[key].r = r.right; }
+      }
+      return seen;
+    };
+    var rows = function () { return Object.keys(rowTops()).length || 1; };
+
+    // Shrink the TYPE until the sentence fits on one row, to three fifths of
+    // its size and no further — past that it is a genuinely long sentence and
+    // wrapping is the right answer, not six-point text. Only the type: the
+    // padding, the corner radius and the horn are all em of #bubble's own
+    // font-size, and shrinking that would shrink the frame with the words.
+    var size = base;
+    for (var i = 0; i < 7 && rows() > 1 && size > base * 0.6; i++) {
+      size *= 0.93;
+      inner.style.fontSize = size.toFixed(1) + 'px';
+    }
+    if (rows() > 1) inner.style.fontSize = '';   // long sentence; give it back
+
+    // ONE more full placement, now that the type is its final size.
+    placeBubble();
+
+    // NO SNAP-TO-CONTENT HERE, and it is worth saying why.
+    //
+    // The bubble is absolutely positioned, so it already shrink-wraps its
+    // text: a one-row line leaves no empty paper beside it, whatever the cap
+    // says. The empty band only ever appeared on a line that WRAPPED, and it
+    // came from text-wrap: balance evening the rows out so that neither row
+    // reached the edge of a box sized to the cap. That belonged to the
+    // stylesheet and has been dealt with there.
+    //
+    // Measuring the rendered rows and narrowing the box to match looks like
+    // the obvious answer and is a trap: placeBubble picks its cap from the
+    // slot it chose, so the narrowed width feeds the next measurement, and
+    // the settle pass 620ms later measures a box the previous pass already
+    // narrowed. Two attempts at holding that value — once as a style, once as
+    // a variable — each ratcheted a one-row sentence down to six rows and an
+    // 83px box. The shrink-wrap is free and correct; this was neither.
+
+    paintSkin();
   }
 
   /**
@@ -349,21 +444,21 @@
 
     // With nothing on stage he simply speaks over the middle of the screen.
     if (solo || !content) {
-      // A short line shrinks the bubble to fit it — "Hi! I am Swiftee." came
-      // out 291px wide in a 1280px scene, and next to a 217px bird in an
-      // empty snowfield that reads as two small stickers rather than a
-      // composed shot. On a screen with nothing else on it the panel gets a
-      // real minimum, so every line lands in the same substantial frame
-      // instead of the frame shrink-wrapping the sentence.
-      bubble.style.minWidth = Math.round(Math.min(460, f.w * 0.4)) + 'px';
-      bubble.style.maxWidth = Math.min(f.w * 0.72, 620) + 'px';
+      // No floor here. The stylesheet carries a minimum in em, which scales
+      // with the type; a floor in pixels is dead space the moment the line is
+      // shorter than it, and most of the thirty-six lines are.
+      // A screen with nothing on it but Swiftee has no lesson to keep clear
+      // of, so the only reason to cap the width at all is the reading line —
+      // and 620px forced most of the thirty-six sentences onto two rows for
+      // no benefit. Wide enough now that short and middling lines stay on one.
+      bubble.style.maxWidth = Math.min(f.w * 0.86, 1040) + 'px';
       bubble.style.left = '50%';
       bubble.style.marginLeft = -(bubble.offsetWidth / 2) + 'px';
       var birdTop = L.y - 256 * layout(Swiftee.pos, 'large').scale * CONTENT_FRAC;
       bubble.style.top = Math.max(hudBox.bottom + GAP, birdTop - bubble.offsetHeight - 26) + 'px';
       // He stands directly below on these screens, but aim it properly all the
       // same — "below" is only true once he has landed.
-      aimTail();
+      paintSkin();
       return;
     }
 
@@ -427,9 +522,10 @@
     // that was exactly too big for it.
     var SAFE = 10;
     var capFor = function (r) {
-      return (r.id === 'left' || r.id === 'right')
+      var room = (r.id === 'left' || r.id === 'right')
         ? Math.min(r.w - SAFE, 520)
         : Math.min(r.w - SAFE, vw * 0.8);
+      return room;
     };
 
     // Measure the LAYOUT box. The bubble now plays a bouncy entrance that
@@ -512,7 +608,7 @@
       bubble.style.left = (afterL + (slot.x - afterL > 0 ? slot.x - afterL : 0)) + 'px';
     }
 
-    aimTail();
+    paintSkin();
   }
 
   /**
@@ -532,59 +628,155 @@
    * is (9·sin t, 9·cos t) in the square's own axes, or the underside would
    * end up running along the wrong two sides.
    */
-  function aimTail() {
-    var tail = bubble.querySelector('.dialogue-tail');
-    if (!tail) return;
+  /* ------------------------------------------------------------------ *
+   * The bubble's outline
+   *
+   * ONE PATH FOR BODY AND HORN. Every previous version drew the body as a
+   * CSS box — border, radius, background — and laid a second SVG over its
+   * bottom edge for the horn. There is no good answer to that seam. Cover
+   * the body's rim with the horn's fill and the outline has a gap where the
+   * rim used to be; leave it and a straight line runs across the horn's base.
+   * Half a dozen passes moved that fault about without removing it, because
+   * it is not a bug in the numbers, it is a bug in having two shapes.
+   *
+   * So the outline is walked once, clockwise from the top-left corner, and
+   * the horn is emitted in its place along whichever edge it belongs to.
+   * Filled once, stroked once, no junction.
+   * ------------------------------------------------------------------ */
 
-    var head = headPoint();
+  // How far the skin reaches beyond the bubble's own box: the horn's length
+  // plus room for the stroke and the glow.
+  function skinPad(em) { return Math.round(em * 1.5); }
+
+  /**
+   * The outline, as SVG path data.
+   *
+   * `horn` is { edge, at, hw, len, lean } in the bubble's own pixels — `at`
+   * measured along the edge from the box's top-left in reading order, so the
+   * caller never has to think about which way round a given edge is walked.
+   */
+  function outlinePath(w, h, r, pad, horn) {
+    var d = [];
+    r = Math.max(2, Math.min(r, Math.min(w, h) / 2));
+
+    // Each edge as an origin, a direction along it, and an outward normal.
+    // Everything about the horn is then the same four lines of arithmetic
+    // whichever edge it is on.
+    var EDGE = {
+      top:    { o: [0, 0], t: [1, 0],  n: [0, -1], len: w },
+      right:  { o: [w, 0], t: [0, 1],  n: [1, 0],  len: h },
+      bottom: { o: [w, h], t: [-1, 0], n: [0, 1],  len: w },
+      left:   { o: [0, h], t: [0, -1], n: [-1, 0], len: h }
+    };
+
+    var P = function (x, y) { return (x + pad).toFixed(1) + ' ' + (y + pad).toFixed(1); };
+    var at = function (E, u, v) {
+      return [E.o[0] + E.t[0] * u + E.n[0] * v, E.o[1] + E.t[1] * u + E.n[1] * v];
+    };
+    var pt = function (E, u, v) { var p = at(E, u, v); return P(p[0], p[1]); };
+
+    // Where along this edge the horn sits, in the edge's own travel direction.
+    var along = function (name) {
+      if (!horn || horn.edge !== name) return -1;
+      var E = EDGE[name];
+      var u = (name === 'top' || name === 'left') ? horn.at : E.len - horn.at;
+      // never so close to a corner that the horn grows out of the curve
+      return Math.max(r + horn.hw, Math.min(E.len - r - horn.hw, u));
+    };
+
+    var run = function (name) {
+      var E = EDGE[name], c = along(name);
+      if (c < 0) return;
+      var hw = horn.hw, L = horn.len, ln = horn.lean || 0;
+      d.push('L' + pt(E, c - hw, 0));
+      // out to the tip, leaving the edge square-on so the two make a corner
+      d.push('C' + pt(E, c - hw * 0.95, L * 0.5) + ' ' + pt(E, c + ln + hw * 0.5, L * 0.8) + ' ' + pt(E, c + ln, L));
+      // and back, arriving square-on as well
+      d.push('C' + pt(E, c + ln + hw * 0.15, L * 0.72) + ' ' + pt(E, c + hw * 0.5, L * 0.45) + ' ' + pt(E, c + hw, 0));
+    };
+
+    d.push('M' + P(r, 0));
+    run('top');
+    d.push('L' + P(w - r, 0));
+    d.push('Q' + P(w, 0) + ' ' + P(w, r));
+    run('right');
+    d.push('L' + P(w, h - r));
+    d.push('Q' + P(w, h) + ' ' + P(w - r, h));
+    run('bottom');
+    d.push('L' + P(r, h));
+    d.push('Q' + P(0, h) + ' ' + P(0, h - r));
+    run('left');
+    d.push('L' + P(0, r));
+    d.push('Q' + P(0, 0) + ' ' + P(r, 0));
+    d.push('Z');
+    return d.join('');
+  }
+
+  /**
+   * Measure the bubble, work out where the horn belongs, and redraw the skin.
+   *
+   * The horn goes on whichever edge faces Swiftee and slides to the point on
+   * it nearest his head — it is the part of a speech bubble that says who is
+   * talking, so it is worth aiming rather than parking. The bubble's
+   * transform-origin then follows it, so the bubble springs out of the horn,
+   * which is to say out of him.
+   */
+  function paintSkin() {
+    var skin = bubble.querySelector('.bubble-skin');
+    if (!skin) return;
     var r = layoutRect(bubble);
-    if (!head || !r.width) return;
+    if (!r.width || !r.height) return;
 
     var em = parseFloat(getComputedStyle(bubble).fontSize) || 20;
-    // Keep the horn off the rounded corners, where it would appear to grow
-    // out of thin air.
-    var pad = em * 1.4;
+    var pad = skinPad(em);
+    var radius = em * 0.62;
 
-    var dx = (head.x - (r.left + r.width / 2)) / (r.width / 2);
-    var dy = (head.y - (r.top + r.height / 2)) / (r.height / 2);
-    var edge = Math.abs(dy) >= Math.abs(dx)
-      ? (dy > 0 ? 'bottom' : 'top')
-      : (dx > 0 ? 'right' : 'left');
-
-    var clamp = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
-    var x, y, deg;
-    if (edge === 'bottom' || edge === 'top') {
-      x = clamp(head.x - r.left, pad, Math.max(pad, r.width - pad));
-      y = edge === 'bottom' ? r.height : 0;
-      deg = edge === 'bottom' ? 0 : 180;
-    } else {
-      y = clamp(head.y - r.top, pad, Math.max(pad, r.height - pad));
-      x = edge === 'right' ? r.width : 0;
-      deg = edge === 'right' ? 270 : 90;
+    var head = headPoint();
+    var horn = null;
+    if (head) {
+      var dx = (head.x - (r.left + r.width / 2)) / (r.width / 2);
+      var dy = (head.y - (r.top + r.height / 2)) / (r.height / 2);
+      var edge = Math.abs(dy) >= Math.abs(dx)
+        ? (dy > 0 ? 'bottom' : 'top')
+        : (dx > 0 ? 'right' : 'left');
+      var vertical = edge === 'bottom' || edge === 'top';
+      horn = {
+        edge: edge,
+        at: vertical ? (head.x - r.left) : (head.y - r.top),
+        hw: em * 0.52,
+        len: em * 1.15,
+        lean: 0
+      };
     }
 
-    // The horn is drawn pointing down; rotating it about the middle of its
-    // join swings it to any edge. The translate puts that same point on the
-    // edge — see the note on .dialogue-tail for where 19.05% comes from.
-    var s = tail.style;
-    s.right = s.bottom = 'auto';
-    s.left = x.toFixed(1) + 'px';
-    s.top = y.toFixed(1) + 'px';
-    s.transform = 'translate(-50%, -19.05%) rotate(' + deg + 'deg)';
+    skin.setAttribute('width', r.width + pad * 2);
+    skin.setAttribute('height', r.height + pad * 2);
+    skin.setAttribute('viewBox', '0 0 ' + (r.width + pad * 2) + ' ' + (r.height + pad * 2));
+    skin.style.left = -pad + 'px';
+    skin.style.top = -pad + 'px';
 
-    // It is filled with the paper it grows out of, and the paper is a
-    // gradient — filling a horn on the top edge with the bottom colour puts a
-    // step exactly where the two are meant to be one surface.
-    var fill = tail.querySelector('.tail-fill');
-    if (fill) {
-      fill.style.fill = edge === 'bottom' ? 'var(--cream-foot)'
-                      : edge === 'top'    ? 'var(--cream-light)'
-                      : 'var(--cream)';
+    var d = outlinePath(r.width, r.height, radius, pad, horn);
+    var fill = skin.querySelector('.skin-fill');
+    var line = skin.querySelector('.skin-line');
+    var sheen = skin.querySelector('.skin-sheen');
+    if (fill) fill.setAttribute('d', d);
+    if (line) line.setAttribute('d', d);
+    if (sheen) {
+      // the catch-light, inside the top-left corner
+      sheen.setAttribute('cx', pad + radius * 1.1);
+      sheen.setAttribute('cy', pad + em * 0.44);
+      sheen.setAttribute('rx', em * 0.26);
+      sheen.setAttribute('ry', em * 0.1);
+      sheen.setAttribute('transform', 'rotate(-22 ' + (pad + radius * 1.1) + ' ' + (pad + em * 0.44) + ')');
     }
 
-    // And the bubble grows out of the horn, so it springs from Swiftee.
-    bubble.style.transformOrigin =
-      (x / r.width * 100).toFixed(1) + '% ' + (y / r.height * 100).toFixed(1) + '%';
+    // The bubble grows out of the horn.
+    if (horn) {
+      var ox = horn.edge === 'left' ? 0 : horn.edge === 'right' ? r.width : horn.at;
+      var oy = horn.edge === 'top' ? 0 : horn.edge === 'bottom' ? r.height : horn.at;
+      bubble.style.transformOrigin =
+        (ox / r.width * 100).toFixed(1) + '% ' + (oy / r.height * 100).toFixed(1) + '%';
+    }
   }
 
   /* The supplied design glides the box between two lines of one speech —
@@ -635,10 +827,13 @@
   function setCard(text) {
     if (!text) { card.classList.remove('show'); card.textContent = ''; return; }
     if (global.DualCode) {
-      // The card says what to do; the pictogram shows it. Same instruction,
-      // two channels, side by side — a child who cannot yet read "Drag"
-      // fluently still sees a finger sliding.
-      card.innerHTML = DualCode.gesture(text) + '<span class="card-text">' + DualCode.markup(text) + '</span>';
+      // Words only. The card used to lead with a pictogram of the gesture —
+      // a finger sliding for "drag", and so on — which is good dual coding in
+      // principle and was a small grey mark beside a line of text in
+      // practice, read as a stray icon rather than as a second channel. The
+      // picture half of the pair is the lesson itself, which is the better
+      // half to point at, and the tinted terms already bind the words to it.
+      card.innerHTML = '<span class="card-text">' + DualCode.markup(text) + '</span>';
     } else {
       card.textContent = text;
     }
@@ -668,7 +863,11 @@
    */
   function relayout() {
     Swiftee.relayout();
+    // placeBubble, not fitLine: the fit was worked out when the line was set
+    // and the settle pass only needs to re-place it. Re-running the whole
+    // whole fit here measured a box the previous run had already narrowed.
     placeBubble();
+    paintSkin();
   }
 
   function showNext(on) {
@@ -1058,7 +1257,12 @@
     // Audio needs a real gesture. The start button is that gesture, so
     // nothing plays before the learner is ready.
     $('#start').addEventListener('click', function () {
-      if (global.SFX) SFX.unlock();
+      // The gesture that unlocks audio is also the first thing that should
+      // make a sound. Unlock, then play on the same tick — the context is
+      // resumed by the gesture, so the cue lands with the press rather than
+      // a screen later.
+      if (global.SFX) { SFX.unlock(); SFX.play('pop'); SFX.play('sparkle', { delay: 0.06 }); }
+      if (global.TitleFx) TitleFx.press();
       loadEl.classList.add('gone');
       // The title screen's weather is thirty infinite animations. Nothing can
       // see them once the curtain is down, so they are cancelled rather than

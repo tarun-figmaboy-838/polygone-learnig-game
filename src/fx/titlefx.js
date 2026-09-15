@@ -234,6 +234,58 @@
     }
   }
 
+  /**
+   * The burst when the button is pressed.
+   *
+   * A press that only fades a screen out is a press you are not sure landed.
+   * The glow flares, and a ring of crystals goes out from under the finger —
+   * the same crystals falling behind it, so the button appears to knock the
+   * snow off itself rather than to fire a generic particle effect.
+   *
+   * Each flake takes itself out of the document when it is done, because this
+   * fires on the way to a screen where TitleFx.stop() is about to run and
+   * anything left behind would be swept up half a second later regardless —
+   * but the one case that matters is a press that does NOT start the game,
+   * and there is no reason for it to leave litter.
+   */
+  function press() {
+    if (!mounted || reduced()) return;
+    var host = mounted.querySelector('.start-sparks');
+    var halo = mounted.querySelector('.start-halo');
+    if (!host) return;
+    var doc = host.ownerDocument, i, n = 11;
+
+    for (i = 0; i < n; i++) burstFlake(doc, host, (i / n) * 360 + rnd(-14, 14), i % 3);
+
+    if (halo) run(halo, [
+      { transform: 'scale(1)', opacity: 1 },
+      { transform: 'scale(1.55)', opacity: 0 }
+    ], { duration: 540, easing: 'cubic-bezier(.2,.8,.3,1)' });
+  }
+
+  function burstFlake(doc, host, deg, seed) {
+    var size = rnd(14, 27);
+    var el = doc.createElement('div');
+    el.className = 'tf-burst';
+    el.style.cssText =
+      'position:absolute;left:50%;top:50%;width:' + size.toFixed(0) + 'px;height:' + size.toFixed(0) + 'px;' +
+      'margin:' + (-size / 2).toFixed(0) + 'px 0 0 ' + (-size / 2).toFixed(0) + 'px;' +
+      'will-change:transform,opacity;';
+    if (global.Snowflake) {
+      el.innerHTML = Snowflake.svg(size, seed, { weight: Math.max(1, size * 0.06), glow: 'rgba(255,240,196,.95)' });
+    }
+    host.appendChild(el);
+
+    var a = deg * Math.PI / 180, r = rnd(72, 132);
+    var an = run(el, [
+      { transform: 'translate(0,0) scale(.25) rotate(0deg)', opacity: 1 },
+      { transform: 'translate(' + (Math.cos(a) * r).toFixed(0) + 'px,' + (Math.sin(a) * r).toFixed(0) + 'px) scale(1.1) rotate(' + (deg > 180 ? -200 : 200) + 'deg)', opacity: 0 }
+    ], { duration: rnd(520, 780), easing: 'cubic-bezier(.15,.8,.3,1)', fill: 'forwards' });
+
+    var drop = function () { if (el.parentNode) el.parentNode.removeChild(el); };
+    if (an && an.finished) an.finished.then(drop, drop); else setTimeout(drop, 800);
+  }
+
   /* ------------------------------------------------------------------ *
    * Where the play button goes
    * ------------------------------------------------------------------ */
@@ -330,7 +382,7 @@
   }
 
   global.TitleFx = {
-    mount: mount, stop: stop, placePlay: placePlay,
+    mount: mount, stop: stop, placePlay: placePlay, press: press,
     get running() { return anims.length > 0; }
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.TitleFx;

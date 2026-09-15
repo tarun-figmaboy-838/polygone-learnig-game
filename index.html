@@ -19,6 +19,11 @@
     --bubble: #ffffff;
     --bubble-edge: #9fd6fb;
     --card: #fffdf4;
+    /* the instruction card's own rim: teal, so it is never mistaken for the
+       speech bubble's orange one */
+    --card-rim: #35a9ba;
+    --card-rim-dark: #16808f;
+    --text-ink: #064d68;
     --sans: "Nunito", "Segoe UI", system-ui, sans-serif;
     /* Comic ink: one outline weight and one hard offset shadow, reused by the
        bubble, the card and every button, so they read as one drawn set
@@ -87,24 +92,21 @@
 
     position: absolute; z-index: 4;
     box-sizing: border-box;
-    /* One size for the whole component; everything below is em of this. */
+    /* One size for the whole component; the padding below is em of this, and
+       so is everything the skin is drawn from. */
     font-size: clamp(20px, 2.3vw, 33px);
     max-width: min(820px, 68vw);
-    min-width: 260px;
-    min-height: 2.5em;
+    min-width: 5em;
     padding: .62em 1em;
     display: flex; align-items: center; justify-content: center;
 
-    border: var(--rim) solid var(--orange);
-    border-radius: .62em;
-    background: linear-gradient(180deg, var(--cream-light) 0%, var(--cream) 70%, var(--cream-foot) 100%);
-    box-shadow:
-      0 0 14px 2px rgba(255, 181, 21, .28),
-      0 0 34px 10px rgba(255, 181, 21, .14),
-      0 10px 26px rgba(20, 70, 92, .22);
-
-    /* Pops out of its own horn, overshoots, settles. The origin here is only
-       the frame-zero default; aimTail() moves it to the horn. */
+    /* NO BORDER, NO BACKGROUND, NO RADIUS.
+       All three now belong to .bubble-skin, an SVG drawn behind the words —
+       see paintSkin() in game.js. A CSS box cannot grow a tail, so the tail
+       used to be a second SVG laid over the box's bottom edge, and the seam
+       between the two was a losing battle: cover the rim and the outline has
+       a gap in it, leave it and the tail reads as pinned on. Body and horn
+       are one path now, so there is no junction to get wrong. */
     opacity: 0; pointer-events: none;
     transform: scale(.15);
     transform-origin: 12% 100%;
@@ -114,24 +116,22 @@
   /* going away is quicker than arriving, and does not overshoot */
   #bubble.out { transition: transform 260ms ease-in, opacity 220ms ease 40ms; }
 
-  /* the catch-light in the top-left corner */
-  #bubble::before {
-    content: ""; position: absolute; left: .42em; top: .34em;
-    width: .5em; height: .2em; border-radius: 999px;
-    background: #fff; opacity: .95; transform: rotate(-22deg);
-    pointer-events: none; z-index: 3;
-  }
-
   .dialogue-inner {
     position: relative; z-index: 2; max-width: 100%;
     color: var(--text);
     font-family: "Fredoka", "Baloo 2", "Arial Rounded MT Bold", var(--sans);
     font-size: inherit; font-weight: 600; line-height: 1.2;
-    letter-spacing: .2px; text-align: center; text-wrap: balance;
+    letter-spacing: .2px; text-align: center;
+    /* NOT text-wrap: balance. Balance evens the rows of a wrapped sentence so
+       neither row reaches the edge of the box — which, in a box sized to the
+       space beside the lesson, means a band of empty paper down both sides
+       and a short-looking line adrift in a wide frame. Ordinary wrapping
+       fills the first row to the edge, so the box the text shrink-wraps into
+       is the box the text actually needs. */
   }
   /* Screens with nothing else on them get room to breathe. It is one number,
      because everything else is em. */
-  #bubble.solo { font-size: clamp(26px, 3.15vw, 46px); min-height: 3.2em; }
+  #bubble.solo { font-size: clamp(26px, 3.15vw, 46px); }
 
   /* Mood tints the paper and nothing else. The rim is the bubble's identity
      and never changes, so a win does not arrive looking like a different
@@ -140,50 +140,30 @@
   #bubble[data-mood="hint"]  { --cream: #fff1cf; --cream-light: #fffbee; --cream-foot: #ffeabb; }
   #bubble[data-mood="think"] { --cream: #f1f9fb; --cream-light: #fbfeff; --cream-foot: #e4f3f8; }
 
-  /* ---- two short strokes each side, converging on the box ---- */
-  .bubble-mark {
-    position: absolute; top: 50%;
-    width: .5em; height: .78em;
-    transform: translateY(-50%);
-    fill: none; stroke: var(--orange); stroke-width: 7; stroke-linecap: round;
-    overflow: visible; pointer-events: none; opacity: .85;
-  }
-  .mark-left  { left: .28em; }
-  .mark-right { right: .28em; }
+  /* ---- the skin ----
+     One SVG, one path: the rounded body and the horn drawn as a single
+     outline, filled once and stroked once. It is rebuilt whenever the box is
+     measured, which is whenever the line changes or the window does.
 
-  /* ---- the horn ----
-     Drawn pointing down out of the bottom edge. The strip above y=0 in the
-     viewBox is the part that sits INSIDE the body, covering its border where
-     the two meet; the stroke skips that strip and runs the outline down the
-     two free edges only. aimTail() sets left/top/rotation — these are the
-     defaults for the frame before it runs.
-
-     The origin is the middle of the join: x 22 of 44 is 50%, y 0 of the
-     -8..34 range is 19.05%. Everything about aiming it depends on those two
-     numbers matching the path, so they are derived here and nowhere else. */
-  .dialogue-tail {
-    position: absolute; z-index: 3;
-    left: 50%; top: 100%;
-    width: 1.15em; height: auto; overflow: visible;
-    transform: translate(-50%, -19.05%);
-    transform-origin: 50% 19.05%;
-    pointer-events: none;
-  }
-  .tail-fill   { fill: var(--cream-foot); }
-  .tail-stroke {
-    fill: none; stroke: var(--orange); stroke-width: var(--rim);
-    stroke-linecap: round; stroke-linejoin: round;
-    /* the svg is about an em wide for a 44-unit viewBox: hold the stroke at
-       the body's own border width whatever the type size */
-    vector-effect: non-scaling-stroke;
+     It sits outside the bubble's own box by SKIN_PAD on every side, because
+     the horn and the stroke are drawn beyond the border box and would
+     otherwise be clipped — and because the glow is a drop-shadow on the SVG
+     rather than a box-shadow on the div, which would draw a rectangle. */
+  .skin-fill  { fill: var(--cream); }
+  .skin-line  { fill: none; stroke: var(--orange); stroke-width: var(--rim); stroke-linejoin: round; }
+  .skin-sheen { fill: #fff; opacity: .9; }
+  .bubble-skin {
+    position: absolute; z-index: 0; pointer-events: none; overflow: visible;
+    filter: drop-shadow(0 6px 14px rgba(20, 70, 92, .22))
+            drop-shadow(0 0 16px rgba(255, 181, 21, .3));
   }
 
   @media (max-width: 900px) {
-    #bubble { font-size: clamp(18px, 2.6vw, 27px); min-width: 220px; }
+    #bubble { font-size: clamp(18px, 2.6vw, 27px); }
     #bubble.solo { font-size: clamp(22px, 3.4vw, 34px); }
   }
   @media (max-width: 600px) {
-    #bubble { font-size: clamp(16px, 4.6vw, 23px); min-width: 170px; --rim: 3px; }
+    #bubble { font-size: clamp(16px, 4.6vw, 23px); --rim: 3px; }
     #bubble.solo { font-size: clamp(18px, 5.4vw, 26px); }
   }
 
@@ -214,22 +194,40 @@
     border-radius: .4em; font-weight: 800; white-space: nowrap;
   }
 
-  /* ---- instruction card ---- */
-  /* A taped-on note. Same ink as the bubble, tilted the other way so the two
-     never read as parallel. Its width is capped in game.js against the live
-     stage panel rather than guessed here, so it can never grow into the
-     shape the child is working on. */
+  /* ---- instruction card --------------------------------------------------
+     The task, not the speech. It shares the bubble's paper so the two belong
+     to one game, and differs in every other way so they are never mistaken
+     for each other: a teal rim instead of orange, square-shouldered instead
+     of bulbous, no horn, no catch-light. The bubble is Swiftee talking; this
+     is the game telling you what to do.
+
+     NOT TILTED. It used to sit at -1.2 degrees, as a taped-on note. At this
+     size, against a stage of straight edges, that reads as a rendering fault
+     rather than as a flourish — and it drags the eye off the words, which is
+     the one thing a card of instructions cannot afford.
+
+     BIG ENOUGH TO READ. The old size bottomed out at 15px, which is small for
+     a seven-year-old and smaller still against a 40px speech bubble a few
+     centimetres away: the thing telling them what to DO was the least
+     legible thing on the screen.
+
+     Its width is still capped in game.js against the live stage panel rather
+     than guessed here, so it can never grow into the shape being worked on. */
   #card {
-    position: absolute; z-index: 4; left: 3%; top: 4%; max-width: 44%;
-    background: var(--card); border: var(--ink-w) solid var(--ink); border-radius: 14px;
-    padding: 11px 20px; font-size: clamp(15px, 1.6vw, 21px); font-weight: 800;
-    box-shadow: var(--ink-shadow);
-    opacity: 0; transform: translateY(-10px) rotate(-1.2deg) scale(.94);
-    transition: opacity 180ms ease, transform 300ms cubic-bezier(.34,1.56,.64,1);
-    display: flex; align-items: center; gap: 12px;
+    position: absolute; z-index: 4; left: 3%; top: 4%; max-width: 46%;
+    box-sizing: border-box;
+    background: linear-gradient(180deg, #fffdf5 0%, #fff8e7 100%);
+    border: 4px solid var(--card-rim);
+    border-radius: 16px;
+    padding: .5em .85em;
+    font-family: "Fredoka", "Baloo 2", "Arial Rounded MT Bold", var(--sans);
+    font-size: clamp(17px, 1.95vw, 27px); font-weight: 600;
+    line-height: 1.25; letter-spacing: .2px; color: var(--text-ink);
+    box-shadow: 0 5px 0 var(--card-rim-dark), 0 12px 20px rgba(20, 70, 92, .2);
+    opacity: 0; transform: translateY(-10px) scale(.96);
+    transition: opacity 180ms ease, transform 300ms cubic-bezier(.34, 1.56, .64, 1);
   }
-  #card.show { opacity: 1; transform: rotate(-1.2deg); }
-  .dc-gesture { flex: none; width: 26px; height: 26px; }
+  #card.show { opacity: 1; transform: none; }
   #card .card-text { display: inline; }
 
   /* ---- HUD ---- */
@@ -354,17 +352,8 @@
 <div id="game">
   <div id="stage"></div>
   <div id="bubble" role="status" aria-live="polite" aria-atomic="true">
-    <svg class="bubble-mark mark-left" viewBox="0 0 40 60" aria-hidden="true">
-      <path d="M8 12 L30 24" /><path d="M8 48 L30 36" />
-    </svg>
+    <svg class="bubble-skin" aria-hidden="true"><path class="skin-fill"/><path class="skin-line"/><ellipse class="skin-sheen"/></svg>
     <div class="dialogue-inner"><span class="bubble-line"></span></div>
-    <svg class="bubble-mark mark-right" viewBox="0 0 40 60" aria-hidden="true">
-      <path d="M32 12 L10 24" /><path d="M32 48 L10 36" />
-    </svg>
-    <svg class="dialogue-tail" viewBox="0 -8 44 42" aria-hidden="true">
-      <path class="tail-fill"   d="M4 -8 H42 V0 C36 12 24 22 2 34 C8 24 8 12 4 0 Z" />
-      <path class="tail-stroke" d="M42 0 C36 12 24 22 2 34 C8 24 8 12 4 0" />
-    </svg>
   </div>
   <!-- Progress is announced to a screen reader only. On screen it is the
        confetti, the sound and Swiftee's reaction that say "well done"; a

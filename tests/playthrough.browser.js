@@ -427,15 +427,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       prev = now;
     }
     const out = [];
+    // Tag every reading with the screen it was taken on. The lesson does not
+    // stop for this check, and a reading from after a screen change is a
+    // reading of a different pose at a different size on a different mark —
+    // which looks exactly like the shift this exists to catch.
+    const screenOf = () => (window.Game && window.Game.screen);
     for (const s of ['idle', 'wave', 'think', 'celebrate', 'confused', 'surprised', 'point', 'idle']) {
       window.Swiftee.play(s);
       await new Promise((r) => setTimeout(r, 450));
-      out.push([s, rect()]);
+      out.push([s, rect(), screenOf()]);
     }
     return out;
   }), [['none', [0, 0, 0]]]);
-  const first = JSON.stringify(pivot[0][1]);
-  const drift = pivot.filter((p) => JSON.stringify(p[1]) !== first);
+  // Only readings from the same screen can be compared with each other.
+  const onScreen = pivot[0] && pivot[0][2];
+  const sameScreen = pivot.filter((p) => p[2] === onScreen);
+  const first = sameScreen.length ? JSON.stringify(sameScreen[0][1]) : '[]';
+  const drift = sameScreen.filter((p) => JSON.stringify(p[1]) !== first);
   t('Swiftee does not shift when the expression changes', drift.length === 0,
     drift.map((d) => d[0] + '=' + d[1].join(',')).join(' '));
 
