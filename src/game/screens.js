@@ -673,29 +673,52 @@
       id: 'sort-regular', page: 33,
       swiftee: { pos: 'left', size: 'medium' },
       say: 'Where does this polygon belong?',
-      // FLAG: interaction inconsistency. Page 27 sorts by DRAG-to-bin; this
-      // page introduces SWIPE-left/right for the same kind of task, with a
-      // direction convention the child has to remember. One sorting
-      // mechanic across the game is easier to learn, and drag-to-bin is
-      // already taught. Swipe text ("Swipe left for Regular / Swipe right
-      // for Irregular") is dropped accordingly.
+      // The deck's own mechanic for this page. It was swapped for drag-to-bin
+      // once, on the argument that one sorting gesture across the game is
+      // easier to learn than two — see originalMechanic below, which has
+      // recorded the swipe all along — and has now been asked back.
+      //
+      // The argument for the swap was not wrong about consistency and was
+      // wrong about the question. Page 27 asks "which pile does each of these
+      // belong in", and drag-to-bin fits it: several shapes, two destinations,
+      // a journey for each. This page asks "this one — left or right?" of one
+      // shape at a time, and a binary property is better answered by a binary
+      // gesture than by a journey. The two mechanics now mark two different
+      // kinds of question rather than two ways of doing the same one.
+      //
+      // FIVE ROUNDS, ONE SHAPE AT A TIME, in this order. They are chosen so
+      // that between them they cover what "regular" actually requires:
+      //
+      //   1 pentagon                      all equal      -> REGULAR
+      //   2 irregular-quad                neither equal  -> IRREGULAR
+      //   3 hexagon                       all equal      -> REGULAR
+      //   4 stretched-hexagon             sides unequal  -> IRREGULAR
+      //   5 equilateral-concave-hexagon   SIDES EQUAL,
+      //                                   angles unequal -> IRREGULAR
+      //
+      // The fifth is the one the whole page exists for: equal sides alone do
+      // not make a polygon regular. The second used to be a rhombus, which
+      // has equal sides and unequal angles — the fifth's property, taught
+      // twice, leaving "neither equal" never shown at all.
+      //
+      // Nothing here declares the answers. Poly.isRegular runs on each card's
+      // live vertices, so the colours mean nothing and redrawing a shape moves
+      // its answer with it.
       stage: {
-        kind: 'sort', mechanic: 'drag-to-bin',
-        bins: [{ id: 'regular', label: 'Regular', tone: 'green' }, { id: 'irregular', label: 'Irregular', tone: 'pink' }],
-        // One item at a time, as the deck shows; judged by Poly.isRegular.
-        items: ['pentagon', 'rhombus', 'hexagon', 'stretched-hexagon', 'equilateral-concave-hexagon'],
-        oneAtATime: true
+        kind: 'swipe-sort',
+        zones: [{ id: 'regular', label: 'Regular' }, { id: 'irregular', label: 'Irregular' }],
+        items: ['pentagon', 'irregular-quad', 'hexagon', 'stretched-hexagon', 'equilateral-concave-hexagon']
       },
       originalMechanic: 'swipe',
       beats: [
-        { stage: { kind: 'sort', enter: 'stagger' } },
+        { stage: { kind: 'swipe-sort', enter: 'stagger' } },
         { say: 'Where does this polygon belong?', vo: 'p33' },
         { swiftee: 'look', at: 'sort.item' },
-        { input: { type: 'sort', until: 'all-placed-correctly' } },
+        { input: { type: 'swipe', until: 'all-classified' } },
         { feedback: correct([{ sfx: 'levelUp' }, { juice: 'confetti', target: 'stage' }]) }
       ],
       perTap: { correct: [{ sfx: 'correct' }, { juice: 'pop', target: 'item' }],
-                wrong:   [{ sfx: 'wrong' }, { juice: 'refuse', target: 'item' }, { stage: { returnItem: true } }, { swiftee: 'confused' }] }
+                wrong:   [{ sfx: 'wrong' }, { juice: 'refuse', target: 'item' }, { swiftee: 'confused' }] }
     },
 
     /* ================================================================ *

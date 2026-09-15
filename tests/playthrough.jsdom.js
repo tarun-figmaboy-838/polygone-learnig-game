@@ -98,6 +98,28 @@ async function act(spec){
       }
       return;
     }
+    case 'swipe': {
+      // Answered by TAPPING the zones, not by swiping. jsdom has no layout, so
+      // a pointer path in client coordinates would be a path across a
+      // zero-sized box — and the accessible tap fallback goes through the
+      // same classify() the swipe does, which is the whole reason it is one
+      // function. The swipe path itself is exercised in the browser suite,
+      // where there is real geometry to drag across.
+      const zoneOf=id=>svg().querySelector('.zone[data-zone="'+id+'"]');
+      let first=true, guard=0;
+      while(St().swipe && St().swipe.i<St().swipe.items.length && guard++<40){
+        const card=St().swipe.card;
+        if(!card){ await sleep(40); continue; }
+        const right=P.isRegular(card._verts)?'regular':'irregular';
+        const wrong=right==='regular'?'irregular':'regular';
+        if(first){ tapEl(zoneOf(wrong)); wrongTried++; first=false; await sleep(120); }
+        const before=St().swipe.i;
+        tapEl(zoneOf(right));
+        await until(()=>!St().swipe || St().swipe.i>before, 3000).catch(()=>{});
+        await sleep(40);
+      }
+      return;
+    }
     case 'stepper': { await until(()=>!!St().stepPlus); while(St().n<spec.target){ tapEl(St().stepPlus); await sleep(30);} return; }
   }
 }
@@ -123,7 +145,7 @@ async function act(spec){
   t('no runtime errors across the whole game', errors.length===0, errors.slice(0,3).join(' | '));
   t('all '+N+' screens were visited', screensSeen.size===N, screensSeen.size+'/'+N);
   const types=new Set(asked.map(a=>a.type));
-  t('all 11 interaction types were exercised', types.size===11, [...types].join(','));
+  t('all 12 interaction types were exercised', types.size===12, [...types].join(','));
   t('a wrong answer was tried on every judged screen ('+wrongTried+' times)', wrongTried>=8, String(wrongTried));
   t('every wrong attempt produced exactly one wrong cue', cues.wrong>=wrongTried, JSON.stringify(cues));
   t('correct cues fired', cues.correct>0);

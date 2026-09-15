@@ -345,6 +345,63 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         return;
       }
 
+      case 'swipe': {
+        // A REAL DRAG, not a tap on the zone.
+        //
+        // The tap fallback is what the jsdom suite uses, because jsdom has no
+        // layout to drag across. Here there is geometry, so this exercises the
+        // gesture the child will actually make — pointer down on the card,
+        // across the threshold, release — which is the only way the threshold,
+        // the pointer capture and the spring-back are ever executed.
+        //
+        // Round one gets three extra things done to it: a tiny movement, to
+        // prove a twitch does not classify anything; a swipe to the WRONG
+        // side, to prove a wrong answer keeps the same shape; and only then
+        // the right one.
+        for (let guard = 0; guard < 30; guard++) {
+          const st = await page.evaluate(() => {
+            const S = window.Stage.state.swipe;
+            if (!S) return null;
+            if (S.i >= S.items.length) return 'done';
+            if (!S.card) return 'wait';
+            return {
+              i: S.i,
+              right: window.Poly.isRegular(S.card._verts) ? 'regular' : 'irregular',
+              home: { x: 500, y: 268 }
+            };
+          });
+          if (st === null || st === 'done') return;
+          if (st === 'wait') { await sleep(140); continue; }
+
+          const left = { x: st.home.x - 150, y: st.home.y };
+          const right = { x: st.home.x + 150, y: st.home.y };
+          const toward = (side) => (side === 'regular' ? left : right);
+          const other = st.right === 'regular' ? 'irregular' : 'regular';
+
+          if (st.i === 0) {
+            // a twitch: must not classify
+            await dragPath(st.home, { x: st.home.x + 14, y: st.home.y }, 4);
+            await sleep(220);
+            const moved = await page.evaluate(() => window.Stage.state.swipe.i);
+            if (moved !== 0) throw new Error('a 14px twitch classified the card');
+            // the wrong side: must not advance
+            await dragPath(st.home, toward(other), 8);
+            await sleep(700);
+            const stillHere = await page.evaluate(() => window.Stage.state.swipe.i);
+            if (stillHere !== 0) throw new Error('a wrong swipe advanced the round');
+          }
+
+          const before = st.i;
+          await dragPath(st.home, toward(st.right), 8);
+          await page.waitForFunction((b) => {
+            const S = window.Stage.state.swipe;
+            return !S || S.i > b;
+          }, before, { timeout: 6000 }).catch(() => {});
+          await sleep(120);
+        }
+        return;
+      }
+
       case 'sort': {
         for (let guard = 0; guard < 26; guard++) {
           const move = await page.evaluate(() => {
@@ -551,7 +608,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   if (!CHECKS_ONLY) {
     t('played to the end and the replay button appeared', finished, 'stopped at screen ' + screen);
     t('all ' + N + ' screens were visited', seen === N, seen + '/' + N);
-    t('all 11 interaction types were exercised', new Set(asked).size === 11, [...new Set(asked)].join(','));
+    t('all 12 interaction types were exercised', new Set(asked).size === 12, [...new Set(asked)].join(','));
     t('correct cues fired', cues.correct > 0, JSON.stringify(cues));
     t('never stalled on a screen', stalls === 0, stalled ? JSON.stringify(stalled) : '');
   }

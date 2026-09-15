@@ -11,7 +11,9 @@ by a gate that fails the build, not by looking at it once.
 | --- | --- |
 | ✅ | All **39 screens** present, in storyboard order, each with a unique id |
 | ✅ | All **36 script lines** match the recording script word for word — none rewritten, none paraphrased |
-| ✅ | **11 interaction types** all reachable and all exercised: tap-count, drag-diagonal, tap-vertex, choose, sort, trace, compare, build, spot-the-odd, match, free-explore |
+| ✅ | **12 interaction types** all reachable and all exercised, including the swipe classification |
+| ✅ | Swipe practice: five shapes one at a time, left for Regular, right for Irregular — judged from live geometry, never from a table |
+| ✅ | A wrong swipe keeps the same shape; a twitch under the threshold classifies nothing. Both gated in the browser run |
 | ✅ | Every judged screen answers correctly to a **wrong** attempt first — 8 of them, tested that way on every run |
 | ✅ | No answer ghosts: no wrong path contains the words of the right one |
 | ✅ | Instruction card simulated on all 39 screens; every screen says what to do |

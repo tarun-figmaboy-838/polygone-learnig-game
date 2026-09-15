@@ -28,6 +28,7 @@ global.window = global;
 require('../src/core/polygon-math.js');
 const Screens = require('../src/game/screens.js');
 require('../src/character/swiftee-frames.js');   // swiftee.js reads the frame table at load
+const Stage = require('../src/game/stage.js');   // for shapeVerts: the shapes are content
 
 let pass = 0, fail = 0;
 const t = (label, cond, extra) => {
@@ -148,11 +149,12 @@ t('no screen claims page 34 or 36', !S.some((s) => s.page === 34 || s.page === 3
  *   tap-each      each target reveals its own measurement; there is nothing
  *                 to get wrong
  *   stepper       counts to a target; over-stepping just steps back
+ *   swipe         left or right; the wrong side keeps the same shape
  *
  * Splitting them is the point: a build that quietly dropped the wrong path
  * from `choice` would otherwise hide behind these.
  */
-const JUDGING = ['drag-endpoint', 'draw-diagonal', 'draw-diagonals', 'choice', 'multi-select', 'sort'];
+const JUDGING = ['drag-endpoint', 'draw-diagonal', 'draw-diagonals', 'choice', 'multi-select', 'sort', 'swipe'];
 const OPEN = ['vertex-pick', 'drag-vertex', 'tap-each', 'stepper', 'tap-anywhere'];
 
 const inputsOf = (s) => allBeats(s).filter((b) => b.input).map((b) => b.input.type);
@@ -232,8 +234,8 @@ t('every wrong path re-opens the input or is judged per tap',
 // it failed a test whose message said it was not implemented.
 const SWIFTEE = require('../src/character/swiftee.js').states;
 const INPUTS = ['tap-anywhere', 'vertex-pick', 'drag-endpoint', 'draw-diagonal', 'draw-diagonals',
-                'drag-vertex', 'choice', 'multi-select', 'tap-each', 'sort', 'stepper'];
-const KINDS = ['vista', 'polygon', 'choice-grid', 'compare', 'sort', 'builder'];
+                'drag-vertex', 'choice', 'multi-select', 'tap-each', 'sort', 'stepper', 'swipe'];
+const KINDS = ['vista', 'polygon', 'choice-grid', 'compare', 'sort', 'builder', 'swipe-sort'];
 const SFX = ['boing', 'correct', 'honk', 'levelUp', 'menuWhoosh', 'pop', 'select', 'slice',
              'slideWhistle', 'sparkle', 'tick', 'wrong', 'zip', 'drumroll'];
 const JUICE = ['celebrate', 'collect', 'confetti', 'pop', 'refuse', 'wobble', 'flash', 'squash', 'tada'];
@@ -260,8 +262,44 @@ t('every stage kind referenced is implemented', unknown(used.kind, KINDS).length
 t('every SFX cue referenced exists', unknown(used.sfx, SFX).length === 0, unknown(used.sfx, SFX));
 t('every juice effect referenced exists', unknown(used.juice, JUICE).length === 0, unknown(used.juice, JUICE));
 
-t('all 11 interaction types are actually used somewhere', used.input.size === 11, [...used.input]);
-t('all 6 stage kinds are actually used somewhere', used.kind.size === 6, [...used.kind]);
+/* ------------------------------------------------------------------ *
+ * The swipe practice teaches five different facts
+ *
+ * The five shapes are the page's whole content, and the one that matters
+ * most is the fifth: equal sides alone do not make a polygon regular. The
+ * second used to be a rhombus — equal sides, unequal angles — which is the
+ * fifth's property taught twice, leaving the "neither equal" case never
+ * shown at all. That is invisible in a playthrough, because both answers
+ * are IRREGULAR and the screen passes either way. It is only visible from
+ * the geometry, which is why it is checked here.
+ * ------------------------------------------------------------------ */
+{
+  const sw = S.filter((s) => s.stage && s.stage.kind === 'swipe-sort')[0];
+  t('the swipe practice exists', !!sw);
+  if (sw) {
+    const items = sw.stage.items || [];
+    t('it runs exactly five rounds', items.length === 5, items.length);
+    t('it asks the deck\'s own question',
+      sw.say === 'Where does this polygon belong?', sw.say);
+
+    const verts = items.map((n) => Stage.shapeVerts(n, 74, 0, 0));
+    const got = verts.map((v) => (Poly.isRegular(v) ? 'regular' : 'irregular'));
+    t('the answers are regular, irregular, regular, irregular, irregular',
+      got.join(',') === 'regular,irregular,regular,irregular,irregular', got.join(','));
+
+    // the properties the five shapes exist to separate
+    t('1 is equilateral AND equiangular', Poly.isEquilateral(verts[0]) && Poly.isEquiangular(verts[0]));
+    t('2 is NEITHER equilateral nor equiangular', !Poly.isEquilateral(verts[1]) && !Poly.isEquiangular(verts[1]));
+    t('3 is equilateral AND equiangular', Poly.isEquilateral(verts[2]) && Poly.isEquiangular(verts[2]));
+    t('4 has unequal sides', !Poly.isEquilateral(verts[3]));
+    t('5 has EQUAL sides and unequal angles — the point of the page',
+      Poly.isEquilateral(verts[4]) && !Poly.isEquiangular(verts[4]));
+    t('every shape is a simple polygon', verts.every((v) => Poly.isSimple(v)));
+  }
+}
+
+t('all 12 interaction types are actually used somewhere', used.input.size === 12, [...used.input]);
+t('all 7 stage kinds are actually used somewhere', used.kind.size === 7, [...used.kind]);
 
 /* ------------------------------------------------------------------ *
  * Shape of every screen

@@ -169,10 +169,10 @@ one speech — no screen here says more than one line, so it could never have ru
 | --- | --- |
 | `tests/polygon-math.test.js` | 77 checks. Every geometric judgement, including page 21's rhombus and rectangle traps |
 | `tests/director.test.js` | 38 checks. Ordering, cancellation, never-stuck, skip safety, branching |
-| `tests/screens.test.js` | 45 checks. Unique ids and VO ids, the instruction card simulated across all 39 screens, no wrong path containing words, no answer ghosts |
+| `tests/screens.test.js` | 55 checks. Unique ids and VO ids, the instruction card simulated across all 39 screens, no wrong path containing words, no answer ghosts |
 | `tests/swiftee.test.js` | 26 checks. The frame table still matches the manifest, every grid can address every frame, every sheet exists, no reaction outruns the beat ceiling |
 | `tests/playthrough.jsdom.js` | A scripted child plays all 39 screens, trying a wrong answer first on every judged one |
-| `tests/playthrough.browser.js` | The same lesson in a real Chrome, via Playwright |
+| `tests/playthrough.browser.js` | The same lesson in a real Chrome, via Playwright — including a real pointer drag on the swipe practice, a twitch that must not classify, and a wrong swipe that must not advance |
 
 The browser suite exists because jsdom has no hit testing, and that is a whole
 class of bug it cannot see: a faded-out Start button sitting over the middle of

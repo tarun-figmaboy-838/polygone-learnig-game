@@ -559,6 +559,17 @@
       case 'hexagon':   return Poly.regular(6, r, cx, cy);
       case 'octagon':   return Poly.regular(8, r, cx, cy);
       case 'rhombus':   return [{ x: cx, y: cy - r * 0.6 }, { x: cx + r, y: cy }, { x: cx, y: cy + r * 0.6 }, { x: cx - r, y: cy }];
+      // A quadrilateral with no two sides the same and no two angles the
+      // same. The deck's second classification case wants "both sides AND
+      // angles unequal", and a rhombus is the wrong shape for it: its sides
+      // ARE all equal, which is the fifth case's property, not the second's.
+      // Two cards teaching the same fact leaves one of the five facts untaught.
+      case 'irregular-quad': return [
+        { x: cx - r * 0.58, y: cy - r * 0.92 },
+        { x: cx + r * 1.02, y: cy - r * 0.10 },
+        { x: cx + r * 0.22, y: cy + r * 0.48 },
+        { x: cx - r * 0.98, y: cy + r * 0.94 }
+      ];
       case 'chevron':   return [{ x: cx - r, y: cy + r * .7 }, { x: cx, y: cy - r * .8 }, { x: cx + r, y: cy + r * .7 }, { x: cx, y: cy + r * .1 }];
       case 'l-shape':   return [{ x: cx - r * .8, y: cy - r * .8 }, { x: cx - r * .1, y: cy - r * .8 }, { x: cx - r * .1, y: cy + r * .1 }, { x: cx + r * .8, y: cy + r * .1 }, { x: cx + r * .8, y: cy + r * .8 }, { x: cx - r * .8, y: cy + r * .8 }];
       case 'star': { var o = []; for (var i = 0; i < 10; i++) { var a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .42 : r; o.push({ x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr }); } return o; }
@@ -663,6 +674,73 @@
       });
     },
 
+    /**
+     * Swipe classification: one shape, two destinations.
+     *
+     * The deck's own mechanic for this page — `originalMechanic: 'swipe'` in
+     * screens.js records that it was swapped for drag-to-bin once and has now
+     * been asked back. It is a different question from the drag-to-bin sort
+     * on page 27: that one asks "which pile does each of these belong in",
+     * this one asks "this one — left or right?", and a binary choice made
+     * with the whole hand is a better fit for a binary property than a
+     * journey across the screen.
+     *
+     * FIVE ROUNDS, ONE AT A TIME. The five shapes are never on screen
+     * together; the interaction below walks them. The zones and the hint are
+     * built once and stay put, so nothing moves under the child between
+     * rounds except the card itself.
+     *
+     * The zones are inset far enough to clear Swiftee on the left and the
+     * HUD on the right — a zone the character stands on top of is a zone the
+     * gate for "no overlay covers the lesson" would fail on, and rightly.
+     */
+    'swipe-sort': function (spec) {
+      reset(); st.kind = 'swipe-sort';
+      st.swipe = { zones: {}, items: (spec.items || []).slice(), i: 0, spec: spec, card: null };
+
+      var ZW = 236, ZH = 250, ZY = 128;
+      [{ id: 'regular', x: 168, tone: 'green' },
+       { id: 'irregular', x: W - 168 - ZW, tone: 'pink' }].forEach(function (z) {
+        var def = (spec.zones || []).filter(function (d) { return d.id === z.id; })[0] || { id: z.id, label: z.id };
+        var tone = z.tone === 'pink' ? ['#ffeef3', '#f08aa4', '#7a1b3a'] : ['#edfbf1', '#7fd49a', '#1d5a33'];
+        var g = mk('g', { 'class': 'zone', 'data-zone': z.id }, layers.ui);
+        // the slab, in the same grammar as every other surface in this game:
+        // a face, a rim, and an underside so it has thickness
+        mk('rect', { x: z.x, y: ZY + 7, width: ZW, height: ZH, rx: 26, fill: tone[1], opacity: 0.35 }, g);
+        mk('rect', { x: z.x, y: ZY, width: ZW, height: ZH, rx: 26, fill: tone[0], stroke: tone[1], 'stroke-width': 3 }, g);
+        // the title plate
+        mk('rect', { x: z.x + 16, y: ZY + 12, width: ZW - 32, height: 52, rx: 16, fill: tone[1] }, g);
+        mk('text', { x: z.x + ZW / 2, y: ZY + 47, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 700, fill: '#fff', text: def.label }, g);
+        // the dashed landing area
+        mk('rect', { x: z.x + 18, y: ZY + 78, width: ZW - 36, height: ZH - 96, rx: 18,
+                     fill: 'none', stroke: tone[1], 'stroke-width': 3, 'stroke-dasharray': '11 9', opacity: 0.85 }, g);
+        g._rect = { x: z.x, y: ZY, w: ZW, h: ZH };
+        g._tone = tone;
+        st.swipe.zones[z.id] = g;
+        if (spec.enter !== false) enter(g, 'rise');
+      });
+
+      // the direction hint, under the card
+      var hint = mk('g', { 'class': 'swipe-hint' }, layers.ui);
+      st.swipe.hint = hint;
+      [[-1, 'regular'], [1, 'irregular']].forEach(function (d) {
+        var dir = d[0], side = d[1];
+        var col = side === 'regular' ? '#1d7a4a' : '#c2325c';
+        var x = W / 2 + dir * 74;
+        var a = mk('path', {
+          d: dir < 0 ? 'M' + (x + 46) + ' 474 L' + (x - 34) + ' 474 M' + (x - 16) + ' 462 L' + (x - 36) + ' 474 L' + (x - 16) + ' 486'
+                     : 'M' + (x - 46) + ' 474 L' + (x + 34) + ' 474 M' + (x + 16) + ' 462 L' + (x + 36) + ' 474 L' + (x + 16) + ' 486',
+          fill: 'none', stroke: col, 'stroke-width': 7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+          'class': 'swipe-arrow', 'data-zone': side, opacity: 0.85
+        }, hint);
+        mk('text', { x: x + dir * 8, y: 512, 'text-anchor': 'middle', 'font-size': 23, 'font-weight': 700,
+                     fill: col, 'class': 'swipe-label', 'data-zone': side,
+                     text: dir < 0 ? 'Swipe left for Regular' : 'Swipe right for Irregular' }, hint);
+      });
+
+      dealCard();
+    },
+
     sort: function (spec) {
       reset(); st.kind = 'sort'; st.sort = { bins: [], items: [], placed: 0, spec: spec };
       var bins = spec.bins || [];
@@ -721,6 +799,60 @@
       st.stepper = { min: (spec.stepper && spec.stepper.min) || 3, max: (spec.stepper && spec.stepper.max) || 8 };
     }
   };
+
+  /* ------------------------------------------------------------------ *
+   * Swipe classification
+   * ------------------------------------------------------------------ */
+
+  var SWIPE_HOME = { x: W / 2, y: 268 };
+
+  /**
+   * Put the next shape on the table.
+   *
+   * Never a pop: it rises and fades in, because a card that appears fully
+   * formed reads as the same card changing shape rather than as a new
+   * question arriving.
+   */
+  function dealCard() {
+    var sw = st.swipe;
+    if (!sw || sw.i >= sw.items.length) return null;
+    var name = sw.items[sw.i];
+    var g = mk('g', { 'class': 'swipe-card', 'data-shape': name }, layers.ui);
+    mk('rect', { x: -96, y: -96, width: 192, height: 192, rx: 28, fill: 'rgba(255,255,255,.5)', stroke: 'rgba(255,255,255,.75)', 'stroke-width': 3 }, g);
+    drawShape(name, 74, 0, 0, g);
+    g.setAttribute('transform', 'translate(' + SWIPE_HOME.x + ',' + SWIPE_HOME.y + ')');
+    g._name = name;
+    g._verts = shapeVerts(name, 74, 0, 0);
+    g.style.cursor = 'grab';
+    g.style.touchAction = 'pan-y';
+    sw.card = g;
+    if (!reduced() && g.animate) {
+      g.animate([{ translate: '0 26px', scale: '.92', opacity: 0 }, { translate: '0 0', scale: '1', opacity: 1 }],
+                { duration: 300, easing: 'cubic-bezier(.22,1,.36,1)' });
+    }
+    return g;
+  }
+
+  /** Lean a zone toward the child while they are dragging at it. */
+  function leanZone(id, on) {
+    var sw = st.swipe; if (!sw) return;
+    Object.keys(sw.zones).forEach(function (k) {
+      var g = sw.zones[k], want = (k === id && on);
+      if (g._lean === want) return;
+      g._lean = want;
+      g.style.transformBox = 'fill-box'; g.style.transformOrigin = 'center';
+      if (!reduced() && g.animate) {
+        g.animate([{ scale: want ? '1' : '1.045' }, { scale: want ? '1.045' : '1' }],
+                  { duration: 160, easing: 'ease-out', fill: 'forwards' });
+      }
+      g.classList.toggle('zone-live', want);
+    });
+    (sw.hint ? [].slice.call(sw.hint.querySelectorAll('[data-zone]')) : []).forEach(function (el) {
+      el.setAttribute('opacity', (on && el.getAttribute('data-zone') === id) ? 1 : 0.85);
+      el.setAttribute('stroke-width', el.tagName === 'path'
+        ? ((on && el.getAttribute('data-zone') === id) ? 9 : 7) : null);
+    });
+  }
 
   function makeSortItem(name, x, y, i) {
     var g = mk('g', { 'class': 'sort-item', 'data-shape': name }, layers.ui);
@@ -1165,6 +1297,201 @@
           });
         });
         if (ctx && ctx.onCancel) ctx.onCancel(endInteraction);
+      });
+    },
+
+    /**
+     * Swipe a shape left for Regular or right for Irregular.
+     *
+     * ONE SUBMISSION PATH. The swipe, a tap on a zone and the arrow keys all
+     * end in classify(), so there is exactly one place where an answer is
+     * judged, one place that locks input and one place that advances the
+     * round. Three parallel copies of that logic is how a fast double-swipe
+     * ends up skipping a question or finishing the practice twice.
+     *
+     * JUDGED FROM THE SHAPE, NOT FROM A TABLE. Poly.isRegular runs on the
+     * card's own vertices, so the answer cannot drift from the drawing —
+     * redraw a shape and the answer follows it. Colour means nothing here.
+     *
+     * A WRONG ANSWER KEEPS THE SAME CARD. It nudges toward the side that was
+     * chosen, the zone says "not quite", and the card springs back. Nothing
+     * is removed, nothing is revealed, and the child tries again — which is
+     * the only way a classification practice teaches rather than tests.
+     */
+    swipe: function (spec, ctx) {
+      return new Promise(function (resolve) {
+        if (global.Input) Input.mode('polygon');
+        var sw = st.swipe;
+        if (!sw || !sw.card) { resolve({ result: 'correct' }); return; }
+
+        var W_CARD = 192;
+        var THRESHOLD = W_CARD * 0.22;
+        var resolving = false, dragging = false, demo = null;
+        var startX = 0, startY = 0, dx = 0, pid = null;
+
+        function place(card, x, rot, scale) {
+          card.setAttribute('transform',
+            'translate(' + (SWIPE_HOME.x + x) + ',' + SWIPE_HOME.y + ') rotate(' + rot.toFixed(2) + ')' +
+            (scale ? ' scale(' + scale + ')' : ''));
+        }
+
+        function sideOf(x) { return x < -THRESHOLD ? 'regular' : x > THRESHOLD ? 'irregular' : null; }
+
+        /* ---- the one submission path ---- */
+        function classify(answer) {
+          if (resolving || !answer || !sw.card) return;
+          stopDemo();
+          resolving = true;
+          var card = sw.card;
+          var right = Poly.isRegular(card._verts) ? 'regular' : 'irregular';
+          var ok = answer === right;
+          var dir = answer === 'regular' ? -1 : 1;
+
+          if (ok) {
+            sfx('correct');
+            juice('pop', card);
+            var zone = sw.zones[answer];
+            if (zone && !reduced() && zone.animate) {
+              zone.animate([{ scale: '1' }, { scale: '1.07' }, { scale: '1' }],
+                           { duration: 320, easing: 'cubic-bezier(.3,1.3,.5,1)' });
+            }
+            leanZone(null, false);
+            // the card finishes its journey into the zone it earned
+            var fly = card.animate
+              ? card.animate([
+                  { translate: dx + 'px 0', opacity: 1 },
+                  { translate: (dir * 330) + 'px -18px', scale: '.55', opacity: 0 }
+                ], { duration: 340, easing: 'cubic-bezier(.3,.8,.35,1)', fill: 'forwards' })
+              : null;
+            var after = function () {
+              if (card.parentNode) card.parentNode.removeChild(card);
+              sw.card = null;
+              sw.i++;
+              if (sw.i >= sw.items.length) { hold(260).then(function () { done(); }); return; }
+              // a beat to understand what happened, then the next question
+              hold(300).then(function () {
+                if (!st.swipe) return;
+                dealCard();
+                arm();
+                resolving = false;
+              });
+            };
+            if (fly && fly.finished) fly.finished.then(after, after); else after();
+            if (ctx && ctx.onCorrect) ctx.onCorrect();
+          } else {
+            sfx('wrong');
+            juice('refuse', card);
+            var z = sw.zones[answer];
+            if (z && !reduced() && z.animate) {
+              z.animate([{ translate: '0 0' }, { translate: '-6px 0' }, { translate: '6px 0' }, { translate: '0 0' }],
+                        { duration: 260, easing: 'ease-in-out' });
+            }
+            if (ctx && ctx.onWrong) ctx.onWrong();
+            // a nudge toward the side they chose, then home again
+            var back = card.animate
+              ? card.animate([
+                  { translate: dx + 'px 0', rotate: (dir * 5) + 'deg' },
+                  { translate: (dir * 92) + 'px 0', rotate: (dir * 7) + 'deg', offset: 0.42 },
+                  { translate: '0 0', rotate: '0deg' }
+                ], { duration: 520, easing: 'cubic-bezier(.3,.9,.35,1)' })
+              : null;
+            var reset2 = function () {
+              dx = 0; place(card, 0, 0);
+              leanZone(null, false);
+              resolving = false;
+            };
+            if (back && back.finished) back.finished.then(reset2, reset2); else reset2();
+          }
+        }
+
+        /* ---- the demonstration, first round only ---- */
+        function runDemo() {
+          if (reduced() || !sw.card || !sw.card.animate || sw.i !== 0) return;
+          demo = sw.card.animate([
+            { translate: '0 0', rotate: '0deg' },
+            { translate: '-54px 0', rotate: '-4deg', offset: 0.22 },
+            { translate: '0 0', rotate: '0deg', offset: 0.44 },
+            { translate: '54px 0', rotate: '4deg', offset: 0.66 },
+            { translate: '0 0', rotate: '0deg' }
+          ], { duration: 2600, iterations: Infinity, easing: 'ease-in-out' });
+        }
+        function stopDemo() { if (demo) { try { demo.cancel(); } catch (e) {} demo = null; } }
+
+        /* ---- pointer, the only input path that needs geometry ---- */
+        function onDown(e) {
+          if (resolving || !sw.card) return;
+          stopDemo();
+          dragging = true; pid = e.pointerId;
+          startX = e.clientX; startY = e.clientY; dx = 0;
+          sw.card.style.cursor = 'grabbing';
+          try { if (e.target.setPointerCapture) e.target.setPointerCapture(pid); } catch (err) {}
+          e.preventDefault();
+        }
+        function onMove(e) {
+          if (!dragging || resolving || !sw.card) return;
+          var m = svg.getScreenCTM();
+          var scale = m ? m.a : 1;
+          dx = (e.clientX - startX) / (scale || 1);
+          // the card is on rails: this is a left-or-right question, not a
+          // free drag, so vertical travel is ignored entirely
+          var t = Math.max(-1, Math.min(1, dx / (THRESHOLD * 2.2)));
+          place(sw.card, dx, t * 6);
+          leanZone(sideOf(dx), !!sideOf(dx));
+          e.preventDefault();
+        }
+        function onUp(e) {
+          if (!dragging) return;
+          dragging = false;
+          if (sw.card) sw.card.style.cursor = 'grab';
+          try { if (e.target.releasePointerCapture && pid != null) e.target.releasePointerCapture(pid); } catch (err) {}
+          var side = sideOf(dx);
+          if (side) { classify(side); return; }
+          // not far enough to mean anything: spring home
+          leanZone(null, false);
+          if (sw.card && sw.card.animate && !reduced()) {
+            sw.card.animate([{ translate: dx + 'px 0' }, { translate: '0 0' }],
+                            { duration: 260, easing: 'cubic-bezier(.3,1.4,.5,1)' });
+          }
+          dx = 0; if (sw.card) place(sw.card, 0, 0);
+        }
+        function onCancel() {
+          if (!dragging) return;
+          dragging = false;
+          leanZone(null, false);
+          dx = 0; if (sw.card) { place(sw.card, 0, 0); sw.card.style.cursor = 'grab'; }
+        }
+
+        function onKey(e) {
+          if (e.key === 'ArrowLeft') { classify('regular'); e.preventDefault(); }
+          else if (e.key === 'ArrowRight') { classify('irregular'); e.preventDefault(); }
+        }
+
+        /* ---- arm whatever is currently on the table ---- */
+        function arm() {
+          if (!sw.card) return;
+          on(sw.card, 'pointerdown', onDown);
+          on(sw.card, 'pointermove', onMove);
+          on(sw.card, 'pointerup', onUp);
+          on(sw.card, 'pointercancel', onCancel);
+          on(sw.card, 'lostpointercapture', onCancel);
+          runDemo();
+        }
+
+        // Tapping a zone does the same thing as swiping to it — the swipe is
+        // the experience, but it must never be the only way in.
+        Object.keys(sw.zones).forEach(function (id) {
+          var g = sw.zones[id];
+          g.style.cursor = 'pointer';
+          on(g, 'pointerdown', function (e) { e.preventDefault(); stopDemo(); classify(id); });
+        });
+        on(svg.ownerDocument, 'keydown', onKey);
+
+        arm();
+
+        function done() {
+          endInteraction();
+          resolve({ result: 'correct' });
+        }
       });
     },
 
