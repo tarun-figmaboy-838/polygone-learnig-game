@@ -102,6 +102,25 @@ by a gate that fails the build, not by looking at it once.
 
 ---
 
+## Played as a child plays
+
+ — see [QA.md](QA.md). The other suites play the lesson
+correctly; this one taps the scenery, mashes Play five times, triple-taps Next
+on every screen, resizes the window mid-sentence and leans on the arrow keys.
+
+| | |
+| --- | --- |
+| ✅ | Five fast taps on Play start the game **once** |
+| ✅ | Tapping the scenery never advances the lesson |
+| ✅ | Impatient triple-taps never skip a screen |
+| ✅ | Survives being resized mid-screen |
+| ✅ | Every touchable thing on every screen is ≥ 30px — found the vertex handles at 29px and fixed them to ~38px |
+| ✅ | Every screen that **asks** something offers a cue: Next, a card, a haloed target, or motion |
+| ✅ | Speech ≥ 20px and ≥ 4.5:1 against its paper |
+| ✅ | Nothing accumulates and nothing throws, however it is treated |
+
+---
+
 ## Gates
 
 ```

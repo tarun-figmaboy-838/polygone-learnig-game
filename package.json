@@ -12,9 +12,10 @@
     "test:play": "node tests/playthrough.jsdom.js",
     "test:browser": "node tests/playthrough.browser.js",
     "test:browser:checks": "node tests/playthrough.browser.js --checks",
-    "test:all": "npm test && npm run test:browser",
+    "test:all": "npm test && npm run test:browser && npm run test:qa",
     "build:frames": "node tools/build-swiftee-frames.js",
-    "start": "node serve.js"
+    "start": "node serve.js",
+    "test:qa": "node tests/qa.browser.js"
   },
   "devDependencies": {
     "jsdom": "^24.0.0",

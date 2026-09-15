@@ -485,7 +485,7 @@
       var col = st.vcolor && st.vcolor[j] ? st.vcolor[j] : null;
       var c = mk('circle', {
         cx: v[j].x, cy: v[j].y,
-        r: col ? 13 : (touch ? 14 : 9),
+        r: col ? 13 : (touch ? 19 : 9),
         fill: col || (touch ? '#fff8e7' : '#1030c8'),
         stroke: col ? '#5a4a00' : (touch ? '#6b3400' : 'none'),
         'stroke-width': col ? 2 : (touch ? 3.5 : 2),
