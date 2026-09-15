@@ -252,9 +252,11 @@
     return out;
   }
 
-  function reveal(line, ms) {
+  function reveal(line, ms, units) {
     clearInterval(revealTimer); revealTimer = null;
-    var units = unitsOf(line);
+    // Split already, if the caller did it. unitsOf mutates the line — running
+    // it twice would wrap every word span in another word span.
+    units = units || unitsOf(line);
     if (!units.length) return;
 
     var reduced = !!(global.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -298,10 +300,17 @@
     }
     bubble.classList.remove('out');
     bubble.classList.add('show');
-    // Size and place it at full size FIRST, then start hiding words. The other
-    // order would measure an empty bubble.
+    // SPLIT INTO WORDS FIRST, then measure, then reveal.
+    //
+    // fitLine counts rows by where the words sit, and until unitsOf has run
+    // the words are bare text nodes — which have no bounding box. It saw only
+    // the tinted chips, counted one row, and never shrank anything: "Which of
+    // these are polygons?" stayed on two rows with the fit silently doing
+    // nothing. Splitting first gives every word a box to be measured by, and
+    // costs nothing, since reveal needed the same split a moment later.
+    var units = unitsOf(line);
     fitLine();
-    reveal(line, ms);
+    reveal(line, ms, units);
   }
 
   /**
@@ -523,7 +532,7 @@
     var SAFE = 10;
     var capFor = function (r) {
       var room = (r.id === 'left' || r.id === 'right')
-        ? Math.min(r.w - SAFE, 520)
+        ? Math.min(r.w - SAFE, 640)
         : Math.min(r.w - SAFE, vw * 0.8);
       return room;
     };
@@ -536,12 +545,25 @@
     // The settle pass re-runs this once the animation is over anyway.
     var size = function () { return { w: bubble.offsetWidth, h: bubble.offsetHeight }; };
 
-    var slot = null, w = 0, h = 0, best = Infinity;
+    // PICK THE SLOT THE SENTENCE READS BEST IN, not the first one it fits.
+    //
+    // This used to take the first slot tall enough to hold the bubble and
+    // stop. A slot beside the lesson is narrow and tall, so it always
+    // qualified — and the sentence was then squeezed into three rows in a
+    // 250px column while a full-width band above or below the lesson sat
+    // empty. Measuring every slot and keeping the one where the bubble comes
+    // out SHORTEST is the same thing as keeping the one where it wraps least,
+    // and costs three more layout reads on a path that now runs twice a line.
+    var slot = null, w = 0, h = 0, bestH = Infinity, bestOver = Infinity;
     for (var si = 0; si < slots.length; si++) {
       bubble.style.maxWidth = capFor(slots[si]) + 'px';
       var m = size();
-      if (m.h <= slots[si].h) { slot = slots[si]; break; }
-      if (m.h - slots[si].h < best) { best = m.h - slots[si].h; slot = slots[si]; }
+      if (m.h <= slots[si].h && m.w <= slots[si].w) {
+        if (m.h < bestH) { bestH = m.h; slot = slots[si]; }
+      } else if (bestH === Infinity && m.h - slots[si].h < bestOver) {
+        // nothing fits yet: keep the least bad
+        bestOver = m.h - slots[si].h; slot = slots[si];
+      }
     }
     bubble.style.maxWidth = capFor(slot) + 'px';
     var m2 = size(); w = m2.w; h = m2.h;
@@ -689,10 +711,15 @@
       if (c < 0) return;
       var hw = horn.hw, L = horn.len, ln = horn.lean || 0;
       d.push('L' + pt(E, c - hw, 0));
-      // out to the tip, leaving the edge square-on so the two make a corner
-      d.push('C' + pt(E, c - hw * 0.95, L * 0.5) + ' ' + pt(E, c + ln + hw * 0.5, L * 0.8) + ' ' + pt(E, c + ln, L));
-      // and back, arriving square-on as well
-      d.push('C' + pt(E, c + ln + hw * 0.15, L * 0.72) + ' ' + pt(E, c + hw * 0.5, L * 0.45) + ' ' + pt(E, c + hw, 0));
+      // Leaves the edge square-on, so base and body make a clean corner.
+      // Out to the tip. The second control stays on the side the curve came
+      // from: pulled PAST the tip, as it was, the curve overshoots and comes
+      // back, so the two halves meet in a cusp rather than a point — and a
+      // cusp under a 4px round join renders as a little hook hanging off the
+      // end. That hook was the 'extra part'.
+      d.push('C' + pt(E, c - hw * 0.98, L * 0.5) + ' ' + pt(E, c + ln - hw * 0.3, L * 0.86) + ' ' + pt(E, c + ln, L));
+      // and back up the other side, mirrored, so the tip is a clean point
+      d.push('C' + pt(E, c + ln + hw * 0.3, L * 0.86) + ' ' + pt(E, c + hw * 0.98, L * 0.5) + ' ' + pt(E, c + hw, 0));
     };
 
     d.push('M' + P(r, 0));
@@ -759,7 +786,10 @@
       if (vertical) lean = clampTo((head.x - r.left) - (head.x - r.left), -hw, hw);
       var aimAt = vertical ? (head.x - r.left) : (head.y - r.top);
       var base = clampTo(aimAt, hw + em, (vertical ? r.width : r.height) - hw - em);
-      lean = clampTo(aimAt - base, -hw * 1.2, hw * 1.2);
+      // Bounded well inside the base width. The tip stays a clean point at any
+      // lean — its two controls sit either side of it by construction — but a
+      // tail leaning further than its own base reads as bent rather than aimed.
+      lean = clampTo(aimAt - base, -hw * 0.75, hw * 0.75);
 
       horn = {
         edge: edge,

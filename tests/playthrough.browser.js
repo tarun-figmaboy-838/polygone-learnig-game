@@ -199,6 +199,34 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     nodes: document.getElementsByTagName('*').length,
     anims: document.getAnimations().length
   })), { nodes: 0, anims: 0 });
+
+  // How many rows each screen's line ends up on.
+  //
+  // The bubble is meant to keep a short or middling sentence on one row —
+  // it shrinks the type rather than wrapping, down to three fifths — and the
+  // failure mode is silent: the fit runs, finds nothing to do because it is
+  // measuring the wrong thing, and the line wraps anyway. That happened twice
+  // (once counting a block's height, once counting words that were still bare
+  // text nodes), and neither showed up in any check.
+  //
+  // Sampled a beat after the line changes, so the fit and the settle pass have
+  // both finished.
+  await safe(() => page.evaluate(() => {
+    window.__rows = {};
+    const line = document.querySelector('.bubble-line');
+    if (!line) return;
+    const sample = () => {
+      const kids = [].slice.call(line.childNodes)
+        .filter((n) => n.getBoundingClientRect && n.getBoundingClientRect().width);
+      if (!kids.length) return;
+      const tops = {};
+      kids.forEach((n) => { tops[Math.round(n.getBoundingClientRect().top / 2) * 2] = 1; });
+      const n = Object.keys(tops).length;
+      const s = window.Game.screen;
+      window.__rows[s] = Math.max(window.__rows[s] || 0, n);
+    };
+    new MutationObserver(() => setTimeout(sample, 900)).observe(line, { childList: true, subtree: true });
+  }), null);
   await shot('03-landed.png');
 
   /* ---- the child ------------------------------------------------- */
@@ -544,6 +572,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // rather than zero. Anything leaking is out by far more than this.
     t('nothing leaks across a full lesson', grew.nodes < 120 && grew.anims < 60,
       JSON.stringify({ baseline, settled, grew }));
+  }
+
+  if (!CHECKS_ONLY) {
+    const rows = await safe(() => page.evaluate(() => window.__rows || {}), {});
+    const wrapped = Object.keys(rows).filter((k) => rows[k] > 1);
+    const bad = Object.keys(rows).filter((k) => rows[k] > 2);
+    console.log('  note  lines measured: ' + Object.keys(rows).length +
+      ', on one row: ' + (Object.keys(rows).length - wrapped.length) +
+      (wrapped.length ? ', wrapping: ' + wrapped.map((k) => (Number(k) + 1) + '(' + rows[k] + ')').join(' ') : ''));
+    // Two rows is allowed for a genuinely long sentence; three means the fit
+    // is not working.
+    t('no line runs past two rows', bad.length === 0,
+      bad.map((k) => 'screen ' + (Number(k) + 1) + ' = ' + rows[k] + ' rows').join(', '));
   }
 
   t('no runtime errors', errors.length === 0, errors.slice(0, 3).join(' | '));
