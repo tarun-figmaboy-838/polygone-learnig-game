@@ -4,6 +4,7 @@ tools
 docs
 artifacts
 assets/source
+swiftee-in-use
 serve.js
 package-lock.json
 *.code-workspace

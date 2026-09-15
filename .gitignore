@@ -4,6 +4,12 @@ node_modules/
 # `npm run test:browser`; nothing in the game reads them.
 artifacts/
 
+# A copy of the sprite sheets the game plays, grouped by what each state
+# MEANS, for re-costuming the character. 5.6MB of duplicates of files that
+# are already in assets/swiftee/, so it is generated rather than stored:
+#   node tools/export-used-sprites.js
+swiftee-in-use/
+
 # editor / OS litter
 .DS_Store
 Thumbs.db

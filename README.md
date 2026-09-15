@@ -54,6 +54,8 @@ assets/
 tools/
   build-swiftee-frames.js  manifest -> src/character/swiftee-frames.js
   list-sprites.js          which sheets the game actually plays
+  export-used-sprites.js   copies those sheets into swiftee-in-use/,
+                           one folder per state, for re-costuming
 
 tests/                     see "Test gates"
 docs/BUILD.md              the original build handoff and deck review
