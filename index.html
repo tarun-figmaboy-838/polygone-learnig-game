@@ -193,6 +193,11 @@
     padding: .04em .34em; margin: 0 .03em;
     border-radius: .4em; font-weight: 800; white-space: nowrap;
   }
+  /* A tinted term and the punctuation that follows it, held together — see
+     the note in dual-coding.js. The negative margin closes the gap the chip's
+     right padding would otherwise open in front of the mark. */
+  .dc-keep { white-space: nowrap; }
+  .dc-keep > .w, .dc-keep > .dc-punct { margin-left: -.26em; }
 
   /* ---- instruction card --------------------------------------------------
      The task, not the speech. It shares the bubble's paper so the two belong

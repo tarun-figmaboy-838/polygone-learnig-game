@@ -128,9 +128,32 @@
       // colour still does the binding on its own: the term is tinted, and the
       // thing it names lights up on the stage in that same colour as the word
       // appears. Same pairing, one less thing in the text.
-      out += '<span class="dc-term" data-term="' + term + '" style="color:' + def.color +
-             ';background:' + def.tint + '">' + esc(m[0]) + '</span>';
+      var chip = '<span class="dc-term" data-term="' + term + '" style="color:' + def.color +
+                 ';background:' + def.tint + '">' + esc(m[0]) + '</span>';
       last = m.index + m[0].length;
+
+      // PUNCTUATION NEVER LEAVES THE WORD IT BELONGS TO.
+      //
+      // A chip is an inline-block, so the line is allowed to break straight
+      // after it — and the question mark in "Which of these are polygons?"
+      // is a separate word span, because it arrives after the chip has
+      // already been closed. So it could wrap onto a line of its own: a
+      // sentence ending in a lone "?" two rows down. After an ordinary word
+      // this cannot happen, since word and punctuation are one whitespace-
+      // delimited token; it is only ever the chips.
+      //
+      // Wrapping the pair in a nowrap span fixes the break, and the negative
+      // margin inside it closes the gap the chip's own right padding opens —
+      // which is why it read as "polygons ?" with a space in front of the
+      // mark. The margin is scoped to this wrapper, so ordinary words after a
+      // chip keep their normal spacing.
+      var tail = /^[.,!?;:%)\]]+/.exec(text.slice(last));
+      if (tail) {
+        out += '<span class="dc-keep">' + chip + esc(tail[0]) + '</span>';
+        last += tail[0].length;
+      } else {
+        out += chip;
+      }
     }
     out += esc(text.slice(last));
     return out;

@@ -119,7 +119,10 @@
       '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3fb3f6"/><stop offset=".55" stop-color="#a8dcfb"/><stop offset="1" stop-color="#eef8ff"/></linearGradient>' +
       '<linearGradient id="snowlit" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
       '<radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>' +
-      '<radialGradient id="vignette" cx=".5" cy=".45" r=".75"><stop offset=".6" stop-color="#0a2a4a" stop-opacity="0"/><stop offset="1" stop-color="#0a2a4a" stop-opacity=".16"/></radialGradient>';
+      '<radialGradient id="vignette" cx=".5" cy=".45" r=".75"><stop offset=".6" stop-color="#0a2a4a" stop-opacity="0"/><stop offset="1" stop-color="#0a2a4a" stop-opacity=".16"/></radialGradient>' +
+      // the panel: a slab of ice, lit from above
+      '<linearGradient id="panelFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".93"/><stop offset=".55" stop-color="#f2fbff" stop-opacity=".88"/><stop offset="1" stop-color="#d9eefb" stop-opacity=".9"/></linearGradient>' +
+      '<linearGradient id="panelSheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".85"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>';
 
     mk('rect', { width: W, height: H, fill: 'url(#sky)' }, layers.bg);
 
@@ -293,10 +296,61 @@
     right2: { x: 750, y: 130, w: 235, h: 250 }
   };
 
+  /**
+   * The slab the lesson stands on.
+   *
+   * It was one flat white rectangle with a thin blue outline, which is what a
+   * website card looks like — in a game about ice, on a painted glacier. It
+   * is a slab now: lit along its top edge, deepening to pale blue at the
+   * bottom, with a darker underside beneath it so it has thickness. That is
+   * the same grammar as everything else in this game — the speech bubble, the
+   * instruction card and the buttons all have a rim and an underside — so the
+   * panel stops being the one piece of furniture from somewhere else.
+   *
+   * THE SHAPE IS STILL THE HERO. Four crystals sit in the corners at a tenth
+   * opacity and nothing sits anywhere else: the middle, where the polygon
+   * goes, is clean ice. A theme that competes with the thing being taught is
+   * not a theme, it is clutter — which is why the frost is in the corners,
+   * the gradient is gentle, and there is no pattern across the face.
+   *
+   * Everything is drawn in viewBox units, so it scales with the stage and
+   * needs no breakpoints of its own.
+   */
   function panel(p, opts) {
     opts = opts || {};
     var g = mk('g', { 'class': 'panel' }, layers.panel);
-    mk('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 34, fill: 'rgba(255,255,255,.82)', stroke: '#9fd6fb', 'stroke-width': 3 }, g);
+    var R = 34;
+
+    // the thickness, showing beneath the face
+    mk('rect', { x: p.x, y: p.y + 7, width: p.w, height: p.h, rx: R,
+                 fill: '#7cb6dc', opacity: 0.38, 'pointer-events': 'none' }, g);
+
+    // the face
+    mk('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: R,
+                 fill: 'url(#panelFace)', stroke: 'rgba(255,255,255,.92)', 'stroke-width': 3 }, g);
+
+    // light along the top inside edge
+    mk('rect', { x: p.x + 9, y: p.y + 7, width: p.w - 18, height: p.h * 0.36, rx: R * 0.72,
+                 fill: 'url(#panelSheen)', opacity: 0.55, 'pointer-events': 'none' }, g);
+
+    // frost in the corners, and nowhere else
+    if (global.Snowflake) {
+      var inset = Math.min(p.w, p.h) * 0.11;
+      var r = Math.min(p.w, p.h) * 0.075;
+      [[p.x + inset, p.y + inset, 0], [p.x + p.w - inset, p.y + inset * 0.85, 1],
+       [p.x + inset * 0.9, p.y + p.h - inset, 2], [p.x + p.w - inset * 0.95, p.y + p.h - inset * 0.9, 0]
+      ].forEach(function (c, i) {
+        mk('path', {
+          'class': 'panel-frost',
+          d: Snowflake.path(r * (i % 2 ? 0.78 : 1), c[2]),
+          transform: 'translate(' + c[0].toFixed(1) + ',' + c[1].toFixed(1) + ')',
+          fill: 'none', stroke: '#8fc7ea', 'stroke-width': 1.6,
+          'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+          opacity: 0.24, 'pointer-events': 'none'
+        }, g);
+      });
+    }
+
     if (opts.enter !== false) enter(g, opts.enter || 'pop');
     return g;
   }

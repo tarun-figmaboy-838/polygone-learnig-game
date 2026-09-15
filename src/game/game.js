@@ -740,12 +740,33 @@
         ? (dy > 0 ? 'bottom' : 'top')
         : (dx > 0 ? 'right' : 'left');
       var vertical = edge === 'bottom' || edge === 'top';
+      // SIZED OFF THE BOX, NOT OFF THE TYPE.
+      //
+      // At em * 0.52 the horn came out 42px wide and 46px long under a 951px
+      // bubble, and a taper that thin does not read as a speech tail — it
+      // reads as a line drawn next to the character. A tail has to be a
+      // fraction of the shape it grows from: about a quarter of the box's
+      // shorter side across the base, and about half of it long. The em
+      // bounds only stop it collapsing on a tiny box or swamping a narrow one.
+      var shortSide = Math.min(r.width, r.height);
+      var clampTo = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
+      var hw = clampTo(shortSide * 0.26, em * 0.7, em * 1.4);
+      var len = clampTo(shortSide * 0.5, em * 1.0, em * 2.0);
+
+      // And the tip leans toward his head rather than hanging straight down,
+      // so the tail points at the speaker instead of merely starting near him.
+      var lean = 0;
+      if (vertical) lean = clampTo((head.x - r.left) - (head.x - r.left), -hw, hw);
+      var aimAt = vertical ? (head.x - r.left) : (head.y - r.top);
+      var base = clampTo(aimAt, hw + em, (vertical ? r.width : r.height) - hw - em);
+      lean = clampTo(aimAt - base, -hw * 1.2, hw * 1.2);
+
       horn = {
         edge: edge,
-        at: vertical ? (head.x - r.left) : (head.y - r.top),
-        hw: em * 0.52,
-        len: em * 1.15,
-        lean: 0
+        at: base,
+        hw: hw,
+        len: len,
+        lean: lean
       };
     }
 
