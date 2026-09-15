@@ -333,6 +333,7 @@
    * the horn along with the words.
    */
   function fitLine() {
+    var f = frame();
     var inner = bubble.querySelector('.dialogue-inner');
     var line = bubble.querySelector('.bubble-line');
     if (!inner || !line) { placeBubble(); paintSkin(); return; }
@@ -373,11 +374,35 @@
     };
     var rows = function () { return Object.keys(rowTops()).length || 1; };
 
-    // Shrink the TYPE until the sentence fits on one row, to three fifths of
-    // its size and no further — past that it is a genuinely long sentence and
-    // wrapping is the right answer, not six-point text. Only the type: the
-    // padding, the corner radius and the horn are all em of #bubble's own
-    // font-size, and shrinking that would shrink the frame with the words.
+    // ONE ROW, BUT NOT AT ANY WIDTH.
+    //
+    // A single row is easier for a child than two — until the row is the
+    // width of the screen. The longest lines in this deck were being kept on
+    // one row in a box a thousand pixels across, which is a worse read than
+    // two comfortable rows and leaves the bubble spanning the whole stage.
+    // So there is a comfortable measure, and past it the sentence is simply
+    // allowed to wrap at full size rather than being squeezed on to one line.
+    var COMFY = f.w * 0.72;
+    if (rows() > 1 && bubble.offsetWidth >= COMFY - 2) {
+      bubble.style.maxWidth = Math.round(COMFY) + 'px';
+      placeBubble();
+      // Two rows is the deal. Narrowing to a comfortable measure can push the
+      // very longest sentence to three, and three rows of a speech bubble is
+      // a paragraph — so the type still gives way until it is back to two.
+      var s2 = base;
+      for (var k = 0; k < 7 && rows() > 2 && s2 > base * 0.6; k++) {
+        s2 *= 0.93;
+        inner.style.fontSize = s2.toFixed(1) + 'px';
+      }
+      placeBubble();
+      paintSkin();
+      return;
+    }
+
+    // Otherwise shrink the TYPE until the sentence fits on one row, to three
+    // fifths of its size and no further. Only the type: the padding, the
+    // corner radius and the horn are all em of #bubble's own font-size, and
+    // shrinking that would shrink the frame along with the words.
     var size = base;
     for (var i = 0; i < 7 && rows() > 1 && size > base * 0.6; i++) {
       size *= 0.93;
@@ -779,6 +804,20 @@
       var clampTo = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
       var hw = clampTo(shortSide * 0.26, em * 0.7, em * 1.4);
       var len = clampTo(shortSide * 0.5, em * 1.0, em * 2.0);
+
+      // IT POINTS AT HIM. IT DOES NOT REACH HIM.
+      //
+      // The horn is aimed at his head, and when the bubble sits close the
+      // tip simply arrived there — across his beak and over his face. A
+      // speech tail indicates the speaker from a distance; one that lands on
+      // him reads as a spike through his head. Capped at rather over half
+      // the clear gap, so there is always visible air between the point and
+      // the bird.
+      var gap = edge === 'bottom' ? head.y - (r.top + r.height)
+              : edge === 'top'    ? r.top - head.y
+              : edge === 'right'  ? head.x - (r.left + r.width)
+              :                     r.left - head.x;
+      if (gap > 0) len = clampTo(Math.min(len, gap * 0.58), em * 0.7, len);
 
       // And the tip leans toward his head rather than hanging straight down,
       // so the tail points at the speaker instead of merely starting near him.
@@ -1312,7 +1351,10 @@
       // make a sound. Unlock, then play on the same tick — the context is
       // resumed by the gesture, so the cue lands with the press rather than
       // a screen later.
-      if (global.SFX) { SFX.unlock(); SFX.play('pop'); SFX.play('sparkle', { delay: 0.06 }); }
+      // sequence(), not two play() calls with a delay option: a cue only
+      // honours the options it reads, and sparkle reads none — so the delay
+      // was ignored and both landed on the same instant as one thicker pop.
+      if (global.SFX) { SFX.unlock(); SFX.sequence(['pop', 0.07, 'sparkle']); }
       if (global.TitleFx) TitleFx.press();
       loadEl.classList.add('gone');
       // The title screen's weather is thirty infinite animations. Nothing can

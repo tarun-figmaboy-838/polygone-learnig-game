@@ -211,6 +211,36 @@
       }
     },
 
+    /**
+     * Sleigh bells. A handful of small bells struck at slightly different
+     * moments, which is what a shake is — hitting them together makes a
+     * chord, and a chord is a bell, not a harness.
+     *
+     * `n` and `spread` let the arrival ring it harder as the sleigh gets
+     * closer without it becoming a different sound.
+     */
+    sleighBells: function (o) {
+      var n = o.n || 7, spread = o.spread == null ? 0.05 : o.spread;
+      var gain = o.gain == null ? 0.07 : o.gain;
+      for (var i = 0; i < n; i++) {
+        var t = i * spread + Math.random() * spread * 0.6;
+        // two partials per bell: the strike and the ring above it
+        tone({ f: note(3 + (Math.random() * 3 | 0), 3), dur: 0.5, type: 'triangle', gain: gain, delay: t });
+        tone({ f: note(1 + (Math.random() * 4 | 0), 4), dur: 0.34, type: 'sine', gain: gain * 0.55, delay: t + 0.008 });
+      }
+    },
+
+    /**
+     * One hoof on packed snow: a low thud with the crunch on top. Called
+     * repeatedly by the arrival rather than looped, so the gait can slow as
+     * the sleigh pulls up.
+     */
+    hoofbeat: function (o) {
+      var g = o.gain == null ? 0.09 : o.gain, d = o.delay || 0;
+      tone({ f: 92, to: 54, dur: 0.11, type: 'sine', gain: g, delay: d });
+      noise({ f: 1600, to: 700, dur: 0.07, q: 1.1, filter: 'bandpass', gain: g * 0.5, delay: d });
+    },
+
     /** Transition whoosh, screen to screen. */
     menuWhoosh: function () {
       noise({ f: 400, to: 3000, dur: 0.26, q: 0.8, filter: 'bandpass', gain: 0.13 });

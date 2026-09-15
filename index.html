@@ -251,13 +251,47 @@
     border-radius: 16px;
     padding: .5em .85em;
     font-family: "Fredoka", "Baloo 2", "Arial Rounded MT Bold", var(--sans);
-    font-size: clamp(17px, 1.95vw, 27px); font-weight: 600;
+    font-size: clamp(20px, 2.35vw, 32px); font-weight: 600;
     line-height: 1.25; letter-spacing: .2px; color: var(--text-ink);
     box-shadow: 0 5px 0 var(--card-rim-dark), 0 12px 20px rgba(20, 70, 92, .2);
     opacity: 0; transform: translateY(-10px) scale(.96);
     transition: opacity 180ms ease, transform 300ms cubic-bezier(.34, 1.56, .64, 1);
   }
   #card.show { opacity: 1; transform: none; }
+
+  /* A hint of where we are, behind the words.
+     ...
+     A ridge of hills and two small firs, in one flat ice-blue at a twentieth
+     opacity, sitting along the BOTTOM of the card. Three rules keep it from
+     becoming clutter:
+
+       it is a silhouette, not a picture — one colour, no detail, nothing to
+       read;
+       it is along the bottom edge only, so the line of text crosses clean
+       card and never a shape;
+       it is behind everything, and the text sits on its own layer above it.
+
+     If it ever competes with the instruction it has failed at its only job,
+     which is to stop the card looking like a dialog box borrowed from a
+     website. */
+  #card::before {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: 0; height: 62%;
+    border-radius: 0 0 12px 12px;
+    pointer-events: none; z-index: 0; opacity: .5;
+    background: no-repeat bottom / 100% auto
+      url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'>\
+<g fill='%23064d68' opacity='.1'>\
+<path d='M0 60 L34 26 L58 44 L86 14 L120 47 L150 30 L182 52 L212 22 L244 46 L272 31 L300 55 L300 60 Z'/>\
+</g>\
+<g fill='%23064d68' opacity='.13'>\
+<path d='M36 60 L36 54 L30 54 L42 38 L36 38 L48 22 L60 38 L54 38 L66 54 L60 54 L60 60 Z'/>\
+<path d='M246 60 L246 56 L242 56 L251 44 L246 44 L255 32 L264 44 L259 44 L268 56 L264 56 L264 60 Z'/>\
+</g>\
+</svg>");
+  }
+  #card .card-text { position: relative; z-index: 1; }
   #card .card-text { display: inline; }
 
   /* ---- HUD ---- */

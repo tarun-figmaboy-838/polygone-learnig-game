@@ -168,13 +168,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     return {
       visible: getComputedStyle(el).opacity !== '0',
       state: window.Swiftee.state,
-      airborne: window.Swiftee.el.querySelectorAll('*').length > 0 &&
-                getComputedStyle(el.lastChild).backgroundImage.includes('flapping'),
+      airborne: /driving/.test(getComputedStyle(window.Swiftee.el.lastChild).backgroundImage),
       y: Math.round(r.bottom), settledY: Math.round(settled.bottom)
     };
   }), {});
   await shot('02-arrival.png');
-  t('he flies in on the airborne loop', inFlight.visible && inFlight.airborne, JSON.stringify(inFlight));
+  // He arrives by sleigh now, not on the wing: mid-arrival he is playing a
+  // driving clip and is still off his mark, and a moment later he is standing
+  // on it. 'airborne' asked whether the flapping sheet was bound, which is no
+  // longer what an arrival looks like.
+  t('he rides in on the sleigh', inFlight.visible && inFlight.state === 'enter', JSON.stringify(inFlight));
 
   // Wait for the landing rather than guessing how long it takes. A fixed
   // sleep passes on a fast machine and fails on a busy one, which says

@@ -327,26 +327,38 @@
 
     // the face
     mk('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: R,
-                 fill: 'url(#panelFace)', stroke: 'rgba(255,255,255,.92)', 'stroke-width': 3 }, g);
+                 fill: 'url(#panelFace)', stroke: '#a3d4ef', 'stroke-width': 3 }, g);
 
     // light along the top inside edge
     mk('rect', { x: p.x + 9, y: p.y + 7, width: p.w - 18, height: p.h * 0.36, rx: R * 0.72,
                  fill: 'url(#panelSheen)', opacity: 0.55, 'pointer-events': 'none' }, g);
 
-    // frost in the corners, and nowhere else
+    // FROST, NOT FOUR STAMPS.
+    //
+    // The first version put a crystal a twelfth of the panel wide in each
+    // corner at a quarter opacity, and at that size they stopped being
+    // texture: four big hard-edged stars, identical, one per corner, reading
+    // as clip-art pressed onto the card and competing with the shape in the
+    // middle. Frost on a window is small, uneven and barely there.
+    //
+    // So: half the size, half the opacity, a thinner line, each one a
+    // different size and build, and tucked further into the corners where
+    // the shape never reaches.
     if (global.Snowflake) {
-      var inset = Math.min(p.w, p.h) * 0.11;
-      var r = Math.min(p.w, p.h) * 0.075;
-      [[p.x + inset, p.y + inset, 0], [p.x + p.w - inset, p.y + inset * 0.85, 1],
-       [p.x + inset * 0.9, p.y + p.h - inset, 2], [p.x + p.w - inset * 0.95, p.y + p.h - inset * 0.9, 0]
-      ].forEach(function (c, i) {
+      var inset = Math.min(p.w, p.h) * 0.085;
+      var base = Math.min(p.w, p.h) * 0.036;
+      [[p.x + inset, p.y + inset, 0, 1.0],
+       [p.x + p.w - inset, p.y + inset * 0.82, 1, 0.72],
+       [p.x + inset * 0.86, p.y + p.h - inset, 2, 0.84],
+       [p.x + p.w - inset * 0.92, p.y + p.h - inset * 0.88, 1, 0.62]
+      ].forEach(function (c) {
         mk('path', {
           'class': 'panel-frost',
-          d: Snowflake.path(r * (i % 2 ? 0.78 : 1), c[2]),
+          d: Snowflake.path(base * c[3], c[2]),
           transform: 'translate(' + c[0].toFixed(1) + ',' + c[1].toFixed(1) + ')',
-          fill: 'none', stroke: '#8fc7ea', 'stroke-width': 1.6,
+          fill: 'none', stroke: '#9ccbe8', 'stroke-width': 1.1,
           'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-          opacity: 0.24, 'pointer-events': 'none'
+          opacity: 0.13, 'pointer-events': 'none'
         }, g);
       });
     }
@@ -918,14 +930,64 @@
       }
       if (h.diagonal === 'outside') { st.highlightOutside = true; renderPoly(); juice('flash', st.diagG); }
     },
+    /**
+     * A label on one side of the shape.
+     *
+     * OUTSIDE THE SHAPE, ALWAYS. It used to sit at the segment's midpoint
+     * plus a fixed (+110, -40): up and to the right, whatever the side was.
+     * On the bottom edge of a pentagon that is INTO the polygon — the word
+     * "Side" landed on the fill, on top of the right-hand vertex, with its
+     * leader line crossing the shape to reach a midpoint a few pixels away.
+     *
+     * A fixed offset cannot work, because which way is "away" depends on
+     * which side is labelled. The label now sits along the segment's outward
+     * normal — the direction from the shape's centre through the midpoint —
+     * so it is beside the side it names and clear of the shape whichever
+     * side that is, and the leader crosses nothing.
+     */
     label: function (l) {
       if (st.labelEl) st.labelEl.remove();
-      var x, y;
-      if (l.at === 'below-polygon' || !st.segment) { x = st.cx; y = st.panel.y + st.panel.h - 30; }
-      else { var a = st.verts[st.segment[0]], b = st.verts[st.segment[1]]; x = (a.x + b.x) / 2 + 110; y = (a.y + b.y) / 2 - 40; }
+      var x, y, m = null;
+      if (l.at === 'below-polygon' || !st.segment) {
+        // Below the SHAPE, not at the bottom of the panel. Pinned to the
+        // panel it sat at a fixed height whatever the shape did, and a
+        // hexagon — which has a vertex at the very bottom, where a pentagon
+        // has a flat side well above it — reached down into the word. The
+        // clearance is measured from the lowest vertex, and only falls back
+        // to the panel when the shape leaves no room.
+        x = st.cx;
+        var lowest = st.verts && st.verts.length
+          ? st.verts.reduce(function (m, p) { return p.y > m ? p.y : m; }, -Infinity)
+          : null;
+        var floorY = st.panel.y + st.panel.h - 18;
+        y = lowest == null ? st.panel.y + st.panel.h - 30
+                           : Math.min(floorY, lowest + 52);
+      } else {
+        var a = st.verts[st.segment[0]], b = st.verts[st.segment[1]];
+        m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        var nx = m.x - st.cx, ny = m.y - st.cy;
+        var len = Math.sqrt(nx * nx + ny * ny) || 1;
+        var OUT = 74;
+        x = m.x + nx / len * OUT;
+        y = m.y + ny / len * OUT;
+        // and never off the stage, however the shape is oriented
+        x = Math.max(78, Math.min(W - 78, x));
+        y = Math.max(46, Math.min(H - 34, y));
+      }
       var g = mk('g', { 'class': 'label' }, layers.ui);
-      mk('text', { x: x, y: y, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 700, fill: '#1c2a4a', text: l.text }, g);
-      if (l.arrow && st.segment) { var m = { x: (st.verts[st.segment[0]].x + st.verts[st.segment[1]].x) / 2, y: (st.verts[st.segment[0]].y + st.verts[st.segment[1]].y) / 2 }; mk('line', { x1: x - 40, y1: y + 6, x2: m.x + 8, y2: m.y - 6, stroke: '#4a5a7a', 'stroke-width': 3, 'marker-end': 'none' }, g); }
+      mk('text', { x: x, y: y, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 700,
+                   fill: '#1c2a4a', text: l.text }, g);
+      if (l.arrow && m) {
+        // from just outside the word to just short of the side, so neither
+        // end of the leader touches what it is connecting
+        var dx = m.x - x, dy = m.y - y, d = Math.sqrt(dx * dx + dy * dy) || 1;
+        var from = 26, to = 12;
+        mk('line', {
+          x1: x + dx / d * from, y1: y + dy / d * from - 8,
+          x2: m.x - dx / d * to, y2: m.y - dy / d * to,
+          stroke: '#4a5a7a', 'stroke-width': 3, 'stroke-linecap': 'round'
+        }, g);
+      }
       st.labelEl = g; if (l.enter && !reduced()) enter(g, 'pop');
     },
     badge: function (b) {

@@ -60,7 +60,19 @@
     think:       { rig: 'thinking',    hold: true },
     inspect:     { rig: 'focussed',    hold: true },
     look:        { rig: 'curious',     loops: 2,  lean: true },
-    point:       { rig: 'calling',     loops: 2,  lean: true },
+    // NOT 'calling'. That rig is a phone call — he lies down and a handset
+    // rings beside him — which is a charming animation and has nothing to do
+    // with showing a child where to tap. It was mapped here on the name alone.
+    //
+    // This rig has no pointing animation; there are twenty-six states and not
+    // one of them points. 'confident' is the nearest thing to "go on, it is
+    // there": an open, assured pose rather than a gesture at a target.
+    //
+    // Which is fine, because the character was never carrying this job on its
+    // own. What actually says WHERE is on the stage: focus() pulses the
+    // target and Stage.alive() haloes everything touchable. The character
+    // says "your turn"; the stage says "here".
+    point:       { rig: 'confident',   loops: 2,  lean: true },
 
     // reactions
     wave:        { rig: 'waving',      loops: 2 },
@@ -82,10 +94,19 @@
     stuck:       { rig: 'puzzleing',   loops: 2 },
     happy:       { rig: 'happy',       loops: 1 },
     daydream:    { rig: 'daydreaming', hold: true },
-    sleep:       { rig: 'sleeping',    hold: true },
+    // NOT 'sleeping'. Seventy-five seconds is a child reading a definition
+    // and thinking about it, and a companion who lies down with a pillow and
+    // Zs over its head at that point is telling them they have taken too
+    // long. It also reads as a broken game — the screen looks finished.
+    //
+    // 'curious' instead: he looks about, as if wondering where they have got
+    // to. Known-good, because it is the same rig the lesson already plays for
+    // 'look' — which matters after 'calling', where a rig was chosen on the
+    // strength of its name and turned out to be a phone ringing.
+    sleep:       { rig: 'curious',     hold: true },
 
     // travel — a standalone loop under a WAAPI move
-    enter:       { rig: 'flapping',    hold: true },
+    enter:       { rig: 'driving',     hold: true },
     exit:        { rig: 'flapping',    hold: true },
     move:        { rig: 'flapping',    hold: true }
   };
@@ -435,12 +456,17 @@
     return stateName === 'idle' || stateName === 'daydream' || stateName === 'sleep' || stateName === 'explain';
   }
 
-  /** Any real activity wakes him — with the `wake` clip if he was asleep. */
+  /**
+   * Any real activity brings him back to attention.
+   *
+   * No `wake` clip any more. That existed to get him up off the floor, and
+   * the deep idle no longer puts him on it — playing a getting-up animation
+   * from a standing pose is a stumble, not a wake.
+   */
   function stir() {
-    var wasAsleep = idleLevel === 2;
     idleLevel = 0;
     armIdle();
-    return wasAsleep ? clip('wake', 1) : Promise.resolve();
+    return Promise.resolve();
   }
 
   /* ------------------------------------------------------------------ *
@@ -590,44 +616,82 @@
      * shadow stays shrunk until the moment his feet arrive, which is what
      * makes the landing land.
      */
+    /**
+     * The arrival: he rides in on the sleigh, and the deer takes it away.
+     *
+     * Three clips the rig has always had and the game had never played.
+     * Measured frame by frame before this was built, because `exitsCell`
+     * says the art leaves frame during a clip but not which way or when, and
+     * an arrival built on a clip that drives the character OUT would have
+     * been fighting its own travel:
+     *
+     *   driving      51 frames, ZERO net drift — a run-in-place cycle. The
+     *                legs and the sleigh work while the art stays centred,
+     *                so the travel is the ELEMENT moving, not the clip.
+     *   drive_away   20 frames, and it ends on opaque bounds of 0.164–0.853
+     *                wide with the foot at 0.875 — which is the standing
+     *                pose, to three decimal places. It puts him down on his
+     *                mark by itself; nothing has to catch him.
+     *
+     * driving_start is skipped. It is twenty frames in which nothing moves —
+     * the art is identical in all of them — so it would be a second of
+     * stillness before the arrival began.
+     *
+     * The bells ride the approach: seven of them as he appears, rung again
+     * softer as he pulls up. The hoofbeats are struck one at a time rather
+     * than looped, so the gait can slow into the stop instead of cutting off
+     * mid-stride.
+     */
     enter: function (o) {
       var from = (o && o.from === 'right') ? 1 : -1;
       el.style.opacity = '1';
       var g = fresh(); stateName = 'enter'; rigLoop = null;
 
-      clip('flapping', Infinity);
-      if (global.SFX) SFX.play('menuWhoosh');
+      var RIDE = (F.clips.driving && F.clips.driving.ms) || 2533;
+      var X = from * 900;                       // off-stage, on the ground line
 
-      // Off-stage and well above the ground line, so he enters through sky.
-      var X = from * 760, H = 300;
+      if (global.SFX) {
+        SFX.play('sleighBells', { n: 7, spread: 0.055, gain: 0.05 });
+        // hooves across the ride, slowing into the stop
+        var beats = 11, t = 0, step = 0.16;
+        for (var i = 0; i < beats; i++) {
+          SFX.play('hoofbeat', { delay: t, gain: 0.085 - i * 0.004 });
+          t += step;
+          step *= 1.06;                          // each stride a little longer
+        }
+      }
 
-      var flight = anim([
-        { transform: 'translate(' + X + 'px,' + (-H) + 'px) rotate(' + (from * 14) + 'deg) scale(.72)', opacity: 0 },
-        { transform: 'translate(' + (X * 0.62) + 'px,' + (-H * 1.08) + 'px) rotate(' + (from * 11) + 'deg) scale(.8)', opacity: 1, offset: 0.18 },
-        { transform: 'translate(' + (X * 0.34) + 'px,' + (-H * 0.62) + 'px) rotate(' + (from * 7) + 'deg) scale(.88)', opacity: 1, offset: 0.42 },
-        { transform: 'translate(' + (X * 0.14) + 'px,' + (-H * 0.78) + 'px) rotate(' + (from * 4) + 'deg) scale(.95)', opacity: 1, offset: 0.62 },
-        // the flare: almost overhead, levelling out, still up
-        { transform: 'translate(' + (X * 0.03) + 'px,' + (-H * 0.42) + 'px) rotate(0deg) scale(1)', opacity: 1, offset: 0.84 },
-        { transform: 'translate(0,0) rotate(0deg) scale(1)', opacity: 1 }
-      ], { duration: FLIGHT_MS, easing: 'cubic-bezier(.32,.12,.28,1)' });
+      var ride = clip('driving', 1);
 
-      // Shadow: small and faint while he is up, full the instant he arrives.
+      // He comes in along the ground, easing out of the drive rather than
+      // stopping dead: a sleigh has weight.
+      var travel = anim([
+        { transform: 'translate(' + X + 'px,0) scale(1)', opacity: 0 },
+        { transform: 'translate(' + (X * 0.86) + 'px,0) scale(1)', opacity: 1, offset: 0.1 },
+        { transform: 'translate(' + (X * 0.30) + 'px,0) scale(1)', opacity: 1, offset: 0.62 },
+        { transform: 'translate(' + (X * 0.06) + 'px,0) scale(1)', opacity: 1, offset: 0.88 },
+        { transform: 'translate(0,0) scale(1)', opacity: 1 }
+      ], { duration: RIDE, easing: 'cubic-bezier(.16,.62,.24,1)' });
+
+      // The shadow travels with him and is full the whole way — he never
+      // leaves the ground on this arrival, so it never has to shrink.
       if (shadowEl && shadowEl.animate && !reduced) {
         try {
           shadowEl.animate([
-            { transform: 'translate(-50%,-35%) scale(.25)', opacity: .18 },
-            { transform: 'translate(-50%,-35%) scale(.35)', opacity: .28, offset: 0.62 },
-            { transform: 'translate(-50%,-35%) scale(.5)', opacity: .45, offset: 0.86 },
-            { transform: 'translate(-50%,-35%) scale(1)', opacity: 1 }
-          ], { duration: FLIGHT_MS, easing: 'cubic-bezier(.32,.12,.28,1)' });
+            { opacity: 0 }, { opacity: .85, offset: 0.12 }, { opacity: 1 }
+          ], { duration: RIDE, easing: 'ease-out' });
         } catch (e) {}
       }
 
-      return flight.finished.then(function () {
+      return Promise.all([ride, travel.finished]).then(function () {
         if (stale(g)) return;
-        // Touchdown.
+        // pulling up: the bells settle and he steps down
+        if (global.SFX) SFX.play('sleighBells', { n: 4, spread: 0.08, gain: 0.035 });
+        return clip('drive_away', 1);
+      }).then(function () {
+        if (stale(g)) return;
         if (global.SFX) SFX.play('pop');
-        if (global.Juice) Juice.squash(el, { amount: 0.2 });
+        if (global.Juice) Juice.squash(el, { amount: 0.16 });
         return rest();
       });
     },
