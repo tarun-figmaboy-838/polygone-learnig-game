@@ -389,8 +389,13 @@
       // Two rows is the deal. Narrowing to a comfortable measure can push the
       // very longest sentence to three, and three rows of a speech bubble is
       // a paragraph — so the type still gives way until it is back to two.
+      // Down to half if that is what two rows costs. This loop is the last
+      // thing standing between a long sentence and a three-row paragraph, so
+      // its floor is lower than the one above it — which is trying to win a
+      // single row and should give up early rather than shrink the type to
+      // win an argument.
       var s2 = base;
-      for (var k = 0; k < 7 && rows() > 2 && s2 > base * 0.6; k++) {
+      for (var k = 0; k < 12 && rows() > 2 && s2 > base * 0.5; k++) {
         s2 *= 0.93;
         inner.style.fontSize = s2.toFixed(1) + 'px';
       }
@@ -1092,6 +1097,16 @@
   function runScreen(i) {
     var s = Screens.list[i];
     say(null);
+    // THE CARD IS CLEARED, NOT INHERITED.
+    //
+    // It was only ever replaced — set by a screen that has an instruction,
+    // and left alone by one that does not. So the card from the screen before
+    // stayed up: "Drag the highlighted vertex." over a screen that asks the
+    // child to swipe, and again over the builder. Every screen that wants a
+    // card sets one in its beats, so clearing here costs nothing and the
+    // failure mode it removes is an instruction telling a child to do
+    // something the screen cannot do.
+    setCard(null);
     current = i; setProgress(i);
     Stage.onTap(function (kind) { if (s.perTap) fire(s.perTap[kind] || s.perTap.any); react(kind); });
     if (global.Input) Input.mode('locked');

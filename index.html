@@ -216,8 +216,12 @@
   }
   /* The polygon's own vertices carry it themselves — they are redrawn amber
      and larger while they are the target — so a halo on top would only blur
-     them. */
-  #stage .vertex.touchable { filter: none; }
+     them. A drop zone is not a button either: it is a place to put something,
+     already two hundred pixels of coloured dashed outline, and a glow around
+     something that big reads as a rendering fault rather than as an
+     invitation. The halo is for things the size of a control. */
+  #stage .vertex.touchable,
+  #stage .zone.touchable { filter: none; }
   @media (prefers-reduced-motion: reduce) {
     #stage .touchable {
       filter: drop-shadow(0 0 5px rgba(255, 181, 21, .95));

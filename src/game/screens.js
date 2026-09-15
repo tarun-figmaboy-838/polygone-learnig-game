@@ -711,6 +711,11 @@
       },
       originalMechanic: 'swipe',
       beats: [
+        // Clear the card first. Without this the instruction from the screen
+        // before stays up — "Drag the highlighted vertex." over a screen that
+        // asks the child to swipe — because the card is only ever replaced,
+        // never emptied, by a screen that does not set one.
+        { instruction: null },
         { stage: { kind: 'swipe-sort', enter: 'stagger' } },
         { say: 'Where does this polygon belong?', vo: 'p33' },
         { swiftee: 'look', at: 'sort.item' },

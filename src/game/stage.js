@@ -710,9 +710,13 @@
       reset(); st.kind = 'swipe-sort';
       st.swipe = { zones: {}, items: (spec.items || []).slice(), i: 0, spec: spec, card: null };
 
-      var ZW = 236, ZH = 250, ZY = 128;
-      [{ id: 'regular', x: 168, tone: 'green' },
-       { id: 'irregular', x: W - 168 - ZW, tone: 'pink' }].forEach(function (z) {
+      // The card is 192 across and lives in the middle. Zones at 168 left the
+      // gap either side of it at exactly nothing — the card's edge and the
+      // zone's edge touching, which reads as an overlap and gives a child
+      // dragging it nowhere to start from. Pushed out to leave a real corridor.
+      var ZW = 226, ZH = 250, ZY = 118;
+      [{ id: 'regular', x: 96, tone: 'green' },
+       { id: 'irregular', x: W - 96 - ZW, tone: 'pink' }].forEach(function (z) {
         var def = (spec.zones || []).filter(function (d) { return d.id === z.id; })[0] || { id: z.id, label: z.id };
         var tone = z.tone === 'pink' ? ['#ffeef3', '#f08aa4', '#7a1b3a'] : ['#edfbf1', '#7fd49a', '#1d5a33'];
         var g = mk('g', { 'class': 'zone', 'data-zone': z.id }, layers.ui);
@@ -732,22 +736,30 @@
         if (spec.enter !== false) enter(g, 'rise');
       });
 
-      // the direction hint, under the card
+      // The direction hint.
+      //
+      // Both labels used to be centred a few dozen pixels either side of the
+      // middle, and each is three hundred wide — so they were printed straight
+      // over one another and neither could be read. Each now sits under its
+      // OWN arrow, out where its zone is, and says the one word that matters:
+      // the arrow carries the direction, so the sentence does not have to.
       var hint = mk('g', { 'class': 'swipe-hint' }, layers.ui);
       st.swipe.hint = hint;
-      [[-1, 'regular'], [1, 'irregular']].forEach(function (d) {
-        var dir = d[0], side = d[1];
+      [[-1, 'regular', 'Regular'], [1, 'irregular', 'Irregular']].forEach(function (d) {
+        var dir = d[0], side = d[1], word = d[2];
         var col = side === 'regular' ? '#1d7a4a' : '#c2325c';
-        var x = W / 2 + dir * 74;
-        var a = mk('path', {
-          d: dir < 0 ? 'M' + (x + 46) + ' 474 L' + (x - 34) + ' 474 M' + (x - 16) + ' 462 L' + (x - 36) + ' 474 L' + (x - 16) + ' 486'
-                     : 'M' + (x - 46) + ' 474 L' + (x + 34) + ' 474 M' + (x + 16) + ' 462 L' + (x + 36) + ' 474 L' + (x + 16) + ' 486',
-          fill: 'none', stroke: col, 'stroke-width': 7, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-          'class': 'swipe-arrow', 'data-zone': side, opacity: 0.85
+        var cx = W / 2 + dir * 188;
+        var ax = cx - dir * 62, bx = cx + dir * 50;
+        mk('path', {
+          d: 'M' + ax + ' 470 L' + bx + ' 470 ' +
+             'M' + (bx - dir * 17) + ' 458 L' + bx + ' 470 L' + (bx - dir * 17) + ' 482',
+          fill: 'none', stroke: col, 'stroke-width': 8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+          'class': 'swipe-arrow', 'data-zone': side, opacity: 0.9
         }, hint);
-        mk('text', { x: x + dir * 8, y: 512, 'text-anchor': 'middle', 'font-size': 23, 'font-weight': 700,
-                     fill: col, 'class': 'swipe-label', 'data-zone': side,
-                     text: dir < 0 ? 'Swipe left for Regular' : 'Swipe right for Irregular' }, hint);
+        mk('text', {
+          x: cx, y: 512, 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 700,
+          fill: col, 'class': 'swipe-label', 'data-zone': side, text: word
+        }, hint);
       });
 
       dealCard();
@@ -807,13 +819,19 @@
       st.diagonals = [];
       renderPoly();
       // stepper
-      var sy = p.y + p.h - 70, sx = p.x + p.w / 2;
+      // The label sat ten pixels above the value and overlapped it, and the
+      // two buttons disagreed with each other — a grey minus beside a blue
+      // plus, as though one of them were disabled. The label has its own line
+      // above the control now, and both buttons are the same amber pill as
+      // everything else pressable in the game.
+      var sy = p.y + p.h - 76, sx = p.x + p.w / 2;
       var g = mk('g', { 'class': 'stepper' }, layers.ui);
-      mk('rect', { x: sx - 150, y: sy - 34, width: 300, height: 68, rx: 18, fill: '#fff', stroke: '#9fd6fb', 'stroke-width': 3 }, g);
-      mk('text', { x: sx, y: sy - 10, 'text-anchor': 'middle', 'font-size': 16, fill: '#5a6a8a', text: (spec.stepper && spec.stepper.label) || 'Number of sides' }, g);
-      st.stepMinus = button(g, sx - 110, sy + 4, 56, 40, '−', '#e8edf5', '#1c2a4a');
-      st.stepPlus = button(g, sx + 54, sy + 4, 56, 40, '+', '#3d8bff', '#fff');
-      st.stepText = mk('text', { x: sx, y: sy + 26, 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 700, fill: '#1c2a4a', text: n }, g);
+      mk('rect', { x: sx - 164, y: sy - 52, width: 328, height: 104, rx: 22, fill: '#ffffff', opacity: .92 }, g);
+      mk('text', { x: sx, y: sy - 26, 'text-anchor': 'middle', 'font-size': 19, 'font-weight': 600,
+                   fill: '#5a6a8a', text: (spec.stepper && spec.stepper.label) || 'Number of sides' }, g);
+      st.stepMinus = pill(g, { x: sx - 140, y: sy + 18, w: 64, h: 52, label: '−', tone: 'amber', press: true, attrs: { 'class': 'step-minus' } });
+      st.stepPlus  = pill(g, { x: sx + 76,  y: sy + 18, w: 64, h: 52, label: '+', tone: 'amber', press: true, attrs: { 'class': 'step-plus' } });
+      st.stepText = mk('text', { x: sx, y: sy + 32, 'text-anchor': 'middle', 'font-size': 38, 'font-weight': 700, fill: '#1c2a4a', text: n }, g);
       st.stepper = { min: (spec.stepper && spec.stepper.min) || 3, max: (spec.stepper && spec.stepper.max) || 8 };
     }
   };
@@ -1519,23 +1537,40 @@
           var dir = answer === 'regular' ? -1 : 1;
 
           if (ok) {
+            var zone = sw.zones[answer];
             sfx('correct');
             juice('pop', card);
-            var zone = sw.zones[answer];
             if (zone && !reduced() && zone.animate) {
               zone.animate([{ scale: '1' }, { scale: '1.07' }, { scale: '1' }],
                            { duration: 320, easing: 'cubic-bezier(.3,1.3,.5,1)' });
             }
             leanZone(null, false);
-            // the card finishes its journey into the zone it earned
+            // THE SHAPE IS COLLECTED, NOT DISCARDED.
+            //
+            // It used to shrink and fade out, which is tidy and tells the
+            // child nothing: five rounds went by and the two zones stayed as
+            // empty as they started. The card travels into the zone it earned
+            // and STAYS there, small, in a row — so the piles fill up as the
+            // practice goes on and the progress is the thing on the screen
+            // rather than a number somewhere else.
+            //
+            // It keeps its own drawing, so what is sitting in the Regular pile
+            // is visibly the pentagon that was just judged.
+            var slot = zone ? (zone._kept = (zone._kept || 0), zone._kept++) : 0;
+            var per = 3, pitch = 58;
+            var tx = zone ? zone._rect.x + 42 + (slot % per) * pitch : 0;
+            var ty = zone ? zone._rect.y + 118 + Math.floor(slot / per) * pitch : 0;
             var fly = card.animate
               ? card.animate([
-                  { translate: dx + 'px 0', opacity: 1 },
-                  { translate: (dir * 330) + 'px -18px', scale: '.55', opacity: 0 }
-                ], { duration: 340, easing: 'cubic-bezier(.3,.8,.35,1)', fill: 'forwards' })
+                  { translate: dx + 'px 0', scale: '1', opacity: 1 },
+                  { translate: (dir * 140) + 'px -26px', scale: '.72', opacity: 1, offset: 0.55 },
+                  { translate: (tx - SWIPE_HOME.x) + 'px ' + (ty - SWIPE_HOME.y) + 'px', scale: '.28', opacity: 1 }
+                ], { duration: 460, easing: 'cubic-bezier(.3,.8,.35,1)', fill: 'forwards' })
               : null;
             var after = function () {
-              if (card.parentNode) card.parentNode.removeChild(card);
+              // left where it landed, and out of the way of the next one
+              card.style.pointerEvents = 'none';
+              card.classList.add('kept');
               sw.card = null;
               sw.i++;
               if (sw.i >= sw.items.length) { hold(260).then(function () { done(); }); return; }
