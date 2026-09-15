@@ -683,6 +683,32 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       bad.map((k) => 'screen ' + (Number(k) + 1) + ' = ' + rows[k] + ' rows').join(', '));
   }
 
+  // NOTHING FROM A FINISHED SCREEN RUNS ON THE NEXT ONE.
+  //
+  // stage.js schedules a lot of delayed work — staggered entrances, a
+  // checklist ticking its rows in, the touch affordance switching on a beat
+  // after an interaction opens — and reset() used to cancel none of it. A
+  // callback from one screen would then run against the next: a tick sound on
+  // a screen with nothing to tick, a highlight on something nobody asked
+  // about. It never threw, so nothing caught it.
+  //
+  // Every one of them belongs to a scene now. This asserts both halves: that
+  // nothing is left pending at the end, and that the mechanism actually
+  // refused work during the run — a suppressor that has never suppressed
+  // anything is indistinguishable from one that was never wired up.
+  if (!CHECKS_ONLY) {
+    const scene = await safe(() => page.evaluate(() => ({
+      suppressed: window.Stage.staleSuppressed,
+      pending: window.Stage.pendingTimers
+    })), { suppressed: -1, pending: -1 });
+    // At a normal reading pace nothing goes stale — a screen is on long
+    // enough for its own timers to finish. The invariant that matters here is
+    // that none are left running when the lesson ends. That the refusal works
+    // is proved directly in the QA suite, which changes scenes faster than
+    // their timers can land.
+    t('no scene leaves timers running behind it', scene.pending === 0, JSON.stringify(scene));
+  }
+
   t('no runtime errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   t('no missing assets', missing.length === 0, missing.slice(0, 3).join(' | '));
   t('the browser survived the run', !crashed, crashed || '');

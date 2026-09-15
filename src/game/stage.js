@@ -45,7 +45,55 @@
   function pathOf(v) { return v.map(function (p, i) { return (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' ') + ' Z'; }
   function juice(name, el, o) { if (global.Juice && el && Juice[name]) Juice[name](el, o); }
   function sfx(name, o) { if (global.SFX) SFX.play(name, o); }
-  function hold(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  /* ------------------------------------------------------------------ *
+   * Scene generation
+   *
+   * Every delayed callback in this file used to be a bare setTimeout, and
+   * reset() — which tears the scene down and builds the next one — cancelled
+   * none of them. So a callback scheduled by one screen ran against the next:
+   * a staggered checklist row playing its tick on a screen that has no
+   * checklist, the touch affordance being switched on for an interaction that
+   * had already been replaced, a sort item fading itself in after its tray was
+   * gone.
+   *
+   * None of that is visible as an error. It shows up as a sound with no cause
+   * and a screen that lights up something nobody asked about, which is the
+   * hardest class of bug to find by looking.
+   *
+   * So the scene has a number, reset() advances it, and later() refuses to run
+   * anything scheduled by an older one. Every timer in this file goes through
+   * it. The count of what it has refused is exposed, because a mechanism that
+   * silently does nothing is indistinguishable from one that is not wired up.
+   * ------------------------------------------------------------------ */
+  var sceneGen = 0;
+  var sceneTimers = [];
+  var staleSuppressed = 0;
+
+  function later(ms, fn) {
+    var g = sceneGen;
+    var id = setTimeout(function () {
+      var i = sceneTimers.indexOf(id);
+      if (i >= 0) sceneTimers.splice(i, 1);
+      if (g !== sceneGen) { staleSuppressed++; return; }
+      fn();
+    }, ms);
+    sceneTimers.push(id);
+    return id;
+  }
+
+  /** Drop everything the outgoing scene was still waiting on. */
+  function dropTimers() {
+    sceneGen++;
+    sceneTimers.splice(0).forEach(function (id) { clearTimeout(id); });
+  }
+
+  /** A wait that belongs to a scene: resolves false once that scene is over. */
+  function hold(ms) {
+    var g = sceneGen;
+    return new Promise(function (r) {
+      setTimeout(function () { r(g === sceneGen); }, ms);
+    });
+  }
   function reduced() { return !!(global.Juice && Juice.reducedMotion); }
 
   /* ------------------------------------------------------------------ *
@@ -620,6 +668,7 @@
    * ------------------------------------------------------------------ */
 
   function reset() {
+    dropTimers();
     alive(false);
     endInteraction();
     clear('panel'); clear('poly'); clear('ui'); clear('fx');
@@ -658,7 +707,7 @@
         mk('rect', { x: x - 100, y: y, width: 200, height: 200, rx: 30, fill: 'rgba(255,255,255,.85)', stroke: '#9fd6fb', 'stroke-width': 3 }, g);
         drawShape(o.shape, 62, x, y + 100, g);
         g._opt = o;
-        if (spec.enter === 'stagger' && !reduced()) { g.style.opacity = 0; setTimeout(function () { g.style.opacity = 1; enter(g, 'pop'); }, i * 110); }
+        if (spec.enter === 'stagger' && !reduced()) { g.style.opacity = 0; later(i * 110, function () { g.style.opacity = 1; enter(g, 'pop'); }); }
         return g;
       });
     },
@@ -896,7 +945,7 @@
     drawShape(name, 40, 0, 0, g);
     g.setAttribute('transform', 'translate(' + x + ',' + y + ')');
     g._home = { x: x, y: y }; g._name = name; g._verts = shapeVerts(name, 40, 0, 0);
-    if (!reduced()) { g.style.opacity = 0; setTimeout(function () { g.style.opacity = 1; enter(g, 'pop'); }, i * 90); }
+    if (!reduced()) { g.style.opacity = 0; later(i * 90, function () { g.style.opacity = 1; enter(g, 'pop'); }); }
     return g;
   }
 
@@ -1163,7 +1212,7 @@
           press: true, attrs: { 'class': 'choice', 'data-label': label }
         });
         st.choiceEls.push(b);
-        if (!reduced()) { b.style.opacity = 0; setTimeout(function () { b.style.opacity = 1; enter(b, 'rise'); }, 90 * i); }
+        if (!reduced()) { b.style.opacity = 0; later(90 * i, function () { b.style.opacity = 1; enter(b, 'rise'); }); }
       });
     },
     checklist: function (c) {
@@ -1179,7 +1228,7 @@
         mk('circle', { cx: x + 26, cy: y + 10 + i * 40, r: 12, fill: ok ? '#2eab4e' : '#e05b5b' }, row);
         mk('text', { x: x + 21, y: y + 15 + i * 40, 'font-size': 16, 'font-weight': 700, fill: '#fff', text: ok ? '✓' : '✕' }, row);
         mk('text', { x: x + 50, y: y + 16 + i * 40, 'font-size': 20, 'font-weight': 600, fill: '#1c2a4a', text: label }, row);
-        if (c.animate && !reduced()) { row.style.opacity = 0; setTimeout(function () { row.style.opacity = 1; enter(row, 'pop'); sfx('tick'); }, i * (c.each || 300)); }
+        if (c.animate && !reduced()) { row.style.opacity = 0; later(i * (c.each || 300), function () { row.style.opacity = 1; enter(row, 'pop'); sfx('tick'); }); }
       });
     },
     reveal: function (r) {
@@ -1193,7 +1242,7 @@
           mk('circle', { cx: x + 12, cy: y + i * 30, r: 10, fill: ok ? '#2eab4e' : '#e05b5b' }, row);
           mk('text', { x: x + 8, y: y + 5 + i * 30, 'font-size': 14, 'font-weight': 700, fill: '#fff', text: ok ? '✓' : '✕' }, row);
           mk('text', { x: x + 32, y: y + 6 + i * 30, 'font-size': 17, fill: '#1c2a4a', text: label }, row);
-          if (r.animate && !reduced()) { row.style.opacity = 0; setTimeout(function () { row.style.opacity = 1; enter(row, 'pop'); }, (si * 2 + i) * 260); }
+          if (r.animate && !reduced()) { row.style.opacity = 0; later((si * 2 + i) * 260, function () { row.style.opacity = 1; enter(row, 'pop'); }); }
         });
       });
     },
@@ -1710,7 +1759,7 @@
           on(c, 'pointerdown', function (e) {
             e.preventDefault(); if (c._done) return; st.lastEl = c;
             if (c._opt.correct) { c._done = true; got++; c.firstChild.setAttribute('stroke', '#5da86e'); c.firstChild.setAttribute('fill', '#e6f8ea'); onTap('correct'); if (got >= need) { endInteraction(); resolve({ result: 'correct' }); } }
-            else { c.firstChild.setAttribute('stroke', '#e05b5b'); setTimeout(function () { c.firstChild.setAttribute('stroke', '#9fd6fb'); }, 500); onTap('wrong'); }
+            else { c.firstChild.setAttribute('stroke', '#e05b5b'); later(500, function () { c.firstChild.setAttribute('stroke', '#9fd6fb'); }); onTap('wrong'); }
           });
         });
         if (ctx && ctx.onCancel) ctx.onCancel(endInteraction);
@@ -1937,7 +1986,7 @@
     // A frame late on purpose: the interaction builds its own furniture — the
     // choice row, the sort tray — inside fn(), so asking now would find the
     // previous screen's.
-    if (invite) setTimeout(function () { alive(true); }, 60);
+    if (invite) later(60, function () { alive(true); });
 
     var p;
     try { p = fn(spec, ctx); }
@@ -2023,6 +2072,11 @@
     isEmpty: isEmpty, contentBox: contentBox, contentParts: contentParts,
     onTap: function (fn) { onTap = fn || function () {}; },
     ambient: ambientPlay, flurry: flurry, alive: alive,
+    /* How many delayed callbacks from a finished scene have been refused.
+       A test reads this: a suppression mechanism that never suppresses
+       anything looks exactly like one that was never wired up. */
+    get staleSuppressed() { return staleSuppressed; },
+    get pendingTimers() { return sceneTimers.length; },
     get svg() { return svg; }, get state() { return st; },
     shapeVerts: shapeVerts, PANELS: PANELS, HORIZON: HORIZON
   };

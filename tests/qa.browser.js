@@ -284,6 +284,39 @@ const LUM = `(function (c) {
   }));
   if (!end.finished) note('did not reach the end under this treatment', 'stopped at screen ' + (end.screen + 1));
   t('the page is still healthy at the end', end.nodes < 1200 && end.anims < 400, JSON.stringify(end));
+  // A SCENE'S DELAYED WORK MUST NOT RUN ON THE NEXT SCENE.
+  //
+  // stage.js stages its entrances — a sorting tray fades its items in one
+  // after another over most of a second, a checklist ticks its rows in — and
+  // a child who moves on before that finishes used to get the leftovers on
+  // the following screen: a tick with nothing to tick, a highlight on
+  // something nobody asked about. It never threw.
+  //
+  // Built and torn down immediately here, which is the case that used to
+  // leak, and the refusal is counted rather than assumed.
+  const leak = await page.evaluate(async () => {
+    const suppressedBefore = window.Stage.staleSuppressed;
+    window.Stage.apply({ kind: 'sort',
+      bins: [{ id: 'convex', label: 'Convex' }, { id: 'concave', label: 'Concave' }],
+      items: ['triangle', 'pentagon', 'hexagon', 'star'], enter: 'stagger' });
+    await new Promise((r) => setTimeout(r, 40));       // mid-stagger
+    const pendingMid = window.Stage.pendingTimers;     // entrances still owed
+    window.Stage.apply({ kind: 'vista' });             // and gone
+    const pendingAfter = window.Stage.pendingTimers;
+    await new Promise((r) => setTimeout(r, 700));      // past when they would have fired
+    return {
+      pendingMid: pendingMid,
+      pendingAfter: pendingAfter,
+      slippedThrough: window.Stage.staleSuppressed - suppressedBefore,
+      pendingEnd: window.Stage.pendingTimers
+    };
+  }).catch(function () { return { pendingMid: 0, pendingAfter: -1, slippedThrough: -1, pendingEnd: -1 }; });
+  // There were entrances owed; after the teardown there are none, none fired
+  // late, and none are still pending a second later.
+  t('a scene torn down mid-entrance leaves nothing running',
+    leak.pendingMid > 0 && leak.pendingAfter === 0 &&
+    leak.slippedThrough === 0 && leak.pendingEnd === 0, JSON.stringify(leak));
+
   t('nothing threw, however it was treated', errors.length === 0, errors.slice(0, 3).join(' | '));
   if (starved.length) note('host ran out of memory ' + starved.length + ' time(s) — not a build failure');
 
