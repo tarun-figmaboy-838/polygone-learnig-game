@@ -132,6 +132,21 @@
   /* Screens with nothing else on them get room to breathe. It is one number,
      because everything else is em. */
   #bubble.solo { font-size: clamp(26px, 3.15vw, 46px); }
+  /* ONE step down, and only one.
+
+     The type used to be shrunk sentence by sentence — three per cent at a
+     time, down to half — until each line fit on a single row. It worked, and
+     a child reading the game saw the words change size every time Swiftee
+     spoke, because the size was being decided by how long that particular
+     sentence happened to be. Text that changes size looks squeezed in, and it
+     is the loudest way for a game to read as unfinished.
+
+     So there are two sizes per tier and nothing in between: the normal one,
+     and this, used only when a sentence would otherwise run past two rows in
+     the space it has been given. Two discrete sizes are a decision; a
+     continuous scale is an accident. */
+  #bubble.tight .dialogue-inner { font-size: clamp(17px, 1.95vw, 27px); }
+  #bubble.tight.solo .dialogue-inner { font-size: clamp(22px, 2.6vw, 38px); }
 
   /* Mood tints the paper and nothing else. The rim is the bubble's identity
      and never changes, so a win does not arrive looking like a different

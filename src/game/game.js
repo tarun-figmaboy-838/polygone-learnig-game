@@ -332,110 +332,56 @@
    * the horn are all em of that, and shrinking it would shrink the frame and
    * the horn along with the words.
    */
+  /**
+   * Lay the line out and place the bubble.
+   *
+   * THE TYPE IS ONE SIZE. The stylesheet gives it two — the full size on a
+   * screen where Swiftee speaks alone, a smaller one where he is sharing the
+   * screen with a shape — and this does not touch either of them.
+   *
+   * It used to. It shrank the type, sentence by sentence, until the line fit
+   * on a single row: three per cent at a time, down to half. It worked, and
+   * it was wrong. A child reading this game saw the words change size every
+   * time Swiftee spoke — forty pixels on one screen, thirty-five on the next,
+   * twenty-nine on the one after — because the size was being decided by how
+   * long that particular sentence happened to be. Text that changes size is
+   * text that looks like it is being squeezed in, and it is the single
+   * loudest way for a game to read as unfinished.
+   *
+   * A long sentence wraps to two rows instead. Two rows at a size the child
+   * already knows is easier than one row at a size they have never seen, and
+   * it is the same answer a book would give.
+   */
   function fitLine() {
-    var f = frame();
-    var inner = bubble.querySelector('.dialogue-inner');
-    var line = bubble.querySelector('.bubble-line');
-    if (!inner || !line) { placeBubble(); paintSkin(); return; }
-
-    inner.style.fontSize = '';
     bubble.style.maxWidth = '';
-
-    // ONE full placement. It picks the slot beside the lesson and the width
-    // cap that goes with it, and it is expensive — it measures the stage's
-    // content box, tries every slot, and corrects itself. Calling it inside
-    // the loop below turned a hundred-and-twenty-second playthrough into a
-    // seven-hundred-second one.
+    var inner = bubble.querySelector('.dialogue-inner');
+    if (inner) inner.style.fontSize = '';    // nothing is sized from JS any more
+    bubble.classList.remove('tight');
     placeBubble();
 
-    // Everything after this resizes the type inside that fixed cap, which is
-    // a layout read and nothing more.
-    var base = parseFloat(getComputedStyle(inner).fontSize) || 20;
-
-    // Rows are counted from where the WORDS sit, not from the line's height
-    // and not from getClientRects().
-    //
-    // getClientRects() is out because the line is a block: it reports one
-    // rect however many rows are inside it. Height over line-height is out
-    // because a dual-coding chip is an inline-block with its own padding, so
-    // it makes its line box taller than the line-height — every sentence
-    // containing a tinted term measured as two rows when it was one.
-    var rowTops = function () {
-      var kids = line.childNodes, seen = {}, k, r;
-      for (k = 0; k < kids.length; k++) {
-        if (!kids[k].getBoundingClientRect) continue;
-        r = kids[k].getBoundingClientRect();
-        if (!r.width) continue;
-        var key = Math.round(r.top / 2) * 2;   // a chip sits a pixel off its neighbours
-        if (!seen[key]) seen[key] = { l: r.left, r: r.right };
-        else { if (r.left < seen[key].l) seen[key].l = r.left; if (r.right > seen[key].r) seen[key].r = r.right; }
-      }
-      return seen;
-    };
-    var rows = function () { return Object.keys(rowTops()).length || 1; };
-
-    // ONE ROW, BUT NOT AT ANY WIDTH.
-    //
-    // A single row is easier for a child than two — until the row is the
-    // width of the screen. The longest lines in this deck were being kept on
-    // one row in a box a thousand pixels across, which is a worse read than
-    // two comfortable rows and leaves the bubble spanning the whole stage.
-    // So there is a comfortable measure, and past it the sentence is simply
-    // allowed to wrap at full size rather than being squeezed on to one line.
-    var COMFY = f.w * 0.72;
-    if (rows() > 1 && bubble.offsetWidth >= COMFY - 2) {
-      bubble.style.maxWidth = Math.round(COMFY) + 'px';
+    // Step down ONCE if the sentence still runs past two rows in the space it
+    // was given. Not a scale — a second size, declared in the stylesheet, the
+    // same on every screen that needs it. Three rows of a speech bubble is a
+    // paragraph, and that is the only thing worth spending a size change on.
+    if (rowsOfLine() > 2) {
+      bubble.classList.add('tight');
       placeBubble();
-      // Two rows is the deal. Narrowing to a comfortable measure can push the
-      // very longest sentence to three, and three rows of a speech bubble is
-      // a paragraph — so the type still gives way until it is back to two.
-      // Down to half if that is what two rows costs. This loop is the last
-      // thing standing between a long sentence and a three-row paragraph, so
-      // its floor is lower than the one above it — which is trying to win a
-      // single row and should give up early rather than shrink the type to
-      // win an argument.
-      var s2 = base;
-      for (var k = 0; k < 12 && rows() > 2 && s2 > base * 0.5; k++) {
-        s2 *= 0.93;
-        inner.style.fontSize = s2.toFixed(1) + 'px';
-      }
-      placeBubble();
-      paintSkin();
-      return;
     }
-
-    // Otherwise shrink the TYPE until the sentence fits on one row, to three
-    // fifths of its size and no further. Only the type: the padding, the
-    // corner radius and the horn are all em of #bubble's own font-size, and
-    // shrinking that would shrink the frame along with the words.
-    var size = base;
-    for (var i = 0; i < 7 && rows() > 1 && size > base * 0.6; i++) {
-      size *= 0.93;
-      inner.style.fontSize = size.toFixed(1) + 'px';
-    }
-    if (rows() > 1) inner.style.fontSize = '';   // long sentence; give it back
-
-    // ONE more full placement, now that the type is its final size.
-    placeBubble();
-
-    // NO SNAP-TO-CONTENT HERE, and it is worth saying why.
-    //
-    // The bubble is absolutely positioned, so it already shrink-wraps its
-    // text: a one-row line leaves no empty paper beside it, whatever the cap
-    // says. The empty band only ever appeared on a line that WRAPPED, and it
-    // came from text-wrap: balance evening the rows out so that neither row
-    // reached the edge of a box sized to the cap. That belonged to the
-    // stylesheet and has been dealt with there.
-    //
-    // Measuring the rendered rows and narrowing the box to match looks like
-    // the obvious answer and is a trap: placeBubble picks its cap from the
-    // slot it chose, so the narrowed width feeds the next measurement, and
-    // the settle pass 620ms later measures a box the previous pass already
-    // narrowed. Two attempts at holding that value — once as a style, once as
-    // a variable — each ratcheted a one-row sentence down to six rows and an
-    // 83px box. The shrink-wrap is free and correct; this was neither.
-
     paintSkin();
+  }
+
+  /** How many rows the line actually rendered on. */
+  function rowsOfLine() {
+    var line = bubble.querySelector('.bubble-line');
+    if (!line) return 1;
+    var kids = line.childNodes, tops = {}, k, r;
+    for (k = 0; k < kids.length; k++) {
+      if (!kids[k].getBoundingClientRect) continue;
+      r = kids[k].getBoundingClientRect();
+      if (!r.width) continue;
+      tops[Math.round(r.top / 2) * 2] = 1;
+    }
+    return Object.keys(tops).length || 1;
   }
 
   /**
@@ -506,6 +452,27 @@
 
     // The bands around the lesson, and the bands through it. Each is a place
     // a bubble could live.
+    // SWIFTEE IS SOMETHING TO AVOID TOO.
+    //
+    // The placement checked the bubble against the lesson — the polygon, the
+    // panels, the trays — and against nothing else, so the one thing on the
+    // screen it was most likely to land on was the one thing it never looked
+    // at.
+    //
+    // His DRAWN bounds, not his element's: the sprite cell is mostly empty by
+    // design, and treating the whole cell as solid would push the bubble a
+    // fifth of the screen further away than it needs to go.
+    var birdBox = null;
+    if (global.Swiftee && Swiftee.bounds) {
+      var bb = Swiftee.bounds();
+      if (bb && bb.width) {
+        birdBox = {
+          left: bb.left - f.x - 10, right: bb.right - f.x + 10,
+          top: bb.top - f.y - 10, bottom: bb.bottom - f.y + 10
+        };
+      }
+    }
+
     var slots = [
       { id: 'left',  x: GAP,                  y: top, w: content.left - GAP * 2,  h: bottom - top },
       { id: 'right', x: content.right + GAP,  y: top, w: vw - content.right - GAP * 2, h: bottom - top },
@@ -529,6 +496,36 @@
     for (var i = 0; i + 1 < merged.length; i++) {
       slots.push({ id: 'gap', x: GAP, y: merged[i][1] + GAP,
                    w: vw - GAP * 2, h: merged[i + 1][0] - merged[i][1] - GAP * 2 });
+    }
+
+    // CARVE SWIFTEE OUT OF THE SLOTS.
+    //
+    // Scoring slots by whether they contain him does not work, because on a
+    // screen where he stands beside the lesson EVERY vertical band contains
+    // him — the left band runs the full height of the play area and he is
+    // somewhere in it. So they all score the same and the bubble lands on his
+    // face anyway, which is what page 10 was doing: covering the character
+    // supposedly speaking, by 156 by 103 pixels.
+    //
+    // A slot that contains him is replaced by the largest part of itself that
+    // does not. Four candidates — the strip above him, below him, left of him,
+    // right of him — and the biggest wins. That turns "the left band" into
+    // "the left band above his head", which is a real place to put a sentence.
+    if (birdBox) {
+      slots = slots.map(function (r) {
+        var ov = r.x < birdBox.right && r.x + r.w > birdBox.left &&
+                 r.y < birdBox.bottom && r.y + r.h > birdBox.top;
+        if (!ov) return r;
+        var cands = [
+          { id: r.id, x: r.x, y: r.y, w: r.w, h: birdBox.top - r.y },
+          { id: r.id, x: r.x, y: birdBox.bottom, w: r.w, h: r.y + r.h - birdBox.bottom },
+          { id: r.id, x: r.x, y: r.y, w: birdBox.left - r.x, h: r.h },
+          { id: r.id, x: birdBox.right, y: r.y, w: r.x + r.w - birdBox.right, h: r.h }
+        ].filter(function (c) { return c.w >= MIN_W && c.h >= MIN_H; });
+        if (!cands.length) return r;          // nowhere clear: leave it and let hits() fight
+        cands.sort(function (a, b) { return (b.w * b.h) - (a.w * a.h); });
+        return cands[0];
+      });
     }
 
     slots = slots.filter(function (r) { return r.w >= MIN_W && r.h >= MIN_H; });
@@ -589,6 +586,9 @@
       bubble.style.maxWidth = capFor(slots[si]) + 'px';
       var m = size();
       if (m.h <= slots[si].h && m.w <= slots[si].w) {
+        // The slots already exclude him, so the only thing left to prefer is
+        // the one where the sentence lays out shortest — which is the one
+        // where it wraps least.
         if (m.h < bestH) { bestH = m.h; slot = slots[si]; }
       } else if (bestH === Infinity && m.h - slots[si].h < bestOver) {
         // nothing fits yet: keep the least bad
@@ -639,11 +639,11 @@
     var hits = function () {
       var l = parseFloat(bubble.style.left) || 0, t = parseFloat(bubble.style.top) || 0;
       var r = { left: l, right: l + bubble.offsetWidth, top: t, bottom: t + bubble.offsetHeight };
-      for (var i = 0; i < parts.length; i++) {
-        var p = parts[i];
-        if (r.left < p.right && r.right > p.left && r.top < p.bottom && r.bottom > p.top) return true;
-      }
-      return false;
+      var over = function (p) {
+        return r.left < p.right && r.right > p.left && r.top < p.bottom && r.bottom > p.top;
+      };
+      for (var i = 0; i < parts.length; i++) if (over(parts[i])) return true;
+      return !!(birdBox && over(birdBox));
     };
 
     for (var attempt = 0; attempt < 3 && hits(); attempt++) {
