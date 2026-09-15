@@ -118,6 +118,68 @@
     ctx.drawImage(img, fr.sx, fr.sy, fr.sw, fr.sh, dx, dy, fr.sw * k, fr.sh * k);
   }
 
+  /**
+   * Draw ONE island of a frame, at a chosen height, anchored on its own feet.
+   *
+   * The departure sheet draws the reindeer smaller and smaller as it walks
+   * into the distance, and its last frame has no reindeer at all. Stepped
+   * through as whole frames that reads as the animal shrinking away and then
+   * being cut off mid-stride — which is what "cropping in the middle of the
+   * animation" was. Pulled out as its own island and drawn at a CONSTANT
+   * height, the same four frames are a walk cycle, and it can simply walk off
+   * the right-hand edge like something leaving a place.
+   */
+  function drawIsland(sheet, island, wx, wy, drawH) {
+    var img = images[sheet] && images[sheet].__img;
+    if (!img || !island) return 0;
+    var k = drawH / island.h;
+    var w = island.w * k;
+    ctx.drawImage(img, island.x, island.y, island.w, island.h,
+                  wx - w / 2, wy - drawH, w, drawH);
+    return w;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Snow
+   *
+   * Runners throw it up, a braking sled pushes a bank of it, and a bird
+   * landing knocks a little loose. Small and short-lived — the point is that
+   * the sled is touching the ground, not that there is weather.
+   * ------------------------------------------------------------------ */
+
+  var puffs = [];
+
+  function puff(x, y, n, spread, power) {
+    for (var i = 0; i < n; i++) {
+      puffs.push({
+        x: x + (Math.random() - 0.5) * spread,
+        y: y - Math.random() * 6,
+        vx: (Math.random() - 0.35) * power,
+        vy: -Math.random() * power * 0.8 - 0.2,
+        r: 2 + Math.random() * 5,
+        life: 1
+      });
+    }
+    if (puffs.length > 90) puffs.splice(0, puffs.length - 90);
+  }
+
+  function drawPuffs(dt) {
+    for (var i = puffs.length - 1; i >= 0; i--) {
+      var p = puffs[i];
+      p.life -= dt / 620;
+      if (p.life <= 0) { puffs.splice(i, 1); continue; }
+      p.x += p.vx * dt * 0.06;
+      p.y += p.vy * dt * 0.06;
+      p.vy += dt * 0.0016;                 // settles back down
+      ctx.globalAlpha = Math.max(0, p.life) * 0.75;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * (0.4 + p.life * 0.6), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   /* ------------------------------------------------------------------ *
    * The performance
    * ------------------------------------------------------------------ */
@@ -202,6 +264,8 @@
     // the arc starts exactly where the last drawn bird was rather than
     // somewhere near it.
     var handoff = null;
+    var run = { landed: false };
+    puffs.length = 0;
 
     var total = T.enter + T.cruise + T.brake + T.dismount + T.land + T.exit + T.beat;
     var t0 = 0;
@@ -219,10 +283,13 @@
         return list[i];
       }
 
+      var prev = 0;
       function step(now) {
         if (cancelled) { resolve(); return; }
         if (!t0) t0 = now;
         var t = now - t0;
+        var dt = prev ? Math.min(48, now - prev) : 16;
+        prev = now;
         var S2 = { w: host.clientWidth, h: host.clientHeight };
         clear(S2.w, S2.h);
 
@@ -247,8 +314,10 @@
           var p = easeOut(clamp01(t / T.enter));
           var fr = frameAt(ride, t, RIDE_FPS);
           var rig = rigIsland(fr);
-          drawFrame('ride', fr, { x: rig.x + rig.w / 2, y: rig.y + rig.h },
-                    startX + (stopX - startX) * p * 0.72, groundY, worldScale);
+          var ex = startX + (stopX - startX) * p * 0.72;
+          drawFrame('ride', fr, { x: rig.x + rig.w / 2, y: rig.y + rig.h }, ex, groundY, worldScale);
+          if (ex > -40) puff(ex - (opts.birdHeight || 200) * 0.5, groundY, 1, 18, 1.0);
+          drawPuffs(dt);
           raf = requestAnimationFrame(step); return;
         }
 
@@ -258,8 +327,13 @@
           var fr2 = frameAt(ride, t, RIDE_FPS);
           var rig2 = rigIsland(fr2);
           var x2 = startX + (stopX - startX) * (0.72 + 0.20 * p2);
+          // a breath of vertical life, a couple of pixels, tied to the stride —
+          // enough that the rig is not a picture being slid across the screen
+          var bob2 = Math.sin(t / 1000 * Math.PI * 2 * (RIDE_FPS / 4)) * (opts.birdHeight || 200) * 0.008;
           drawFrame('ride', fr2, { x: rig2.x + rig2.w / 2, y: rig2.y + rig2.h },
-                    x2, groundY, worldScale);
+                    x2, groundY + bob2, worldScale);
+          puff(x2 - (opts.birdHeight || 200) * 0.5, groundY, 1, 20, 1.1);
+          drawPuffs(dt);
           raf = requestAnimationFrame(step); return;
         }
 
@@ -271,6 +345,9 @@
           var x3 = startX + (stopX - startX) * (0.92 + 0.08 * p3);
           drawFrame('ride', fr3, { x: rig3.x + rig3.w / 2, y: rig3.y + rig3.h },
                     x3, groundY, worldScale);
+          // a bank of snow pushed up in front of the runners as it pulls up
+          if (p3 < 0.8) puff(x3 - (opts.birdHeight || 200) * 0.42, groundY, 2, 26, 2.1 * (1 - p3));
+          drawPuffs(dt);
           raf = requestAnimationFrame(step); return;
         }
 
@@ -283,6 +360,7 @@
           var rig4 = rigIsland(fr4);
           drawFrame('dismount', fr4, { x: rig4.x + rig4.w / 2, y: rig4.y + rig4.h },
                     stopX, groundY, worldScale);
+          drawPuffs(dt);
 
           // remember where the drawn bird is on the LAST of these frames
           if (i4 === early.length - 1) {
@@ -329,31 +407,56 @@
           drawFrame('dismount', fr5, { x: bi.x + bi.w / 2, y: bi.y + bi.h }, bx, by, worldScale);
           ctx.restore();
 
+          // a little snow knocked loose the moment his feet arrive
+          if (p5 > 0.9 && !run.landed) { run.landed = true; puff(markX, groundY, 12, 40, 2.4); }
+          drawPuffs(dt);
+
           raf = requestAnimationFrame(step); return;
         }
 
-        /* ---- DEER_EXIT: he stands, the reindeer walks off ---- */
+        /* ---- DEER_EXIT: he stands, the reindeer walks away and OFF ---- */
         if (t < (mark += T.exit)) {
           var p6 = clamp01((t - T.enter - T.cruise - T.brake - T.dismount - T.land) / T.exit);
-          var i6 = Math.min(dep.length - 1, Math.floor(p6 * dep.length));
-          var fr6 = dep[i6];
-          // ANCHORED ON THE BIRD, which is why he holds still and the sled
-          // leaves rather than the other way about.
-          var b6 = leftIsland(fr6);
-          // No drift on X. He is standing still; the twelve pixels of
-          // 'settling' that used to be here put the drawn bird twelve pixels
-          // from where the game's own Swiftee appears, which is a visible
-          // hop at the exact moment the handoff is supposed to be invisible.
-          drawFrame('departure', fr6, { x: b6.x + b6.w / 2, y: b6.y + b6.h },
-                    markX, groundY, worldScale);
+
+          // The bird: the final standing pose, fixed on his mark. Nothing
+          // about him moves, which is what makes it read as the reindeer
+          // leaving rather than the world sliding.
+          var birdFr = dep[dep.length - 1];
+          var birdIs = leftIsland(birdFr);
+          drawIsland('departure', birdIs, markX, groundY,
+                     birdIs.h * f.norm.departure * worldScale);
+
+          // The reindeer: its own island, at a CONSTANT height, cycling the
+          // frames that still show a whole animal — the last two are drawn
+          // receding and would shrink it instead of walking it — and
+          // travelling until it is past the edge with room to spare.
+          var walk = [];
+          for (var wi = 0; wi < dep.length; wi++) {
+            var isl = dep[wi].islands || [];
+            if (isl.length < 2) continue;
+            var deer = isl[isl.length - 1];
+            if (deer.h < 150) continue;                 // a receding frame
+            walk.push(deer);
+          }
+          if (walk.length) {
+            var wf = walk[Math.floor((t / 110)) % walk.length];
+            var deerH = walk[0].h * f.norm.departure * worldScale;
+            var travel = easeIn(p6) * (S2.w - markX + deerH * 2.2);
+            var dxr = markX + deerH * 0.9 + travel;
+            var w = drawIsland('departure', wf, dxr, groundY, deerH);
+            // snow off the runners while it is still on screen
+            if (p6 < 0.86 && dxr - w < S2.w) puff(dxr - w * 0.45, groundY, 1, w * 0.3, 1.1);
+          }
+
+          drawPuffs(dt);
           raf = requestAnimationFrame(step); return;
         }
 
         /* ---- the last beat, holding the final pose ---- */
         if (t < total) {
           var frL = dep[dep.length - 1], bL = leftIsland(frL);
-          drawFrame('departure', frL, { x: bL.x + bL.w / 2, y: bL.y + bL.h },
-                    markX, groundY, worldScale);
+          drawIsland('departure', bL, markX, groundY, bL.h * f.norm.departure * worldScale);
+          drawPuffs(dt);
           raf = requestAnimationFrame(step); return;
         }
 

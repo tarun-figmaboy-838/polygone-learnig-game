@@ -685,6 +685,8 @@
           SFX.play('hoofbeat', { delay: t, gain: 0.085 - i * 0.004 });
           t += stepMs; stepMs *= 1.05;
         }
+        // the runners biting as it pulls up, then the jump
+        setTimeout(function () { if (!stale(g) && global.SFX) SFX.play('slice', { gain: 0.05 }); }, 2900);
         setTimeout(function () { if (!stale(g) && global.SFX) SFX.play('zip', { gain: 0.06 }); }, 3300);
         setTimeout(function () { if (!stale(g) && global.SFX) SFX.play('pop'); }, 4900);
         setTimeout(function () {
