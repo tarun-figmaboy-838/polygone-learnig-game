@@ -138,6 +138,29 @@ up. The storm builds, then covers.
 
 ---
 
+## The speech bubble
+
+The shape is a supplied comic design — a catch-light in the corner, two short
+strokes either side, and a curved horn — drawn in the game's own cream and
+orange. The whole thing is sized in `em` off one clamped `font-size` on
+`#bubble`, so padding, radius, horn, sheen and marks scale together and a
+breakpoint only has to change one number.
+
+The horn is filled before it is stroked, so its fill covers the body's own
+border where the two meet and one unbroken outline runs round both. `aimTail()`
+puts it on whichever edge faces Swiftee, slides it to the point nearest his
+head, rotates it, and then sets the bubble's `transform-origin` to that same
+point — so the bubble pops out of the horn, which is to say out of Swiftee.
+
+Three things from the source design were deliberately left out, each with the
+reason written where it would have gone: the hidden duplicate of the line that
+reserved its width (needed for a character-by-character typewriter, useless
+once every word is laid out from the first frame), a 10px left margin that
+pushed the text off centre at every size, and the glide between two lines of
+one speech — no screen here says more than one line, so it could never have run.
+
+---
+
 ## Test gates
 
 | Suite | What it guards |

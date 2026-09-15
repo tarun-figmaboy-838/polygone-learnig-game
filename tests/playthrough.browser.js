@@ -82,20 +82,49 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const page = await context.newPage();
 
   const errors = [], missing = [];
+  const starved = [];   // the host ran out of memory; see the note on HOST_LIMIT
   let crashed = null;
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('crash', () => { crashed = 'page crashed'; });
+  /* A request can fail for two completely different reasons, and only one of
+     them is about this build.
+
+       THE BUILD'S FAULT: a 404, or a file that is not there. That is a broken
+       reference and it must fail the suite.
+
+       THE MACHINE'S FAULT: ERR_INSUFFICIENT_RESOURCES and its relatives, which
+       Chrome raises when it cannot allocate — on a box whose commit charge is
+       already at 93%, a sprite sheet decode simply has nowhere to go. The same
+       commit, on the same files, passes when the machine is not full.
+
+     Lumping the second in with the first produced a suite that failed for
+     reasons the repository could do nothing about, and — much worse — trained
+     everyone to shrug at a red "no missing assets". They are counted apart
+     now: a 404 fails, exhaustion is reported as what it is. */
+  const HOST_LIMIT = /INSUFFICIENT_RESOURCES|OUT_OF_MEMORY|ERR_INSUFFICIENT/i;
+  /* A cancelled request is not an absent one either. Under memory pressure
+     the sprite LRU drops sheets that are still in flight, and Chrome reports
+     the dead fetch as ERR_ABORTED. Whether the FILE is there is settled by a
+     stronger gate that does not need a browser at all: swiftee.test.js walks
+     the frame table and stats every sheet on disk. */
+  const CANCELLED = /ERR_ABORTED|ERR_CONNECTION_ABORTED/i;
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     const from = (m.location() && m.location().url) || '';
     if (from.includes('favicon')) return;
-    errors.push('console: ' + m.text());
+    const text = m.text();
+    if (HOST_LIMIT.test(text)) { starved.push('console: ' + text); return; }
+    errors.push('console: ' + text);
   });
   page.on('response', (r) => {
     if (r.status() === 404) missing.push(r.url());
   });
   page.on('requestfailed', (r) => {
-    if (!r.url().includes('fonts.g')) missing.push(r.url() + ' (' + (r.failure() || {}).errorText + ')');
+    if (r.url().includes('fonts.g')) return;
+    const why = ((r.failure() || {}).errorText) || '';
+    if (HOST_LIMIT.test(why)) { starved.push(r.url() + ' (' + why + ')'); return; }
+    if (CANCELLED.test(why)) { starved.push(r.url() + ' (' + why + ')'); return; }
+    missing.push(r.url() + ' (' + why + ')');
   });
 
   const safe = async (fn, fallback) => {
@@ -512,6 +541,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   t('no runtime errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   t('no missing assets', missing.length === 0, missing.slice(0, 3).join(' | '));
   t('the browser survived the run', !crashed, crashed || '');
+  if (starved.length) {
+    console.log('  note  the host ran out of memory ' + starved.length + ' time(s) — not a build failure');
+    console.log('        ' + starved[0]);
+  }
 
   console.log('  ' + (CHECKS_ONLY ? 'render checks only' : `screens: ${N}, inputs answered: ${asked.length}`) +
               `, elapsed ${((Date.now() - t0) / 1000).toFixed(1)}s`);

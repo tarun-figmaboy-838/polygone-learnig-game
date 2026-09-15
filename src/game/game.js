@@ -277,7 +277,7 @@
 
   function say(text, mood, ms) {
     clearInterval(revealTimer); revealTimer = null; revealUnits = null;
-    if (!text) { bubble.classList.remove('show'); return; }
+    if (!text) { bubble.classList.add('out'); bubble.classList.remove('show'); return; }
     mood = mood || (/\?|Hmm|What if/.test(text) ? 'think' : /Yay|Great|Nice|Whoa/.test(text) ? 'win' : 'talk');
     bubble.dataset.mood = mood;
     // Only the line is replaced. The frame, the panel, the highlight and the
@@ -296,6 +296,7 @@
     } else {
       line.textContent = text;
     }
+    bubble.classList.remove('out');
     bubble.classList.add('show');
     // Place it at full size FIRST, then start hiding words. The other order
     // would measure an empty bubble.
@@ -536,49 +537,86 @@
     if (!tail) return;
 
     var head = headPoint();
-    var r = bubble.getBoundingClientRect();
+    var r = layoutRect(bubble);
     if (!head || !r.width) return;
 
-    var T = parseFloat(getComputedStyle(bubble).getPropertyValue('--tail')) || 46;
-    var lip = parseFloat(getComputedStyle(bubble).getPropertyValue('--lip')) || 9;
-    // How far the tail's centre sits outside the edge. Less than half the
-    // square, so a good part of it is buried in the body and the two read as
-    // one shape rather than as a diamond touching a panel.
-    var out = T * 0.15;
-    // Keep it off the corners, which are rounded hard enough that a tail
-    // planted there would grow out of thin air.
-    var pad = T * 0.85;
+    var em = parseFloat(getComputedStyle(bubble).fontSize) || 20;
+    // Keep the horn off the rounded corners, where it would appear to grow
+    // out of thin air.
+    var pad = em * 1.4;
 
     var dx = (head.x - (r.left + r.width / 2)) / (r.width / 2);
     var dy = (head.y - (r.top + r.height / 2)) / (r.height / 2);
-
     var edge = Math.abs(dy) >= Math.abs(dx)
       ? (dy > 0 ? 'bottom' : 'top')
       : (dx > 0 ? 'right' : 'left');
 
     var clamp = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
-    var s = tail.style;
-    s.left = s.right = s.top = s.bottom = 'auto';
-    s.marginLeft = s.marginTop = '0px';
-
-    var deg;
+    var x, y, deg;
     if (edge === 'bottom' || edge === 'top') {
-      s.left = clamp(head.x - r.left, pad, Math.max(pad, r.width - pad)) + 'px';
-      s.marginLeft = (-T / 2) + 'px';
-      if (edge === 'bottom') { s.bottom = -(T / 2 + out) + 'px'; deg = 45; }
-      else                   { s.top    = -(T / 2 + out) + 'px'; deg = 225; }
+      x = clamp(head.x - r.left, pad, Math.max(pad, r.width - pad));
+      y = edge === 'bottom' ? r.height : 0;
+      deg = edge === 'bottom' ? 0 : 180;
     } else {
-      s.top = clamp(head.y - r.top, pad, Math.max(pad, r.height - pad)) + 'px';
-      s.marginTop = (-T / 2) + 'px';
-      if (edge === 'right') { s.right = -(T / 2 + out) + 'px'; deg = 315; }
-      else                  { s.left  = -(T / 2 + out) + 'px'; deg = 135; }
+      y = clamp(head.y - r.top, pad, Math.max(pad, r.height - pad));
+      x = edge === 'right' ? r.width : 0;
+      deg = edge === 'right' ? 270 : 90;
     }
 
-    s.transform = 'rotate(' + deg + 'deg)';
-    var t = deg * Math.PI / 180;
-    s.boxShadow = (lip * Math.sin(t)).toFixed(1) + 'px ' + (lip * Math.cos(t)).toFixed(1) +
-                  'px 0 var(--orange-dark)';
+    // The horn is drawn pointing down; rotating it about the middle of its
+    // join swings it to any edge. The translate puts that same point on the
+    // edge — see the note on .dialogue-tail for where 19.05% comes from.
+    var s = tail.style;
+    s.right = s.bottom = 'auto';
+    s.left = x.toFixed(1) + 'px';
+    s.top = y.toFixed(1) + 'px';
+    s.transform = 'translate(-50%, -19.05%) rotate(' + deg + 'deg)';
+
+    // It is filled with the paper it grows out of, and the paper is a
+    // gradient — filling a horn on the top edge with the bottom colour puts a
+    // step exactly where the two are meant to be one surface.
+    var fill = tail.querySelector('.tail-fill');
+    if (fill) {
+      fill.style.fill = edge === 'bottom' ? 'var(--cream-foot)'
+                      : edge === 'top'    ? 'var(--cream-light)'
+                      : 'var(--cream)';
+    }
+
+    // And the bubble grows out of the horn, so it springs from Swiftee.
+    bubble.style.transformOrigin =
+      (x / r.width * 100).toFixed(1) + '% ' + (y / r.height * 100).toFixed(1) + '%';
   }
+
+  /* The supplied design glides the box between two lines of one speech —
+     its greeting is two sentences in the same bubble. That was built and then
+     taken out again: no screen in this storyboard says more than one line, so
+     it could never once have run. Between screens the box does not glide
+     either, because the slot itself can move and a straight interpolation
+     between two slots would sweep the bubble across the polygon — which is
+     what the snow wipe is for. */
+
+  /**
+   * The bubble's rectangle in page pixels, ignoring any transform on it.
+   *
+   * getBoundingClientRect() reports the PAINTED box, and the bubble spends
+   * the first half-second of every screen scaled up out of its own horn — so
+   * anything measured from it during the pop is wrong by whatever frame the
+   * animation happened to be on. That was quietly true of the old tail
+   * aiming, which computed the edge from a rect at 86% of the real size.
+   *
+   * offsetWidth, offsetHeight, offsetLeft and offsetTop are all layout, not
+   * paint, and #game is not itself transformed, so this is the box the CSS
+   * actually laid out.
+   */
+  function layoutRect(el) {
+    var p = el.offsetParent || el.ownerDocument.body;
+    var pr = p.getBoundingClientRect();
+    return {
+      left: pr.left + el.offsetLeft, top: pr.top + el.offsetTop,
+      width: el.offsetWidth, height: el.offsetHeight
+    };
+  }
+
 
   /**
    * Swiftee's head in page pixels.

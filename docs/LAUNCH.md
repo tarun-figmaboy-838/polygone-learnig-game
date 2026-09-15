@@ -75,7 +75,10 @@ by a gate that fails the build, not by looking at it once.
 | ✅ | The wipe fires on **new UI or a new kind of doing** — never on a screen that only says another sentence |
 | ✅ | Dialogue arrives **a word at a time**, laid out at its final size from the first frame so it never jitters or re-places mid-line |
 | ✅ | Dual coding: each key term is tinted, and the thing it names haloes on stage in the same colour as that word appears |
-| ✅ | Dialogue box: one orange rim, one warm underside, cream paper, no stacked outlines and no decorative petals |
+| ✅ | Dialogue box: the supplied comic design — catch-light, two emphasis strokes, a curved horn — in the game's own cream and orange |
+| ✅ | The horn points at Swiftee from whichever edge faces him, and the bubble **pops out of the horn**, so every line springs from the speaker |
+| ✅ | The whole component is sized in `em` off one clamped font-size, so padding, radius, horn, sheen and marks scale together |
+| ✅ | Text is centred (the source design pushed it 10px right of centre at every size) and the vestigial hidden-duplicate copy is gone |
 | ✅ | A finished task shows **confetti**, not a caption. The XP toast is gone; the words remain for a screen reader |
 | ✅ | 14 synthesised cues, no audio files, muteable |
 | ✅ | `prefers-reduced-motion` honoured throughout |
@@ -93,6 +96,7 @@ by a gate that fails the build, not by looking at it once.
 | ✅ | Dead code and duplicates removed; nothing in `src/` is unreachable |
 | ✅ | One source of truth for reduced motion — `Juice.disable()` now stops the transition and the title screen too |
 | ✅ | **Nothing leaks across a full lesson**: node count and live animation count are asserted at the end of every browser run |
+| ✅ | The browser suite tells a broken reference apart from a full machine: a 404 fails, an allocation failure or a cancelled fetch is reported as what it is |
 
 ---
 
