@@ -17,11 +17,34 @@
   var SAVE_KEY = 'swiftee.audio';
   var quest = Quest.create(), rewardTimer;
 
-  function reward(text) {
+  /**
+   * Say "well done" without saying it.
+   *
+   * This used to raise a yellow toast reading "+25 XP · Challenge complete!".
+   * A caption on a joke: the child had already seen the shape go right, heard
+   * the cue and watched Swiftee react, and then had to read a label telling
+   * them so. It also competed with the speech bubble for the same corner of
+   * attention at the same moment.
+   *
+   * So the screen celebrates instead. Confetti comes down over everything,
+   * Swiftee celebrates, and the sound carries the size of it — a finished
+   * task is a shower, a badge is a downpour with a fanfare. The words stay in
+   * the DOM for a screen reader, which cannot see any of it.
+   */
+  function reward(text, big) {
     clearTimeout(rewardTimer);
-    $('#reward').textContent = text;
-    $('#reward').classList.add('show');
-    rewardTimer = setTimeout(function () { $('#reward').classList.remove('show'); }, 3200);
+    var el = $('#reward');
+    if (el) el.textContent = text || '';
+    rewardTimer = setTimeout(function () { if (el) el.textContent = ''; }, 4000);
+
+    if (global.Juice) Juice.shower({ count: big ? 110 : 55, duration: big ? 2300 : 1800 });
+    if (global.SFX) SFX.play(big ? 'levelUp' : 'sparkle');
+    if (global.Swiftee && Swiftee.play) {
+      try {
+        Swiftee.play('celebrate');
+        if (global.Juice && Swiftee.el) Juice.tada(Swiftee.el);
+      } catch (e) {}
+    }
   }
   /**
    * Record the attempt. Deliberately says nothing.
@@ -38,8 +61,30 @@
    * actually specifies: Swiftee reacts, the object refuses, a cue plays,
    * the input re-opens. All of it non-verbal, all of it from screens.js.
    */
+  /**
+   * Swiftee answers the child with his face, having nothing to say.
+   *
+   * This used to record the attempt and do nothing else, and it was the
+   * loudest thing out of sync in the game: a child could get an answer wrong
+   * three times running while the bird stood beside the shape smiling at
+   * them. Sound said "no" and the character said nothing, so the two halves
+   * of the feedback disagreed.
+   *
+   * It still says nothing, and that part was right — the deck contains no
+   * wrong-answer dialogue and the brief forbids inventing any, and the bubble
+   * belongs to the lesson. But an expression is not a line. He is puzzled
+   * WITH them on a wrong answer, never disappointed in them: 'confused' is
+   * the rig's own "hmm, that's odd" and it reads as company rather than as a
+   * verdict. On a right one he is simply pleased, which is a smaller thing
+   * than the full celebration a first-time award gets.
+   */
   function react(kind) {
     if (kind === 'wrong') quest.mistake();
+    if (!global.Swiftee || !Swiftee.play) return;
+    try {
+      if (kind === 'wrong') Swiftee.play('confused');
+      else if (kind === 'correct') Swiftee.play('happy');
+    } catch (e) {}
   }
 
   /* ------------------------------------------------------------------ *
@@ -315,12 +360,9 @@
       bubble.style.marginLeft = -(bubble.offsetWidth / 2) + 'px';
       var birdTop = L.y - 256 * layout(Swiftee.pos, 'large').scale * CONTENT_FRAC;
       bubble.style.top = Math.max(hudBox.bottom + GAP, birdTop - bubble.offsetHeight - 26) + 'px';
-      // He is directly below the bubble on these screens, so the tail goes
-      // down the middle rather than off to one side.
-      // He stands directly below on these screens, so the tail stays in the
-      // middle — which is where it sits by default.
-      bubble.classList.remove('tail-left');
-      bubble.classList.remove('tail-right');
+      // He stands directly below on these screens, but aim it properly all the
+      // same — "below" is only true once he has landed.
+      aimTail();
       return;
     }
 
@@ -469,14 +511,87 @@
       bubble.style.left = (afterL + (slot.x - afterL > 0 ? slot.x - afterL : 0)) + 'px';
     }
 
-    // The tail points down at him when he is below the bubble, which is the
-    // only case it can be honest about.
-    // The tail points at the speaker: right by default, mirrored when he is
-    // standing to the left of the bubble, which he usually is.
-    // The tail points at the speaker, whichever side of the bubble he is on.
-    var onHisLeft = L.x < parseFloat(bubble.style.left) + w / 2;
-    bubble.classList.toggle('tail-left', onHisLeft);
-    bubble.classList.toggle('tail-right', !onHisLeft);
+    aimTail();
+  }
+
+  /**
+   * Point the tail at Swiftee's head, from whichever edge of the bubble faces
+   * him.
+   *
+   * It used to be two CSS classes that slid the tail to 18% or 82% along the
+   * bottom edge. That is only ever right when he is below the bubble; placed
+   * beside the lesson, with him standing off to one side at the same height,
+   * a tail hanging off the bottom points at the floor. And it is the one part
+   * of a speech bubble that carries meaning — it is what says who is talking.
+   *
+   * So the edge is chosen by where his head actually is, the tail slides to
+   * the point on that edge nearest to it, and the square turns so its
+   * bordered corner is the one facing out. The lip has to turn with it: the
+   * body's shadow falls 9px straight down, and for a square rotated by t that
+   * is (9·sin t, 9·cos t) in the square's own axes, or the underside would
+   * end up running along the wrong two sides.
+   */
+  function aimTail() {
+    var tail = bubble.querySelector('.dialogue-tail');
+    if (!tail) return;
+
+    var head = headPoint();
+    var r = bubble.getBoundingClientRect();
+    if (!head || !r.width) return;
+
+    var T = parseFloat(getComputedStyle(bubble).getPropertyValue('--tail')) || 46;
+    var lip = parseFloat(getComputedStyle(bubble).getPropertyValue('--lip')) || 9;
+    // How far the tail's centre sits outside the edge. Less than half the
+    // square, so a good part of it is buried in the body and the two read as
+    // one shape rather than as a diamond touching a panel.
+    var out = T * 0.15;
+    // Keep it off the corners, which are rounded hard enough that a tail
+    // planted there would grow out of thin air.
+    var pad = T * 0.85;
+
+    var dx = (head.x - (r.left + r.width / 2)) / (r.width / 2);
+    var dy = (head.y - (r.top + r.height / 2)) / (r.height / 2);
+
+    var edge = Math.abs(dy) >= Math.abs(dx)
+      ? (dy > 0 ? 'bottom' : 'top')
+      : (dx > 0 ? 'right' : 'left');
+
+    var clamp = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
+    var s = tail.style;
+    s.left = s.right = s.top = s.bottom = 'auto';
+    s.marginLeft = s.marginTop = '0px';
+
+    var deg;
+    if (edge === 'bottom' || edge === 'top') {
+      s.left = clamp(head.x - r.left, pad, Math.max(pad, r.width - pad)) + 'px';
+      s.marginLeft = (-T / 2) + 'px';
+      if (edge === 'bottom') { s.bottom = -(T / 2 + out) + 'px'; deg = 45; }
+      else                   { s.top    = -(T / 2 + out) + 'px'; deg = 225; }
+    } else {
+      s.top = clamp(head.y - r.top, pad, Math.max(pad, r.height - pad)) + 'px';
+      s.marginTop = (-T / 2) + 'px';
+      if (edge === 'right') { s.right = -(T / 2 + out) + 'px'; deg = 315; }
+      else                  { s.left  = -(T / 2 + out) + 'px'; deg = 135; }
+    }
+
+    s.transform = 'rotate(' + deg + 'deg)';
+    var t = deg * Math.PI / 180;
+    s.boxShadow = (lip * Math.sin(t)).toFixed(1) + 'px ' + (lip * Math.cos(t)).toFixed(1) +
+                  'px 0 var(--orange-dark)';
+  }
+
+  /**
+   * Swiftee's head in page pixels.
+   *
+   * bounds() is the drawn bird, not the mostly-empty sprite cell; the head is
+   * the top fifth of it. Pointing at his centre puts the tail at his chest,
+   * which looks like the sledge is talking.
+   */
+  function headPoint() {
+    if (!global.Swiftee || !Swiftee.bounds) return null;
+    var b = Swiftee.bounds();
+    if (!b || !b.width) return null;
+    return { x: b.left + b.width / 2, y: b.top + b.height * 0.18 };
   }
 
   function setCard(text) {
@@ -628,7 +743,12 @@
           if (waiting) say(null);
           else if (r && r.result === 'correct') {
             var earned = quest.award(current + ':' + spec.type);
-            if (earned) { reward('✦ +' + earned + ' XP · Challenge complete!'); }
+            // The award only fires the first time a screen is solved. Without
+            // the else, replaying a screen — or solving one whose XP was
+            // already banked — got no reaction at all, which is the same
+            // desync as a wrong answer getting none.
+            if (earned) reward('+' + earned + ' XP. Challenge complete.', false);
+            else react('correct');
           } else if (r && r.result === 'wrong') react('wrong');
           return r;
         }, function (e) { showNext(false); throw e; });
@@ -680,9 +800,78 @@
    * Only twelve of the thirty-nine rebuild the stage. The rest add to what is
    * already there — a label, a diagonal, a badge on the same pentagon.
    */
+  /* ------------------------------------------------------------------ *
+   * When the snow comes
+   *
+   * The wipe marks one thing: that there is something new to do. It fires
+   * when a screen builds a new scene, or when it asks for a kind of doing
+   * the child has not been asked for yet — the first time they have to
+   * choose, the first time they have to drag, the first time they have to
+   * sort. It never fires for a screen that only says another sentence.
+   *
+   * Interaction types are grouped into families on purpose. Going from
+   * drag-endpoint to drag-vertex is the same hand doing the same thing; it
+   * does not deserve a storm. Going from dragging to sorting does.
+   *
+   * tap-anywhere maps to nothing. It is not an interaction, it is reading —
+   * counting it would put a wipe between every second screen and bury the
+   * lesson in weather.
+   * ------------------------------------------------------------------ */
+
+  var FAMILY = {
+    'tap-anywhere':  null,      // reading on, not doing
+    'choice':        'choose',
+    'multi-select':  'choose',
+    'vertex-pick':   'pick',
+    'tap-each':      'pick',
+    'drag-endpoint': 'drag',
+    'drag-vertex':   'drag',
+    'draw-diagonal': 'draw',
+    'draw-diagonals':'draw',
+    'sort':          'sort',
+    'stepper':       'build'
+  };
+
+  function inputTypes(s) {
+    var out = [];
+    ((s && s.beats) || []).forEach(function (b) {
+      if (!b) return;
+      if (b.input && b.input.type) out.push(b.input.type);
+      if (b.parallel) b.parallel.forEach(function (p) {
+        if (p && p.input && p.input.type) out.push(p.input.type);
+      });
+    });
+    if (s && s.input && s.input.type) out.push(s.input.type);
+    return out;
+  }
+
+  /** The first real interaction a screen asks for, as a family, or null. */
+  function familyOf(s) {
+    var t = inputTypes(s), i, f;
+    for (i = 0; i < t.length; i++) { f = FAMILY[t[i]]; if (f) return f; }
+    return null;
+  }
+
   function rebuildsScene(i) {
     var s = Screens.list[i];
     return !!(s && (s.beats || []).some(function (b) { return b && b.stage && b.stage.kind; }));
+  }
+
+  // Worked out once from the storyboard rather than from runtime state, so
+  // it is the same on a replay, the same when a screen is entered out of
+  // order, and answerable by a test without playing the game.
+  var wipeTable = null;
+  function wipesAt(i) {
+    if (!wipeTable) {
+      var last = null;
+      wipeTable = (Screens.list || []).map(function (s, k) {
+        var fam = familyOf(s);
+        var newDoing = !!fam && fam !== last;
+        if (fam) last = fam;
+        return k > 0 && (rebuildsScene(k) || newDoing);
+      });
+    }
+    return !!wipeTable[i];
   }
 
   /**
@@ -696,15 +885,16 @@
    * whites out, and the next line says "I will connect it to another vertex"
    * about a vertex they can no longer see they chose.
    *
-   * So the wipe marks a change of place, and only that. Screens that carry
-   * the same shape now flow into each other, which is what makes them read as
-   * one continuous demonstration rather than a slideshow.
+   * So the wipe marks new work: a new scene, or a new kind of doing. Screens
+   * that only carry the lesson forward a sentence flow into each other, which
+   * is what makes them read as one continuous demonstration rather than a
+   * slideshow. See wipesAt() above for the rule.
    *
    * The first screen is exempt too: the arrival is the opening, and burying
    * it under snow would waste it.
    */
   function changeScreen(i, first) {
-    if (first || !global.Transition || !rebuildsScene(i)) {
+    if (first || !global.Transition || !wipesAt(i)) {
       var r = runScreen(i);
       revealWhenReady();
       return r;
@@ -723,7 +913,7 @@
       var r = await changeScreen(i, i === start);
       if (r === Director.CANCELLED) { playing = false; return; }
       var badge = quest.complete(i);
-      if (badge) { reward(badge.icon + ' Badge unlocked: ' + badge.name + '!'); }
+      if (badge) { reward('Badge unlocked: ' + badge.name + '.', true); }
     }
     playing = false;
     finish();
@@ -825,12 +1015,17 @@
     }
 
     loadEl.classList.add('ready');
+    if (global.TitleFx) TitleFx.mount(loadEl);
 
     // Audio needs a real gesture. The start button is that gesture, so
     // nothing plays before the learner is ready.
     $('#start').addEventListener('click', function () {
       if (global.SFX) SFX.unlock();
       loadEl.classList.add('gone');
+      // The title screen's weather is thirty infinite animations. Nothing can
+      // see them once the curtain is down, so they are cancelled rather than
+      // left running behind the lesson for the rest of the session.
+      setTimeout(function () { if (global.TitleFx) TitleFx.stop(); }, 460);
       setTimeout(function () { play(0); }, 250);
     });
   }

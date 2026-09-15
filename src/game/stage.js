@@ -92,8 +92,11 @@
    * and particles, deliberately: anything with a drawn edge sits on top of a
    * painting instead of joining it.
    *
-   *   snow     drifting flakes, each with its own fall time and sway, seeded
-   *            once and looped forever with WAAPI rather than per-frame JS
+   *   snow     drifting six-armed crystals, each with its own fall time,
+   *            sway and spin, seeded once and looped forever with WAAPI
+   *            rather than per-frame JS — plus a gust held paused in reserve
+   *            for Stage.flurry(), which the transition raises before it
+   *            covers the screen
    *   glints   occasional sparkles on the snowfield, staggered so they never
    *            pulse in unison
    *   shimmer  one slow band of light travelling across the ice
@@ -103,8 +106,10 @@
    * ------------------------------------------------------------------ */
 
   var HORIZON = 405;          // where the painted snowfield begins, in viewBox units
-  var SNOW = 30, GLINTS = 10; // ambient element counts — see ambientLife()
+  var SNOW = 26, GUST = 16, GLINTS = 10;  // ambient element counts — see ambientLife()
   var ambient = [];           // running WAAPI animations, so they can be stopped
+  var snowAnims = [];         // just the snowfall, so a gust can speed it up
+  var gustAnims = [], gustG = null, gusting = false;
 
   function drawVista() {
     clear('bg');
@@ -156,26 +161,28 @@
     // white. Snow and light work over a painting; drawn clouds do not.
 
     // --- snowfall -------------------------------------------------------
-    // Seeded once. Each flake carries its own duration and negative delay,
-    // so the field is already mid-fall on the first frame instead of
-    // starting as an empty sky that fills in.
+    // Six-armed crystals, not dots. At these sizes a filled circle reads as
+    // white noise over the painting; a lattice reads as snow. The shape comes
+    // from the same generator the transition uses for its enormous flakes, so
+    // the one that swings across the screen between two screens is visibly
+    // the same crystal that has been drifting past all lesson.
     //
-    // Each flake is its own compositor layer and its own infinite WAAPI
-    // animation, and the target here is a low-end tablet. Kept deliberately
-    // sparse: the snow reads as weather, not as a particle system.
-    for (i = 0; i < SNOW; i++) {
-      var x = Math.random() * W;
-      var r = 1.2 + Math.random() * 2.6;
-      var dur = 7000 + Math.random() * 9000;
-      var sway = 14 + Math.random() * 34;
-      var flake = mk('circle', { cx: x, cy: -10, r: r, fill: '#ffffff', opacity: 0.35 + Math.random() * 0.5 }, g);
-      loopAnim(flake, [
-        { transform: 'translate(0px,0px)' },
-        { transform: 'translate(' + sway.toFixed(0) + 'px,' + (H * 0.3).toFixed(0) + 'px)', offset: 0.3 },
-        { transform: 'translate(' + (-sway * 0.6).toFixed(0) + 'px,' + (H * 0.7).toFixed(0) + 'px)', offset: 0.7 },
-        { transform: 'translate(' + (sway * 0.3).toFixed(0) + 'px,' + (H + 20) + 'px)' }
-      ], { duration: dur, delay: -Math.random() * dur, easing: 'linear' });
-    }
+    // Seeded once. Each flake carries its own duration and negative delay, so
+    // the field is already mid-fall on the first frame instead of starting as
+    // an empty sky that fills in. Each is its own compositor layer and its own
+    // infinite WAAPI animation, and the target is a low-end tablet, so the
+    // count stays low and the small ones use the cheapest of the three builds.
+    snowAnims = seedSnow(g, SNOW, 3.2, 8.4, 1);
+
+    // --- the gust, held in reserve ---------------------------------------
+    // Bigger, faster flakes that are not running and not visible until the
+    // transition asks for them. The storm has to build before the screen is
+    // covered, or the cover arrives out of nowhere.
+    gustG = mk('g', { 'class': 'gust' }, g);
+    gustG.style.opacity = '0';
+    gustG.style.transition = 'opacity 240ms linear';
+    gustAnims = seedSnow(gustG, GUST, 5.5, 13, 0.5);
+    gustAnims.forEach(function (a) { try { a.pause(); } catch (e) {} });
 
     // --- glints on the ice ----------------------------------------------
     for (i = 0; i < GLINTS; i++) {
@@ -205,11 +212,72 @@
     ], { duration: 17000, easing: 'ease-in-out' });
   }
 
+  /**
+   * Seed one field of falling crystals into `parent`.
+   *
+   * `slow` scales the fall time: the gust uses half, so its flakes visibly
+   * outrun the calm ones when it arrives rather than merely adding to them.
+   * The build is picked by size — the small distant flakes get the bare star,
+   * which is a fifth of the path data of a full dendrite nobody could resolve
+   * at that scale anyway.
+   */
+  function seedSnow(parent, count, rMin, rMax, slow) {
+    var out = [], i;
+    for (i = 0; i < count; i++) {
+      var r = rMin + Math.random() * (rMax - rMin);
+      var build = r < 5 ? 2 : (r < 7.5 ? 1 : 0);
+      var x = Math.random() * W;
+      var dur = (7000 + Math.random() * 9000) * slow;
+      var sway = 14 + Math.random() * 34;
+      var spin = (Math.random() < 0.5 ? -1 : 1) * (140 + Math.random() * 340);
+
+      var f = mk('path', {
+        'class': 'flake',
+        d: Snowflake.path(r, build),
+        fill: 'none', stroke: '#ffffff',
+        'stroke-width': (r * 0.14 + 0.34).toFixed(2),
+        'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+        opacity: (0.3 + Math.random() * 0.5).toFixed(2)
+      }, parent);
+      // The crystal is drawn around its own origin, so the box it turns about
+      // is its own — without this it would orbit the viewBox corner.
+      f.style.transformBox = 'fill-box';
+      f.style.transformOrigin = 'center';
+
+      var a = loopAnim(f, [
+        { transform: 'translate(' + x.toFixed(0) + 'px,-28px) rotate(0deg)' },
+        { transform: 'translate(' + (x + sway).toFixed(0) + 'px,' + (H * 0.3).toFixed(0) + 'px) rotate(' + (spin * 0.3).toFixed(0) + 'deg)', offset: 0.3 },
+        { transform: 'translate(' + (x - sway * 0.6).toFixed(0) + 'px,' + (H * 0.7).toFixed(0) + 'px) rotate(' + (spin * 0.7).toFixed(0) + 'deg)', offset: 0.7 },
+        { transform: 'translate(' + (x + sway * 0.3).toFixed(0) + 'px,' + (H + 34) + 'px) rotate(' + spin.toFixed(0) + 'deg)' }
+      ], { duration: dur, delay: -Math.random() * dur, easing: 'linear' });
+      if (a) out.push(a);
+    }
+    return out;
+  }
+
+  /**
+   * Thicken the weather, or let it settle again.
+   *
+   * The transition calls this a beat before it covers the screen: the gust
+   * joins the calm snow and the calm snow speeds up, so by the time the big
+   * crystals arrive it is already snowing hard. Without it the cover reads as
+   * an effect switching on. With it, the storm closes in.
+   */
+  function flurry(on) {
+    gusting = !!on;
+    if (!gustG) return;
+    gustG.style.opacity = on ? '1' : '0';
+    gustAnims.forEach(function (a) { try { on ? a.play() : a.pause(); } catch (e) {} });
+    snowAnims.forEach(function (a) { try { a.playbackRate = on ? 3.4 : 1; } catch (e) {} });
+  }
+
   /** Stop the weather. Used when the page is hidden, so a backgrounded tab costs nothing. */
   function ambientPlay(on) {
     ambient.forEach(function (a) {
       try { on ? a.play() : a.pause(); } catch (e) {}
     });
+    // Resuming the tab must not also resume a gust nobody asked for.
+    if (on && !gusting) gustAnims.forEach(function (a) { try { a.pause(); } catch (e) {} });
   }
 
   /* ------------------------------------------------------------------ *
@@ -1209,7 +1277,7 @@
     mount: mount, apply: apply, focus: focus, waitFor: waitFor, element: element, halo: halo,
     isEmpty: isEmpty, contentBox: contentBox, contentParts: contentParts,
     onTap: function (fn) { onTap = fn || function () {}; },
-    ambient: ambientPlay,
+    ambient: ambientPlay, flurry: flurry,
     get svg() { return svg; }, get state() { return st; },
     shapeVerts: shapeVerts, PANELS: PANELS, HORIZON: HORIZON
   };

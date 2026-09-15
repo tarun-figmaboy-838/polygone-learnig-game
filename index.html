@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
 <!-- the backdrop is the first thing on screen; fetch it alongside the scripts -->
+<link rel="preload" as="image" href="assets/ui/banner.webp">
 <link rel="preload" as="image" href="assets/bg/ice-vista.png">
 <style>
   :root {
@@ -51,6 +52,7 @@
   #bubble {
     --cream: #fff8e7;
     --cream-light: #fffdf5;
+    --cream-foot: #fff2d6;   /* where the paper ends, and where the tail begins */
     --orange: #ffb515;
     --orange-dark: #e08200;
     --text: #064d68;
@@ -72,7 +74,7 @@
     background:
       radial-gradient(circle at 7% 66%, rgba(222, 159, 72, .13) 0 5px, transparent 6px),
       radial-gradient(circle at 92% 71%, rgba(222, 159, 72, .11) 0 6px, transparent 7px),
-      linear-gradient(180deg, var(--cream-light) 0%, var(--cream) 70%, #fff2d6 100%);
+      linear-gradient(180deg, var(--cream-light) 0%, var(--cream) 70%, var(--cream-foot) 100%);
 
     /* Asymmetric corners, so it never reads as a website card. */
     border-radius: 56px 62px 52px 58px / 46px 50px 47px 52px;
@@ -108,30 +110,43 @@
   /* Mood tints the paper and nothing else. The rim and the lip are the
      bubble's identity and never change, so a win does not arrive looking
      like a different widget. */
-  #bubble[data-mood="win"]   { --cream: #f3fce9; --cream-light: #fdfff8; }
-  #bubble[data-mood="hint"]  { --cream: #fff1cf; --cream-light: #fffbee; }
-  #bubble[data-mood="think"] { --cream: #f1f9fb; --cream-light: #fbfeff; }
+  #bubble[data-mood="win"]   { --cream: #f3fce9; --cream-light: #fdfff8; --cream-foot: #e9f8d9; }
+  #bubble[data-mood="hint"]  { --cream: #fff1cf; --cream-light: #fffbee; --cream-foot: #ffeabb; }
+  #bubble[data-mood="think"] { --cream: #f1f9fb; --cream-light: #fbfeff; --cream-foot: #e4f3f8; }
 
-  /* ---- tail: a rotated square tucked under the body ----
-     Its two outer edges carry the same rim, and its shadow is the same lip
-     rotated with it (9px straight down is 6.4px on each of a 45-degree
-     square's axes), so body and tail share one silhouette. */
+  /* ---- tail: a rotated square that joins the body ----------------------
+     IT SITS ON TOP, NOT BEHIND. Tucked behind the body (z-index: -1) the
+     body's own rim was drawn straight across the tail's base, so the tail
+     read as a separate diamond stuck on underneath — a cutout. Painted above
+     the body instead, the tail's fill covers that stretch of rim and its two
+     bordered edges carry the rim onward to the point, so the outline runs
+     round body and tail as one unbroken shape.
+
+     ITS FILL IS THE BODY'S LAST COLOUR, not the body's first. The paper
+     shades from #fffdf5 at the top to #fff2d6 at the bottom, and the tail
+     meets it at the bottom; filling it with the top colour left a visible
+     step exactly where the two were supposed to be one surface.
+
+     The shadow is the body's 9px lip rotated with the square — 9px straight
+     down is 6.4px on each axis of something turned 45 degrees — so the
+     underside runs continuously round both.
+
+     Everything about where it sits and which way it points is set from
+     game.js, which aims it at Swiftee's head. These are only the defaults
+     for the frame before that runs. */
   .dialogue-tail {
     position: absolute; bottom: calc(var(--tail) / -2 - 7px);
     left: 50%; margin-left: calc(var(--tail) / -2);
     width: var(--tail); height: var(--tail);
     box-sizing: border-box;
     transform: rotate(45deg);
-    background: var(--cream);
+    background: var(--cream-foot);
     border-right: var(--rim) solid var(--orange);
     border-bottom: var(--rim) solid var(--orange);
     border-radius: 0 0 9px 0;
     box-shadow: 6.4px 6.4px 0 var(--orange-dark);
-    z-index: -1;
+    z-index: 1;
   }
-  /* A tail has one job, so it moves to whichever side the speaker is on. */
-  #bubble.tail-left  .dialogue-tail { left: 18%; }
-  #bubble.tail-right .dialogue-tail { left: 82%; }
 
   @keyframes dialogue-enter {
     0%   { opacity: 0; transform: translateY(16px) scale(.86); }
@@ -249,10 +264,15 @@
   #progress-track { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255,255,255,.35); }
   #progress { height: 100%; width: 0; background: #3d8bff; transition: width 400ms ease; }
 
-  /* ---- loading / start gate ---- */
+  /* ---- title screen ----------------------------------------------------
+     The painted banner is the whole screen, with the snow that falls through
+     the lesson falling in front of it and the play button sitting on a cold
+     floor at the bottom. Everything here is torn down by TitleFx.stop() the
+     moment the lesson starts.
+  */
   #loading {
     position: absolute; inset: 0; z-index: 10; display: grid; place-items: center;
-    background: radial-gradient(120% 90% at 50% 20%, #d9effc 0%, #a9d6f4 70%);
+    background: #9ecdf0; overflow: hidden;
     transition: opacity 400ms ease, visibility 0s linear 400ms;
   }
   /* `pointer-events: none` here is not enough on its own: #start re-enables
@@ -261,17 +281,57 @@
      of hit-testing, and the delayed transition lets the fade finish first. */
   #loading.gone { opacity: 0; pointer-events: none; visibility: hidden; }
   #loading.gone #start { pointer-events: none; }
-  #loading .box { text-align: center; }
-  #loading h1 { margin: 0 0 6px; font-size: clamp(30px, 5vw, 54px); font-weight: 800; letter-spacing: -.02em; }
-  #loading p { margin: 0 0 22px; font-weight: 600; opacity: .75; }
-  #start {
-    font: inherit; font-weight: 800; font-size: clamp(20px, 2.6vw, 28px); color: #fff;
-    background: #3d8bff; border: 0; border-radius: 999px; padding: 16px 44px; cursor: pointer;
-    box-shadow: 0 8px 0 #1f5fc4, 0 14px 24px rgba(31, 95, 196, .35);
-    transform: translateY(0); transition: transform 90ms, box-shadow 90ms; opacity: .4; pointer-events: none;
+
+  .title-stage { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .title-art {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; object-position: 50% 40%;
+    /* Held a little over 1 so the slow drift never exposes an edge. */
+    transform: scale(1.035);
+    user-select: none; -webkit-user-drag: none;
   }
+  .title-sheen {
+    position: absolute; top: -20%; bottom: -20%; left: 0; width: 38%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .5), transparent);
+    opacity: 0; mix-blend-mode: screen;
+  }
+  .title-snow { position: absolute; inset: 0; }
+  /* A cold settling of the light toward the bottom of the frame. It used to
+     be a floor for the button; the button now sits up on the ice, so this is
+     back to doing the one thing it is good at — keeping the foreground from
+     being as bright as the middle distance. */
+  .title-scrim {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 42%;
+    background: linear-gradient(180deg, rgba(150, 203, 237, 0) 0%, rgba(120, 184, 227, .16) 58%, rgba(92, 163, 212, .34) 100%);
+  }
+
+  /* Pinned to a point in the PAINTING — the open ice under the logo — not to
+     a corner of the window. The art is object-fit: cover, so on anything but
+     16:9 the window and the picture disagree about where "three quarters
+     across" is; TitleFx.placePlay() does the cover arithmetic and sets these
+     two values. The transform centres it on that point. */
+  .title-play {
+    position: absolute; left: 50%; top: 76%;
+    transform: translate(-50%, -50%);
+  }
+  #start {
+    position: relative; z-index: 2; display: block;
+    width: clamp(118px, 19vh, 212px); height: clamp(118px, 19vh, 212px);
+    padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer;
+    opacity: .3; pointer-events: none;
+    filter: drop-shadow(0 10px 18px rgba(12, 64, 102, .45));
+    transition: opacity 340ms ease, filter 110ms ease, transform 110ms ease;
+  }
+  #start img { display: block; width: 100%; height: 100%; }
   #loading.ready #start { opacity: 1; pointer-events: auto; }
-  #start:active { transform: translateY(6px); box-shadow: 0 2px 0 #1f5fc4, 0 6px 12px rgba(31, 95, 196, .3); }
+  #start:active { transform: translateY(4px) scale(.965); filter: drop-shadow(0 4px 8px rgba(12, 64, 102, .5)) brightness(.97); }
+  #start:focus-visible { outline: 4px solid #fff; outline-offset: 7px; border-radius: 50%; }
+  .start-halo {
+    position: absolute; inset: -30%; border-radius: 50%; z-index: -1; pointer-events: none;
+    background: radial-gradient(closest-side, rgba(255, 238, 176, .6), rgba(255, 214, 120, .16) 60%, rgba(255, 214, 120, 0) 100%);
+  }
+  .start-sparks { position: absolute; inset: -20%; pointer-events: none; z-index: 3; }
+  .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
   @media (prefers-reduced-motion: reduce) {
     #bubble, #card, #progress, #next, #hud button { transition: none; }
@@ -279,10 +339,6 @@
   }
 
   .bubble-line { display: block; }
-  #reward { position: absolute; z-index: 7; bottom: 76px; left: 16px; max-width: calc(100% - 32px); padding: 9px 15px; border: 2px solid var(--ink); border-radius: 12px; background: #ffe283; font-weight: 800; box-shadow: 3px 3px 0 var(--ink); pointer-events: none; opacity: 0; transform: translateY(8px); transition: opacity 180ms, transform 180ms; }
-  #reward.show { opacity: 1; transform: translateY(0); }
-  @media (max-width: 600px) { #loading .box { padding: 24px; } }
-  @media (prefers-reduced-motion: reduce) { #reward { transition: none; } }
 </style>
 </head>
 <body>
@@ -292,7 +348,10 @@
     <div class="dialogue-inner"><span class="bubble-line"></span></div>
     <span class="dialogue-tail" aria-hidden="true"></span>
   </div>
-  <div id="reward" role="status" aria-live="polite"></div>
+  <!-- Progress is announced to a screen reader only. On screen it is the
+       confetti, the sound and Swiftee's reaction that say "well done"; a
+       yellow toast saying so as well was a caption on a joke. -->
+  <div id="reward" class="sr-only" role="status" aria-live="polite"></div>
   <div id="card" role="note"></div>
   <div id="hud">
     <button class="replay" type="button">Play again</button>
@@ -303,10 +362,19 @@
   <div id="progress-track"><div id="progress"></div></div>
 
   <div id="loading">
-    <div class="box">
-      <h1>Swiftee &amp; the Polygons</h1>
-      <p>One curious bird. Five badges. A whole world of shapes.</p><p>Complete challenges to earn XP. Mistakes are part of the adventure!</p>
-      <button id="start" type="button">Start</button>
+    <div class="title-stage" aria-hidden="true">
+      <img class="title-art" src="assets/ui/banner.webp" alt="" draggable="false">
+      <div class="title-sheen"></div>
+      <div class="title-snow"></div>
+      <div class="title-scrim"></div>
+    </div>
+    <h1 class="sr-only">Swiftee &amp; the Polygons</h1>
+    <div class="title-play">
+      <button id="start" type="button" aria-label="Start">
+        <span class="start-halo" aria-hidden="true"></span>
+        <img src="assets/ui/play.webp" alt="" draggable="false">
+      </button>
+      <span class="start-sparks" aria-hidden="true"></span>
     </div>
   </div>
 </div>
@@ -314,6 +382,8 @@
 <!-- Load order is the dependency order: each module reads the ones above it. -->
 <script src="src/audio/sfx.js"></script>
 <script src="src/fx/juice.js"></script>
+<script src="src/fx/snowflake.js"></script>
+<script src="src/fx/titlefx.js"></script>
 <script src="src/fx/transition.js"></script>
 <script src="src/core/input.js"></script>
 <script src="src/core/polygon-math.js"></script>

@@ -129,6 +129,7 @@
         { stage: { kind: 'polygon', sides: 5, panel: 'right', enter: 'pop' } },
         { sfx: 'pop' },
         { wait: 300 },
+        { swiftee: 'excited' },
         { say: 'Let\u2019s play with this one.', vo: 'p05' },
         { swiftee: 'look', at: 'polygon' },
         { input: { type: 'tap-anywhere' } }
@@ -141,6 +142,7 @@
       say: 'Pick any vertex.',
       beats: [
         { say: 'Pick any vertex.', vo: 'p06' },
+        { swiftee: 'point', at: 'polygon' },
         { focus: 'polygon.vertices', style: 'pulse' },
         { input: { type: 'vertex-pick', accept: 'any' } },
         { feedback: [{ sfx: 'select' }, { juice: 'pop', target: 'vertex' }] }
@@ -154,6 +156,7 @@
       stage: { highlight: { vertex: 'picked', color: 'yellow' } },
       beats: [
         { stage: { highlight: { vertex: 'picked', color: 'yellow' } } },
+        { swiftee: 'explain' },
         { say: 'I will connect it to another vertex.', vo: 'p07' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -299,6 +302,7 @@
         { sfx: 'pop' },
         { wait: 400 },
         { instruction: 'Draw all the diagonals from this vertex.' },
+        { swiftee: 'encourage' },
         { say: 'Your turn! Draw all the diagonals from this vertex.', vo: 'p15' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
         { swiftee: 'step-back' },
@@ -415,6 +419,7 @@
         { stage: { kind: 'compare', enter: 'split' } },
         { sfx: 'menuWhoosh' },
         { wait: 400 },
+        { swiftee: 'explain' },
         { say: 'Both are pentagons.', vo: 'p21' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -445,6 +450,7 @@
         { instruction: 'All diagonals inside means convex polygon.' },
         { stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'green', enter: 'pop' } } },
         { sfx: 'correct' },
+        { swiftee: 'explain' },
         { say: 'That\u2019s a convex polygon.', vo: 'p23' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -478,6 +484,7 @@
         { instruction: 'At least one diagonal outside means concave polygon.' },
         { stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'pink', enter: 'pop' } } },
         { sfx: 'correct' },
+        { swiftee: 'explain' },
         { say: 'So it is a concave polygon.', vo: 'p25' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -560,6 +567,7 @@
         { swiftee: 'move', to: 'left-low', size: 'medium' },
         { instruction: 'Tap the sides to measure them.' },
         { say: 'Let\u2019s check!', vo: 'p29' },
+        { swiftee: 'inspect' },
         { focus: 'polygon.sides', style: 'pulse' },
         // Each tap reveals that side's length. Lengths come from
         // Poly.sideLengths on the live geometry. Completes when all five
@@ -582,6 +590,7 @@
       beats: [
         { swiftee: 'nod' },
         { say: 'Every side is equal. But what about the angles?', vo: 'p30' },
+        { swiftee: 'think' },
         { instruction: 'Tap the angles to measure them.' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -653,6 +662,7 @@
         { stage: { kind: 'compare', enter: 'split' } },
         { sfx: 'menuWhoosh' },
         { wait: 300 },
+        { swiftee: 'explain' },
         { say: 'All sides AND all angles equal means regular. Otherwise, it\u2019s irregular.', vo: 'p32c' },
         { stage: { reveal: 'checks', animate: 'sequential' } },
         { input: { type: 'tap-anywhere' } }
@@ -700,6 +710,7 @@
       beats: [
         { stage: { kind: 'builder', sides: 3, enter: 'pop' } },
         { say: 'Let\u2019s start by making a pentagon. Adjust the number of sides.', vo: 'p35a' },
+        { swiftee: 'point', at: 'builder' },
         { focus: 'builder.stepper', style: 'pulse' },
         // The polygon morphs live as the stepper changes. Completes at 5.
         { input: { type: 'stepper', target: 5 } },

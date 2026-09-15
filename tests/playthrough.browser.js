@@ -127,6 +127,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await shot('01-start.png');
   await page.click('#start');
 
+
   /* ---- the arrival ------------------------------------------------
      He flies in. Mid-flight he should be above the spot he will land on and
      playing the airborne loop; a second later he should be standing on it. */
@@ -159,6 +160,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     grounded: !getComputedStyle(window.Swiftee.el.lastChild).backgroundImage.includes('flapping')
   })), {});
   t('he lands and settles into talking', landed.visible && landed.grounded, JSON.stringify(landed));
+
+  // A baseline for the leak gate at the end of the run. Taken here rather than
+  // straight after the start button, because the arrival checks above have to
+  // catch him mid-flight and a settling pause before them would let him land
+  // first.
+  await sleep(1200);
+  const baseline = await safe(() => page.evaluate(() => ({
+    nodes: document.getElementsByTagName('*').length,
+    anims: document.getAnimations().length
+  })), { nodes: 0, anims: 0 });
   await shot('03-landed.png');
 
   /* ---- the child ------------------------------------------------- */
@@ -374,6 +385,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const pivot = await safe(() => page.evaluate(async () => {
     const rect = () => { const r = window.Swiftee.el.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width)]; };
+    const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+    // Wait for him to stop moving before taking the first reading. He may
+    // still be settling out of the arrival flight, and a baseline measured
+    // mid-landing makes every state after it look like a shift — which is a
+    // false alarm about the one thing this check exists to catch.
+    let prev = '', same = 0;
+    for (let i = 0; i < 40 && same < 3; i++) {
+      await nap(120);
+      const now = JSON.stringify(rect());
+      same = now === prev ? same + 1 : 0;
+      prev = now;
+    }
     const out = [];
     for (const s of ['idle', 'wave', 'think', 'celebrate', 'confused', 'surprised', 'point', 'idle']) {
       window.Swiftee.play(s);
@@ -438,10 +461,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const bg = await safe(() => page.evaluate(() => {
     const img = document.querySelector('image.vista');
     return { src: img && (img.getAttribute('href') || img.getAttribute('xlink:href')),
-             flakes: document.querySelectorAll('.weather circle').length,
+             flakes: document.querySelectorAll('.weather .flake').length,
+             gust: document.querySelectorAll('.weather .gust .flake').length,
+             dots: document.querySelectorAll('.weather circle:not([fill^="url"])').length,
              clouds: document.querySelectorAll('.weather .cloud').length };
   }), { src: null, flakes: 0, clouds: 0 });
-  t('the painted vista is present with its weather', !!bg.src && bg.flakes > 10, JSON.stringify(bg));
+  // Crystals, not dots — a filled circle is what the snow used to be, and a
+  // regression to it is invisible in a screenshot but obvious to a child.
+  t('the painted vista is present with its weather',
+    !!bg.src && bg.flakes > 10 && bg.gust > 0 && bg.dots === 0, JSON.stringify(bg));
   t('no vector clouds are drawn over the painted sky', bg.clouds === 0, String(bg.clouds));
 
   await safe(() => page.setViewportSize({ width: 400, height: 820 }));
@@ -462,6 +490,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     t('correct cues fired', cues.correct > 0, JSON.stringify(cues));
     t('never stalled on a screen', stalls === 0, stalled ? JSON.stringify(stalled) : '');
   }
+  // Nothing may accumulate over a whole lesson. Every effect in the game is
+  // short-lived — confetti, the transition's crystals, the title screen's
+  // weather — and every one of them removes its own elements and cancels its
+  // own animations when it is done. A run that ends with hundreds more nodes
+  // or animations than it started with is one of them failing to, and that is
+  // invisible on any single screen: it shows up as a lesson that is smooth at
+  // the start and stuttering by the end.
+  if (!CHECKS_ONLY) {
+    const settled = await safe(() => page.evaluate(async () => {
+      await new Promise((r) => setTimeout(r, 1500));
+      return { nodes: document.getElementsByTagName('*').length, anims: document.getAnimations().length };
+    }), { nodes: 1e9, anims: 1e9 });
+    const grew = { nodes: settled.nodes - baseline.nodes, anims: settled.anims - baseline.anims };
+    // The end screen legitimately adds a little furniture, hence a budget
+    // rather than zero. Anything leaking is out by far more than this.
+    t('nothing leaks across a full lesson', grew.nodes < 120 && grew.anims < 60,
+      JSON.stringify({ baseline, settled, grew }));
+  }
+
   t('no runtime errors', errors.length === 0, errors.slice(0, 3).join(' | '));
   t('no missing assets', missing.length === 0, missing.slice(0, 3).join(' | '));
   t('the browser survived the run', !crashed, crashed || '');

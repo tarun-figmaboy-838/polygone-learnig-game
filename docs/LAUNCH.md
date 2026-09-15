@@ -58,16 +58,25 @@ by a gate that fails the build, not by looking at it once.
 | ✅ | Flies in for the entrance, banks, dips, lands, settles into talking |
 | ✅ | 10-sheet LRU so a long session does not exhaust image memory |
 | ✅ | A sheet that fails to load is forgotten, not cached as broken — the last good frame stays up and the next request retries |
+| ✅ | **Every speaking screen carries an expression.** Eleven screens said something with a feeling in it and wore none |
+| ✅ | **He answers the child.** A wrong answer used to leave him smiling; he is now puzzled *with* them, and pleased on a right one |
+| ✅ | The storyboard's allowed states are read off the renderer, so the vocabulary cannot drift from what is implemented |
 
 ## Presentation
 
 | | |
 | --- | --- |
-| ✅ | Painted vista backdrop with drifting snow and glints; **no vector clouds drawn over the painted sky** |
-| ✅ | Fairy-snow wipe between screens — and only when the scene actually rebuilds, so a same-scene beat does not flash |
+| ✅ | Painted title screen, with fairy snow falling over it in three depths and the art drifting slowly behind |
+| ✅ | Play button placed on a point in the **painting**, not in the window, so the crop cannot move it off the ice — and clamped so it can never leave the screen |
+| ✅ | The button holds still; its **glow** breathes. A target that never stops moving is a target a child has to chase |
+| ✅ | Title art 2.3 MB → 159 KB, play button 1.1 MB → 19 KB, cut off its white square with a clean alpha edge |
+| ✅ | Painted vista backdrop with **six-armed crystals**, not dots, plus glints and a light band; **no vector clouds drawn over the painted sky** |
+| ✅ | Fairy-snow wipe: the snowfall thickens, then nine big crystals fly in and their frost patches fuse into a sheet of ice |
+| ✅ | The wipe fires on **new UI or a new kind of doing** — never on a screen that only says another sentence |
 | ✅ | Dialogue arrives **a word at a time**, laid out at its final size from the first frame so it never jitters or re-places mid-line |
 | ✅ | Dual coding: each key term is tinted, and the thing it names haloes on stage in the same colour as that word appears |
 | ✅ | Dialogue box: one orange rim, one warm underside, cream paper, no stacked outlines and no decorative petals |
+| ✅ | A finished task shows **confetti**, not a caption. The XP toast is gone; the words remain for a screen reader |
 | ✅ | 14 synthesised cues, no audio files, muteable |
 | ✅ | `prefers-reduced-motion` honoured throughout |
 
@@ -78,10 +87,12 @@ by a gate that fails the build, not by looking at it once.
 | ✅ | No build step. The repo root **is** the site |
 | ✅ | `vercel.json`: no install, no build, output `.`, assets immutable for a year, `index.html` and `src/` revalidating |
 | ✅ | `.vercelignore` keeps tests, tools, docs and screenshots out of the deployment |
-| ✅ | Deploy payload **9.8 MB** — 9.5 MB of it sprite sheets and the backdrop |
+| ✅ | Deploy payload **10.1 MB** — 9.5 MB of it sprite sheets and the backdrop; the supplied title PNGs stay out of it |
 | ✅ | Runs over `file://` as well as over a server |
 | ✅ | No runtime errors and no missing assets across a full playthrough |
 | ✅ | Dead code and duplicates removed; nothing in `src/` is unreachable |
+| ✅ | One source of truth for reduced motion — `Juice.disable()` now stops the transition and the title screen too |
+| ✅ | **Nothing leaks across a full lesson**: node count and live animation count are asserted at the end of every browser run |
 
 ---
 

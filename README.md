@@ -38,12 +38,18 @@ src/
   audio/
     sfx.js                 fourteen cues, synthesised; no audio files
   fx/
-    juice.js               pops, wobbles, confetti
-    transition.js          the snow wipe between screens
+    juice.js               pops, wobbles, confetti, the shower
+    snowflake.js           the shape of a crystal — shared by all three below
+    titlefx.js             the title screen's weather and its sparkle
+    transition.js          the fairy-snow wipe between screens
 
 assets/
   bg/ice-vista.png         the painted backdrop
+  ui/banner.webp           the title art
+  ui/play.webp             the play button, cut off its white square
   swiftee/                 the character sprite sheets + the manifest
+  source/                  the supplied PNGs the two webps came from;
+                           not deployed, kept so they can be re-cut
 
 tools/
   build-swiftee-frames.js  manifest -> src/character/swiftee-frames.js
@@ -105,6 +111,30 @@ transition the animator drew.
 
 `node tools/list-sprites.js` prints exactly which sheets the game plays, what
 each is for, and which 25 animations it never touches.
+
+---
+
+## The weather
+
+One generator, `fx/snowflake.js`, makes every snowflake in the game: the
+crystals drifting past the lesson, the thirty falling over the title art in
+three depths, the nine enormous ones that cover the screen between screens,
+and the few mixed into the confetti. They are all the same six-armed lattice
+at different sizes, which is what makes the transition read as the weather
+closing in rather than as an effect switching on.
+
+The wipe marks **new work**, not a new page: it fires when a screen builds a
+new scene, or when it asks for a kind of doing the child has not been asked
+for yet — the first time they choose, drag, draw, sort or build. It never
+fires for a screen that only says another sentence. Twenty of the thirty-nine
+screens qualify; the rest flow into each other, which is what keeps a
+demonstration reading as one continuous thing. Interaction types are grouped
+into families for this, so drag-endpoint to drag-vertex is not treated as new
+work — it is the same hand doing the same thing.
+
+Before the crystals arrive, `Stage.flurry()` raises the scene's own snowfall:
+a reserve of bigger, faster flakes joins the calm ones and the calm ones speed
+up. The storm builds, then covers.
 
 ---
 

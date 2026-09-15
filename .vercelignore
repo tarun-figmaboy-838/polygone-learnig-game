@@ -3,6 +3,7 @@ tests
 tools
 docs
 artifacts
+assets/source
 serve.js
 package-lock.json
 *.code-workspace

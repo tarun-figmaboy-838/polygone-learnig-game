@@ -27,6 +27,7 @@
 global.window = global;
 require('../src/core/polygon-math.js');
 const Screens = require('../src/game/screens.js');
+require('../src/character/swiftee-frames.js');   // swiftee.js reads the frame table at load
 
 let pass = 0, fail = 0;
 const t = (label, cond, extra) => {
@@ -225,8 +226,11 @@ t('every wrong path re-opens the input or is judged per tap',
  * Vocabulary — nothing references a capability that does not exist
  * ------------------------------------------------------------------ */
 
-const SWIFTEE = ['celebrate', 'confused', 'encourage', 'enter', 'exit', 'explain', 'inspect', 'look',
-                 'mischief', 'move', 'nod', 'point', 'step-back', 'surprised', 'think', 'wave', 'idle'];
+// Read off the renderer rather than kept as a list here. A hand-kept copy
+// only answers 'is it on the list', and it drifted: the rig has implemented
+// 'excited' since the sprite sheets landed, and a storyboard beat that used
+// it failed a test whose message said it was not implemented.
+const SWIFTEE = require('../src/character/swiftee.js').states;
 const INPUTS = ['tap-anywhere', 'vertex-pick', 'drag-endpoint', 'draw-diagonal', 'draw-diagonals',
                 'drag-vertex', 'choice', 'multi-select', 'tap-each', 'sort', 'stepper'];
 const KINDS = ['vista', 'polygon', 'choice-grid', 'compare', 'sort', 'builder'];

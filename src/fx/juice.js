@@ -20,7 +20,8 @@
  *   Juice.squash(el, { amount })
  *   Juice.tada(el, { angle })
  *   Juice.flash(el)
- *   Juice.confetti(near, { count, offsetX })
+ *   Juice.confetti(near, { count, offsetX })   // a burst, from a place
+ *   Juice.shower({ count, duration })          // paper down the whole screen
  */
 (function (global) {
   'use strict';
@@ -230,12 +231,90 @@
       return Promise.all(done);
     },
 
+    /**
+     * Confetti falling across the whole screen, not thrown from a point.
+     *
+     * confetti() is a burst: it belongs to a thing that just happened in one
+     * place. A finished task belongs to the whole screen, so this seeds the
+     * full width above the top edge and lets it come down — paper, streamers
+     * and a few crystals, each on its own clock, so it arrives as a shower
+     * rather than as one curtain dropping.
+     */
+    shower: function (o) {
+      o = o || {};
+      if (reduced || !host || !host.ownerDocument) return Promise.resolve();
+      var doc = host.ownerDocument;
+      var hostRect = rectOf(host);
+      if (!hostRect) return Promise.resolve();
+
+      var n = Math.min(200, o.count == null ? 70 : o.count);
+      var done = [];
+      for (var i = 0; i < n; i++) done.push(fallingPiece(doc, hostRect.width, hostRect.height, o));
+      return Promise.all(done);
+    },
+
     get reducedMotion() { return reduced; },
     set reducedMotion(v) { reduced = !!v; },
 
     /** Test seam: makes every effect a no-op without touching the OS setting. */
     disable: function (v) { reduced = v !== false; return reduced; }
   };
+
+  /**
+   * One scrap of a shower: paper, a streamer, or a snow crystal.
+   *
+   * Seeded above the top edge with a stagger of up to most of a second, so
+   * the fall is continuous instead of the whole batch arriving as a line.
+   */
+  function fallingPiece(doc, W, H, o) {
+    var el = doc.createElement('div');
+    var kind = Math.random();
+    var x = Math.random() * W;
+    var y = -40 - Math.random() * H * 0.4;
+    var w, h, css;
+
+    if (kind < 0.16 && global.Snowflake) {
+      w = 12 + Math.random() * 20;
+      css = 'width:' + w.toFixed(0) + 'px;height:' + w.toFixed(0) + 'px;';
+    } else if (kind < 0.34) {
+      // a streamer: long, thin and slow, so the fall has more than one speed
+      w = 4 + Math.random() * 3; h = 18 + Math.random() * 22;
+      css = 'width:' + w.toFixed(1) + 'px;height:' + h.toFixed(1) + 'px;border-radius:3px;' +
+            'background:' + CONFETTI[(Math.random() * CONFETTI.length) | 0] + ';';
+    } else {
+      w = 7 + Math.random() * 8; h = w * (0.45 + Math.random() * 0.7);
+      css = 'width:' + w.toFixed(1) + 'px;height:' + h.toFixed(1) + 'px;' +
+            'background:' + CONFETTI[(Math.random() * CONFETTI.length) | 0] + ';' +
+            'border-radius:' + (Math.random() < 0.4 ? '50%' : '2px') + ';';
+    }
+
+    el.style.cssText = 'position:absolute;will-change:transform,opacity;pointer-events:none;' +
+      'left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;' + css;
+    if (kind < 0.16 && global.Snowflake) {
+      el.innerHTML = Snowflake.svg(w, (Math.random() * 3) | 0, { weight: Math.max(1, w * 0.05), glow: 'rgba(210,238,255,.8)' });
+    }
+    host.appendChild(el);
+
+    if (!el.animate) { el.remove(); return Promise.resolve(); }
+
+    var sway = (Math.random() - 0.5) * 180;
+    var spin = (Math.random() - 0.5) * 1100;
+    var drop = H - y + 80;
+    var dur = (o.duration || 1900) + Math.random() * 1100;
+
+    var a = el.animate([
+      { transform: 'translate(0,0) rotate(0deg)', opacity: 0 },
+      { transform: 'translate(' + (sway * 0.3).toFixed(0) + 'px,' + (drop * 0.12).toFixed(0) + 'px) rotate(' + (spin * 0.12).toFixed(0) + 'deg)', opacity: 1, offset: 0.12 },
+      { transform: 'translate(' + (-sway * 0.6).toFixed(0) + 'px,' + (drop * 0.55).toFixed(0) + 'px) rotate(' + (spin * 0.55).toFixed(0) + 'deg)', opacity: 1, offset: 0.55 },
+      { transform: 'translate(' + sway.toFixed(0) + 'px,' + drop.toFixed(0) + 'px) rotate(' + spin.toFixed(0) + 'deg)', opacity: 0 }
+    ], {
+      duration: dur,
+      delay: Math.random() * 700,
+      easing: 'cubic-bezier(.25,.55,.45,1)',
+      fill: 'forwards'
+    });
+    return a.finished.catch(function () {}).then(function () { if (el.parentNode) el.parentNode.removeChild(el); });
+  }
 
   function piece(doc, cx, cy, o) {
     var el = doc.createElement('div');
