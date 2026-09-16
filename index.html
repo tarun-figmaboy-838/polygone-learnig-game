@@ -36,6 +36,11 @@
   html, body { margin: 0; height: 100%; background: #a9d6f4; font-family: var(--sans); color: var(--ink); overflow: hidden; }
 
   #game { position: fixed; inset: 0; background: linear-gradient(#bfe3fb, #f7fcff); }
+  /* FULL BLEED. Insetting this by the plank's height did move the lesson
+     down, and also letterboxed the painted vista into a box with white bars
+     either side of it — the scene is the background of the whole window, not
+     a panel inside it. The plank floats over the top band instead, and the
+     lesson's own boxes start below it; see PANELS in stage.js. */
   #stage { position: absolute; inset: 0; }
 
   /* Swiftee is an HTML/SVG overlay positioned by game.js */
@@ -295,75 +300,73 @@
     #jump { left: auto; right: 6px; top: 98px; max-width: 46vw; }
   }
 
-  /* ---- instruction card --------------------------------------------------
-     The task, not the speech. It shares the bubble's paper so the two belong
-     to one game, and differs in every other way so they are never mistaken
-     for each other: a teal rim instead of orange, square-shouldered instead
-     of bulbous, no horn, no catch-light. The bubble is Swiftee talking; this
-     is the game telling you what to do.
+  /* ---- the instruction plank ---------------------------------------------
 
-     NOT TILTED. It used to sit at -1.2 degrees, as a taped-on note. At this
-     size, against a stage of straight edges, that reads as a rendering fault
-     rather than as a flourish — and it drags the eye off the words, which is
-     the one thing a card of instructions cannot afford.
+     THE PRIMARY GUIDANCE, AND IT IS GIVEN ITS OWN ROOM.
 
-     BIG ENOUGH TO READ. The old size bottomed out at 15px, which is small for
-     a seven-year-old and smaller still against a 40px speech bubble a few
-     centimetres away: the thing telling them what to DO was the least
-     legible thing on the screen.
+     This was a cream card pinned to the top-left corner, capped to whatever
+     width the lesson happened to leave beside it — and refused that cap when
+     the room fell below a readable column, at which point it sat over the
+     lesson instead. It negotiated for space the screen had already spent.
 
-     Its width is still capped in game.js against the live stage panel rather
-     than guessed here, so it can never grow into the shape being worked on. */
-  #card {
-    position: absolute; z-index: 4; left: 3%; top: 4%; max-width: 46%;
+     It is a plank across the top now, centred, and the lesson starts below
+     it: #stage takes its top inset from --instruction-h, which the component
+     measures from the rendered panel. One line or three, phone or desktop,
+     the lesson moves down by exactly what the plank needed and no number
+     here has to know how tall a line is.
+
+     BORDER-IMAGE, NOT A STRETCHED PICTURE. The artwork has snow caps on its
+     four corners and a plain wooden middle. Scaled as one image the caps
+     smear; as a nine-slice the four corners are drawn at their own
+     proportions and only the wood between them stretches, which is the one
+     part that can. 'fill' paints the middle slice behind the words, so the
+     text sits on wood rather than on nothing.
+
+     Everything that can scale is clamped rather than fixed, so the same rule
+     serves 1920 and 390 without a breakpoint.
+  */
+  #instruction {
+    position: absolute; z-index: 5;
+    left: 50%; transform: translateX(-50%);
+    top: clamp(6px, 1.2vh, 18px);
     box-sizing: border-box;
-    background: linear-gradient(180deg, #fffdf5 0%, #fff8e7 100%);
-    border: 4px solid var(--card-rim);
-    border-radius: 16px;
-    padding: .5em .85em;
+    width: max-content;
+    max-width: min(80vw, 1200px);
+    min-width: min(42vw, 420px);
+    height: auto;
+
+    border-style: solid;
+    border-width: clamp(26px, 3.4vw, 62px) clamp(30px, 4.4vw, 80px) clamp(18px, 2.4vw, 44px);
+    border-image-source: url("assets/ui/plank.webp");
+    border-image-slice: 120 150 90 150 fill;
+    border-image-repeat: stretch;
+
+    padding: 0 clamp(4px, .8vw, 14px) clamp(2px, .4vw, 8px);
     font-family: "Fredoka", "Baloo 2", "Arial Rounded MT Bold", var(--sans);
-    font-size: clamp(20px, 2.35vw, 32px); font-weight: 600;
-    line-height: 1.25; letter-spacing: .2px; color: var(--text-ink);
-    box-shadow: 0 5px 0 var(--card-rim-dark), 0 12px 20px rgba(20, 70, 92, .2);
-    opacity: 0; transform: translateY(-10px) scale(.96);
-    transition: opacity 180ms ease, transform 300ms cubic-bezier(.34, 1.56, .64, 1);
+    font-size: clamp(18px, 2vw, 34px); font-weight: 600;
+    line-height: 1.24; letter-spacing: .2px; text-align: center;
+    color: #5a3410;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, .55);
+
+    opacity: 0; pointer-events: none;
+    transition: opacity 200ms ease;
   }
-  #card.show { opacity: 1; transform: none; }
-
-  /* A hint of where we are, behind the words.
-     ...
-     A ridge of hills and two small firs, in one flat ice-blue at a twentieth
-     opacity, sitting along the BOTTOM of the card. Three rules keep it from
-     becoming clutter:
-
-       it is a silhouette, not a picture — one colour, no detail, nothing to
-       read;
-       it is along the bottom edge only, so the line of text crosses clean
-       card and never a shape;
-       it is behind everything, and the text sits on its own layer above it.
-
-     If it ever competes with the instruction it has failed at its only job,
-     which is to stop the card looking like a dialog box borrowed from a
-     website. */
-  #card::before {
-    content: "";
-    position: absolute; left: 0; right: 0; bottom: 0; height: 62%;
-    border-radius: 0 0 12px 12px;
-    pointer-events: none; z-index: 0; opacity: .5;
-    background: no-repeat bottom / 100% auto
-      url("data:image/svg+xml;utf8,\
-<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 60' preserveAspectRatio='none'>\
-<g fill='%23064d68' opacity='.1'>\
-<path d='M0 60 L34 26 L58 44 L86 14 L120 47 L150 30 L182 52 L212 22 L244 46 L272 31 L300 55 L300 60 Z'/>\
-</g>\
-<g fill='%23064d68' opacity='.13'>\
-<path d='M36 60 L36 54 L30 54 L42 38 L36 38 L48 22 L60 38 L54 38 L66 54 L60 54 L60 60 Z'/>\
-<path d='M246 60 L246 56 L242 56 L251 44 L246 44 L255 32 L264 44 L259 44 L268 56 L264 56 L264 60 Z'/>\
-</g>\
-</svg>");
+  #instruction.show { opacity: 1; }
+  /* The words cross-fade; the plank itself never moves, because the lesson
+     below is positioned from its height. */
+  #instruction .instruction-text {
+    display: block;
+    transition: opacity 150ms ease;
   }
-  #card .card-text { position: relative; z-index: 1; }
-  #card .card-text { display: inline; }
+  #instruction.fading .instruction-text { opacity: 0; }
+
+  @media (max-width: 760px) {
+    #instruction { max-width: 92vw; min-width: 0; font-size: clamp(15px, 3.4vw, 22px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #instruction, #instruction .instruction-text { transition: none; }
+  }
+
 
   /* ---- HUD ---- */
   #hud { position: absolute; z-index: 6; right: 14px; top: 12px; display: flex; gap: 10px; align-items: center; }
@@ -494,7 +497,7 @@
        confetti, the sound and Swiftee's reaction that say "well done"; a
        yellow toast saying so as well was a caption on a joke. -->
   <div id="reward" class="sr-only" role="status" aria-live="polite"></div>
-  <div id="card" role="note"></div>
+  <div id="instruction" role="note" aria-live="polite"><span class="instruction-text"></span></div>
   <div id="hud">
     <button class="replay" type="button">Play again</button>
     <button class="mute" type="button" aria-label="Mute" aria-pressed="false">🔊</button>
@@ -547,6 +550,7 @@
 <script src="src/character/swiftee.js"></script>
 <!-- generated from assets/ui/CARD.png by tools/build-card.js -->
 <script src="src/game/card-frame.js"></script>
+<script src="src/game/instruction.js"></script>
 <!-- generated from assets/ui/buttons.png by tools/build-buttons.js -->
 <script src="src/game/button-frame.js"></script>
 <script src="src/game/stage.js"></script>

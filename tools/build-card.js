@@ -53,6 +53,10 @@ const CARDS = [
   // The two drop zones of the swipe practice. Their titles are drawn INTO the
   // artwork, so the game must not print a label over them — and the pane each
   // one reports is the shelf its catch is stacked on.
+  // The instruction plank at the top of every screen. Drawn through CSS
+  // border-image, so what matters is where the flat middle starts on each
+  // edge — the snow caps live in the corner slices and must never stretch.
+  { key: 'plank',     src: 'assets/ui/pannel.png',   out: 'assets/ui/plank.webp',           cap: 1400 },
   { key: 'regular',   src: 'assets/ui/regular.png',   out: 'assets/ui/zone-regular.webp',   cap: 640 },
   { key: 'irregular', src: 'assets/ui/irregular.png', out: 'assets/ui/zone-irregular.webp', cap: 640 }
 ];

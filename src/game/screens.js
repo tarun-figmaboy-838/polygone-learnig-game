@@ -435,8 +435,11 @@
 
     {
       id: 'all-inside', page: 22,
-      // Small: at medium his shoulder reached into the left compare panel.
-      swiftee: { pos: 'left-low', size: 'small' },
+      // ABOVE, because that is where the line can go. The pair fills the
+      // middle and the Next button reserves the foot, leaving a 54px band
+      // below — a one-row bubble is 74. Standing at the bottom put him four
+      // hundred pixels from his own speech.
+      swiftee: { pos: 'top-left', size: 'small' },
       say: 'This one has all diagonals inside.',
       beats: [
         { instruction: null },
@@ -449,8 +452,10 @@
 
     {
       id: 'convex', page: 23,
-      // Small: at medium his shoulder reached into the left compare panel.
-      swiftee: { pos: 'left-low', size: 'small' },
+      // Above, like the rest of this run of compare screens: the pair fills
+      // the middle and Next reserves the foot, so a line placed near him at
+      // the bottom had a 54px band to live in and came out four rows deep.
+      swiftee: { pos: 'top-left', size: 'small' },
       instruction: 'All diagonals inside means convex polygon.',
       // FLAG: grammar. Deck: "That's convex polygon."
       say: 'That\u2019s a convex polygon.',
@@ -468,8 +473,11 @@
 
     {
       id: 'one-outside', page: 24,
-      // Small: at medium his shoulder reached into the left compare panel.
-      swiftee: { pos: 'left-low', size: 'small' },
+      // ABOVE, because that is where the line can go. The pair fills the
+      // middle and the Next button reserves the foot, leaving a 54px band
+      // below — a one-row bubble is 74. Standing at the bottom put him four
+      // hundred pixels from his own speech.
+      swiftee: { pos: 'top-left', size: 'small' },
       // FLAG: punctuation. Deck line has no full stop.
       say: 'This one has at least one diagonal outside.',
       original: 'This one has at least one diagonal outside',
@@ -484,8 +492,10 @@
 
     {
       id: 'concave', page: 25,
-      // Small: at medium his shoulder reached into the left compare panel.
-      swiftee: { pos: 'left-low', size: 'small' },
+      // Above, like the rest of this run of compare screens: the pair fills
+      // the middle and Next reserves the foot, so a line placed near him at
+      // the bottom had a 54px band to live in and came out four rows deep.
+      swiftee: { pos: 'top-left', size: 'small' },
       // FLAG: the deck card reads "At least  one" with a double space.
       instruction: 'At least one diagonal outside means concave polygon.',
       // FLAG: grammar and capitalisation. Deck: "So it is Concave polygon."
@@ -528,8 +538,11 @@
 
     {
       id: 'sort-convex-concave', page: 27,
-      // The bins need the whole floor, so he hovers in the corner and narrates.
-      swiftee: { pos: 'top-left', size: 'small' },
+      // IN THE CORRIDOR, which is where his line goes. The tray runs across
+      // the top and the bins across the bottom, so the only band tall enough
+      // for a sentence is the gap between them — and standing above the tray
+      // put him two hundred pixels from his own speech bubble.
+      swiftee: { pos: 'left-mid', size: 'small' },
       say: 'Can you sort these polygons as convex or concave?',
       stage: {
         kind: 'sort',
@@ -671,8 +684,9 @@
       // was standing in it, carving it below the height a bubble needs and
       // pushing the sentence into a side column four rows deep. The checks sit
       // under the panels and start at 194, so the foot of the left margin is
-      // genuinely free.
-      swiftee: { pos: 'left-low', size: 'small' },
+      // ABOVE. The pair fills the middle and its checks fill the foot, so
+      // the band above them is the only place a sentence fits.
+      swiftee: { pos: 'top-left', size: 'small' },
       say: 'All sides AND all angles equal means regular. Otherwise, it\u2019s irregular.',
       stage: {
         kind: 'compare',
@@ -692,10 +706,10 @@
 
     {
       id: 'sort-regular', page: 33,
-      // Both drop zones reach the edges here, so he stands in the near corner
-      // and stands small: at medium on the left he leaned on the Regular zone
-      // and on its arrow.
-      swiftee: { pos: 'right-low', size: 'small' },
+      // ABOVE THE ZONES. They reach both edges and the direction hint takes
+      // the floor, so the top band is the only place a line fits — in the
+      // near corner he was four hundred and sixty pixels from it.
+      swiftee: { pos: 'top-left', size: 'small' },
       say: 'Where does this polygon belong?',
       // The deck's own mechanic for this page. It was swapped for drag-to-bin
       // once, on the argument that one sorting gesture across the game is

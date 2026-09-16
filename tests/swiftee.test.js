@@ -233,5 +233,23 @@ t('the game exposes its semantic state table', RIG && Object.keys(RIG).length >=
   t('the narration loop is short enough to track speech', dur('talking') <= 600, Math.round(dur('talking')) + 'ms');
 }
 
+/* EVERY RIG A STATE NAMES MUST EXIST.
+ *
+ * Two of them did not. `idle` pointed at 'blinking' and `exit`/`move` at
+ * 'flapping', and neither is among the twenty-six the sheets carry — so the
+ * state Swiftee spends most of the lesson in had no animation at all. It
+ * threw nothing and logged nothing: he simply held whichever frame was last
+ * painted, which looks like a character who has stopped moving rather than
+ * like a bug. A name is cheap to check and impossible to notice.
+ */
+(function () {
+  var src = require('fs').readFileSync(__dirname + '/../src/character/swiftee.js', 'utf8');
+  var Frames = require('../src/character/swiftee-frames.js');
+  var named = (src.match(/rig:s*'[a-z-]+'/g) || []).map(function (x) { return x.split('\x27')[1]; });
+  var uniq = named.filter(function (v, i) { return named.indexOf(v) === i; });
+  var missing = uniq.filter(function (r) { return !Frames.states[r]; });
+  t('every rig a state names exists in the sheet set', missing.length === 0, missing.join(', '));
+})();
+
 console.log('\nswiftee: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

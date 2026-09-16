@@ -342,7 +342,10 @@
     // stage. At h:460 this slab ran to y 520 and Next starts at 493, so on
     // every screen that offers Next the button sat on the corner of the
     // lesson — a fixed number against a fixed number, wrong everywhere.
-    right:  { x: 500, y: 60,  w: 460, h: 425 },
+    // y 100, not 60: the instruction plank occupies the top band of every
+    // screen now, and at 60 this slab ran up underneath it. Height comes down
+    // with it so the foot still clears the Next button.
+    right:  { x: 500, y: 100, w: 460, h: 385 },
     // THE INSTRUCTION CARD COMES DOWN TO y 115. It is pinned top-left and
     // capped to whatever room the lesson leaves beside it — but a centred
     // panel leaves 200 units, which is narrower than the sentence is tall, so
@@ -675,6 +678,63 @@
     for (i = 0; i < n && st.edgeEls; i++) { var e1 = v[i], e2 = v[(i + 1) % n], E = st.edgeEls[i]; if (!E) continue; E.setAttribute('x1', e1.x); E.setAttribute('y1', e1.y); E.setAttribute('x2', e2.x); E.setAttribute('y2', e2.y); }
     for (i = 0; i < n && st.vertEls; i++) { var C = st.vertEls[i]; if (!C) continue; C.setAttribute('cx', v[i].x); C.setAttribute('cy', v[i].y); }
     if (st.measG) { while (st.measG.firstChild) st.measG.removeChild(st.measG.firstChild); if (st.measure) drawMeasurements(st.measG); }
+  }
+
+  // A miniature of the existing sprite walks the actual SVG edge. Keeping
+  // the tape and character in stage coordinates also handles responsive scaling.
+  function measureSide(index, done) {
+    var frames = global.SwifteeFrames;
+    if (reduced() || !frames || !global.requestAnimationFrame) { done(); return; }
+    var a = st.verts[index], b = st.verts[(index + 1) % st.verts.length];
+    if (a.x > b.x) { var swap = a; a = b; b = swap; }
+    var dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+    var angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    var g = mk('g', { 'class': 'swiftee-measuring', 'pointer-events': 'none', 'aria-hidden': 'true',
+      transform: 'translate(' + a.x + ',' + a.y + ') rotate(' + angle + ')' }, layers.fx);
+    var tape = mk('rect', { x: 0, y: -5, width: 0, height: 10, rx: 2, fill: '#ffe278', stroke: '#875b13', 'stroke-width': 1.5 }, g);
+    var ticks = mk('g', {}, g), marks = [];
+    for (var x = 0; x <= length; x += 6) {
+      marks.push(mk('line', { x1: x, x2: x, y1: -5, y2: x % 30 === 0 ? 3 : -1,
+        stroke: '#65491f', 'stroke-width': 1, visibility: 'hidden' }, ticks));
+    }
+    mk('path', { d: 'M0,-8 L0,8 L5,8', fill: 'none', stroke: '#586c7c', 'stroke-width': 3 }, g);
+    var walker = mk('g', { 'class': 'measuring-walker' }, g);
+    var body = mk('g', {}, walker);
+    var cell = 82, page = frames.clips.reset.sheets['1x'][0];
+    var crop = mk('svg', { x: -cell / 2, y: -cell * frames.baselineY, width: cell, height: cell,
+      viewBox: '0 0 256 256', overflow: 'hidden' }, body);
+    mk('image', { href: frames.base + page.image, width: page.cols * 256, height: page.rows * 256 }, crop);
+    // The housing sits beside the wing, with a short lead down to the tape.
+    mk('path', { d: 'M0,0 Q-10,-8 -18,-22', fill: 'none', stroke: '#e0af34', 'stroke-width': 4 }, walker);
+    mk('rect', { x: -29, y: -36, width: 22, height: 21, rx: 6, fill: '#087e91', stroke: '#174058', 'stroke-width': 2 }, walker);
+    mk('circle', { cx: -18, cy: -26, r: 5, fill: '#ffe278' }, walker);
+    var companion = global.Swiftee && Swiftee.el;
+    var opacity = companion && companion.style.opacity;
+    if (companion) companion.style.opacity = '0';
+    var raf = null, started = null, stopped = false;
+    var steps = Math.max(6, Math.round(length / 18)), duration = Math.max(1200, Math.min(1900, steps * 110));
+    function stop() {
+      if (stopped) return;
+      stopped = true;
+      if (raf !== null) global.cancelAnimationFrame(raf);
+      g.remove();
+      if (companion) companion.style.opacity = opacity;
+      var at = cleanup.indexOf(stop); if (at >= 0) cleanup.splice(at, 1);
+    }
+    cleanup.push(stop);
+    function tick(time) {
+      if (stopped) return;
+      if (started === null) started = time;
+      var progress = Math.min(1, (time - started) / duration), distance = length * progress;
+      tape.setAttribute('width', distance);
+      marks.forEach(function (mark, i) { mark.setAttribute('visibility', i * 6 <= distance ? 'visible' : 'hidden'); });
+      walker.setAttribute('transform', 'translate(' + distance + ',0)');
+      var stride = progress * steps * Math.PI * 2;
+      body.setAttribute('transform', 'translate(0,' + (-Math.abs(Math.sin(stride)) * 3) + ') rotate(' + (Math.sin(stride) * 4) + ')');
+      if (progress < 1) raf = global.requestAnimationFrame(tick);
+      else { stop(); done(); }
+    }
+    raf = global.requestAnimationFrame(tick);
   }
 
   function drawMeasurements(g) {
@@ -2459,6 +2519,8 @@
       return new Promise(function (resolve) {
         if (global.Input) Input.mode('polygon');
         var isSides = spec.targets === 'sides', seen = {}, count = 0, need = spec.count || st.n;
+        var queue = [], measuring = false, cancelled = false;
+        cleanup.push(function () { cancelled = true; queue.length = 0; });
         st.measure = st.measure || {}; st.measure[isSides ? 'sides' : 'angles'] = [];
         st.showVerts = !isSides; st.touchVerts = !isSides; renderPoly();
         var cls = isSides ? 'edge' : 'vertex';
@@ -2467,12 +2529,25 @@
         on(st.polyG, 'pointerdown', function (e) {
           var t = e.target; if (!t || !t.classList || !t.classList.contains(cls)) return;
           var i = +t.getAttribute('data-i'); if (seen[i]) return;
-          e.preventDefault(); seen[i] = true; count++;
-          st.measure[isSides ? 'sides' : 'angles'].push(i); st.lastEl = t; renderPoly();
-          (isSides ? st.edgeEls : st.vertEls).forEach(function (el) { el.style.cursor = 'pointer'; });
-          onTap('correct');
-          if (count >= need) { endInteraction(); resolve({ result: 'correct' }); }
+          e.preventDefault(); seen[i] = true;
+          queue.push(i); next();
         });
+        function next() {
+          if (cancelled || measuring || !queue.length) return;
+          var i = queue.shift(); measuring = true;
+          function reveal() {
+            if (cancelled) return;
+            count++;
+            st.measure[isSides ? 'sides' : 'angles'].push(i); renderPoly();
+            st.lastEl = (isSides ? st.edgeEls : st.vertEls)[i];
+            (isSides ? st.edgeEls : st.vertEls).forEach(function (el) { el.style.cursor = 'pointer'; });
+            onTap('correct'); measuring = false;
+            if (count >= need) { endInteraction(); resolve({ result: 'correct' }); }
+            else next();
+          }
+          if (isSides) measureSide(i, reveal);
+          else reveal();
+        }
         if (ctx && ctx.onCancel) ctx.onCancel(endInteraction);
       });
     },

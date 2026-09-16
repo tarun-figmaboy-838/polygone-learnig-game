@@ -135,7 +135,7 @@ const LUM = `(function (c) {
       // the paper behind it
       out.bubbleContrast = cr(cs.color, 'rgb(255,248,231)');
     }
-    const card = document.querySelector('#card');
+    const card = document.querySelector('#instruction');
     if (card && card.classList.contains('show')) {
       const cs = getComputedStyle(card);
       out.cardPx = parseFloat(cs.fontSize);
@@ -158,7 +158,7 @@ const LUM = `(function (c) {
     const s = await page.evaluate(() => {
       const svg = window.Stage.svg;
       const touch = svg ? [].slice.call(svg.querySelectorAll('[style*="cursor: pointer"],[style*="cursor:pointer"]')) : [];
-      const card = document.querySelector('#card');
+      const card = document.querySelector('#instruction');
       return {
         screen: window.Game.screen,
         next: !!document.querySelector('#next.show'),

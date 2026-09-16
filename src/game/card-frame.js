@@ -37,6 +37,17 @@
         "h": 0.7443
       }
     },
+    "plank": {
+      "src": "assets/ui/plank.webp",
+      "w": 1400,
+      "h": 353,
+      "pane": {
+        "x": 0.0321,
+        "y": 0.2206,
+        "w": 0.9349,
+        "h": 0.6785
+      }
+    },
     "regular": {
       "src": "assets/ui/zone-regular.webp",
       "w": 640,

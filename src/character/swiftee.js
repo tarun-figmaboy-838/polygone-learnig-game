@@ -53,7 +53,18 @@
 
   var STATES = {
     // resting
-    idle:        { rig: 'blinking',    hold: true },
+    // 'blinking' AND 'flapping' DID NOT EXIST.
+    //
+    // Twenty rigs are named in this table and the sheet set carries
+    // twenty-six, but two of the names were not among them — so the
+    // RESTING state, which is where he spends most of the lesson, pointed at
+    // nothing. He animated while a line was being read, because speaking()
+    // puts him on 'talking', and froze the moment it cleared. That is the
+    // 'wings not moving' report: not a stuck animation, an absent one.
+    //
+    // 'listening' is the calm attentive loop the set does have, and it is
+    // what an idle mascot waiting for a child should be doing.
+    idle:        { rig: 'listening',   hold: true },
 
     // narration and attention
     explain:     { rig: 'talking',     hold: true },
@@ -107,8 +118,10 @@
 
     // travel — a standalone loop under a WAAPI move
     enter:       { rig: 'driving',     hold: true },
-    exit:        { rig: 'flapping',    hold: true },
-    move:        { rig: 'flapping',    hold: true }
+    // No flight rig exists either. He waves as he goes, and travels on the
+    // liveliest loop the set has.
+    exit:        { rig: 'waving',      hold: true },
+    move:        { rig: 'playful',     hold: true }
   };
 
   /**
@@ -426,6 +439,34 @@
     return 'idle';
   }
 
+  /* Has the sled already been? The arrival is the opening of the lesson and
+     happens once; every later 'enter' is him coming back to a screen he
+     stepped off. */
+  var arrived = false;
+
+  /**
+   * He walks back on from whichever side he left by.
+   *
+   * Placed first so the slide starts from beside his mark rather than from
+   * wherever the exit animation abandoned him, and 'translate' rather than
+   * 'transform' because the element is POSITIONED with a transform and
+   * animating that property would throw his mark away.
+   */
+  function slideIn(o, g) {
+    var from = (o && o.from === 'right') ? 1 : -1;
+    place(pos, size);
+    el.style.opacity = '1';
+    stateName = 'enter';
+    if (reduced() || !el.animate) return rest();
+    var a = anim([
+      { translate: (from * 360) + 'px 0', opacity: 0 },
+      { translate: '0 0', opacity: 1 }
+    ], { duration: 460, easing: 'cubic-bezier(.2,.9,.3,1.25)' });
+    clip('playful', 1);
+    return a.finished.then(function () { return stale(g) ? null : rest(); },
+                           function () { return stale(g) ? null : rest(); });
+  }
+
   function rest() {
     // Whatever he stepped aside for is over.
     if (shiftAnim) { try { shiftAnim.cancel(); } catch (e) {} shiftAnim = null; }
@@ -663,6 +704,19 @@
     enter: function (o) {
       var g = fresh(); stateName = 'enter'; rigLoop = null;
       var container = (el && el.parentNode) || null;
+
+      /* THE SLED ARRIVES ONCE.
+       *
+       * 'enter' is not only the opening of the lesson: a screen that sends him
+       * away so the child can work uninterrupted brings him back with the same
+       * beat — make-concave does exactly that. Every one of those was
+       * replaying the whole six-and-a-half second reindeer arrival, in the
+       * middle of a task, for a bird who had stepped off the left edge four
+       * seconds earlier.
+       *
+       * The journey is the opening. Coming back is a walk-on. */
+      if (arrived) return slideIn(o, g);
+      arrived = true;
 
       if (!global.SleighIntro || !container || !global.SleighFrames) {
         el.style.opacity = '1';

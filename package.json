@@ -9,6 +9,7 @@
     "test:director": "node tests/director.test.js",
     "test:screens": "node tests/screens.test.js",
     "test:swiftee": "node tests/swiftee.test.js",
+    "test:measuring": "node tests/measuring.test.js",
     "test:play": "node tests/playthrough.jsdom.js",
     "test:browser": "node tests/playthrough.browser.js",
     "test:browser:checks": "node tests/playthrough.browser.js --checks",

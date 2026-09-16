@@ -12,7 +12,7 @@
   'use strict';
 
   var $ = function (s) { return document.querySelector(s); };
-  var root, stageEl, hud, bubble, card, progress, loadEl, nextBtn;
+  var root, stageEl, hud, bubble, instruction, progress, loadEl, nextBtn;
   var director, current = -1, playing = false, settleTimer = null, mouthTimer = null, bubbleTimer = null;
   var refitTimer = null, refitRaf = 0;
   var SAVE_KEY = 'swiftee.audio';
@@ -168,6 +168,10 @@
       // left is the near corner, and he has to be small enough to stand in
       // it without leaning on either zone.
       'right-low':          { x: 0.90, y: 1.00 },
+      // Mid-height, at the left edge. The sorting screens put a tray across
+      // the top and bins across the bottom, and the only band a line can live
+      // in is the corridor between them — so he stands in it too.
+      'left-mid':           { x: 0.115, y: 0.66 },
       // Up in the corner, off the ground — for screens where the lesson needs
       // the whole floor and he should be a narrator rather than a bystander
       // standing in it.
@@ -181,6 +185,7 @@
       // Stage letterboxes; put Swiftee below the box so he never covers it.
       map['left'] = { x: 0.18, y: 1.02 }; map['left-low'] = { x: 0.16, y: 1.02 };
       map['right-low'] = { x: 0.84, y: 1.02 };
+      map['left-mid'] = { x: 0.14, y: 0.62 };
       map['top-left'] = { x: 0.13, y: 0.26 };
       map['polygon-top-right'] = { x: 0.86, y: 0.22 }; map['centre'] = { x: 0.5, y: 1.02 };
       // ...which means the stage height is the wrong yardstick down here. A
@@ -497,7 +502,8 @@
 
     // Everything the bubble must stay out of.
     var content = Stage.contentBox && Stage.contentBox();
-    var cardBox = card.classList.contains('show') ? card.getBoundingClientRect() : null;
+    var cardBox = instruction && instruction.classList.contains('show')
+      ? instruction.getBoundingClientRect() : null;
     var hudBox = hud.getBoundingClientRect();
     var nextBox = nextBtn && nextBtn.classList.contains('show') ? nextBtn.getBoundingClientRect() : null;
 
@@ -688,7 +694,7 @@
         ? L.x - ww / 2
         : (onLeft ? Math.max(r.x, L.x - ww * 0.35) : Math.min(r.x + r.w - ww, L.x - ww * 0.65));
       var wy = (r.id === 'left' || r.id === 'right')
-        ? L.y - 256 * L.scale * CONTENT_FRAC - hh - 26
+        ? L.y - 256 * L.scale * CONTENT_FRAC - hh - 14
         : r.y + (r.h - hh) / 2;
       return {
         x: Math.max(r.x, Math.min(wx, r.x + r.w - ww)),
@@ -735,6 +741,10 @@
       var score = reach(placeIn(r, m.w, m.h), m.w, m.h)
                 + (rows - 1) * 40                          // one row is nicer
                 + (rows > 2 ? 4200 : 0)                    // three is a paragraph
+                // and four is not a speech bubble at all. Weighted past any
+                // distance on this stage, so a wider slot further from his
+                // head always wins over a narrow one beside it.
+                + (rows > 3 ? 20000 : 0)
                 + (fits ? 0 : 2400 + Math.max(0, m.h - r.h));
       if (score < best) { best = score; slot = r; }
     }
@@ -958,7 +968,13 @@
               : edge === 'top'    ? r.top - head.y
               : edge === 'right'  ? head.x - (r.left + r.width)
               :                     r.left - head.x;
-      if (gap > 0) len = clampTo(Math.min(len, gap * 0.58), em * 0.7, len);
+      // IT HAS TO REACH HIM. 0.58 was a fix for the opposite problem — the
+      // tail reaching THROUGH his head into his face — and it overshot: a
+      // pointer that stops sixty percent of the way across a gap is a
+      // pointer aimed at nothing, which is what 'the box does not touch his
+      // head' has been describing. `gap` is measured to the TOP of his drawn
+      // bounds, so 0.94 lands the tip on his outline and not inside it.
+      if (gap > 0) len = clampTo(Math.min(len, gap * 0.94), em * 0.7, len);
 
       // And the tip leans toward his head rather than hanging straight down,
       // so the tail points at the speaker instead of merely starting near him.
@@ -1055,49 +1071,23 @@
     return { x: b.left + b.width / 2, y: b.top + b.height * 0.18 };
   }
 
+  /**
+   * The instruction for this moment.
+   *
+   * All of it belongs to the plank at the top now — see instruction.js. What
+   * used to be here was the corner card's own width negotiation: measure the
+   * lesson, cap the card to whatever was left beside it, refuse the cap if
+   * that came out too narrow to read, and nudge the card's top if the lesson
+   * started high. Four rules trying to fit guidance into space the screen had
+   * already given away.
+   */
   function setCard(text) {
-    // THE CARD CHANGES WHERE THE BUBBLE MAY SIT. placeBubble() treats a shown
-    // card as something to stay out of, and reads that at the moment it runs
-    // — so a card that appears after the line was placed was simply not
-    // there to avoid, and the bubble was left sitting on top of it. Both
-    // paths re-place: appearing takes room away, disappearing gives it back.
-    if (!text) {
-      card.classList.remove('show'); card.textContent = '';
-      placeBubble();
-      return;
-    }
-    if (global.DualCode) {
-      // Words only. The card used to lead with a pictogram of the gesture —
-      // a finger sliding for "drag", and so on — which is good dual coding in
-      // principle and was a small grey mark beside a line of text in
-      // practice, read as a stray icon rather than as a second channel. The
-      // picture half of the pair is the lesson itself, which is the better
-      // half to point at, and the tinted terms already bind the words to it.
-      card.innerHTML = '<span class="card-text">' + DualCode.markup(text) + '</span>';
-    } else {
-      card.textContent = text;
-    }
-    card.classList.add('show');
+    if (global.Instruction) Instruction.show(text || null);
+    // The plank's height moves the lesson, so anything measured against the
+    // lesson is measured again once it has settled.
     placeBubble();
-    // Same reasoning as the bubble: the card lives top-left and the polygon
-    // panel lives right, so cap it where the panel begins rather than at a
-    // percentage that happens to work on one window size.
-    var content = Stage.contentBox && Stage.contentBox();
-    var cardLeft = card.getBoundingClientRect().left;
-    var cardRoom = content ? content.left - cardLeft - 16 : Infinity;
-    // Only cap when capping leaves a card worth reading.
-    //
-    // 200px was not that. Once the compare pair was centred, the room to the
-    // left of the lesson fell to about that, the cap took it, and a sentence
-    // that fits on one line came out on FIVE in a column narrower than it was
-    // tall. A card that has to be capped below a readable width is a card
-    // that should not be beside the lesson at all: it sits above it instead,
-    // which its own top-left placement already does, and the panels start low
-    // enough to leave room for it.
-    card.style.maxWidth = (isFinite(cardRoom) && cardRoom >= 420) ? cardRoom + 'px' : '';
-    card.style.top = (content && content.top < 90) ? '2%' : '';
-    if (global.Juice) Juice.pop(card, { scale: 0.05 });
   }
+
 
   /**
    * Re-place everything that is positioned from the layout.
@@ -1227,7 +1217,7 @@
         // without one would be left saying nothing at all, so those keep it.
         clearTimeout(bubbleTimer);
         bubbleTimer = setTimeout(function () {
-          if (card && card.classList.contains('show')) say(null);
+          if (instruction && instruction.classList.contains('show')) say(null);
         }, (opts.reading || 1200) + 1100);
         if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(bubbleTimer); });
         if (ctx && ctx.onCancel) ctx.onCancel(stop);
@@ -1312,11 +1302,16 @@
     if (s.swiftee && Swiftee.place) {
       var wantPos = s.swiftee.pos || Swiftee.pos;
       var wantSize = s.swiftee.size || Swiftee.size;
-      if (wantPos !== Swiftee.pos || wantSize !== Swiftee.size) {
-        Swiftee.place(wantPos, wantSize);
-        if (Swiftee.el) Swiftee.el.classList.toggle('hover-float', wantPos === 'top-left');
-        placeBubble();
-      }
+      // ALWAYS, not only when it differs. place() puts him on his mark AND
+      // makes him visible, and the state he arrives in may have left him
+      // neither: 'exit' flies him off the left edge and sets opacity 0, and a
+      // screen entered while that was still running — a jump, a Restart, the
+      // director abandoning a long beat — inherited a character four hundred
+      // pixels off-stage with nothing left to bring him back. Placing him is
+      // cheap and saying it twice costs a layout read.
+      Swiftee.place(wantPos, wantSize);
+      if (Swiftee.el) Swiftee.el.classList.toggle('hover-float', wantPos === 'top-left');
+      placeBubble();
     }
 
     current = i; setProgress(i);
@@ -1501,7 +1496,7 @@
 
   function boot() {
     root = $('#game'); stageEl = $('#stage'); hud = $('#hud'); bubble = $('#bubble');
-    card = $('#card'); progress = $('#progress'); loadEl = $('#loading'); nextBtn = $('#next');
+    instruction = $('#instruction'); progress = $('#progress'); loadEl = $('#loading'); nextBtn = $('#next');
 
     Stage.mount(stageEl);
     Swiftee.mount(root, { layout: layout });

@@ -604,7 +604,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // that gap is not covering anything.
     const parts = window.Stage.contentParts ? window.Stage.contentParts() : [];
     const hits = [];
-    const bubble = box('#bubble'), card = box('#card');
+    const bubble = box('#bubble'), card = box('#instruction');
     const hud = document.querySelector('#hud').getBoundingClientRect();
     const bird = window.Swiftee.bounds && window.Swiftee.bounds();
     const against = (r, label) => { if (r && parts.some((p) => over(r, p))) hits.push(label); };
