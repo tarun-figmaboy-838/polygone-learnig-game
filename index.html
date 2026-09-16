@@ -271,34 +271,6 @@
     #stage .touchable:hover { translate: 0; }
   }
 
-  /* ---- TEMPORARY screen picker -------------------------------------------
-     Top-left, and quiet until it is wanted: at a quarter opacity it reads as
-     a tool rather than as part of the lesson, and it comes up to full on
-     hover or focus. Above the card, because the card is the other thing that
-     lives in this corner and the picker has to stay reachable. */
-  #jump {
-    /* NOT the top-left corner: that is the instruction card's corner (left:3%,
-       top:4%, up to 46% wide), and a picker sitting on top of it covered the
-       first line of the only text telling the child what to do. This sits in
-       the clear strip between the card and the HUD at every width, because
-       the card can never pass 49% and the HUD starts at the right edge. */
-    position: fixed; top: 6px; left: 52%; z-index: 60;
-    max-width: calc(48vw - 96px);
-    opacity: .3; transition: opacity .18s ease;
-  }
-  #jump:hover, #jump:focus-within { opacity: 1; }
-  #jump select {
-    width: 100%; max-width: 240px; height: 34px;
-    font: 600 13px/1 system-ui, sans-serif; color: #17324d;
-    background: rgba(255, 255, 255, .94);
-    border: 2px solid #9fd6fb; border-radius: 9px;
-    padding: 0 6px; cursor: pointer;
-  }
-  /* Under a phone width there is no clear strip, so it drops below the HUD
-     buttons and keeps its own row rather than fighting for one. */
-  @media (max-width: 680px) {
-    #jump { left: auto; right: 6px; top: 98px; max-width: 46vw; }
-  }
 
   /* ---- the instruction plank ---------------------------------------------
 
@@ -502,15 +474,6 @@
     <button class="replay" type="button">Play again</button>
     <button class="mute" type="button" aria-label="Mute" aria-pressed="false">🔊</button>
     <button class="restart" type="button" aria-label="Restart">↻</button>
-  </div>
-  <!-- TEMPORARY. A screen picker for reviewing the lesson without playing
-       thirty-nine screens to reach the one in question. It is deliberately
-       easy to delete: this element, the #jump rules in the stylesheet, and
-       the wireJump() call in game.js. Marked data-dev so the test suites can
-       tell a review tool from part of the game. -->
-  <div id="jump" data-dev="1">
-    <label class="sr-only" for="jump-sel">Jump to screen</label>
-    <select id="jump-sel"></select>
   </div>
   <button id="next" type="button" aria-label="Next"><span>Next</span><span class="chev" aria-hidden="true">&#9654;</span></button>
   <div id="progress-track"><div id="progress"></div></div>

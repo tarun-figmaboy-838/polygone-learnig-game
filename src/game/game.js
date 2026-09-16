@@ -1648,8 +1648,6 @@
 
     // Audio needs a real gesture. The start button is that gesture, so
     // nothing plays before the learner is ready.
-    wireJump();
-
     // POINTERDOWN, NOT CLICK, for everything the child is meant to feel.
     // click does not fire until the finger lifts, and by then this handler is
     // also dropping the curtain — so the pop and the squash were being played
@@ -1692,62 +1690,6 @@
       setTimeout(function () { if (global.TitleFx) TitleFx.stop(); }, 640);
       setTimeout(function () { play(0); }, 430);
     });
-  }
-
-  /**
-   * TEMPORARY: the screen picker in the top-left corner.
-   *
-   * Reviewing a layout means looking at one screen, not at the thirty-eight
-   * in front of it. This lists every screen by number and id and jumps
-   * straight there.
-   *
-   * Delete this function, its call in boot(), the #jump element and the
-   * #jump rules in the stylesheet, and nothing else changes — it reads the
-   * screen list and calls the same play() the lesson does, and owns no state
-   * of its own. It also keeps itself in step: jumping by any other route
-   * still moves the selection, so the box never claims you are somewhere you
-   * are not.
-   */
-  function wireJump() {
-    var box = $('#jump-sel');
-    if (!box || !global.Screens) return;
-    Screens.list.forEach(function (s, i) {
-      var o = document.createElement('option');
-      o.value = i;
-      o.textContent = (i + 1) + '. ' + s.id;
-      box.appendChild(o);
-    });
-    box.addEventListener('change', function () {
-      var n = +box.value;
-      if (!(n >= 0 && n < Screens.list.length)) return;
-      // play() is a loop over the remaining screens and refuses to start a
-      // second one while the first is running, so jumping is not 'call play'
-      // — it is 'end the loop that is running, then start one at n'. abort()
-      // makes the awaited screen resolve CANCELLED, which is that loop's own
-      // way out; the beat after it is so the old loop has unwound before the
-      // new one claims the flag.
-      director.abort();
-      playing = false;
-      showNext(false);
-
-      // Some screens never build a stage — they add a question to whatever
-      // the screen before them put up. Played in order that is exactly
-      // right; jumped to, it means you inherit whichever stage happened to
-      // be on screen, which for a picker is every stage but the correct one.
-      // So walk back to the nearest screen that does declare one and build
-      // that first.
-      for (var b = n; b >= 0; b--) {
-        var sp = Screens.list[b].stage;
-        if (sp && sp.kind) { Stage.apply(sp); break; }
-      }
-      box.blur();                       // so the arrow keys go back to the lesson
-      setTimeout(function () { play(n); }, 80);
-    });
-    if (director && director.on) {
-      director.on('start', function () {
-        if (current >= 0 && +box.value !== current) box.value = current;
-      });
-    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
