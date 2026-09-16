@@ -398,51 +398,44 @@
    * Everything is drawn in viewBox units, so it scales with the stage and
    * needs no breakpoints of its own.
    */
+  /**
+   * The slab a shape is DISPLAYED on.
+   *
+   * THIS IS THE CARD FOR THINGS YOU CANNOT TOUCH. The game now has two, and
+   * the difference between them is the affordance: an option — anything in
+   * the sorting tray, the swipe deck, the choose-the-polygons grid — sits in
+   * the small block of ice, and a shape that is simply being shown to you
+   * sits on this one. A child can tell which is which before they reach for
+   * it, which one slab used for both could never say.
+   *
+   * It was drawn here: a face, a rim, an underside, four frost crystals and a
+   * sheen, about forty lines of it. It is the artwork now, so what the lesson
+   * shows and what the designer drew cannot drift apart, and redrawing it is
+   * a file swap.
+   *
+   * `_face` is the area INSIDE its rim, which is what the shape and its
+   * caption have to stay within. The bottom rim is a sixth of the card, so a
+   * caption placed against the bottom of the PANEL sits on the frame rather
+   * than on the ice.
+   */
   function panel(p, opts) {
     opts = opts || {};
     var g = mk('g', { 'class': 'panel' }, layers.panel);
-    var R = 34;
+    var F = global.CardFrame && CardFrame.panel;
 
-    // the thickness, showing beneath the face
-    mk('rect', { x: p.x, y: p.y + 7, width: p.w, height: p.h, rx: R,
-                 fill: '#7cb6dc', opacity: 0.38, 'pointer-events': 'none' }, g);
-
-    // the face
-    mk('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: R,
-                 fill: 'url(#panelFace)', stroke: '#a3d4ef', 'stroke-width': 3 }, g);
-
-    // light along the top inside edge
-    mk('rect', { x: p.x + 9, y: p.y + 7, width: p.w - 18, height: p.h * 0.36, rx: R * 0.72,
-                 fill: 'url(#panelSheen)', opacity: 0.55, 'pointer-events': 'none' }, g);
-
-    // FROST, NOT FOUR STAMPS.
-    //
-    // The first version put a crystal a twelfth of the panel wide in each
-    // corner at a quarter opacity, and at that size they stopped being
-    // texture: four big hard-edged stars, identical, one per corner, reading
-    // as clip-art pressed onto the card and competing with the shape in the
-    // middle. Frost on a window is small, uneven and barely there.
-    //
-    // So: half the size, half the opacity, a thinner line, each one a
-    // different size and build, and tucked further into the corners where
-    // the shape never reaches.
-    if (global.Snowflake) {
-      var inset = Math.min(p.w, p.h) * 0.085;
-      var base = Math.min(p.w, p.h) * 0.036;
-      [[p.x + inset, p.y + inset, 0, 1.0],
-       [p.x + p.w - inset, p.y + inset * 0.82, 1, 0.72],
-       [p.x + inset * 0.86, p.y + p.h - inset, 2, 0.84],
-       [p.x + p.w - inset * 0.92, p.y + p.h - inset * 0.88, 1, 0.62]
-      ].forEach(function (c) {
-        mk('path', {
-          'class': 'panel-frost',
-          d: Snowflake.path(base * c[3], c[2]),
-          transform: 'translate(' + c[0].toFixed(1) + ',' + c[1].toFixed(1) + ')',
-          fill: 'none', stroke: '#9ccbe8', 'stroke-width': 1.1,
-          'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-          opacity: 0.13, 'pointer-events': 'none'
-        }, g);
-      });
+    if (F) {
+      var img = mk('image', {
+        x: p.x, y: p.y, width: p.w, height: p.h,
+        preserveAspectRatio: 'none', 'pointer-events': 'none'
+      }, g);
+      img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', F.src);
+      img.setAttribute('href', F.src);
+    } else {
+      // No frame table: a plain slab rather than no lesson.
+      mk('rect', { x: p.x, y: p.y + 7, width: p.w, height: p.h, rx: 34,
+                   fill: '#7cb6dc', opacity: 0.38, 'pointer-events': 'none' }, g);
+      mk('rect', { x: p.x, y: p.y, width: p.w, height: p.h, rx: 34,
+                   fill: 'url(#panelFace)', stroke: '#a3d4ef', 'stroke-width': 3 }, g);
     }
 
     if (opts.enter !== false) enter(g, opts.enter || 'pop');
@@ -495,13 +488,27 @@
    * The fit also replaces the clamp that used to follow it. A shape sized to
    * its box cannot leave the box, so there is nothing left to correct.
    */
+  /**
+   * The clear face of a panel: the card, less the frame around it.
+   *
+   * The artwork's rim is not a hairline — the bottom of it is a sixth of the
+   * card — so the box a shape may use is not the box the panel occupies.
+   */
+  function panelFace(p) {
+    var F = global.CardFrame && CardFrame.panel;
+    var q = F && F.pane;
+    if (!q) return p;
+    return { x: p.x + p.w * q.x, y: p.y + p.h * q.y, w: p.w * q.w, h: p.h * q.h };
+  }
+
   function polygonIn(p, n, opts) {
     opts = opts || {};
 
-    var mx = p.w * 0.085, mt = p.h * 0.085;
+    var face = panelFace(p);
+    var mx = face.w * 0.04, mt = face.h * 0.05;
     // Room for what is drawn beneath it, and none when nothing is.
-    var mb = opts.below ? p.h * 0.23 : p.h * 0.085;
-    var box = { x: p.x + mx, y: p.y + mt, w: p.w - mx * 2, h: p.h - mt - mb };
+    var mb = opts.below ? face.h * 0.2 : face.h * 0.05;
+    var box = { x: face.x + mx, y: face.y + mt, w: face.w - mx * 2, h: face.h - mt - mb };
 
     // Built at unit size WITH its deformations, so what gets measured is what
     // gets drawn: a dented or stretched shape has a different bounding box
@@ -862,25 +869,46 @@
         var c = CONCEPT[z.id] || CONCEPT.regular;
         var tone = [c.wash, c.face, c.ink];
         var g = mk('g', { 'class': 'zone', 'data-zone': z.id }, layers.ui);
-        // the slab, in the same grammar as every other surface in this game:
-        // a face, a rim, and an underside so it has thickness
-        mk('rect', { x: z.x, y: ZY + 7, width: ZW, height: ZH, rx: 26, fill: tone[1], opacity: 0.35 }, g);
-        mk('rect', { x: z.x, y: ZY, width: ZW, height: ZH, rx: 26, fill: tone[0], stroke: tone[1], 'stroke-width': 3 }, g);
-        // the title plate
-        // the title plate, in the DEEP tone: white on the mid tone measures
-        // under 2:1, which is a label a child has to guess at
-        mk('rect', { x: z.x + 16, y: ZY + 12, width: ZW - 32, height: 52, rx: 16, fill: c.deep }, g);
-        mk('text', { x: z.x + ZW / 2, y: ZY + 47, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 700, fill: '#fff', text: def.label }, g);
-        // the dashed landing area — and the shelf the catch sits on
-        mk('rect', { x: z.x + 18, y: ZY + 78, width: ZW - 36, height: ZH - 96, rx: 18,
-                     fill: 'none', stroke: tone[1], 'stroke-width': 3, 'stroke-dasharray': '11 9', opacity: 0.85 }, g);
+
+        /* THE ZONE IS THE ARTWORK, TITLE AND ALL.
+         *
+         * assets/ui/regular.png and irregular.png are finished drop zones: the
+         * frame, the title plate with the word already lettered on it, and the
+         * shelf underneath for what the child has caught. So this does NOT
+         * print a label — the word is in the picture, and a second one drawn
+         * over it would be the same word twice in two different types.
+         *
+         * The shelf comes from the artwork's own measured pane rather than
+         * from an inset guessed here: the title plate takes the top quarter of
+         * the card, so a shelf centred in the card would stack the first row
+         * of shapes across the word. */
+        var Z = global.CardFrame && CardFrame[z.id];
+        if (Z) {
+          var im = mk('image', {
+            x: z.x, y: ZY, width: ZW, height: ZH,
+            preserveAspectRatio: 'none', 'pointer-events': 'none'
+          }, g);
+          im.setAttributeNS('http://www.w3.org/1999/xlink', 'href', Z.src);
+          im.setAttribute('href', Z.src);
+        } else {
+          // No artwork: the drawn zone, so the practice still works.
+          mk('rect', { x: z.x, y: ZY + 7, width: ZW, height: ZH, rx: 26, fill: tone[1], opacity: 0.35 }, g);
+          mk('rect', { x: z.x, y: ZY, width: ZW, height: ZH, rx: 26, fill: tone[0], stroke: tone[1], 'stroke-width': 3 }, g);
+          mk('rect', { x: z.x + 16, y: ZY + 12, width: ZW - 32, height: 52, rx: 16, fill: c.deep }, g);
+          mk('text', { x: z.x + ZW / 2, y: ZY + 47, 'text-anchor': 'middle', 'font-size': 30,
+                       'font-weight': 700, fill: '#fff', text: def.label }, g);
+        }
+
         g._rect = { x: z.x, y: ZY, w: ZW, h: ZH };
-        g._shelf = { x: z.x + 26, y: ZY + 86, w: ZW - 52, h: ZH - 112 };
+        var q = Z && Z.pane;
+        g._shelf = q
+          ? { x: z.x + ZW * q.x, y: ZY + ZH * q.y, w: ZW * q.w, h: ZH * q.h }
+          : { x: z.x + 26, y: ZY + 86, w: ZW - 52, h: ZH - 112 };
         g._kept = [];
         g._keptG = mk('g', { 'class': 'zone-kept' }, g);
         // a tally, so the two piles can be compared at a glance
         g._tally = mk('text', {
-          x: z.x + ZW - 26, y: ZY + ZH - 16, 'text-anchor': 'end',
+          x: g._shelf.x + g._shelf.w - 8, y: g._shelf.y + g._shelf.h - 8, 'text-anchor': 'end',
           'font-size': 22, 'font-weight': 700, fill: c.ink, opacity: 0, text: '0'
         }, g);
         g._tone = tone;
@@ -1156,7 +1184,7 @@
    * of the vertices and they have to be the ones on the screen.
    */
   function optionCard(parent, half, name) {
-    var F = global.CardFrame;
+    var F = global.CardFrame && CardFrame.option;
     var g = mk('g', { 'class': 'shape-card' }, parent);
 
     // The artwork is not square; forcing it into a square box would stretch
@@ -1386,41 +1414,165 @@
     return g;
   }
 
+  /* Lighten or darken a hex colour. The gloss on a button is the same
+     colour at four brightnesses, so the palette carries one and this makes
+     the rest — a table of eighty hand-picked values would be a table nobody
+     could keep in step. */
+  function shade(hex, t) {
+    var n = parseInt(hex.slice(1), 16);
+    var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    var to = t > 0 ? 255 : 0, k = Math.abs(t);
+    var mix = function (c) { return Math.round(c + (to - c) * k); };
+    return '#' + ((1 << 24) + (mix(r) << 16) + (mix(g) << 8) + mix(b)).toString(16).slice(1);
+  }
+
+  /**
+   * A button.
+   *
+   * THE ARTWORK, IN THREE PIECES. assets/ui/buttons.png is a sheet of
+   * finished buttons; tools/build-buttons.js cuts the four this lesson needs
+   * out of it and measures where each round end finishes.
+   *
+   * A button here is every width from a 64-unit stepper key to a 184-unit
+   * answer, and the sheet is one aspect ratio, so the picture cannot simply
+   * be scaled to fit: a round end becomes an oval and the specular highlight
+   * smears across the face. It is drawn as three pieces instead — the left
+   * cap at its true proportions, the right cap at its true proportions, and
+   * the sliver between them stretched to fill. That middle is a flat vertical
+   * gradient, which is the only part of a pill that CAN stretch without
+   * deforming.
+   *
+   * Each piece is a nested <svg> with a viewBox over the region it wants,
+   * which is how SVG crops an image: an <image> has no source rectangle.
+   *
+   * WHICH BUTTONS EXIST is decided in the build tool, and the sheet cannot
+   * supply the four CATEGORY colours — two of its twenty are the green and
+   * the red that mean right and wrong. Categories are flat tags and tinted
+   * drop zones, never buttons. A tone the sheet does not carry falls through
+   * to the drawn gloss below, which is the same shape in the same light.
+   */
   function pill(parent, o) {
     var tone = PILL_TONES[o.tone] || PILL_TONES.blue;
     var w = o.w, h = o.h == null ? 62 : o.h;
     var x = o.x, y = o.y;                        // y is the CENTRE of the face
-    var r = o.r == null ? Math.min(20, h * 0.34) : o.r;
-    var lip = o.lip == null ? Math.max(4, h * 0.13) : o.lip;
+    var r = o.r == null ? h / 2 : o.r;
+    var lip = o.lip == null ? Math.max(4, h * 0.15) : o.lip;
+    var top = y - h / 2;
 
     var g = mk('g', o.attrs || {}, parent);
-    mk('rect', { x: x, y: y - h / 2 + lip, width: w, height: h, rx: r, fill: tone[1] }, g);
-    mk('rect', { x: x, y: y - h / 2, width: w, height: h, rx: r, fill: tone[0] }, g);
-    mk('rect', { x: x + w * 0.05, y: y - h / 2 + h * 0.1, width: w * 0.9, height: h * 0.34,
-                 rx: r * 0.7, fill: '#ffffff', opacity: 0.22 }, g);
+    var art = null, drawn = null;
+
+    var B = global.ButtonFrame && ButtonFrame[o.tone];
+    if (B) {
+      art = sliced(g, B, x, top, w, h);
+    } else {
+      drawn = drawnPill(g, tone, x, top, w, h, r, lip);
+    }
+
     var t = mk('text', {
-      x: x + w / 2, y: y + h * 0.14,
-      'text-anchor': 'middle', 'font-size': o.size || Math.round(h * 0.44),
-      'font-weight': 700, fill: o.ink || tone[2] || '#ffffff', text: o.label
+      x: x + w / 2, y: y + h * 0.13,
+      'text-anchor': 'middle', 'font-size': o.size || Math.round(h * 0.42),
+      'font-weight': 700, fill: o.ink || tone[2] || '#ffffff', text: o.label,
+      'pointer-events': 'none'
     }, g);
 
-    // The face and the lip are kept, because a badge can change what it
-    // says WHILE the child drags — the shape turns concave under their hand
-    // and the badge has to follow. Retinting means both, not just the face:
-    // a green face over a pink lip is a different bug, not a fix.
-    g._text = t; g._face = g.childNodes[1]; g._lip = g.childNodes[0];
-    // The box this pill occupies, so anything else on the stage can be told
-    // to get out of its way.
-    g._rect = { x: x, y: y - h / 2, w: w, h: h };
-    g._retint = function (tone) {
-      var p = PILL_TONES[tone] || PILL_TONES.blue;
-      g._face.setAttribute('fill', p[0]);
-      g._lip.setAttribute('fill', p[1]);
-      g._text.setAttribute('fill', o.ink || p[2] || '#ffffff');
+    g._text = t;
+    g._rect = { x: x, y: top, w: w, h: h };
+    // Kept so a badge can change what it says WHILE the child drags: the
+    // shape turns concave under their hand and the label has to follow.
+    g._retint = function (name) {
+      var p = PILL_TONES[name] || PILL_TONES.blue;
+      var nb = global.ButtonFrame && ButtonFrame[name];
+      if (art && nb) art.href(nb);
+      else if (drawn) drawn.paint(p);
+      t.setAttribute('fill', o.ink || p[2] || '#ffffff');
     };
+
     if (o.press) g.style.cursor = 'pointer';
     return g;
   }
+
+  /** The three pieces, and a way to point them all at another button. */
+  function sliced(g, B, x, top, w, h) {
+    var k = h / B.h;                 // the sheet's pixels, at this size
+    var cap = Math.min(B.cap * k, w / 2);
+    var pieces = [];
+    var put = function (dx, dw, sx, sw) {
+      var box = mk('svg', {
+        x: dx, y: top, width: dw, height: h,
+        viewBox: sx + ' 0 ' + sw + ' ' + B.h,
+        preserveAspectRatio: 'none', overflow: 'hidden'
+      }, g);
+      var im = mk('image', { x: 0, y: 0, width: B.w, height: B.h,
+                             preserveAspectRatio: 'none' }, box);
+      im.setAttributeNS('http://www.w3.org/1999/xlink', 'href', B.src);
+      im.setAttribute('href', B.src);
+      pieces.push(im);
+    };
+    put(x, cap, 0, B.cap);                                   // left cap
+    put(x + cap, w - cap * 2, B.cap, B.w - B.cap * 2);        // the stretch
+    put(x + w - cap, cap, B.w - B.cap, B.cap);                // right cap
+    return {
+      href: function (nb) {
+        pieces.forEach(function (im) {
+          im.setAttributeNS('http://www.w3.org/1999/xlink', 'href', nb.src);
+          im.setAttribute('href', nb.src);
+        });
+      }
+    };
+  }
+
+  /** The fallback: the same button, drawn, for a tone the sheet has not got. */
+  function drawnPill(g, tone, x, top, w, h, r, lip) {
+    var lipEl = mk('rect', { x: x, y: top + lip, width: w, height: h, rx: r, fill: tone[1] }, g);
+    var face = mk('rect', { x: x, y: top, width: w, height: h, rx: r, fill: tone[0] }, g);
+    var lit = mk('rect', { x: x, y: top, width: w, height: h, rx: r, fill: 'none', 'pointer-events': 'none' }, g);
+    var rim = mk('rect', { x: x + 1, y: top + 1, width: w - 2, height: h - 2, rx: Math.max(0, r - 1),
+                           fill: 'none', stroke: tone[1], 'stroke-width': 2, opacity: 0.55,
+                           'pointer-events': 'none' }, g);
+    mk('ellipse', { cx: x + w - h * 0.34, cy: top + h * 0.27, rx: h * 0.17, ry: h * 0.12,
+                    fill: '#ffffff', opacity: 0.92, 'pointer-events': 'none' }, g);
+    mk('ellipse', { cx: x + h * 0.36, cy: top + h * 0.72, rx: h * 0.1, ry: h * 0.07,
+                    fill: '#ffffff', opacity: 0.55, 'pointer-events': 'none' }, g);
+    var paint = function (p) {
+      face.setAttribute('fill', shade(p[0], 0.04));
+      lipEl.setAttribute('fill', p[1]);
+      rim.setAttribute('stroke', p[1]);
+      lit.setAttribute('fill', 'url(#' + gloss(p[0]) + ')');
+    };
+    paint(tone);
+    return { paint: paint };
+  }
+
+
+  /* One gradient per colour, made once and reused: a button is drawn up to
+     six times on a screen and the gloss is the same every time.
+     Asked of the DOM rather than remembered in a map, because the map would
+     go on claiming a gradient exists after the defs it lived in were cleared,
+     and every button drawn after that would have no face. */
+  function gloss(hex) {
+    var id = 'gloss' + hex.slice(1);
+    if (!svg) return id;
+    if (svg.querySelector('#' + id)) return id;
+    var defs = svg.querySelector('defs');
+    if (!defs) return id;
+    var ns = 'http://www.w3.org/2000/svg';
+    var lg = document.createElementNS(ns, 'linearGradient');
+    lg.setAttribute('id', id);
+    lg.setAttribute('x1', '0'); lg.setAttribute('y1', '0');
+    lg.setAttribute('x2', '0'); lg.setAttribute('y2', '1');
+    [[0, shade(hex, 0.42)], [0.5, shade(hex, 0.02)], [0.52, hex], [1, shade(hex, -0.26)]]
+      .forEach(function (st) {
+        var stop = document.createElementNS(ns, 'stop');
+        stop.setAttribute('offset', st[0]);
+        stop.setAttribute('stop-color', st[1]);
+        lg.appendChild(stop);
+      });
+    defs.appendChild(lg);
+    return id;
+  }
+
+
 
   /**
    * A y below the shape with real clearance, never past the panel.
@@ -1486,7 +1638,8 @@
     var lowest = st.verts && st.verts.length
       ? st.verts.reduce(function (m, p) { return p.y > m ? p.y : m; }, -Infinity) + VERT_PAINT
       : null;
-    var floorY = st.panel ? st.panel.y + st.panel.h - (floorPad == null ? 18 : floorPad) : H - 30;
+    var f = st.panel ? panelFace(st.panel) : null;
+    var floorY = f ? f.y + f.h - (floorPad == null ? 8 : floorPad * 0.4) : H - 30;
     var ceil = choiceCeiling();
     if (ceil != null) floorY = Math.min(floorY, ceil);
     if (lowest == null) return floorY;
@@ -1576,7 +1729,8 @@
         var lowest = st.verts && st.verts.length
           ? st.verts.reduce(function (m, p) { return p.y > m ? p.y : m; }, -Infinity) + VERT_PAINT
           : null;
-        var floorY = st.panel.y + st.panel.h - 18;
+        var pf = panelFace(st.panel);
+        var floorY = pf.y + pf.h - 8;
         var lceil = choiceCeiling();
         if (lceil != null) floorY = Math.min(floorY, lceil);
         y = lowest == null ? Math.min(floorY, st.panel.y + st.panel.h - 30)
@@ -1669,7 +1823,10 @@
       // they collided with whatever was under the shape: the row came out over
       // the shape's own label on a tall panel, and past the bottom of the
       // viewBox on a taller one — clipped, and unclickable.
-      var y = H - bh / 2 - 14;
+      // 14 left the row eight pixels off the foot of the stage, with the
+      // progress bar in those eight. A button now carries a lip below its
+      // face, so the box it paints is taller than the box it is given.
+      var y = H - bh / 2 - 24;
       x0 = Math.max(14, Math.min(x0, W - row - 14));
       list.forEach(function (label, i) {
         var x = x0 + i * (bw + gap);
