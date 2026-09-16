@@ -122,6 +122,19 @@
    * stepper. Beats included, because most screens add theirs a beat or two
    * after the stage is built.
    */
+  /** Does this screen put a row of options up at any point? */
+  function screenAsksChoices(scr) {
+    var beats = (scr.beats || []).concat(
+      Object.keys(scr.perTap || {}).reduce(function (a, k) { return a.concat(scr.perTap[k] || []); }, []));
+    var has = function (o) { return !!(o && o.choices); };
+    if (has(scr.stage)) return true;
+    return beats.some(function (b) {
+      return has(b.stage) ||
+        (b.on && Object.keys(b.on).some(function (k) { return (b.on[k] || []).some(function (x) { return has(x.stage); }); })) ||
+        (b.otherwise || []).some(function (x) { return has(x.stage); });
+    });
+  }
+
   function wantsRoomBelow(scr) {
     var beats = (scr.beats || []).concat(
       Object.keys(scr.perTap || {}).reduce(function (a, k) { return a.concat(scr.perTap[k] || []); }, []));
@@ -146,7 +159,10 @@
     var map = {
       'left':               { x: 0.20, y: 0.88 },
       'left-low':           { x: 0.15, y: 0.97 },
-      'polygon-top-right':  { x: 0.905, y: 0.34 },
+      // 'polygon-top-right' is gone. The lesson slab occupies the right of
+      // the stage and the HUD the corner above it, so there is no point at the
+      // polygon's top-right that is not already something else. Two screens
+      // used it, and on both he simply stood on the card.
       // For screens whose lesson reaches all the way across — the swipe
       // practice puts a drop zone against each edge — the only clear ground
       // left is the near corner, and he has to be small enough to stand in
@@ -155,7 +171,9 @@
       // Up in the corner, off the ground — for screens where the lesson needs
       // the whole floor and he should be a narrator rather than a bystander
       // standing in it.
-      'top-left':           { x: 0.11, y: 0.30 },
+      // 0.075, not 0.11: at 0.11 his wing reached four pixels into the first
+      // card of the sorting tray.
+      'top-left':           { x: 0.075, y: 0.30 },
       'centre':             { x: 0.50, y: 0.93 },
       'off':                { x: -0.3, y: 0.9 }
     };
@@ -1269,6 +1287,16 @@
     // something the screen cannot do.
     setCard(null);
     clearTimeout(bubbleTimer);
+
+    // AND THE OPTIONS ARE CLEARED, NOT INHERITED.
+    //
+    // Only a screen that rebuilds the stage replaces them, so a screen that
+    // merely highlights something — 'Whoa! One of the diagonals went outside'
+    // — kept the previous screen's answer buttons sitting across the bottom.
+    // They are inert by then: the interaction that bound them has ended. So a
+    // child is shown two buttons, taps one, and nothing happens, which is a
+    // worse lesson than no buttons at all.
+    if (!screenAsksChoices(s) && global.Stage && Stage.apply) Stage.apply({ choices: null });
 
     // WHERE HE STANDS ON THIS SCREEN.
     //

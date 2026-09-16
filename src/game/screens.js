@@ -166,10 +166,14 @@
       // Page 8 has no dialogue: Swiftee relocates to the polygon and draws
       // the side. The deck shows a teleport; this is an entrance.
       id: 'draw-side', page: 8,
-      swiftee: { pos: 'polygon-top-right', size: 'small' },
+      // He starts back and steps IN to draw. It used to say
+      // polygon-top-right in both places, which is not a move at all — and
+      // that corner is inside the right-hand slab, so he stood on the lesson
+      // for the whole screen.
+      swiftee: { pos: 'left-low', size: 'small' },
       say: null,
       beats: [
-        { swiftee: 'move', to: 'polygon-top-right', size: 'small' },
+        { swiftee: 'move', to: 'left', size: 'medium' },
         { wait: 200 },
         { parallel: [
           { stage: { draw: { segment: ['picked', 'adjacent'], color: 'yellow', animate: 600 } } },
@@ -413,7 +417,8 @@
       // Both panels sit across the middle and nothing is drawn under them on
       // this screen, so the whole foot of the stage is his — centre stage,
       // with the line directly over his head in the band he leaves.
-      swiftee: { pos: 'centre', size: 'medium' },
+      // Small: at medium his head reaches 46 units up into the compare panels.
+      swiftee: { pos: 'centre', size: 'small' },
       instruction: 'Compare the diagonals in both pentagons.',
       say: 'Both are pentagons.',
       stage: { kind: 'compare', left: { sides: 5, diagonals: 'all' }, right: { sides: 5, dent: 0, diagonals: 'all', outsideColor: 'red' } },
@@ -430,7 +435,8 @@
 
     {
       id: 'all-inside', page: 22,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // Small: at medium his shoulder reached into the left compare panel.
+      swiftee: { pos: 'left-low', size: 'small' },
       say: 'This one has all diagonals inside.',
       beats: [
         { instruction: null },
@@ -443,7 +449,8 @@
 
     {
       id: 'convex', page: 23,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // Small: at medium his shoulder reached into the left compare panel.
+      swiftee: { pos: 'left-low', size: 'small' },
       instruction: 'All diagonals inside means convex polygon.',
       // FLAG: grammar. Deck: "That's convex polygon."
       say: 'That\u2019s a convex polygon.',
@@ -461,7 +468,8 @@
 
     {
       id: 'one-outside', page: 24,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // Small: at medium his shoulder reached into the left compare panel.
+      swiftee: { pos: 'left-low', size: 'small' },
       // FLAG: punctuation. Deck line has no full stop.
       say: 'This one has at least one diagonal outside.',
       original: 'This one has at least one diagonal outside',
@@ -476,7 +484,8 @@
 
     {
       id: 'concave', page: 25,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // Small: at medium his shoulder reached into the left compare panel.
+      swiftee: { pos: 'left-low', size: 'small' },
       // FLAG: the deck card reads "At least  one" with a double space.
       instruction: 'At least one diagonal outside means concave polygon.',
       // FLAG: grammar and capitalisation. Deck: "So it is Concave polygon."
@@ -550,12 +559,14 @@
 
     {
       id: 'suspicious', page: 28,
-      swiftee: { pos: 'polygon-top-right', size: 'small' },
+      // NOT polygon-top-right: that corner is inside the right-hand slab, so
+      // the position cannot avoid the panel it is defined against.
+      swiftee: { pos: 'left-low', size: 'small' },
       say: 'Hmm\u2026 The sides look suspiciously alike.',
       stage: { kind: 'polygon', sides: 5, panel: 'right' },
       beats: [
         { stage: { kind: 'polygon', sides: 5, panel: 'right', enter: 'pop' } },
-        { swiftee: 'move', to: 'polygon-top-right', size: 'small' },
+        { swiftee: 'move', to: 'left', size: 'medium' },
         { swiftee: 'inspect' },
         { say: 'Hmm\u2026 The sides look suspiciously alike.', vo: 'p28' },
         { input: { type: 'tap-anywhere' } }
@@ -788,7 +799,10 @@
 
     {
       id: 'build-done', page: 35, panel: 4,
-      swiftee: { pos: 'left-low', size: 'large' },
+      // Medium. This screen uses the CENTRED slab, which starts at x 230 — at
+      // large he is 175 units across from x 62 and his wing is on the card.
+      // The finale is carried by the celebrate clip and the confetti.
+      swiftee: { pos: 'left-low', size: 'medium' },
       say: 'Nice! You built a concave and irregular pentagon.',
       stage: { checklist: ['5 sides', 'Concave', 'Irregular'] },
       beats: [

@@ -614,10 +614,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     if (over(bubble, card)) hits.push('bubble/card');
     if (over(card, hud)) hits.push('card/hud');
     if (over(bubble, hud)) hits.push('bubble/hud');
-    return hits;
-  }), []);
+    return hits.length ? { screen: window.Game.screen, id: (window.Screens.list[window.Game.screen] || {}).id, hits: hits } : null;
+  }), null);
+  // WHICH SCREEN. 'swiftee/stage' on its own says something overlaps
+  // somewhere in a thirty-nine screen lesson, which is a search, not a
+  // report.
   t('no overlay covers the lesson, the character or another overlay',
-    overlap.length === 0, overlap.join(', '));
+    !overlap, overlap ? 'screen ' + (overlap.screen + 1) + ' ' + overlap.id + ': ' + overlap.hits.join(', ') : '');
 
   const bg = await safe(() => page.evaluate(() => {
     const img = document.querySelector('image.vista');

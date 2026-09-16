@@ -321,7 +321,7 @@ t('every perTap bucket is a list of beats',
 /* Kept in step with the map in game.js layout(). A position the screens use
    and the layout does not know silently falls back to left-low, which is how
    a screen can ask for a corner and get the middle of the left edge. */
-const POSITIONS = ['left', 'left-low', 'polygon-top-right', 'right-low', 'top-left', 'centre', 'off'];
+const POSITIONS = ['left', 'left-low', 'right-low', 'top-left', 'centre', 'off'];
 
 t('Swiftee positions are ones the layout knows',
   S.every((s) => !s.swiftee || POSITIONS.indexOf(s.swiftee.pos) >= 0),

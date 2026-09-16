@@ -4,19 +4,26 @@
  *
  *   node tools/build-buttons.js
  *
- * assets/ui/buttons.png is twenty finished buttons in a 5x4 grid, each with
- * its role written underneath it.
+ * assets/ui/newbuttons.png is twenty finished buttons on a black background.
  *
  * WHY SLICE RATHER THAN STRETCH. The buttons in this game are every width
  * from a 64-unit stepper key to a 184-unit answer, and the sheet is one
  * aspect ratio. Scaled to fit, a round end becomes an oval and the specular
  * highlight smears across the face. So each button is cut into three: a left
- * cap, a one-pixel-wide middle, and a right cap. The caps are drawn at their
- * true size at either end and the middle is stretched between them, which is
+ * cap, a stretchable middle, and a right cap. The caps are drawn at their true
+ * proportions at either end and the middle is stretched between them, which is
  * the only part of a pill that CAN stretch without deforming — it is a flat
  * vertical gradient.
  *
- * WHICH FOUR. The sheet offers twenty roles and this lesson needs four:
+ * FIND THE BUTTONS, DO NOT ASSUME A GRID. The first sheet sat each button in
+ * the middle of a 5x4 cell with room to spare. This one draws them wider and
+ * closer, so they bleed over the cell boundaries — and cutting by cell took a
+ * slice of the neighbour with every button: a green sliver down the side of
+ * the orange one, a red edge on the green one. Every run of connected
+ * non-black pixels is a component, the big ones are the buttons, and they are
+ * sorted into reading order by where their centres fall.
+ *
+ * WHICH FOUR. The sheet offers twenty and this lesson needs four:
  *
  *   sun        Primary    the first of a pair of answers
  *   tangerine  Secondary  the second
@@ -27,13 +34,8 @@
  * irregular — and it cannot, because two of its twenty are the green and the
  * red that mean right and wrong, and a category drawn in those tells a child
  * that half the shapes are mistakes. Categories are drawn as flat tags and
- * tinted drop zones instead, from the palette in stage.js, and never as
- * buttons. No option button in this lesson is labelled with a category word.
- *
- * EACH CELL IS A BUTTON AND A CAPTION. The caption is the grey role name
- * printed under the button and must not end up in the image, so the button is
- * taken as the topmost run of rows that spans most of the cell — a caption is
- * narrow and centred, a button is wide.
+ * tinted drop zones, never as buttons. No option button in this lesson is
+ * labelled with a category word.
  *
  * Writes assets/ui/btn-*.webp and src/game/button-frame.js.
  */
@@ -45,17 +47,16 @@ const path = require('path');
 const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '..');
-const SRC = 'assets/ui/buttons.png';
+const SRC = 'assets/ui/newbuttons.png';
 const OUT_JS = path.join(ROOT, 'src/game/button-frame.js');
 
-/* Row-major position on the 5x4 sheet, and what this game calls it. */
+/* Position in reading order across the sheet, and what this game calls it. */
 const WANT = [
   { cell: 0,  tone: 'sun',       role: 'Primary' },
   { cell: 1,  tone: 'tangerine', role: 'Secondary' },
   { cell: 3,  tone: 'correct',   role: 'Success' },
   { cell: 4,  tone: 'wrong',     role: 'Danger' }
 ];
-const COLS = 5, ROWS = 4;
 
 function serve() {
   const TY = { '.html': 'text/html', '.png': 'image/png' };
@@ -71,7 +72,7 @@ function serve() {
 }
 
 const CUT = function (opts) {
-  const url = opts.url, cols = opts.cols, rows = opts.rows, want = opts.want;
+  const url = opts.url, want = opts.want;
   return new Promise(function (resolve, reject) {
     const img = new Image();
     img.onerror = reject;
@@ -81,70 +82,191 @@ const CUT = function (opts) {
       const x = c.getContext('2d');
       x.drawImage(img, 0, 0);
       const d = x.getImageData(0, 0, c.width, c.height).data;
+      const W = c.width, H = c.height;
 
-      /* The sheet is on white, not on transparency: "ink" is any pixel that
-         is not near-white. */
+      /* The sheet is on opaque black: "ink" is anything that is not. */
       const ink = function (px, py) {
-        const i = (py * c.width + px) * 4;
+        const i = (py * W + px) * 4;
         if (d[i + 3] < 40) return false;
-        return d[i] < 236 || d[i + 1] < 236 || d[i + 2] < 236;
+        return d[i] > 38 || d[i + 1] > 38 || d[i + 2] > 38;
       };
 
-      const cellW = c.width / cols, cellH = c.height / rows;
+      /* every connected run of ink */
+      const seen = new Uint8Array(W * H);
+      const comps = [];
+      for (let sy = 0; sy < H; sy++) {
+        for (let sx = 0; sx < W; sx++) {
+          const n0 = sy * W + sx;
+          if (seen[n0] || !ink(sx, sy)) continue;
+          let minx = sx, maxx = sx, miny = sy, maxy = sy, area = 0;
+          const stack = [n0];
+          seen[n0] = 1;
+          while (stack.length) {
+            const n = stack.pop();
+            const px = n % W, py = (n - px) / W;
+            area++;
+            if (px < minx) minx = px;
+            if (px > maxx) maxx = px;
+            if (py < miny) miny = py;
+            if (py > maxy) maxy = py;
+            const nb = [[px - 1, py], [px + 1, py], [px, py - 1], [px, py + 1]];
+            for (let k = 0; k < 4; k++) {
+              const ax = nb[k][0], ay = nb[k][1];
+              if (ax < 0 || ay < 0 || ax >= W || ay >= H) continue;
+              const m = ay * W + ax;
+              if (seen[m] || !ink(ax, ay)) continue;
+              seen[m] = 1;
+              stack.push(m);
+            }
+          }
+          if (area > W * H * 0.002) {
+            comps.push({ x: minx, y: miny, w: maxx - minx + 1, h: maxy - miny + 1,
+                         cx: (minx + maxx) / 2, cy: (miny + maxy) / 2 });
+          }
+        }
+      }
+
+      /* reading order: cluster by centre-y into rows, then left to right */
+      comps.sort(function (a, b) { return a.cy - b.cy; });
+      const rows = [];
+      comps.forEach(function (k) {
+        const row = rows[rows.length - 1];
+        if (row && Math.abs(k.cy - row[0].cy) < k.h * 0.6) row.push(k);
+        else rows.push([k]);
+      });
+      rows.forEach(function (row) { row.sort(function (a, b) { return a.cx - b.cx; }); });
+      const found = [].concat.apply([], rows);
+
       const out = [];
       want.forEach(function (w) {
-        const cx0 = Math.round((w.cell % cols) * cellW);
-        const cy0 = Math.round(Math.floor(w.cell / cols) * cellH);
-        const cx1 = Math.round(cx0 + cellW) - 1;
-        const cy1 = Math.round(cy0 + cellH) - 1;
+        const box = found[w.cell];
+        if (!box) return;
 
-        /* How wide the ink is on each row of the cell. A button spans most of
-           the cell; the role caption under it is narrow and centred. */
-        const width = [];
-        for (let py = cy0; py <= cy1; py++) {
-          let a = -1, b = -1;
-          for (let px = cx0; px <= cx1; px++) {
-            if (ink(px, py)) { if (a < 0) a = px; b = px; }
-          }
-          width.push(a < 0 ? 0 : b - a + 1);
-        }
-        const WIDE = (cx1 - cx0) * 0.45;
-        let t = 0;
-        while (t < width.length && width[t] < WIDE) t++;
-        let bt = t;
-        while (bt < width.length && width[bt] >= WIDE) bt++;
-        const top = cy0 + t, bot = cy0 + bt - 1;
-
-        /* and the horizontal extent of just those rows */
-        let L = cx1, R = cx0;
-        for (let py = top; py <= bot; py++) {
-          for (let px = cx0; px <= cx1; px++) {
-            if (ink(px, py)) { if (px < L) L = px; if (px > R) R = px; }
-          }
-        }
-        const box = { x: L, y: top, w: R - L + 1, h: bot - top + 1 };
-
-        /* A pill's cap is its half-height: that is the part with curvature.
-           A little more than half, so the slice carries the whole of the
-           round end and a couple of pixels of the straight run after it. */
+        /* A pill's cap is a little over its half-height: that is the part with
+           curvature, plus a couple of pixels of the straight run after it. */
         const cap = Math.round(box.h * 0.56);
 
         const t2 = document.createElement('canvas');
         t2.width = box.w; t2.height = box.h;
         const g2 = t2.getContext('2d');
         g2.drawImage(img, box.x, box.y, box.w, box.h, 0, 0, box.w, box.h);
-        /* white -> transparent, so the button sits on the snow */
+
+        /* THE MATTE OUT OF THE CUT BUTTON. Flooded in from the edges of the
+           slice and stopped at the first pixel that is not near-black, so the
+           surround goes and the dark navy button further down the sheet —
+           which is a button, not background — is never reached. The
+           antialiased rim left behind is faded by luminance, so the button
+           does not carry a pencil line around it. */
         const dd = g2.getImageData(0, 0, box.w, box.h);
         const p = dd.data;
-        for (let i = 0; i < p.length; i += 4) {
-          if (p[i] > 243 && p[i + 1] > 243 && p[i + 2] > 243) p[i + 3] = 0;
+        const BW = box.w, BH = box.h;
+        const blk = function (i) {
+          return p[i + 3] > 200 && p[i] < 38 && p[i + 1] < 38 && p[i + 2] < 38;
+        };
+        const seen2 = new Uint8Array(BW * BH);
+        const st2 = [];
+        const push2 = function (ax, ay) {
+          if (ax < 0 || ay < 0 || ax >= BW || ay >= BH) return;
+          const n = ay * BW + ax;
+          if (seen2[n]) return;
+          seen2[n] = 1;
+          if (blk(n * 4)) st2.push(n);
+        };
+        for (let ax = 0; ax < BW; ax++) { push2(ax, 0); push2(ax, BH - 1); }
+        for (let ay = 0; ay < BH; ay++) { push2(0, ay); push2(BW - 1, ay); }
+        while (st2.length) {
+          const n = st2.pop();
+          p[n * 4 + 3] = 0;
+          const ax = n % BW, ay = (n - ax) / BW;
+          push2(ax - 1, ay); push2(ax + 1, ay); push2(ax, ay - 1); push2(ax, ay + 1);
+        }
+        const cp = new Uint8ClampedArray(p);
+        for (let ay = 1; ay < BH - 1; ay++) {
+          for (let ax = 1; ax < BW - 1; ax++) {
+            const n = ay * BW + ax;
+            if (cp[n * 4 + 3] === 0) continue;
+            const open = !cp[(n - 1) * 4 + 3] || !cp[(n + 1) * 4 + 3] ||
+                         !cp[(n - BW) * 4 + 3] || !cp[(n + BW) * 4 + 3];
+            if (!open) continue;
+            const lum = (cp[n * 4] + cp[n * 4 + 1] + cp[n * 4 + 2]) / 3;
+            if (lum < 110) p[n * 4 + 3] = Math.round(cp[n * 4 + 3] * (lum / 110));
+          }
+        }
+        /* ONLY THE BUTTON SURVIVES THE SLICE.
+           A component bbox is a rectangle and the buttons are not, so the
+           corners of the slice can still hold a piece of the neighbour that
+           reaches into them. Whatever is left after keying is labelled again
+           and everything but the biggest island is erased — the button is
+           always the biggest thing in its own box. */
+        const keep = new Uint8Array(BW * BH);
+        let best = null;
+        const lab = new Uint8Array(BW * BH);
+        for (let ay = 0; ay < BH; ay++) {
+          for (let ax = 0; ax < BW; ax++) {
+            const n0 = ay * BW + ax;
+            if (lab[n0] || p[n0 * 4 + 3] < 60) continue;
+            const cell = [];
+            const st3 = [n0];
+            lab[n0] = 1;
+            while (st3.length) {
+              const n = st3.pop();
+              cell.push(n);
+              const px = n % BW, py = (n - px) / BW;
+              const nb = [[px - 1, py], [px + 1, py], [px, py - 1], [px, py + 1]];
+              for (let k = 0; k < 4; k++) {
+                const bx = nb[k][0], by = nb[k][1];
+                if (bx < 0 || by < 0 || bx >= BW || by >= BH) continue;
+                const m = by * BW + bx;
+                if (lab[m] || p[m * 4 + 3] < 60) continue;
+                lab[m] = 1;
+                st3.push(m);
+              }
+            }
+            if (!best || cell.length > best.length) best = cell;
+          }
+        }
+        if (best) {
+          best.forEach(function (n) { keep[n] = 1; });
+          for (let n = 0; n < BW * BH; n++) if (!keep[n]) p[n * 4 + 3] = 0;
         }
         g2.putImageData(dd, 0, 0);
 
-        out.push({ tone: w.tone, role: w.role, w: box.w, h: box.h, cap: cap,
+        /* IS ANY OF THIS SOMEBODY ELSE'S BUTTON?
+           Not "is the border opaque" — a button's own glow reaches the edge
+           of its own box, and the gold one's reaches further than the rest,
+           which failed the build for a picture that was perfectly clean. What
+           would actually be wrong is a FOREIGN HUE on the border: a green
+           sliver down the side of the orange one. Hue is compared against the
+           middle of the button, which is the button by definition. */
+        const hueOf = function (i) {
+          const r0 = p[i] / 255, g0 = p[i + 1] / 255, b0 = p[i + 2] / 255;
+          const mx = Math.max(r0, g0, b0), mn = Math.min(r0, g0, b0), c0 = mx - mn;
+          if (c0 < 0.08) return -1;                       // grey: no hue to clash
+          var h = mx === r0 ? ((g0 - b0) / c0 + 6) % 6 : mx === g0 ? (b0 - r0) / c0 + 2 : (r0 - g0) / c0 + 4;
+          return h * 60;
+        };
+        const mid = hueOf(((BH >> 1) * BW + (BW >> 1)) * 4);
+        const foreign = function (i) {
+          if (p[i + 3] < 150) return false;
+          const h = hueOf(i);
+          if (h < 0 || mid < 0) return false;
+          const dh = Math.abs(h - mid);
+          return Math.min(dh, 360 - dh) > 45;
+        };
+        let edge = 0;
+        for (let ax = 0; ax < BW; ax++) {
+          if (foreign((0 * BW + ax) * 4)) edge++;
+          if (foreign(((BH - 1) * BW + ax) * 4)) edge++;
+        }
+        for (let ay = 0; ay < BH; ay++) {
+          if (foreign((ay * BW) * 4)) edge++;
+          if (foreign((ay * BW + BW - 1) * 4)) edge++;
+        }
+
+        out.push({ tone: w.tone, role: w.role, w: box.w, h: box.h, cap: cap, edge: edge,
                    webp: t2.toDataURL('image/webp', 0.94) });
       });
-      resolve({ sheet: { w: img.width, h: img.height }, buttons: out });
+      resolve({ sheet: { w: img.width, h: img.height }, found: found.length, buttons: out });
     };
     img.src = url;
   });
@@ -160,32 +282,40 @@ const CUT = function (opts) {
   const browser = await chromium.launch({ channel: 'chrome' });
   const page = await browser.newPage();
   await page.goto(`http://127.0.0.1:${port}/`);
-  const m = await page.evaluate(CUT, {
-    url: `http://127.0.0.1:${port}/${SRC}`, cols: COLS, rows: ROWS, want: WANT
-  });
+  const m = await page.evaluate(CUT, { url: `http://127.0.0.1:${port}/${SRC}`, want: WANT });
   await browser.close();
   srv.close();
 
-  console.log('  sheet ' + m.sheet.w + 'x' + m.sheet.h);
+  console.log('  sheet ' + m.sheet.w + 'x' + m.sheet.h + '   buttons found: ' + m.found);
+  if (m.found < 20) console.log('  NOTE: expected twenty buttons on this sheet');
+
   const frames = {};
+  let dirty = 0;
   m.buttons.forEach(function (b) {
     const file = 'assets/ui/btn-' + b.tone + '.webp';
     const bytes = Buffer.from(b.webp.split(',')[1], 'base64');
     fs.writeFileSync(path.join(ROOT, file), bytes);
+    if (b.edge > (b.w + b.h) * 0.02) dirty++;
     console.log('  ' + b.tone.padEnd(10) + b.role.padEnd(11) + b.w + 'x' + b.h +
-                '  cap ' + b.cap + '  ' + (bytes.length / 1024).toFixed(0) + ' KB');
+                '  cap ' + b.cap + '  ' + (bytes.length / 1024).toFixed(0) + ' KB' +
+                (b.edge > (b.w + b.h) * 0.02 ? '   A NEIGHBOUR IS IN THIS CUT (' + b.edge + ' px)' : ''));
     frames[b.tone] = { src: file, w: b.w, h: b.h, cap: b.cap };
   });
+  if (dirty) {
+    console.error('\n  ' + dirty + ' button(s) carry a foreign colour on the border — the cut is ' +
+                  'taking part of a neighbour.');
+    process.exit(1);
+  }
 
   fs.writeFileSync(OUT_JS,
 `/*!
  * button-frame.js — GENERATED by tools/build-buttons.js. Do not edit.
  *
- * The buttons cut from assets/ui/buttons.png, and where each one's round end
- * finishes. \`cap\` is that width in the image's own pixels: draw the left cap
- * at its true size, the right cap at its true size, and stretch the sliver
- * between them to whatever width the button needs. Stretching the whole
- * picture instead turns the round ends into ovals.
+ * The buttons cut from ${SRC}, and where each one's round end finishes.
+ * \`cap\` is that width in the image's own pixels: draw the left cap at its
+ * true proportions, the right cap at its true proportions, and stretch the
+ * sliver between them to whatever width the button needs. Stretching the
+ * whole picture instead turns the round ends into ovals.
  */
 (function (global) {
   'use strict';

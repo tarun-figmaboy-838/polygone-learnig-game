@@ -49,7 +49,7 @@ const OUT_JS = path.join(ROOT, 'src/game/card-frame.js');
 
 const CARDS = [
   { key: 'option',    src: 'assets/ui/CARD.png',      out: 'assets/ui/card.webp',      cap: 512 },
-  { key: 'panel',     src: 'assets/ui/BIGCARD.png',   out: 'assets/ui/bigcard.webp',   cap: 1024 },
+  { key: 'panel',     src: 'assets/ui/bigcardn.png', out: 'assets/ui/bigcard.webp',   cap: 1024 },
   // The two drop zones of the swipe practice. Their titles are drawn INTO the
   // artwork, so the game must not print a label over them — and the pane each
   // one reports is the shelf its catch is stacked on.

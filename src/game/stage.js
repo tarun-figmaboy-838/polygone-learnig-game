@@ -338,16 +338,28 @@
    * ------------------------------------------------------------------ */
 
   var PANELS = {
-    right:  { x: 500, y: 60,  w: 460, h: 460 },
-    center: { x: 230, y: 70,  w: 540, h: 430 },
+    // THE NEXT BUTTON LIVES IN THE BOTTOM-RIGHT CORNER, always, over the
+    // stage. At h:460 this slab ran to y 520 and Next starts at 493, so on
+    // every screen that offers Next the button sat on the corner of the
+    // lesson — a fixed number against a fixed number, wrong everywhere.
+    right:  { x: 500, y: 60,  w: 460, h: 425 },
+    // THE INSTRUCTION CARD COMES DOWN TO y 115. It is pinned top-left and
+    // capped to whatever room the lesson leaves beside it — but a centred
+    // panel leaves 200 units, which is narrower than the sentence is tall, so
+    // the cap is refused and the card sits ABOVE the lesson instead. That
+    // only works if the lesson actually starts below it, which at y 70 it did
+    // not: the card lay across the top quarter of the slab.
+    center: { x: 230, y: 128, w: 540, h: 330 },
     // THE COMPARE PAIR WAS PUSHED INTO THE RIGHT-HAND HALF and drawn small
     // with it: 490 to 985 of a 1000-wide stage, so the whole left third was
     // empty and the two shapes being compared were the smallest things on the
     // screen. The margin existed to keep clear of Swiftee, who stood bottom
     // left — he goes up into the corner on these screens now, so the lesson
     // can have the room. Centred on 500, and half again as tall.
-    left2:  { x: 178, y: 104, w: 306, h: 330 },
-    right2: { x: 516, y: 104, w: 306, h: 330 }
+    // 290, not 306: at 306 the pair reached 556px on a 720 window and he
+    // stands centre-bottom on one of these screens with his head at 547.
+    left2:  { x: 178, y: 128, w: 306, h: 290 },
+    right2: { x: 516, y: 128, w: 306, h: 290 }
   };
 
   /* ------------------------------------------------------------------ *
@@ -421,6 +433,8 @@
   function panel(p, opts) {
     opts = opts || {};
     var g = mk('g', { 'class': 'panel' }, layers.panel);
+    st.panelEl = g;
+    g._rect = { x: p.x, y: p.y, w: p.w, h: p.h };
     var F = global.CardFrame && CardFrame.panel;
 
     if (F) {
@@ -906,11 +920,9 @@
           : { x: z.x + 26, y: ZY + 86, w: ZW - 52, h: ZH - 112 };
         g._kept = [];
         g._keptG = mk('g', { 'class': 'zone-kept' }, g);
-        // a tally, so the two piles can be compared at a glance
-        g._tally = mk('text', {
-          x: g._shelf.x + g._shelf.w - 8, y: g._shelf.y + g._shelf.h - 8, 'text-anchor': 'end',
-          'font-size': 22, 'font-weight': 700, fill: c.ink, opacity: 0, text: '0'
-        }, g);
+        // No counter. The pile itself is the count — a child can see two
+        // shapes in one zone and three in the other without being told, and a
+        // number in the corner of a picture reads as part of the picture.
         g._tone = tone;
         st.swipe.zones[z.id] = g;
         if (spec.enter !== false) enter(g, 'rise');
@@ -1072,12 +1084,6 @@
       }
     });
 
-    zone._tally.textContent = n;
-    zone._tally.setAttribute('opacity', 0.85);
-    if (!reduced() && zone._tally.animate) {
-      zone._tally.style.transformBox = 'fill-box'; zone._tally.style.transformOrigin = 'center';
-      zone._tally.animate([{ scale: '1' }, { scale: '1.35' }, { scale: '1' }], { duration: 300 });
-    }
   }
 
   /**
@@ -1613,6 +1619,29 @@
     // stage at all — they inherit the previous screen's builder and only add
     // a question — so panelFor() never sees them and the row arrives over a
     // stepper that was placed for a taller panel.
+    // THE SLAB TOO, AND BY SHRINKING RATHER THAN MOVING.
+    //
+    // Some screens never build a stage: they inherit the one before and add a
+    // question to it. panelFor() never sees those, so the slab is still the
+    // full height it was given for a screen with no buttons, and the row
+    // arrives across its foot — two thirds of each button on the card.
+    //
+    // It cannot be moved up: the shape is drawn in another layer against
+    // coordinates taken from this box, and sliding the picture alone would
+    // leave the polygon floating beside it. Made shorter, the shape stays
+    // exactly where the child left it — which matters here, because the whole
+    // point of these screens is the shape they just distorted.
+    if (st.panelEl && st.panel) {
+      var over = (st.panel.y + st.panel.h) - ceil;
+      if (over > 0) {
+        var nh = Math.max(200, st.panel.h - over);
+        st.panel.h = nh;
+        st.panelEl._rect.h = nh;
+        var im = st.panelEl.querySelector('image, rect');
+        if (im) im.setAttribute('height', nh);
+      }
+    }
+
     var movers = [];
     if (st.labelEl) movers.push(st.labelEl);
     if (st.stepperG) movers.push(st.stepperG);
@@ -2610,13 +2639,25 @@
    * wrong answer can be most of a second later — long enough for a child to
    * wonder whether the screen noticed them at all.
    */
+  /**
+   * Everything touchable answers the finger, and makes a noise doing it.
+   *
+   * One delegated listener rather than a handler per control: the squash and
+   * the click belong to "this is a button", not to what the button does, and
+   * a new interaction should not have to remember to ask for them.
+   *
+   * THE SOUND IS ON THE PRESS, not on the verdict. A child who taps and hears
+   * nothing until the game has decided whether they were right has had no
+   * answer for three hundred milliseconds — long enough to tap again.
+   */
   function armPress() {
     if (!svg) return;
     on(svg, 'pointerdown', function (ev) {
-      if (reduced()) return;
       var t = ev.target;
       while (t && t !== svg && !(t.style && /pointer/.test(t.style.cursor))) t = t.parentNode;
-      if (!t || t === svg || !t.animate) return;
+      if (!t || t === svg) return;
+      sfx('select');
+      if (reduced() || !t.animate) return;
       pivot(t);
       try {
         t.animate([{ scale: '1' }, { scale: '.9' }, { scale: '1.04' }, { scale: '1' }],
@@ -2676,7 +2717,12 @@
     var m = svg.getScreenCTM && svg.getScreenCTM();
     if (!m) return null;
     var box = null;
-    ['poly', 'ui'].forEach(function (name) {
+    // 'panel' INCLUDED. It was not, so the slab the whole lesson stands on
+    // was invisible to everything that asks where the lesson is — and the
+    // speech bubble, which keeps clear of the lesson by asking exactly this,
+    // was placed across the middle of it on six screens. The shape and the
+    // controls were being avoided; the card they sit on was not.
+    ['panel', 'poly', 'ui'].forEach(function (name) {
       var layer = layers[name];
       if (!layer || !layer.getBBox || !layer.childNodes.length) return;
       var b;
@@ -2705,13 +2751,31 @@
    * band between them, and the union hides that band completely — so the
    * speech bubble concluded there was nowhere to go and sat on the shapes.
    */
+  /**
+   * The boxes the lesson actually occupies.
+   *
+   * PAINTED, NOT REPORTED. A button is three nested <svg> slices of one
+   * picture, and getBoundingClientRect on a nested <svg> gives the bounds of
+   * the CONTENT inside it rather than the viewport that clips it — so a
+   * 184-unit button measured 244, and two buttons with a 30-unit gap between
+   * them appeared to overlap by a tenth of their area. Anything the stage
+   * built knows its own box and records it as _rect; that is the one to
+   * believe, and getBoundingClientRect is the fallback for the rest.
+   */
   function contentParts() {
     if (!svg || !st.kind) return [];
-    var sel = '.polygon, .card, .sort-item, .bin, .choice, .stepper, .shape, .checklist, .badge';
+    var sel = '.panel, .polygon, .card, .sort-item, .bin, .choice, .stepper, .shape, .checklist, .badge';
     var out = [];
     var nodes = svg.querySelectorAll(sel);
+    var box = svg.getBoundingClientRect();
+    var k = box.width / W;
     for (var i = 0; i < nodes.length; i++) {
-      var r = nodes[i].getBoundingClientRect();
+      var q = nodes[i]._rect;
+      var r = q
+        ? { left: box.left + q.x * k, top: box.top + q.y * k,
+            right: box.left + (q.x + q.w) * k, bottom: box.top + (q.y + q.h) * k,
+            width: q.w * k, height: q.h * k }
+        : nodes[i].getBoundingClientRect();
       if (r.width > 4 && r.height > 4) out.push(r);
     }
     return out;
