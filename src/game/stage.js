@@ -680,39 +680,41 @@
     if (st.measG) { while (st.measG.firstChild) st.measG.removeChild(st.measG.firstChild); if (st.measure) drawMeasurements(st.measG); }
   }
 
-  // A miniature of the existing sprite walks the actual SVG edge. Keeping
-  // the tape and character in stage coordinates also handles responsive scaling.
+  // Actual measuring frames, kept upright and entirely outside the edge.
+  // Both the tape and the character use SVG coordinates, including on resize.
   function measureSide(index, done) {
-    var frames = global.SwifteeFrames;
+    var frames = global.MeasuringFrames;
     if (reduced() || !frames || !global.requestAnimationFrame) { done(); return; }
     var a = st.verts[index], b = st.verts[(index + 1) % st.verts.length];
     if (a.x > b.x) { var swap = a; a = b; b = swap; }
     var dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+    if (length < 1) { done(); return; }
     var angle = Math.atan2(dy, dx) * 180 / Math.PI;
-    var g = mk('g', { 'class': 'swiftee-measuring', 'pointer-events': 'none', 'aria-hidden': 'true',
-      transform: 'translate(' + a.x + ',' + a.y + ') rotate(' + angle + ')' }, layers.fx);
-    var tape = mk('rect', { x: 0, y: -5, width: 0, height: 10, rx: 2, fill: '#ffe278', stroke: '#875b13', 'stroke-width': 1.5 }, g);
-    var ticks = mk('g', {}, g), marks = [];
+    var center = Poly.centroid(st.verts), nx = -dy / length, ny = dx / length;
+    if (nx * ((a.x + b.x) / 2 - center.x) + ny * ((a.y + b.y) / 2 - center.y) < 0) { nx = -nx; ny = -ny; }
+    var cell = 72, baseline = cell * frames.baseline / frames.cell;
+    // Minimum projection of the full upright sprite box onto the outward
+    // normal. This keeps every pixel outside, even along the bottom edge.
+    var clearance = 9 + Math.abs(nx) * cell / 2 + Math.max(0, ny * baseline) + Math.max(0, -ny * (cell - baseline));
+    var g = mk('g', { 'class': 'swiftee-measuring', 'pointer-events': 'none', 'aria-hidden': 'true', 'data-side': index }, layers.fx);
+    var tapeG = mk('g', { transform: 'translate(' + (a.x + nx * 7) + ',' + (a.y + ny * 7) + ') rotate(' + angle + ')' }, g);
+    var tape = mk('rect', { x: 0, y: -4, width: 0, height: 8, rx: 2, fill: '#ffe278', stroke: '#875b13', 'stroke-width': 1.2 }, tapeG);
+    var ticks = mk('g', {}, tapeG), marks = [];
     for (var x = 0; x <= length; x += 6) {
-      marks.push(mk('line', { x1: x, x2: x, y1: -5, y2: x % 30 === 0 ? 3 : -1,
+      marks.push(mk('line', { x1: x, x2: x, y1: -4, y2: x % 30 === 0 ? 3 : 0,
         stroke: '#65491f', 'stroke-width': 1, visibility: 'hidden' }, ticks));
     }
-    mk('path', { d: 'M0,-8 L0,8 L5,8', fill: 'none', stroke: '#586c7c', 'stroke-width': 3 }, g);
+    mk('path', { d: 'M0,-7 L0,7 L5,7', fill: 'none', stroke: '#586c7c', 'stroke-width': 3 }, tapeG);
+    var lead = mk('path', { fill: 'none', stroke: '#d7a530', 'stroke-width': 3, 'stroke-linecap': 'round' }, g);
     var walker = mk('g', { 'class': 'measuring-walker' }, g);
-    var body = mk('g', {}, walker);
-    var cell = 82, page = frames.clips.reset.sheets['1x'][0];
-    var crop = mk('svg', { x: -cell / 2, y: -cell * frames.baselineY, width: cell, height: cell,
-      viewBox: '0 0 256 256', overflow: 'hidden' }, body);
-    mk('image', { href: frames.base + page.image, width: page.cols * 256, height: page.rows * 256 }, crop);
-    // The housing sits beside the wing, with a short lead down to the tape.
-    mk('path', { d: 'M0,0 Q-10,-8 -18,-22', fill: 'none', stroke: '#e0af34', 'stroke-width': 4 }, walker);
-    mk('rect', { x: -29, y: -36, width: 22, height: 21, rx: 6, fill: '#087e91', stroke: '#174058', 'stroke-width': 2 }, walker);
-    mk('circle', { cx: -18, cy: -26, r: 5, fill: '#ffe278' }, walker);
+    var crop = mk('svg', { x: -cell / 2, y: -baseline, width: cell, height: cell,
+      viewBox: '0 0 ' + frames.cell + ' ' + frames.cell, overflow: 'hidden' }, walker);
+    var sheet = mk('image', { href: frames.image, width: frames.cols * frames.cell, height: frames.rows * frames.cell }, crop);
     var companion = global.Swiftee && Swiftee.el;
     var opacity = companion && companion.style.opacity;
     if (companion) companion.style.opacity = '0';
     var raf = null, started = null, stopped = false;
-    var steps = Math.max(6, Math.round(length / 18)), duration = Math.max(1200, Math.min(1900, steps * 110));
+    var duration = Math.max(1400, Math.min(2100, length * 8));
     function stop() {
       if (stopped) return;
       stopped = true;
@@ -725,13 +727,18 @@
     function tick(time) {
       if (stopped) return;
       if (started === null) started = time;
-      var progress = Math.min(1, (time - started) / duration), distance = length * progress;
+      var elapsed = time - started, progress = Math.min(1, elapsed / duration), distance = length * progress;
       tape.setAttribute('width', distance);
       marks.forEach(function (mark, i) { mark.setAttribute('visibility', i * 6 <= distance ? 'visible' : 'hidden'); });
-      walker.setAttribute('transform', 'translate(' + distance + ',0)');
-      var stride = progress * steps * Math.PI * 2;
-      body.setAttribute('transform', 'translate(0,' + (-Math.abs(Math.sin(stride)) * 3) + ') rotate(' + (Math.sin(stride) * 4) + ')');
-      if (progress < 1) raf = global.requestAnimationFrame(tick);
+      var px = a.x + dx * progress, py = a.y + dy * progress;
+      var wx = px + nx * clearance, wy = py + ny * clearance;
+      walker.setAttribute('transform', 'translate(' + wx + ',' + wy + ')');
+      var frame = frames.order[Math.floor(Math.min(elapsed, duration) * frames.fps / 1000) % frames.order.length];
+      sheet.setAttribute('x', -(frame % frames.cols) * frames.cell);
+      sheet.setAttribute('y', -Math.floor(frame / frames.cols) * frames.cell);
+      walker.setAttribute('data-frame', frame);
+      lead.setAttribute('d', 'M' + (px + nx * 7) + ',' + (py + ny * 7) + ' L' + (wx + 30) + ',' + (wy - 24));
+      if (elapsed < duration + 180) raf = global.requestAnimationFrame(tick);
       else { stop(); done(); }
     }
     raf = global.requestAnimationFrame(tick);
