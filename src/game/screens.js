@@ -47,7 +47,7 @@
 
     {
       id: 'intro-hi', page: 1,
-      swiftee: { pos: 'left', size: 'large' },
+      swiftee: { pos: 'left', size: 'large', purpose: 'introduce'},
       say: 'Hi! I am Swiftee.',
       stage: { kind: 'vista' },
       beats: [
@@ -63,7 +63,7 @@
 
     {
       id: 'intro-remember', page: 2,
-      swiftee: { pos: 'left', size: 'large' },
+      swiftee: { pos: 'left', size: 'large', purpose: 'introduce'},
       say: 'Remember we learned about polygons before.',
       beats: [
         { swiftee: 'think' },
@@ -74,7 +74,7 @@
 
     {
       id: 'intro-define', page: 3,
-      swiftee: { pos: 'left', size: 'large' },
+      swiftee: { pos: 'left', size: 'large', purpose: 'concept'},
       say: 'Polygons are closed shapes made from straight lines.',
       beats: [
         { swiftee: 'explain' },
@@ -230,7 +230,7 @@
 
     {
       id: 'made-diagonal', page: 12,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      swiftee: { pos: 'left-low', size: 'medium', purpose: 'celebrate'},
       instruction: 'Drag the line segment to a different vertex.',
       say: 'Yay! You made a diagonal.',
       stage: { label: { text: 'Diagonal', at: 'below-polygon' } },
@@ -244,7 +244,7 @@
 
     {
       id: 'define-diagonal', page: 13,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      swiftee: { pos: 'left-low', size: 'medium', purpose: 'concept'},
       instruction: 'Drag the line segment to a different vertex.',
       // FLAG: content error. The deck says "two non-adjacent SIDES". A
       // diagonal joins two non-adjacent VERTICES. The deck's own picture
@@ -399,7 +399,7 @@
 
     {
       id: 'whoa', page: 20,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      swiftee: { pos: 'left-low', size: 'medium', purpose: 'surprise'},
       say: 'Whoa! One of the diagonals went outside.',
       stage: { highlight: { diagonal: 'outside', color: 'red', style: 'dashed' } },
       beats: [
@@ -455,7 +455,7 @@
       // Above, like the rest of this run of compare screens: the pair fills
       // the middle and Next reserves the foot, so a line placed near him at
       // the bottom had a 54px band to live in and came out four rows deep.
-      swiftee: { pos: 'top-left', size: 'small' },
+      swiftee: { pos: 'top-left', size: 'small', purpose: 'concept'},
       instruction: 'All diagonals inside means convex polygon.',
       // FLAG: grammar. Deck: "That's convex polygon."
       say: 'That\u2019s a convex polygon.',
@@ -495,7 +495,7 @@
       // Above, like the rest of this run of compare screens: the pair fills
       // the middle and Next reserves the foot, so a line placed near him at
       // the bottom had a 54px band to live in and came out four rows deep.
-      swiftee: { pos: 'top-left', size: 'small' },
+      swiftee: { pos: 'top-left', size: 'small', purpose: 'concept'},
       // FLAG: the deck card reads "At least  one" with a double space.
       instruction: 'At least one diagonal outside means concave polygon.',
       // FLAG: grammar and capitalisation. Deck: "So it is Concave polygon."
@@ -574,7 +574,7 @@
       id: 'suspicious', page: 28,
       // NOT polygon-top-right: that corner is inside the right-hand slab, so
       // the position cannot avoid the panel it is defined against.
-      swiftee: { pos: 'left-low', size: 'small' },
+      swiftee: { pos: 'left-low', size: 'small', purpose: 'hint'},
       say: 'Hmm\u2026 The sides look suspiciously alike.',
       stage: { kind: 'polygon', sides: 5, panel: 'right' },
       beats: [
@@ -686,7 +686,7 @@
       // under the panels and start at 194, so the foot of the left margin is
       // ABOVE. The pair fills the middle and its checks fill the foot, so
       // the band above them is the only place a sentence fits.
-      swiftee: { pos: 'top-left', size: 'small' },
+      swiftee: { pos: 'top-left', size: 'small', purpose: 'concept'},
       say: 'All sides AND all angles equal means regular. Otherwise, it\u2019s irregular.',
       stage: {
         kind: 'compare',
@@ -816,7 +816,7 @@
       // Medium. This screen uses the CENTRED slab, which starts at x 230 — at
       // large he is 175 units across from x 62 and his wing is on the card.
       // The finale is carried by the celebrate clip and the confetti.
-      swiftee: { pos: 'left-low', size: 'medium' },
+      swiftee: { pos: 'left-low', size: 'medium', purpose: 'celebrate'},
       say: 'Nice! You built a concave and irregular pentagon.',
       stage: { checklist: ['5 sides', 'Concave', 'Irregular'] },
       beats: [
@@ -874,7 +874,19 @@
     });
   }
 
-  global.Screens = {
+  /* SWIFTEE IS A LEARNING BUDDY, NOT A CAST MEMBER.
+ *
+ * A screen's `swiftee` block places him; only a block with a `purpose`
+ * SHOWS him. Eleven screens have one — his introduction, the five moments a
+ * concept is defined, the "whoa", the "suspicious" hint, the first success
+ * and the finale. On the other twenty-eight he stays off and the line he
+ * used to say is delivered by the instruction plank instead: same words,
+ * same order, no bird. He was on every screen and had stopped meaning
+ * anything by the fourth.
+ *
+ *   purpose: 'introduce' | 'concept' | 'hint' | 'surprise' | 'celebrate'
+ */
+global.Screens = {
     list: SCREENS,
     byId: byId,
     notScreens: NOT_SCREENS,

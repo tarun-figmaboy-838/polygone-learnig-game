@@ -14,6 +14,16 @@
   var $ = function (s) { return document.querySelector(s); };
   var root, stageEl, hud, bubble, instruction, progress, loadEl, nextBtn;
   var director, current = -1, playing = false, settleTimer = null, mouthTimer = null, bubbleTimer = null;
+  /* Whether Swiftee is on this screen at all. Set per screen from its
+     `purpose`; when false, his lines go to the plank and his beats are
+     no-ops. See screens.js for which eleven screens earn him. */
+  var buddyOn = true;
+  /* How long one of his beats takes when he is not there to perform it. A
+     screen's rhythm was partly his — "he walks over, then the side is
+     drawn" — so the beat still takes a beat; only the animation is skipped.
+     Page 8 is the case: no dialogue, no input, just his entrance and a line
+     being drawn, and without this it was over before the child had looked. */
+  var BEAT_WITHOUT_HIM_MS = 600;
   var refitTimer = null, refitRaf = 0;
   var SAVE_KEY = 'swiftee.audio';
   var quest = Quest.create(), rewardTimer;
@@ -40,7 +50,10 @@
 
     if (global.Juice) Juice.shower({ count: big ? 110 : 55, duration: big ? 2300 : 1800 });
     if (global.SFX) SFX.play(big ? 'levelUp' : 'sparkle');
-    if (global.Swiftee && Swiftee.play) {
+    // He joins the celebration only if he is on this screen. Off, the
+    // confetti, the level-up sound and the reward line carry it; a bird
+    // popping into a layout that was set without him is not a reward.
+    if (buddyOn && global.Swiftee && Swiftee.play) {
       try {
         Swiftee.play('celebrate');
         if (global.Juice && Swiftee.el) Juice.tada(Swiftee.el);
@@ -81,6 +94,7 @@
    */
   function react(kind) {
     if (kind === 'wrong') quest.mistake();
+    if (!buddyOn) return;   // the sound and the confetti carry the verdict
     if (!global.Swiftee || !Swiftee.play) return;
     try {
       if (kind === 'wrong') Swiftee.play('confused');
@@ -750,6 +764,26 @@
     }
     bubble.style.maxWidth = capFor(slot) + 'px';
     var m2 = size(); w = m2.w; h = m2.h;
+
+    /* FOUR ROWS IS NOT A SPEECH BUBBLE, so it is not a matter of scoring.
+     *
+     * The score prefers the slot nearest his head and penalises wrapping, but
+     * a penalty is a preference: on one screen the nearest slot came out four
+     * rows and beat everything else by distance on some runs and not on
+     * others, so the same sentence was three rows or four depending on which
+     * refit pass measured it. Widest-that-fits is a floor, not a preference,
+     * and it takes proximity off the table only when proximity has produced
+     * something unreadable. */
+    if (rowsOf(h) > 3) {
+      var widest = null;
+      slots.forEach(function (r) { if (!widest || capFor(r) > capFor(widest)) widest = r; });
+      if (widest && widest !== slot) {
+        slot = widest;
+        bubble.style.maxWidth = capFor(slot) + 'px';
+        var m3 = size(); w = m3.w; h = m3.h;
+      }
+    }
+
     var at = placeIn(slot, w, h);
     var x = at.x, y = at.y;
 
@@ -1136,7 +1170,7 @@
     (beats || []).forEach(function (b) {
       if (b.sfx && global.SFX) SFX.play(b.sfx, b);
       if (b.juice && global.Juice && Juice[b.juice]) Juice[b.juice](Stage.element(b.target), b);
-      if (b.swiftee) Swiftee.play(b.swiftee, b);
+      if (b.swiftee && buddyOn) Swiftee.play(b.swiftee, b);
       if (b.stage) Stage.apply(b.stage);
     });
   }
@@ -1185,6 +1219,15 @@
         void wasSolo;
       },
       swiftee: function (state, opts, ctx) {
+        // No bird, but still a beat: the screen paces as it did, and only
+        // the animation is skipped. Cancellable, so a jump or Restart does
+        // not leave the old screen waiting on a bird that is not there.
+        if (!buddyOn) {
+          return new Promise(function (resolve) {
+            var t = setTimeout(resolve, BEAT_WITHOUT_HIM_MS);
+            if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(t); resolve(); });
+          });
+        }
         var o = Object.assign({}, opts);
         if (o.at) o.at = Stage.element(o.at);
 
@@ -1193,6 +1236,14 @@
         return p;
       },
       say: function (text, opts, ctx) {
+        if (!buddyOn) {
+          // THE SAME WORDS, ON THE PLANK. The line is still read for its
+          // reading time, so the screen's pacing is what it was; it is only
+          // the speaker that has changed. An instruction beat after it
+          // replaces it, exactly as it replaced the bubble.
+          if (global.Instruction) Instruction.show(text || null);
+          return Promise.resolve();
+        }
         say(text, null, opts.reading);
         // The lesson is read, not spoken. Swiftee still rests on the
         // `talking` loop while a line is up — his mouth moving is what makes
@@ -1263,6 +1314,17 @@
    * Screen loop
    * ------------------------------------------------------------------ */
 
+  /** Does any beat put text on the plank before the screen's first input? */
+  function textBeforeInput(s) {
+    var beats = s.beats || [];
+    for (var i = 0; i < beats.length; i++) {
+      var b = beats[i];
+      if (b.input) return false;
+      if (b.instruction || b.say) return true;
+    }
+    return false;   // no input at all, or one with nothing said before it
+  }
+
   function runScreen(i) {
     var s = Screens.list[i];
     say(null);
@@ -1299,7 +1361,25 @@
     //
     // Applied here, before the beats run, so it lands underneath the
     // transition on every screen that wipes rather than as a jump.
-    if (s.swiftee && Swiftee.place) {
+    // ONLY A PURPOSE PUTS HIM ON SCREEN. Every screen has a position for him;
+    // eleven have a reason. The rest get the plank.
+    buddyOn = !!(s.swiftee && s.swiftee.purpose);
+
+    // THE PLANK IS NOT BLANK WHILE THE CHILD IS ASKED TO ACT.
+    //
+    // A few screens carry their instruction only as a screen-level field and
+    // never set it in a beat — Swiftee's pointing used to be the guidance.
+    // With him off on those screens the plank would be empty over a live
+    // input. So: if nothing puts text on the plank before the first input,
+    // the screen-level instruction is shown at the start. Screens that do
+    // speak or instruct before their input are left exactly as they were,
+    // because seeding them would flash the deck's stale instruction first.
+    if (s.instruction && !textBeforeInput(s)) setCard(s.instruction);
+    if (!buddyOn && Swiftee.place) {
+      Swiftee.place('off', Swiftee.size);
+      say(null);
+    }
+    if (buddyOn && s.swiftee && Swiftee.place) {
       var wantPos = s.swiftee.pos || Swiftee.pos;
       var wantSize = s.swiftee.size || Swiftee.size;
       // ALWAYS, not only when it differs. place() puts him on his mark AND

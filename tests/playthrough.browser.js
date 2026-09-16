@@ -145,6 +145,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     window.SFX.sequence = () => 0;
     window.Game.director.configure({ sayMinMs: 120, msPerWord: 8, feedbackSettleMs: 40, beatCeilingMs: 6000 });
     window.Game.director.on('start', () => window.__seen.add(window.Game.screen));
+    // SWIFTEE IS ON SCREEN ONLY WHERE HE HAS A PURPOSE. Sampled a beat after
+    // each screen opens, against whichever screen is up at that moment; the
+    // first screen is skipped because he is still on the sleigh.
+    window.__buddy = [];
+    window.__startAt = {};
+    window.Game.director.on('start', () => {
+      const at = performance.now(); window.__startAt[window.Game.screen] = at;
+      setTimeout(() => {
+        const s = window.Game.screen;
+        if (s === 0 || performance.now() - (window.__startAt[s] || 0) < 500) return;
+        const el = window.Swiftee && window.Swiftee.el; if (!el) return;
+        const on = parseFloat(getComputedStyle(el).opacity) > 0.05;
+        const want = !!(window.Screens.list[s].swiftee && window.Screens.list[s].swiftee.purpose);
+        if (on !== want) window.__buddy.push((s + 1) + ':' + (on ? 'on' : 'off'));
+      }, 700);
+    });
     window.Game.director.on('input', ({ spec }) => { window.__pending = spec; window.__asked.push(spec.type); });
   });
 
@@ -650,6 +666,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   if (!CHECKS_ONLY) {
     t('played to the end and the replay button appeared', finished, 'stopped at screen ' + screen);
     t('all ' + N + ' screens were visited', seen === N, seen + '/' + N);
+    const buddy = await safe(() => page.evaluate(() => window.__buddy), []);
+    t('Swiftee is on screen only where he has a purpose', buddy.length === 0, buddy.join(' '));
     t('all 12 interaction types were exercised', new Set(asked).size === 12, [...new Set(asked)].join(','));
     t('correct cues fired', cues.correct > 0, JSON.stringify(cues));
     t('never stalled on a screen', stalls === 0, stalled ? JSON.stringify(stalled) : '');

@@ -148,6 +148,7 @@ const LUM = `(function (c) {
 
   /* ---- 4. walk the lesson, misbehaving ---------------------------- */
   let stalls = 0, doubles = 0, resized = 0, settled = 0, lastScreen = -1;
+  const doubled = [];
   const smallTargets = [];
   const seen = {}, cued = {};
 
@@ -214,7 +215,15 @@ const LUM = `(function (c) {
       for (let i = 0; i < 3; i++) { await page.mouse.click(nb.x + nb.width / 2, nb.y + nb.height / 2); await sleep(50); }
       await sleep(700);
       const after = await page.evaluate(() => window.Game.screen);
-      if (after > before + 1) doubles++;
+      // A screen with no input advances by itself, so passing through one is
+      // not a skip: the fault is a tap landing on a screen that was waiting.
+      const skippable = await page.evaluate(({ a, b }) => {
+        for (let k = a + 1; k < b; k++) {
+          if ((window.Screens.list[k].beats || []).some((x) => x.input)) return true;
+        }
+        return false;
+      }, { a: before, b: after });
+      if (after > before + 1 && skippable) { doubles++; doubled.push((before + 1) + "→" + (after + 1)); }
       continue;
     }
 
@@ -270,7 +279,7 @@ const LUM = `(function (c) {
     await sleep(520);
   }
 
-  t('impatient triple-taps never skip a screen', doubles === 0, doubles + ' skipped');
+  t('impatient triple-taps never skip a screen', doubles === 0, doubles + ' skipped: ' + doubled.join(' '));
   t('the lesson survives being resized mid-screen', resized === 2 && errors.length === 0);
   t('every touchable thing is at least 30px across', smallTargets.length === 0,
     smallTargets.slice(0, 4).join(' | '));
