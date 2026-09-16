@@ -13,7 +13,7 @@
 
   var $ = function (s) { return document.querySelector(s); };
   var root, stageEl, hud, bubble, card, progress, loadEl, nextBtn;
-  var director, current = -1, playing = false, settleTimer = null, mouthTimer = null;
+  var director, current = -1, playing = false, settleTimer = null, mouthTimer = null, bubbleTimer = null;
   var SAVE_KEY = 'swiftee.audio';
   var quest = Quest.create(), rewardTimer;
 
@@ -114,6 +114,27 @@
   var CONTENT_FRAC = 0.764;      // (449 - 58) / 512, from the manifest bounds
   var EDGE = 8;                  // px of breathing room at the viewport edge
 
+  /**
+   * Whether anything on this screen is drawn beneath the shape.
+   *
+   * A caption, a Convex/Concave badge, a checklist, a row of options or a
+   * stepper. Beats included, because most screens add theirs a beat or two
+   * after the stage is built.
+   */
+  function wantsRoomBelow(scr) {
+    var beats = (scr.beats || []).concat(
+      Object.keys(scr.perTap || {}).reduce(function (a, k) { return a.concat(scr.perTap[k] || []); }, []));
+    var has = function (o) {
+      return !!(o && (o.label || o.badge || o.choices || o.checklist || o.stepper || o.measurements));
+    };
+    if (has(scr.stage)) return true;
+    return beats.some(function (b) {
+      return has(b.stage) ||
+        (b.on && Object.keys(b.on).some(function (k) { return (b.on[k] || []).some(function (x) { return has(x.stage); }); })) ||
+        (b.otherwise || []).some(function (x) { return has(x.stage); });
+    });
+  }
+
   function layout(pos, size) {
     var f = frame();
 
@@ -125,12 +146,23 @@
       'left':               { x: 0.20, y: 0.88 },
       'left-low':           { x: 0.15, y: 0.97 },
       'polygon-top-right':  { x: 0.905, y: 0.34 },
+      // For screens whose lesson reaches all the way across — the swipe
+      // practice puts a drop zone against each edge — the only clear ground
+      // left is the near corner, and he has to be small enough to stand in
+      // it without leaning on either zone.
+      'right-low':          { x: 0.90, y: 1.00 },
+      // Up in the corner, off the ground — for screens where the lesson needs
+      // the whole floor and he should be a narrator rather than a bystander
+      // standing in it.
+      'top-left':           { x: 0.11, y: 0.30 },
       'centre':             { x: 0.50, y: 0.93 },
       'off':                { x: -0.3, y: 0.9 }
     };
     if (f.portrait) {
       // Stage letterboxes; put Swiftee below the box so he never covers it.
       map['left'] = { x: 0.18, y: 1.02 }; map['left-low'] = { x: 0.16, y: 1.02 };
+      map['right-low'] = { x: 0.84, y: 1.02 };
+      map['top-left'] = { x: 0.13, y: 0.26 };
       map['polygon-top-right'] = { x: 0.86, y: 0.22 }; map['centre'] = { x: 0.5, y: 1.02 };
       // ...which means the stage height is the wrong yardstick down here. A
       // portrait stage letterboxes to a short band, so sizing against it left
@@ -412,7 +444,10 @@
     // that does not produce a narrower bubble, it produces one that hangs out
     // of the space it was promised — which is how it kept clipping the
     // polygon by a few pixels on a phone.
-    var GAP = 14, MIN_W = 240, MIN_H = 64;
+    // GAP is the margin the bubble keeps from every edge it can reach. At 14
+    // it sat hard against the side of the screen and read as something that
+    // had slid off rather than been placed.
+    var GAP = 26, MIN_W = 240, MIN_H = 64;
 
     // Type size is the stylesheet's job; it only needs to know whether this
     // is a screen with room to breathe.
@@ -511,22 +546,44 @@
     // does not. Four candidates — the strip above him, below him, left of him,
     // right of him — and the biggest wins. That turns "the left band" into
     // "the left band above his head", which is a real place to put a sentence.
-    if (birdBox) {
+    // EVERYTHING FIXED ON TOP OF THE LESSON IS AN OBSTACLE, not just him.
+    //
+    // Only Swiftee was carved out, so the sound and restart buttons in the
+    // top-right corner were invisible to this: on the screens whose lesson
+    // reaches both edges the only band left is the strip along the top, and
+    // the line was published straight across the HUD — the two controls a
+    // child needs to turn the sound off, behind a speech bubble.
+    //
+    // The same is true of the Next button and of the screen picker. They are
+    // all fixed boxes over the play area, they are all off limits, and there
+    // is no reason for the rule to name one of them.
+    var blocks = [birdBox];
+    [hudBox, nextBox, (function () {
+      var j = document.querySelector('#jump');
+      return j && j.offsetWidth ? j.getBoundingClientRect() : null;
+    })()].forEach(function (b) {
+      if (!b || !b.width) return;
+      blocks.push({ left: b.left - f.x - 8, right: b.right - f.x + 8,
+                    top: b.top - f.y - 8, bottom: b.bottom - f.y + 8 });
+    });
+
+    blocks.forEach(function (box) {
+      if (!box) return;
       slots = slots.map(function (r) {
-        var ov = r.x < birdBox.right && r.x + r.w > birdBox.left &&
-                 r.y < birdBox.bottom && r.y + r.h > birdBox.top;
+        var ov = r.x < box.right && r.x + r.w > box.left &&
+                 r.y < box.bottom && r.y + r.h > box.top;
         if (!ov) return r;
         var cands = [
-          { id: r.id, x: r.x, y: r.y, w: r.w, h: birdBox.top - r.y },
-          { id: r.id, x: r.x, y: birdBox.bottom, w: r.w, h: r.y + r.h - birdBox.bottom },
-          { id: r.id, x: r.x, y: r.y, w: birdBox.left - r.x, h: r.h },
-          { id: r.id, x: birdBox.right, y: r.y, w: r.x + r.w - birdBox.right, h: r.h }
+          { id: r.id, x: r.x, y: r.y, w: r.w, h: box.top - r.y },
+          { id: r.id, x: r.x, y: box.bottom, w: r.w, h: r.y + r.h - box.bottom },
+          { id: r.id, x: r.x, y: r.y, w: box.left - r.x, h: r.h },
+          { id: r.id, x: box.right, y: r.y, w: r.x + r.w - box.right, h: r.h }
         ].filter(function (c) { return c.w >= MIN_W && c.h >= MIN_H; });
         if (!cands.length) return r;          // nowhere clear: leave it and let hits() fight
         cands.sort(function (a, b) { return (b.w * b.h) - (a.w * a.h); });
         return cands[0];
       });
-    }
+    });
 
     slots = slots.filter(function (r) { return r.w >= MIN_W && r.h >= MIN_H; });
 
@@ -581,31 +638,68 @@
     // empty. Measuring every slot and keeping the one where the bubble comes
     // out SHORTEST is the same thing as keeping the one where it wraps least,
     // and costs three more layout reads on a path that now runs twice a line.
-    var slot = null, w = 0, h = 0, bestH = Infinity, bestOver = Infinity;
+    // Where a bubble of a given size ends up in a given slot. Used twice —
+    // once per slot while choosing, and once on the slot that wins — so the
+    // thing that is scored is the thing that is placed.
+    var placeIn = function (r, ww, hh) {
+      var wx = (r.id === 'left' || r.id === 'right')
+        ? L.x - ww / 2
+        : (onLeft ? Math.max(r.x, L.x - ww * 0.35) : Math.min(r.x + r.w - ww, L.x - ww * 0.65));
+      var wy = (r.id === 'left' || r.id === 'right')
+        ? L.y - 256 * L.scale * CONTENT_FRAC - hh - 26
+        : r.y + (r.h - hh) / 2;
+      return {
+        x: Math.max(r.x, Math.min(wx, r.x + r.w - ww)),
+        y: Math.max(r.y, Math.min(wy, r.y + r.h - hh))
+      };
+    };
+
+    // How many rows a given height is. A row is one line-height; everything
+    // else in the box is padding and border, and that is paid once.
+    var lineH = parseFloat(getComputedStyle(bubble).lineHeight) || 30;
+    bubble.style.maxWidth = '100000px';
+    var chrome = bubble.offsetHeight - lineH;
+    var rowsOf = function (hh) { return Math.max(1, Math.round((hh - chrome) / lineH)); };
+
+    // The top of his head, which is what the pointer has to reach.
+    var headX = L.x, headY = L.y - 256 * L.scale * CONTENT_FRAC;
+    var reach = function (p, ww, hh) {
+      var dx = Math.max(p.x - headX, 0, headX - (p.x + ww));
+      var dy = Math.max(p.y - headY, 0, headY - (p.y + hh));
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
+    // PICK THE SLOT NEAREST HIS HEAD, not the one the sentence is shortest in.
+    //
+    // Shortest-first sounds right and is wrong: the shortest layout is always
+    // the widest band, and the widest band is the full-width strip along the
+    // top of the screen. So every long line was published up there, six
+    // hundred pixels from the character supposedly saying it, with a pointer
+    // aimed at empty sky. A speech bubble that is not attached to a speaker
+    // is a caption.
+    //
+    // Distance from his head decides it. Wrapping still matters — a line that
+    // fits on one row reads better than the same line on two — but it is a
+    // nudge, not the rule, because "near him on two rows" beats "across the
+    // top on one" every time. Three rows is the thing actually worth
+    // avoiding: that is where a bubble starts to be a paragraph.
+    var slot = null, w = 0, h = 0, best = Infinity;
     for (var si = 0; si < slots.length; si++) {
-      bubble.style.maxWidth = capFor(slots[si]) + 'px';
+      var r = slots[si];
+      bubble.style.maxWidth = capFor(r) + 'px';
       var m = size();
-      if (m.h <= slots[si].h && m.w <= slots[si].w) {
-        // The slots already exclude him, so the only thing left to prefer is
-        // the one where the sentence lays out shortest — which is the one
-        // where it wraps least.
-        if (m.h < bestH) { bestH = m.h; slot = slots[si]; }
-      } else if (bestH === Infinity && m.h - slots[si].h < bestOver) {
-        // nothing fits yet: keep the least bad
-        bestOver = m.h - slots[si].h; slot = slots[si];
-      }
+      var fits = m.h <= r.h && m.w <= r.w;
+      var rows = rowsOf(m.h);
+      var score = reach(placeIn(r, m.w, m.h), m.w, m.h)
+                + (rows - 1) * 40                          // one row is nicer
+                + (rows > 2 ? 4200 : 0)                    // three is a paragraph
+                + (fits ? 0 : 2400 + Math.max(0, m.h - r.h));
+      if (score < best) { best = score; slot = r; }
     }
     bubble.style.maxWidth = capFor(slot) + 'px';
     var m2 = size(); w = m2.w; h = m2.h;
-    var wantX = (slot.id === 'left' || slot.id === 'right')
-      ? L.x - w / 2
-      : (onLeft ? Math.max(slot.x, L.x - w * 0.35) : Math.min(slot.x + slot.w - w, L.x - w * 0.65));
-    var wantY = (slot.id === 'left' || slot.id === 'right')
-      ? L.y - 256 * L.scale * CONTENT_FRAC - h - 26
-      : slot.y + (slot.h - h) / 2;
-
-    var x = Math.max(slot.x, Math.min(wantX, slot.x + slot.w - w));
-    var y = Math.max(slot.y, Math.min(wantY, slot.y + slot.h - h));
+    var at = placeIn(slot, w, h);
+    var x = at.x, y = at.y;
 
     bubble.style.left = x + 'px';
     bubble.style.top = y + 'px';
@@ -920,7 +1014,16 @@
   }
 
   function setCard(text) {
-    if (!text) { card.classList.remove('show'); card.textContent = ''; return; }
+    // THE CARD CHANGES WHERE THE BUBBLE MAY SIT. placeBubble() treats a shown
+    // card as something to stay out of, and reads that at the moment it runs
+    // — so a card that appears after the line was placed was simply not
+    // there to avoid, and the bubble was left sitting on top of it. Both
+    // paths re-place: appearing takes room away, disappearing gives it back.
+    if (!text) {
+      card.classList.remove('show'); card.textContent = '';
+      placeBubble();
+      return;
+    }
     if (global.DualCode) {
       // Words only. The card used to lead with a pictogram of the gesture —
       // a finger sliding for "drag", and so on — which is good dual coding in
@@ -933,6 +1036,7 @@
       card.textContent = text;
     }
     card.classList.add('show');
+    placeBubble();
     // Same reasoning as the bubble: the card lives top-left and the polygon
     // panel lives right, so cap it where the panel begins rather than at a
     // percentage that happens to work on one window size.
@@ -1015,6 +1119,17 @@
         if (spec && spec.kind && scr && scr.stage && scr.stage.kind === spec.kind) {
           spec = Object.assign({}, scr.stage, spec);
         }
+        // DOES ANYTHING GO UNDER THE SHAPE ON THIS SCREEN?
+        //
+        // The shape sits a little above the middle of its panel to leave room
+        // for its name, its badge or a row of options. On a screen that has
+        // none of those the room is not room, it is a gap: the shape reads as
+        // having drifted upward and the bottom third of the panel is empty.
+        //
+        // The stage cannot know — the label and the badge arrive later, in
+        // beats — so it is worked out here, where the whole screen is
+        // visible, and passed in.
+        if (spec && spec.kind && scr) spec = Object.assign({}, spec, { below: wantsRoomBelow(scr) });
         var wasSolo = soloed();
         Stage.apply(spec);
         // Building or clearing a scene changes whether Swiftee is alone, and
@@ -1051,6 +1166,23 @@
         var stop = function () { clearTimeout(mouthTimer); Swiftee.speaking(false); };
         clearTimeout(mouthTimer);
         mouthTimer = setTimeout(stop, opts.reading || 1200);
+
+        // THE LINE CLEARS ITSELF once it has been read.
+        //
+        // A spoken line used to stay up until something else replaced it, so
+        // narration from the top of a screen was still sitting over the
+        // polygon while the child tried to drag it. It comes down a beat after
+        // the reading time — long enough to finish the sentence, short enough
+        // that the play area is clear while they play in it.
+        //
+        // NOT when it is the only thing telling them what to do. Screens that
+        // carry an instruction card can lose the bubble safely; screens
+        // without one would be left saying nothing at all, so those keep it.
+        clearTimeout(bubbleTimer);
+        bubbleTimer = setTimeout(function () {
+          if (card && card.classList.contains('show')) say(null);
+        }, (opts.reading || 1200) + 1100);
+        if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(bubbleTimer); });
         if (ctx && ctx.onCancel) ctx.onCancel(stop);
         return Promise.resolve();
       },
@@ -1107,6 +1239,29 @@
     // failure mode it removes is an instruction telling a child to do
     // something the screen cannot do.
     setCard(null);
+    clearTimeout(bubbleTimer);
+
+    // WHERE HE STANDS ON THIS SCREEN.
+    //
+    // Every screen in screens.js carries a `swiftee: { pos, size }` block and
+    // NOTHING READ IT. He was placed once at boot — left, large — and moved
+    // only where a beat explicitly told him to, so thirty-nine screens of
+    // carefully chosen positions were dead configuration and he stood in the
+    // same spot for the whole lesson, including on the screens whose lesson
+    // reaches into that spot.
+    //
+    // Applied here, before the beats run, so it lands underneath the
+    // transition on every screen that wipes rather than as a jump.
+    if (s.swiftee && Swiftee.place) {
+      var wantPos = s.swiftee.pos || Swiftee.pos;
+      var wantSize = s.swiftee.size || Swiftee.size;
+      if (wantPos !== Swiftee.pos || wantSize !== Swiftee.size) {
+        Swiftee.place(wantPos, wantSize);
+        if (Swiftee.el) Swiftee.el.classList.toggle('hover-float', wantPos === 'top-left');
+        placeBubble();
+      }
+    }
+
     current = i; setProgress(i);
     Stage.onTap(function (kind) { if (s.perTap) fire(s.perTap[kind] || s.perTap.any); react(kind); });
     if (global.Input) Input.mode('locked');
@@ -1361,7 +1516,31 @@
 
     // Audio needs a real gesture. The start button is that gesture, so
     // nothing plays before the learner is ready.
-    $('#start').addEventListener('click', function () {
+    wireJump();
+
+    // POINTERDOWN, NOT CLICK, for everything the child is meant to feel.
+    // click does not fire until the finger lifts, and by then this handler is
+    // also dropping the curtain — so the pop and the squash were being played
+    // behind the thing that covers them. The gesture that unlocks audio is
+    // the press, so the cue can land on the press too.
+    var startEl = $('#start');
+    var armed = false;
+    startEl.addEventListener('pointerdown', function () {
+      if (armed) return;
+      armed = true;
+      if (global.SFX) { SFX.unlock(); SFX.play('pop'); }
+      if (global.TitleFx) TitleFx.pressDown();
+    });
+    // Released without completing the tap: undo the squash, keep the screen.
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+      startEl.addEventListener(ev, function () {
+        if (!armed) return;
+        armed = false;
+        if (global.TitleFx) TitleFx.pressUp();
+      });
+    });
+
+    startEl.addEventListener('click', function () {
       // The gesture that unlocks audio is also the first thing that should
       // make a sound. Unlock, then play on the same tick — the context is
       // resumed by the gesture, so the cue lands with the press rather than
@@ -1369,15 +1548,74 @@
       // sequence(), not two play() calls with a delay option: a cue only
       // honours the options it reads, and sparkle reads none — so the delay
       // was ignored and both landed on the same instant as one thicker pop.
-      if (global.SFX) { SFX.unlock(); SFX.sequence(['pop', 0.07, 'sparkle']); }
-      if (global.TitleFx) TitleFx.press();
-      loadEl.classList.add('gone');
+      // The pop already rang on the press; this is the release on top of it.
+      if (global.SFX) { SFX.unlock(); SFX.play('sparkle'); }
+      if (global.TitleFx) { TitleFx.pressUp(); TitleFx.press(); }
+      // A beat before the curtain, so the burst is something the child sees
+      // rather than something the transition eats.
+      setTimeout(function () { loadEl.classList.add('gone'); }, 120);
       // The title screen's weather is thirty infinite animations. Nothing can
       // see them once the curtain is down, so they are cancelled rather than
       // left running behind the lesson for the rest of the session.
-      setTimeout(function () { if (global.TitleFx) TitleFx.stop(); }, 460);
-      setTimeout(function () { play(0); }, 250);
+      setTimeout(function () { if (global.TitleFx) TitleFx.stop(); }, 640);
+      setTimeout(function () { play(0); }, 430);
     });
+  }
+
+  /**
+   * TEMPORARY: the screen picker in the top-left corner.
+   *
+   * Reviewing a layout means looking at one screen, not at the thirty-eight
+   * in front of it. This lists every screen by number and id and jumps
+   * straight there.
+   *
+   * Delete this function, its call in boot(), the #jump element and the
+   * #jump rules in the stylesheet, and nothing else changes — it reads the
+   * screen list and calls the same play() the lesson does, and owns no state
+   * of its own. It also keeps itself in step: jumping by any other route
+   * still moves the selection, so the box never claims you are somewhere you
+   * are not.
+   */
+  function wireJump() {
+    var box = $('#jump-sel');
+    if (!box || !global.Screens) return;
+    Screens.list.forEach(function (s, i) {
+      var o = document.createElement('option');
+      o.value = i;
+      o.textContent = (i + 1) + '. ' + s.id;
+      box.appendChild(o);
+    });
+    box.addEventListener('change', function () {
+      var n = +box.value;
+      if (!(n >= 0 && n < Screens.list.length)) return;
+      // play() is a loop over the remaining screens and refuses to start a
+      // second one while the first is running, so jumping is not 'call play'
+      // — it is 'end the loop that is running, then start one at n'. abort()
+      // makes the awaited screen resolve CANCELLED, which is that loop's own
+      // way out; the beat after it is so the old loop has unwound before the
+      // new one claims the flag.
+      director.abort();
+      playing = false;
+      showNext(false);
+
+      // Some screens never build a stage — they add a question to whatever
+      // the screen before them put up. Played in order that is exactly
+      // right; jumped to, it means you inherit whichever stage happened to
+      // be on screen, which for a picker is every stage but the correct one.
+      // So walk back to the nearest screen that does declare one and build
+      // that first.
+      for (var b = n; b >= 0; b--) {
+        var sp = Screens.list[b].stage;
+        if (sp && sp.kind) { Stage.apply(sp); break; }
+      }
+      box.blur();                       // so the arrow keys go back to the lesson
+      setTimeout(function () { play(n); }, 80);
+    });
+    if (director && director.on) {
+      director.on('start', function () {
+        if (current >= 0 && +box.value !== current) box.value = current;
+      });
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

@@ -204,7 +204,13 @@ const LUM = `(function (c) {
     if (s.next) {
       // impatient: three taps on Next in 150ms must move exactly one screen
       const before = s.screen;
-      const nb = await (await page.$('#next')).boundingBox();
+      // #next can be taken away between reading the state and reaching for
+      // the button: a screen that advances itself does exactly that, and
+      // boundingBox() then returns null and takes the whole run down with a
+      // TypeError. There is nothing to lean on this step, so move on.
+      const nextEl = await page.$('#next');
+      const nb = nextEl && await nextEl.boundingBox();
+      if (!nb) continue;
       for (let i = 0; i < 3; i++) { await page.mouse.click(nb.x + nb.width / 2, nb.y + nb.height / 2); await sleep(50); }
       await sleep(700);
       const after = await page.evaluate(() => window.Game.screen);

@@ -318,16 +318,21 @@ t('every branch has at least one arm',
 t('every perTap bucket is a list of beats',
   S.every((s) => !s.perTap || Object.keys(s.perTap).every((k) => Array.isArray(s.perTap[k]))));
 
+/* Kept in step with the map in game.js layout(). A position the screens use
+   and the layout does not know silently falls back to left-low, which is how
+   a screen can ask for a corner and get the middle of the left edge. */
+const POSITIONS = ['left', 'left-low', 'polygon-top-right', 'right-low', 'top-left', 'off'];
+
 t('Swiftee positions are ones the layout knows',
-  S.every((s) => !s.swiftee || ['left', 'left-low', 'polygon-top-right', 'off'].indexOf(s.swiftee.pos) >= 0),
-  S.filter((s) => s.swiftee && ['left', 'left-low', 'polygon-top-right', 'off'].indexOf(s.swiftee.pos) < 0).map((s) => s.id));
+  S.every((s) => !s.swiftee || POSITIONS.indexOf(s.swiftee.pos) >= 0),
+  S.filter((s) => s.swiftee && POSITIONS.indexOf(s.swiftee.pos) < 0).map((s) => s.id));
 
 t('Swiftee sizes are ones the layout knows',
   S.every((s) => !s.swiftee || ['small', 'medium', 'large'].indexOf(s.swiftee.size) >= 0));
 
 t('every move beat names a position the layout knows',
   S.every((s) => allBeats(s).every((b) =>
-    b.swiftee !== 'move' || ['left', 'left-low', 'polygon-top-right', 'off'].indexOf(b.to) >= 0)));
+    b.swiftee !== 'move' || POSITIONS.indexOf(b.to) >= 0)));
 
 console.log('\nscreens: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

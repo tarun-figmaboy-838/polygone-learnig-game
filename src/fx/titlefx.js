@@ -248,6 +248,44 @@
    * but the one case that matters is a press that does NOT start the game,
    * and there is no reason for it to leave litter.
    */
+  /**
+   * The button going down, and coming back up.
+   *
+   * THE IMAGE MOVES, THE BUTTON DOES NOT. A transform on #start changes the
+   * box that a fingertip — and the browser's own hit testing — aims at, and a
+   * control that moves out from under a press is a control that drops it.
+   * The artwork inside it is free to squash as far as it likes.
+   *
+   * These are bound to pointerdown/up rather than to click, because click
+   * does not arrive until the finger lifts. The press used to be drawn on
+   * click alongside the curtain that covers it, so the one frame of feedback
+   * a child gets for touching the only button on the screen was painted
+   * underneath the transition that hid it.
+   */
+  function pressDown() {
+    if (!mounted || reduced()) return;
+    var img = mounted.querySelector('#start img');
+    var halo = mounted.querySelector('.start-halo');
+    if (img) run(img, [
+      { transform: 'scale(1) translateY(0)' },
+      { transform: 'scale(.9) translateY(5px)' }
+    ], { duration: 90, easing: 'cubic-bezier(.3,0,.7,1)', fill: 'forwards' });
+    if (halo) run(halo, [
+      { transform: 'scale(1)', opacity: 1 },
+      { transform: 'scale(.92)', opacity: 0.6 }
+    ], { duration: 90, fill: 'forwards' });
+  }
+
+  function pressUp() {
+    if (!mounted || reduced()) return;
+    var img = mounted.querySelector('#start img');
+    if (img) run(img, [
+      { transform: 'scale(.9) translateY(5px)' },
+      { transform: 'scale(1.08) translateY(-3px)' },
+      { transform: 'scale(1) translateY(0)' }
+    ], { duration: 420, easing: 'cubic-bezier(.2,1.4,.35,1)', fill: 'forwards' });
+  }
+
   function press() {
     if (!mounted || reduced()) return;
     var host = mounted.querySelector('.start-sparks');
@@ -383,6 +421,7 @@
 
   global.TitleFx = {
     mount: mount, stop: stop, placePlay: placePlay, press: press,
+    pressDown: pressDown, pressUp: pressUp,
     get running() { return anims.length > 0; }
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.TitleFx;

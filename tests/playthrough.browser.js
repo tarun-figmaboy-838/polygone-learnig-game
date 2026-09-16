@@ -673,13 +673,21 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   if (!CHECKS_ONLY) {
     const rows = await safe(() => page.evaluate(() => window.__rows || {}), {});
     const wrapped = Object.keys(rows).filter((k) => rows[k] > 1);
-    const bad = Object.keys(rows).filter((k) => rows[k] > 2);
+    const bad = Object.keys(rows).filter((k) => rows[k] > 3);
     console.log('  note  lines measured: ' + Object.keys(rows).length +
       ', on one row: ' + (Object.keys(rows).length - wrapped.length) +
       (wrapped.length ? ', wrapping: ' + wrapped.map((k) => (Number(k) + 1) + '(' + rows[k] + ')').join(' ') : ''));
-    // Two rows is allowed for a genuinely long sentence; three means the fit
-    // is not working.
-    t('no line runs past two rows', bad.length === 0,
+    // THREE IS THE CEILING, and two is what almost every line gets.
+    //
+    // This asserted two until the bubble was moved to Swiftee's head. Beside
+    // him the line has whatever width the lesson leaves, and on the last
+    // screen the lesson runs from 430 to 1267 of a 1280 stage — a 352px
+    // column, in which the closing sentence is three rows and nothing can
+    // make it two. Attached to the speaker at three rows beats detached at
+    // two, which is the trade this ceiling records. Four rows is still a
+    // fit that has stopped working; the note above shows the distribution so
+    // a slide from two to three does not pass unnoticed.
+    t('no line runs past three rows', bad.length === 0,
       bad.map((k) => 'screen ' + (Number(k) + 1) + ' = ' + rows[k] + ' rows').join(', '));
   }
 

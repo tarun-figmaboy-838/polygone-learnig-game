@@ -685,25 +685,37 @@
           SFX.play('hoofbeat', { delay: t, gain: 0.085 - i * 0.004 });
           t += stepMs; stepMs *= 1.05;
         }
-        // the runners biting as it pulls up, then the jump
-        setTimeout(function () { if (!stale(g) && global.SFX) SFX.play('slice', { gain: 0.05 }); }, 2900);
-        setTimeout(function () { if (!stale(g) && global.SFX) SFX.play('zip', { gain: 0.06 }); }, 3300);
-        setTimeout(function () { if (!stale(g) && global.SFX) SFX.play('pop'); }, 4900);
-        setTimeout(function () {
-          if (stale(g) || !global.SFX) return;
+        // The rest of the cues are pinned to the animation's OWN beat times
+        // rather than to numbers typed here. They used to be typed here, and
+        // the first time a duration in sleigh-intro.js changed, the runners
+        // bit while the sled was still cruising and the departure bells rang
+        // over the landing. The touch-down pop belongs to the frame the feet
+        // actually arrive on, so the intro plays that one itself.
+        var B = SleighIntro.timeline();
+        var cue = function (at, fn) { setTimeout(function () { if (!stale(g) && global.SFX) fn(); }, at); };
+        cue(B.brake + 60, function () { SFX.play('slice', { gain: 0.05 }); });
+        cue(B.land + 40, function () { SFX.play('zip', { gain: 0.06 }); });
+        cue(B.exit + 60, function () {
           SFX.play('sleighBells', { n: 4, spread: 0.09, gain: 0.03 });
           for (var k = 0; k < 5; k++) SFX.play('hoofbeat', { delay: k * 0.2, gain: 0.05 - k * 0.008 });
-        }, 5200);
+        });
       }
 
+      // THE REVEAL IS UNCONDITIONAL. Only this function ever hides him, so
+      // only this function can be trusted to put him back — and it has to do
+      // it even when it has been superseded, because the state that
+      // superseded it did not hide him and will not think to show him. It
+      // used to return early on a stale generation, which meant that losing
+      // this race by a tenth of a second left Swiftee invisible for the
+      // remaining thirty-eight screens.
       return SleighIntro.play(container, mark).then(function () {
-        if (stale(g)) return;
         el.style.opacity = '1';
+        if (stale(g)) return;
         if (global.Juice) Juice.squash(el, { amount: 0.1 });
         return rest();
       }, function () {
-        if (stale(g)) return;
         el.style.opacity = '1';
+        if (stale(g)) return;
         return rest();
       });
     },
@@ -761,6 +773,30 @@
   function play(state, opts, ctx) {
     if (!el) return Promise.resolve();
     opts = opts || {};
+
+    // WHOEVER INTERRUPTS THE ARRIVAL ENDS IT. The intro is six and a half
+    // seconds of canvas, and the director will move on without it if a beat
+    // runs long — a slow machine, a low ceiling, a child who taps through.
+    // Left alone the canvas kept painting a reindeer over the first screen of
+    // the lesson, and the element underneath stayed hidden, so the lesson ran
+    // with no mascot at all and a sled parked across it.
+    if (state !== 'enter' && global.SleighIntro) SleighIntro.cancel();
+
+    // AND HE COMES BACK. Two states hide him on purpose — 'enter', because
+    // the intro draws its own bird on a canvas, and 'exit', because he flies
+    // off. Every other state means he is in the scene, so every other state
+    // makes sure he can be seen.
+    //
+    // Nothing used to say that. The hiding was owned by whichever animation
+    // did it and the showing by whichever animation happened to come next,
+    // and an 'exit' that was cut short — a jump between screens, Restart, the
+    // director abandoning a long beat — simply never reached the line that
+    // brings him back. He stayed at zero opacity, through every screen after
+    // it, with his speech bubble still pointing at the empty patch of snow
+    // where he should have been standing.
+    if (state !== 'enter' && state !== 'exit' && el.style.opacity !== '1') {
+      el.style.opacity = '1';
+    }
     if (ctx && ctx.onCancel) ctx.onCancel(function () { cancelAll(); });
 
     if (MOVES[state]) { stir(); return MOVES[state](opts); }
@@ -829,18 +865,17 @@
       'background:radial-gradient(closest-side, rgba(24,52,96,.42), rgba(24,52,96,.14) 62%, rgba(24,52,96,0));';
 
     cellEl = document.createElement('div');
-    // He is a mid-tone bird on a near-white snowfield, which is exactly the
-    // case where a character disappears into its own background. A tight
-    // white rim plus a soft drop shadow cuts him out of it without touching
-    // the art: the rim separates the silhouette, the shadow gives it weight.
-    // drop-shadow follows the sprite's alpha, so it traces the bird rather
-    // than boxing the cell.
+    // A SHADOW, NOT A GLOW. He used to carry a white rim — two white
+    // drop-shadows tight around the silhouette — to cut him out of a
+    // near-white snowfield. It did that, and it also made him look lit from
+    // behind by something that is not in the scene, which is the one thing a
+    // character standing on snow should not look like. The grounded shadow
+    // does the separating on its own: it follows the sprite's alpha, so it
+    // traces the bird rather than boxing the cell, and it reads as weight
+    // rather than as an effect.
     cellEl.style.cssText =
       'position:absolute;inset:0;background-repeat:no-repeat;image-rendering:auto;' +
-      'filter:' +
-        'drop-shadow(0 0 2px rgba(255,255,255,.95)) ' +
-        'drop-shadow(0 0 5px rgba(255,255,255,.7)) ' +
-        'drop-shadow(0 8px 12px rgba(24,52,96,.28));';
+      'filter: drop-shadow(0 7px 11px rgba(24,52,96,.30));';
 
     el.appendChild(shadowEl);
     el.appendChild(cellEl);

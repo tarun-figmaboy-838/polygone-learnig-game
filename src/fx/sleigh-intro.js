@@ -41,20 +41,55 @@
      which is the spec's five-to-seven: long enough to read as a journey,
      short enough that a child is not waiting for the lesson. */
   var T = {
-    enter:    1500,   // off-stage left to cruising speed
-    cruise:   1200,   // the happy ride
+    enter:    1400,   // off-stage left to cruising speed
+    cruise:   1000,   // the happy ride
     brake:     560,   // easing to a stop, never a dead stop
-    dismount:  980,   // seated -> prepare -> push -> out of the sled
-    land:      920,   // the arc, the touch down, the settle
-    exit:     1250,   // the reindeer walks away and off
-    beat:      180    // a breath before the lesson starts
+    dismount:  760,   // he stands up in the sled (dismount frames 0-2)
+    land:      980,   // the leap, the arc, the touch down, the settle
+    exit:     1750,   // the reindeer walks away and OFF the right edge
+    beat:      320    // a breath before the lesson starts
   };
+
+  /**
+   * When each beat starts, in ms from the first frame.
+   *
+   * The sound for this animation is scheduled by the caller, on its own
+   * timers, because it has to start before the first sheet has decoded. That
+   * means two copies of the same schedule, and the moment one of these
+   * durations changes the runners bite while the sled is still cruising. So
+   * the durations are published rather than repeated: see swiftee.js enter().
+   */
+  function timeline() {
+    var b = { enter: 0 };
+    b.cruise   = b.enter    + T.enter;
+    b.brake    = b.cruise   + T.cruise;
+    b.dismount = b.brake    + T.brake;
+    b.land     = b.dismount + T.dismount;
+    b.exit     = b.land     + T.land;
+    b.end      = b.exit     + T.exit + T.beat;
+    return b;
+  }
 
   var RIDE_FPS = 10;        // the walk cycle. Independent of travel speed.
   var GROUND_FRAC = 0.86;   // fallback only; the caller's mark wins
 
   var host = null, canvas = null, ctx = null;
   var images = {}, raf = 0, cancelled = false, running = null;
+
+  /* The resolver of the run currently in flight.
+   *
+   * A CANCELLED INTRO STILL HAS TO END. cancel() drops the animation frame,
+   * and the animation frame was the only thing that ever resolved this
+   * promise — so cancelling used to leave it pending for the rest of the
+   * session. The caller (swiftee.js enter()) reveals Swiftee in its .then,
+   * which meant that interrupting the arrival left the mascot hidden for
+   * every screen that followed: no error, no warning, just no bird. */
+  var settle = null;
+
+  function settleNow() {
+    var r = settle; settle = null;
+    if (r) r();
+  }
 
   function reduced() { return !!(global.Juice && Juice.reducedMotion); }
   function F() { return global.SleighFrames; }
@@ -121,21 +156,17 @@
   /**
    * Draw ONE island of a frame, at a chosen height, anchored on its own feet.
    *
-   * The departure sheet draws the reindeer smaller and smaller as it walks
-   * into the distance, and its last frame has no reindeer at all. Stepped
-   * through as whole frames that reads as the animal shrinking away and then
-   * being cut off mid-stride — which is what "cropping in the middle of the
-   * animation" was. Pulled out as its own island and drawn at a CONSTANT
-   * height, the same four frames are a walk cycle, and it can simply walk off
-   * the right-hand edge like something leaving a place.
+   * `k` is a SCALE, not a target height. Re-fitting each frame to a fixed
+   * height is what made the reindeer breathe: the art in a receding frame is
+   * drawn smaller inside its own box, so forcing that box to one height
+   * quietly magnifies it. One scale for every frame of a cycle, always.
    */
-  function drawIsland(sheet, island, wx, wy, drawH) {
+  function drawIsland(sheet, island, wx, wy, k) {
     var img = images[sheet] && images[sheet].__img;
     if (!img || !island) return 0;
-    var k = drawH / island.h;
-    var w = island.w * k;
+    var w = island.w * k, h = island.h * k;
     ctx.drawImage(img, island.x, island.y, island.w, island.h,
-                  wx - w / 2, wy - drawH, w, drawH);
+                  wx - w / 2, wy - h, w, h);
     return w;
   }
 
@@ -154,13 +185,13 @@
       puffs.push({
         x: x + (Math.random() - 0.5) * spread,
         y: y - Math.random() * 6,
-        vx: (Math.random() - 0.35) * power,
-        vy: -Math.random() * power * 0.8 - 0.2,
-        r: 2 + Math.random() * 5,
+        vx: (Math.random() - 0.35) * power * 1.7,
+        vy: -Math.random() * power * 1.15 - 0.4,
+        r: 5 + Math.random() * 12,
         life: 1
       });
     }
-    if (puffs.length > 90) puffs.splice(0, puffs.length - 90);
+    if (puffs.length > 150) puffs.splice(0, puffs.length - 150);
   }
 
   function drawPuffs(dt) {
@@ -171,11 +202,16 @@
       p.x += p.vx * dt * 0.06;
       p.y += p.vy * dt * 0.06;
       p.vy += dt * 0.0016;                 // settles back down
-      ctx.globalAlpha = Math.max(0, p.life) * 0.75;
+      // A cold shadow under a white crown. Flat white on a white snowfield
+      // is invisible, which is why the first version of this read as no
+      // effect at all rather than as a subtle one.
+      var rr = p.r * (0.45 + p.life * 0.55);
+      ctx.globalAlpha = Math.max(0, p.life) * 0.34;
+      ctx.fillStyle = '#a9cfe8';
+      ctx.beginPath(); ctx.arc(p.x, p.y + rr * 0.22, rr * 1.25, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = Math.max(0, p.life) * 0.95;
       ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r * (0.4 + p.life * 0.6), 0, Math.PI * 2);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
@@ -256,14 +292,69 @@
     var dis = f.sheets.dismount.frames.filter(Boolean);
     var dep = f.sheets.departure.frames.filter(Boolean);
 
-    // Where the rig has to stop so the sled sits just behind his mark.
-    var stopX = markX + (opts.birdHeight || 200) * 0.30;
-    var startX = -S.w * 0.42;
+    /* THE RIG, FROM THE LEAP ONWARDS.
+     *
+     * Three sheets draw the reindeer and its sled, and in two of them the
+     * bird is drawn into the same shape: the ride frames are one island with
+     * Swiftee sitting in the sled, and dismount frames 0-2 are the same. Only
+     * the departure sheet keeps them apart — every frame there is a bird
+     * standing on the left and a reindeer pulling an EMPTY sled on the right.
+     *
+     * So that right-hand island is the rig for everything after the leap. Two
+     * bugs came from not having noticed this:
+     *
+     *   TWO BIRDS. The landing used to draw the WHOLE of dismount frame 4 to
+     *   keep the sled on screen, and that frame contains the bird mid-hop. It
+     *   was drawn beside the bird that was actually flying — the same
+     *   character, twice, one of them frozen.
+     *
+     *   THE SLED LOST ITS SEAT, AND THE DEER SHRANK. Dismount frames 3-4 are
+     *   drawn from a different distance: the reindeer is two-thirds the size
+     *   it is in frames 0-2 and the sled is foreshortened to a runner and a
+     *   shaft. Played inline they read as the rig suddenly shrinking and
+     *   being cut in half. Those two frames are no longer drawn at all; the
+     *   bird's own leap is carried by dismount 5-9, which is bird-only art.
+     *
+     * WHICH FRAMES WALK. Departure frames 0-3 are one constant-size walk
+     * cycle. Frames 4-6 recede into the distance, and the last has no
+     * reindeer at all. Only frames that match the first one's box to within a
+     * few percent are kept, so the cycle cannot shrink — and the reindeer
+     * leaves by walking off the right-hand edge at full size, which is what
+     * leaving looks like.
+     */
+    var depK = worldScale * f.norm.departure;
+    var depRig = [];
+    dep.forEach(function (fr) {
+      var isl = fr.islands || [];
+      if (isl.length < 2) return;
+      var rigI = isl[isl.length - 1];
+      if (!depRig.length) { depRig.push(rigI); return; }
+      var ref = depRig[0];
+      if (Math.abs(rigI.h - ref.h) > ref.h * 0.05) return;
+      if (Math.abs(rigI.w - ref.w) > ref.w * 0.08) return;
+      depRig.push(rigI);
+    });
+    var rigW = (depRig[0] ? depRig[0].w : 256) * depK;
+    var rigH = (depRig[0] ? depRig[0].h : 195) * depK;
+
+    /* WHERE IT STOPS.
+     *
+     * Far enough right that the whole rig — sled included — is clear of the
+     * mark Swiftee has to stand on. It used to stop a fraction of his own
+     * width past the mark, which was fine while the sled on screen was the
+     * dismount sheet's foreshortened one and wrong the moment the real,
+     * full-length sled was parked there: the seat came down exactly where he
+     * lands, and he touched down inside it.
+     *
+     * Clamped so a narrow window parks the rig on screen rather than off it.
+     */
+    var stopX = markX + (opts.birdHeight || 200) * 0.46 + rigW / 2;
+    stopX = Math.min(stopX, S.w - rigW / 2 - 12);
+    var startX = -S.w * 0.42 - rigW / 2;
 
     // The bird's position at the instant the dismount art lets go of it, so
     // the arc starts exactly where the last drawn bird was rather than
     // somewhere near it.
-    var handoff = null;
     var run = { landed: false };
     puffs.length = 0;
 
@@ -278,6 +369,7 @@
     }
 
     return new Promise(function (resolve) {
+      settle = resolve;
       function frameAt(list, ms, fps) {
         var i = Math.floor(ms / (1000 / fps)) % list.length;
         return list[i];
@@ -285,7 +377,7 @@
 
       var prev = 0;
       function step(now) {
-        if (cancelled) { resolve(); return; }
+        if (cancelled) { settle = null; resolve(); return; }
         if (!t0) t0 = now;
         var t = now - t0;
         var dt = prev ? Math.min(48, now - prev) : 16;
@@ -351,66 +443,53 @@
           raf = requestAnimationFrame(step); return;
         }
 
-        /* ---- DISMOUNT: the art carries him out of the sled ---- */
+        /* ---- DISMOUNT: he gets to his feet in the sled ---- */
         if (t < (mark += T.dismount)) {
           var p4 = clamp01((t - T.enter - T.cruise - T.brake) / T.dismount);
-          var early = dis.slice(0, 5);
-          var i4 = Math.min(early.length - 1, Math.floor(p4 * early.length));
-          var fr4 = early[i4];
+          // 0-2 ONLY. 3 and 4 are drawn from a different distance — see the
+          // note on depRig — and 5 onwards is the bird by itself.
+          var early = dis.slice(0, 3);
+          var fr4 = early[Math.min(early.length - 1, Math.floor(p4 * early.length))];
           var rig4 = rigIsland(fr4);
           drawFrame('dismount', fr4, { x: rig4.x + rig4.w / 2, y: rig4.y + rig4.h },
                     stopX, groundY, worldScale);
           drawPuffs(dt);
-
-          // remember where the drawn bird is on the LAST of these frames
-          if (i4 === early.length - 1) {
-            var last = early[early.length - 1];
-            var birds = (last.islands || []).filter(function (i) { return i !== rigIsland(last) && i.w > 40; });
-            var bird = birds.length ? birds[birds.length - 1] : null;
-            if (bird) {
-              var k4 = worldScale * F().norm.dismount;
-              handoff = {
-                x: stopX + (bird.x + bird.w / 2 - (rig4.x + rig4.w / 2)) * k4,
-                y: groundY + (bird.y + bird.h - (rig4.y + rig4.h)) * k4
-              };
-            }
-          }
           raf = requestAnimationFrame(step); return;
         }
 
-        /* ---- LAND: the arc, then the touch down ---- */
+        /* ---- LAND: he leaps out, arcs across, and touches down ---- */
         if (t < (mark += T.land)) {
           var p5 = clamp01((t - T.enter - T.cruise - T.brake - T.dismount) / T.land);
-          var late = dis.slice(5);
-          var i5 = Math.min(late.length - 1, Math.floor(p5 * late.length));
-          var fr5 = late[i5];
+          var late = dis.slice(5);                 // bird only: flap, flap, land, stand
+          var fr5 = late[Math.min(late.length - 1, Math.floor(p5 * late.length))];
           var bi = rigIsland(fr5);
 
-          // the sled stays where it stopped, behind him
-          var still = dis[4], rigS = rigIsland(still);
-          drawFrame('dismount', still, { x: rigS.x + rigS.w / 2, y: rigS.y + rigS.h },
-                    stopX, groundY, worldScale);
+          // The rig, parked and empty, from here to the end of the intro.
+          drawIsland('departure', depRig[0], stopX, groundY, depK);
 
-          // and the bird travels from where the art let go to his mark, over
-          // a small arc — cute rather than acrobatic, and never off the top
-          var from = handoff || { x: stopX, y: groundY - (opts.birdHeight || 200) };
+          // He leaves from the seat of that sled — measured off the rig's own
+          // box rather than off a frame, so it stays right at any size.
+          var from = { x: stopX - rigW * 0.24, y: groundY - rigH * 0.40 };
           var bx = from.x + (markX - from.x) * p5;
-          var lift = Math.sin(Math.PI * p5) * (opts.birdHeight || 200) * 0.30;
+          var lift = Math.sin(Math.PI * p5) * (opts.birdHeight || 200) * 0.34;
           var by = from.y + (groundY - from.y) * easeIn(p5) - lift;
 
           // and settles, very slightly, as it touches
-          var squash = p5 > 0.88 ? 1 - Math.sin((p5 - 0.88) / 0.12 * Math.PI) * 0.035 : 1;
+          var squash = p5 > 0.88 ? 1 - Math.sin((p5 - 0.88) / 0.12 * Math.PI) * 0.045 : 1;
           ctx.save();
           ctx.translate(bx, by);
           ctx.scale(1, squash);
           ctx.translate(-bx, -by);
-          drawFrame('dismount', fr5, { x: bi.x + bi.w / 2, y: bi.y + bi.h }, bx, by, worldScale);
+          drawIsland('dismount', bi, bx, by, worldScale * f.norm.dismount);
           ctx.restore();
 
-          // a little snow knocked loose the moment his feet arrive
-          if (p5 > 0.9 && !run.landed) { run.landed = true; puff(markX, groundY, 12, 40, 2.4); }
+          // snow knocked loose the moment his feet arrive, and a ring with it
+          if (p5 > 0.9 && !run.landed) {
+            run.landed = true;
+            puff(markX, groundY, 16, 44, 2.6);
+            if (global.SFX) SFX.play('pop');
+          }
           drawPuffs(dt);
-
           raf = requestAnimationFrame(step); return;
         }
 
@@ -418,35 +497,25 @@
         if (t < (mark += T.exit)) {
           var p6 = clamp01((t - T.enter - T.cruise - T.brake - T.dismount - T.land) / T.exit);
 
-          // The bird: the final standing pose, fixed on his mark. Nothing
-          // about him moves, which is what makes it read as the reindeer
-          // leaving rather than the world sliding.
-          var birdFr = dep[dep.length - 1];
-          var birdIs = leftIsland(birdFr);
-          drawIsland('departure', birdIs, markX, groundY,
-                     birdIs.h * f.norm.departure * worldScale);
+          // An animal leaning into a walk gathers pace and then holds it. A
+          // cubic ease-in does neither: it stands still for two thirds of the
+          // beat and then leaves in three frames, which is why it read as
+          // vanishing rather than walking. This is always moving.
+          var travel = p6 * (0.55 + 0.45 * p6) * ((S2.w - stopX) + rigW);
+          var wf = depRig[Math.floor(t / 120) % depRig.length];
+          var w = drawIsland('departure', wf, stopX + travel, groundY, depK);
 
-          // The reindeer: its own island, at a CONSTANT height, cycling the
-          // frames that still show a whole animal — the last two are drawn
-          // receding and would shrink it instead of walking it — and
-          // travelling until it is past the edge with room to spare.
-          var walk = [];
-          for (var wi = 0; wi < dep.length; wi++) {
-            var isl = dep[wi].islands || [];
-            if (isl.length < 2) continue;
-            var deer = isl[isl.length - 1];
-            if (deer.h < 150) continue;                 // a receding frame
-            walk.push(deer);
+          // Snow off the runners for as long as they are on the screen.
+          if (stopX + travel - w * 0.5 < S2.w) {
+            puff(stopX + travel - w * 0.42, groundY, 2, w * 0.26, 1.3);
           }
-          if (walk.length) {
-            var wf = walk[Math.floor((t / 110)) % walk.length];
-            var deerH = walk[0].h * f.norm.departure * worldScale;
-            var travel = easeIn(p6) * (S2.w - markX + deerH * 2.2);
-            var dxr = markX + deerH * 0.9 + travel;
-            var w = drawIsland('departure', wf, dxr, groundY, deerH);
-            // snow off the runners while it is still on screen
-            if (p6 < 0.86 && dxr - w < S2.w) puff(dxr - w * 0.45, groundY, 1, w * 0.3, 1.1);
-          }
+
+          // The bird: the standing pose, fixed on his mark and drawn last so
+          // the rig passes BEHIND nothing. Nothing about him moves, which is
+          // what makes this read as the reindeer leaving rather than the
+          // world sliding.
+          var birdIs = leftIsland(dep[dep.length - 1]);
+          drawIsland('departure', birdIs, markX, groundY, depK);
 
           drawPuffs(dt);
           raf = requestAnimationFrame(step); return;
@@ -454,8 +523,7 @@
 
         /* ---- the last beat, holding the final pose ---- */
         if (t < total) {
-          var frL = dep[dep.length - 1], bL = leftIsland(frL);
-          drawIsland('departure', bL, markX, groundY, bL.h * f.norm.departure * worldScale);
+          drawIsland('departure', leftIsland(dep[dep.length - 1]), markX, groundY, depK);
           drawPuffs(dt);
           raf = requestAnimationFrame(step); return;
         }
@@ -469,16 +537,27 @@
 
   function finish(resolve) {
     if (canvas) { clear(host.clientWidth, host.clientHeight); canvas.style.display = 'none'; }
+    settle = null;
     resolve();
   }
 
   function cancel() {
     cancelled = true;
     if (raf) { cancelAnimationFrame(raf); raf = 0; }
-    if (canvas) canvas.style.display = 'none';
+    if (canvas) {
+      // Cleared as well as hidden. A hidden canvas still holding its last
+      // frame flashes that frame back the moment anything shows it again —
+      // a resize, a replay — and what it is holding is a reindeer standing
+      // in the middle of a geometry lesson.
+      if (ctx && host) clear(host.clientWidth, host.clientHeight);
+      canvas.style.display = 'none';
+    }
+    puffs.length = 0;
+    settleNow();
   }
 
   global.SleighIntro = {
+    timeline: timeline,
     play: play,
     cancel: cancel,
     preload: preload,

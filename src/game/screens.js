@@ -445,10 +445,10 @@
       // FLAG: grammar. Deck: "That's convex polygon."
       say: 'That\u2019s a convex polygon.',
       original: 'That\u2019s convex polygon.',
-      stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'green' } },
+      stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex' } },
       beats: [
         { instruction: 'All diagonals inside means convex polygon.' },
-        { stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'green', enter: 'pop' } } },
+        { stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex', enter: 'pop' } } },
         { sfx: 'correct' },
         { swiftee: 'explain' },
         { say: 'That\u2019s a convex polygon.', vo: 'p23' },
@@ -479,10 +479,10 @@
       // FLAG: grammar and capitalisation. Deck: "So it is Concave polygon."
       say: 'So it is a concave polygon.',
       original: 'So it is Concave polygon.',
-      stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'pink' } },
+      stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'concave' } },
       beats: [
         { instruction: 'At least one diagonal outside means concave polygon.' },
-        { stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'pink', enter: 'pop' } } },
+        { stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'concave', enter: 'pop' } } },
         { sfx: 'correct' },
         { swiftee: 'explain' },
         { say: 'So it is a concave polygon.', vo: 'p25' },
@@ -516,11 +516,12 @@
 
     {
       id: 'sort-convex-concave', page: 27,
-      swiftee: { pos: 'left', size: 'medium' },
+      // The bins need the whole floor, so he hovers in the corner and narrates.
+      swiftee: { pos: 'top-left', size: 'small' },
       say: 'Can you sort these polygons as convex or concave?',
       stage: {
         kind: 'sort',
-        bins: [{ id: 'convex', label: 'Convex', tone: 'green' }, { id: 'concave', label: 'Concave', tone: 'pink' }],
+        bins: [{ id: 'convex', label: 'Convex', tone: 'convex' }, { id: 'concave', label: 'Concave', tone: 'concave' }],
         // Judged by Poly.classify at runtime, never by a hard-coded answer
         // column — so an art change cannot desync the shape from its key.
         items: ['triangle', 'chevron', 'pentagon', 'l-shape', 'hexagon', 'star'],
@@ -655,8 +656,8 @@
       say: 'All sides AND all angles equal means regular. Otherwise, it\u2019s irregular.',
       stage: {
         kind: 'compare',
-        left:  { sides: 5, caption: 'Regular pentagon',   checks: ['All sides equal', 'All angles equal'], tone: 'green' },
-        right: { sides: 5, stretch: 0, caption: 'Irregular pentagon', checks: ['Sides not all equal', 'Angles not all equal'], tone: 'pink' }
+        left:  { sides: 5, caption: 'Regular pentagon',   checks: ['All sides equal', 'All angles equal'], tone: 'regular' },
+        right: { sides: 5, stretch: 0, caption: 'Irregular pentagon', checks: ['Sides not all equal', 'Angles not all equal'], tone: 'irregular' }
       },
       beats: [
         { stage: { kind: 'compare', enter: 'split' } },
@@ -671,7 +672,10 @@
 
     {
       id: 'sort-regular', page: 33,
-      swiftee: { pos: 'left', size: 'medium' },
+      // Both drop zones reach the edges here, so he stands in the near corner
+      // and stands small: at medium on the left he leaned on the Regular zone
+      // and on its arrow.
+      swiftee: { pos: 'right-low', size: 'small' },
       say: 'Where does this polygon belong?',
       // The deck's own mechanic for this page. It was swapped for drag-to-bin
       // once, on the argument that one sorting gesture across the game is

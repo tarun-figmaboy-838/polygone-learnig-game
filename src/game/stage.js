@@ -344,6 +344,34 @@
     right2: { x: 750, y: 130, w: 235, h: 250 }
   };
 
+  /* ------------------------------------------------------------------ *
+   * THE OPTION ROW OWNS THE BOTTOM OF THE STAGE.
+   *
+   * The row of answer buttons is pinned to the bottom edge, and the panels
+   * were sized as though it were not there: the right-hand panel runs to 520
+   * in a 562-tall stage and the row starts at 484, so on every screen that
+   * asks a question the buttons were drawn across the foot of the panel —
+   * over the stepper's own card on the builder screens, over whatever caption
+   * was under the shape on the rest.
+   *
+   * Nothing about that depended on the window, the content or the device. It
+   * was two fixed numbers that overlapped, so it was wrong everywhere.
+   *
+   * A panel on a screen that asks a question stops above the band. Screens
+   * that ask nothing keep the full height — reserving the band on all of them
+   * would buy empty space on two thirds of the lesson to solve a problem it
+   * does not have.
+   * ------------------------------------------------------------------ */
+  var CHOICE_BAND = 96;
+
+  function panelFor(name, spec) {
+    var p = PANELS[name] || PANELS.right;
+    if (!spec || !spec.choices || !spec.choices.length) return p;
+    var floor = H - CHOICE_BAND;
+    if (p.y + p.h <= floor) return p;
+    return { x: p.x, y: p.y, w: p.w, h: Math.max(240, floor - p.y) };
+  }
+
   /**
    * The slab the lesson stands on.
    *
@@ -436,13 +464,42 @@
     el.animate(k, { duration: 460, easing: 'cubic-bezier(.22,1,.36,1)' });
   }
 
+  /* The shape sits a little ABOVE the middle of its panel.
+
+     Dead centre looks centred in an empty box and crowded in a real one:
+     everything that belongs to a shape — its name, its Convex/Concave badge,
+     a row of options — lives UNDER it, and centring left nothing between the
+     lowest vertex and the floor of the panel to put any of it in. A fifteenth
+     of the panel is enough room for a caption and still reads as centred. */
+  var SHAPE_LIFT = 0.07;
+
   function polygonIn(p, n, opts) {
     opts = opts || {};
-    var cx = p.x + p.w / 2, cy = p.y + p.h / 2 + (opts.dy || 0);
+    // Only lifted when something is going to be drawn underneath it; dead
+    // centre otherwise, because a gap left for nothing is just a gap.
+    var lift = opts.below === false ? 0 : p.h * SHAPE_LIFT;
+    var cx = p.x + p.w / 2, cy = p.y + p.h / 2 + (opts.dy || 0) - lift;
     var r = Math.min(p.w, p.h) * (opts.rScale || 0.36);
     var v = Poly.regular(n, r, cx, cy);
     if (opts.dent != null) v = Poly.pullInward(v, opts.dent, 0.72);
     if (opts.stretch != null) v[opts.stretch] = { x: v[opts.stretch].x, y: v[opts.stretch].y - r * 0.55 };
+
+    // AND THE WHOLE THING STAYS INSIDE THE PANEL.
+    //
+    // The lift above, a screen's own dy, and a stretched vertex all push the
+    // shape up, and they compose: the builder's triangle came out with its
+    // top handle sitting on the panel's rounded corner. A vertex is painted
+    // as a disc with a stroke, so the POINT being inside the panel is not the
+    // same as the shape being inside it — the clearance has to include what
+    // is drawn around the point.
+    var pad = 16 + VERT_PAINT;
+    var top = v.reduce(function (m, q) { return q.y < m ? q.y : m; }, Infinity);
+    var bot = v.reduce(function (m, q) { return q.y > m ? q.y : m; }, -Infinity);
+    var lo = p.y + pad, hi = p.y + p.h - pad, shift = 0;
+    if (top < lo) shift = lo - top;
+    if (bot + shift > hi) shift = Math.min(shift, hi - bot);   // never at the cost of the bottom
+    if (shift) { v.forEach(function (q) { q.y += shift; }); cy += shift; }
+
     return { verts: v, cx: cx, cy: cy, r: r };
   }
 
@@ -682,10 +739,10 @@
       var morph = spec.enter === 'morph' && st.verts;
       var prev = morph ? st.verts.slice() : null;
       reset();
-      var p = PANELS[spec.panel || 'right'];
+      var p = panelFor(spec.panel || 'right', spec);
       st.panel = p; st.kind = 'polygon';
       panel(p, { enter: morph ? false : spec.enter });
-      var P = polygonIn(p, spec.sides || 5);
+      var P = polygonIn(p, spec.sides || 5, { below: spec.below });
       st.verts = P.verts; st.cx = P.cx; st.cy = P.cy; st.r = P.r; st.n = spec.sides || 5;
       st.polyG = mk('g', { 'class': 'polygon' }, layers.poly);
       st.diagonals = [];
@@ -763,23 +820,37 @@
       // gap either side of it at exactly nothing — the card's edge and the
       // zone's edge touching, which reads as an overlap and gives a child
       // dragging it nowhere to start from. Pushed out to leave a real corridor.
-      var ZW = 226, ZH = 250, ZY = 118;
-      [{ id: 'regular', x: 96, tone: 'green' },
-       { id: 'irregular', x: W - 96 - ZW, tone: 'pink' }].forEach(function (z) {
+      // BIG ENOUGH TO BE A PLACE. These are not labels, they are the two
+      // halves of the answer and they hold everything the child has sorted so
+      // far, so they get real size and a real shelf inside them.
+      var ZW = 288, ZH = 330, ZY = 104;
+      [{ id: 'regular', x: 96 },
+       { id: 'irregular', x: W - 96 - ZW }].forEach(function (z) {
         var def = (spec.zones || []).filter(function (d) { return d.id === z.id; })[0] || { id: z.id, label: z.id };
-        var tone = z.tone === 'pink' ? ['#ffeef3', '#f08aa4', '#7a1b3a'] : ['#edfbf1', '#7fd49a', '#1d5a33'];
+        var c = CONCEPT[z.id] || CONCEPT.regular;
+        var tone = [c.wash, c.face, c.ink];
         var g = mk('g', { 'class': 'zone', 'data-zone': z.id }, layers.ui);
         // the slab, in the same grammar as every other surface in this game:
         // a face, a rim, and an underside so it has thickness
         mk('rect', { x: z.x, y: ZY + 7, width: ZW, height: ZH, rx: 26, fill: tone[1], opacity: 0.35 }, g);
         mk('rect', { x: z.x, y: ZY, width: ZW, height: ZH, rx: 26, fill: tone[0], stroke: tone[1], 'stroke-width': 3 }, g);
         // the title plate
-        mk('rect', { x: z.x + 16, y: ZY + 12, width: ZW - 32, height: 52, rx: 16, fill: tone[1] }, g);
+        // the title plate, in the DEEP tone: white on the mid tone measures
+        // under 2:1, which is a label a child has to guess at
+        mk('rect', { x: z.x + 16, y: ZY + 12, width: ZW - 32, height: 52, rx: 16, fill: c.deep }, g);
         mk('text', { x: z.x + ZW / 2, y: ZY + 47, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 700, fill: '#fff', text: def.label }, g);
-        // the dashed landing area
+        // the dashed landing area — and the shelf the catch sits on
         mk('rect', { x: z.x + 18, y: ZY + 78, width: ZW - 36, height: ZH - 96, rx: 18,
                      fill: 'none', stroke: tone[1], 'stroke-width': 3, 'stroke-dasharray': '11 9', opacity: 0.85 }, g);
         g._rect = { x: z.x, y: ZY, w: ZW, h: ZH };
+        g._shelf = { x: z.x + 26, y: ZY + 86, w: ZW - 52, h: ZH - 112 };
+        g._kept = [];
+        g._keptG = mk('g', { 'class': 'zone-kept' }, g);
+        // a tally, so the two piles can be compared at a glance
+        g._tally = mk('text', {
+          x: z.x + ZW - 26, y: ZY + ZH - 16, 'text-anchor': 'end',
+          'font-size': 22, 'font-weight': 700, fill: c.ink, opacity: 0, text: '0'
+        }, g);
         g._tone = tone;
         st.swipe.zones[z.id] = g;
         if (spec.enter !== false) enter(g, 'rise');
@@ -796,7 +867,7 @@
       st.swipe.hint = hint;
       [[-1, 'regular', 'Regular'], [1, 'irregular', 'Irregular']].forEach(function (d) {
         var dir = d[0], side = d[1], word = d[2];
-        var col = side === 'regular' ? '#1d7a4a' : '#c2325c';
+        var col = (CONCEPT[side] || CONCEPT.regular).deep;
         var cx = W / 2 + dir * 188;
         var ax = cx - dir * 62, bx = cx + dir * 50;
         mk('path', {
@@ -817,14 +888,19 @@
     sort: function (spec) {
       reset(); st.kind = 'sort'; st.sort = { bins: [], items: [], placed: 0, spec: spec };
       var bins = spec.bins || [];
-      var bw = 300, gap = 30, x0 = (W - (bins.length * bw + (bins.length - 1) * gap)) / 2 + 120;
+      // CENTRED. The row was pushed 120 to the right to leave a column for
+      // Swiftee on the left, which left the lesson sitting off-centre on every
+      // screen that uses it — and he is placed by the screen now, so the
+      // lesson does not have to make room for a guess about where he is.
+      var bw = 300, gap = 30, x0 = (W - (bins.length * bw + (bins.length - 1) * gap)) / 2;
       bins.forEach(function (b, i) {
         var x = x0 + i * (bw + gap), y = 330;
         var g = mk('g', { 'class': 'bin', 'data-bin': b.id }, layers.ui);
-        var tone = b.tone === 'pink' ? ['#ffe3ea', '#f08aa4', '#7a1b3a'] : ['#e3f8ea', '#7fd49a', '#1d5a33'];
+        var c = CONCEPT[b.tone] || CONCEPT.convex;
+        var tone = [c.wash, c.face, c.ink];
         mk('rect', { x: x, y: y, width: bw, height: 190, rx: 24, fill: tone[0], stroke: tone[1], 'stroke-width': 3, 'stroke-dasharray': '10 8' }, g);
-        mk('rect', { x: x + 40, y: y - 24, width: bw - 80, height: 48, rx: 14, fill: tone[1] }, g);
-        mk('text', { x: x + bw / 2, y: y + 8, 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 700, fill: tone[2], text: b.label }, g);
+        mk('rect', { x: x + 40, y: y - 24, width: bw - 80, height: 48, rx: 14, fill: c.deep }, g);
+        mk('text', { x: x + bw / 2, y: y + 8, 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 700, fill: '#fff', text: b.label }, g);
         g._bin = b; g._rect = { x: x, y: y, w: bw, h: 190 }; g._count = 0;
         st.sort.bins.push(g);
         if (spec.enter && !reduced()) enter(g, 'rise');
@@ -853,10 +929,10 @@
 
     builder: function (spec) {
       reset(); st.kind = 'builder';
-      var p = PANELS.center; st.panel = p;
+      var p = panelFor('center', spec); st.panel = p;
       panel(p, { enter: spec.enter });
       var n = spec.sides || 3;
-      var P = polygonIn(p, n, { dy: -30, rScale: 0.32 });
+      var P = polygonIn(p, n, { rScale: 0.32, below: true });
       st.verts = P.verts; st.cx = P.cx; st.cy = P.cy; st.r = P.r; st.n = n; st.showVerts = true;
       // A vertex that can be dragged is dressed as a handle — cream core,
       // dark amber ring, larger — wherever that is true. It was only being
@@ -875,11 +951,16 @@
       // everything else pressable in the game.
       var sy = p.y + p.h - 76, sx = p.x + p.w / 2;
       var g = mk('g', { 'class': 'stepper' }, layers.ui);
+      st.stepperG = g;
       mk('rect', { x: sx - 164, y: sy - 52, width: 328, height: 104, rx: 22, fill: '#ffffff', opacity: .92 }, g);
       mk('text', { x: sx, y: sy - 26, 'text-anchor': 'middle', 'font-size': 19, 'font-weight': 600,
                    fill: '#5a6a8a', text: (spec.stepper && spec.stepper.label) || 'Number of sides' }, g);
-      st.stepMinus = pill(g, { x: sx - 140, y: sy + 18, w: 64, h: 52, label: '−', tone: 'amber', press: true, attrs: { 'class': 'step-minus' } });
-      st.stepPlus  = pill(g, { x: sx + 76,  y: sy + 18, w: 64, h: 52, label: '+', tone: 'amber', press: true, attrs: { 'class': 'step-plus' } });
+      // 'amber' no longer exists: the neutral palette is warm now and its
+      // names are sun/tangerine. An unknown tone falls back to blue, which is
+      // why these two came out the same pale blue as the panel behind them
+      // and stopped reading as buttons at all.
+      st.stepMinus = pill(g, { x: sx - 140, y: sy + 18, w: 64, h: 52, label: '−', tone: 'sun', press: true, attrs: { 'class': 'step-minus' } });
+      st.stepPlus  = pill(g, { x: sx + 76,  y: sy + 18, w: 64, h: 52, label: '+', tone: 'sun', press: true, attrs: { 'class': 'step-plus' } });
       st.stepText = mk('text', { x: sx, y: sy + 32, 'text-anchor': 'middle', 'font-size': 38, 'font-weight': 700, fill: '#1c2a4a', text: n }, g);
       st.stepper = { min: (spec.stepper && spec.stepper.min) || 3, max: (spec.stepper && spec.stepper.max) || 8 };
     }
@@ -889,7 +970,57 @@
    * Swipe classification
    * ------------------------------------------------------------------ */
 
-  var SWIPE_HOME = { x: W / 2, y: 268 };
+  var SWIPE_HOME = { x: W / 2, y: 300 };
+
+  /**
+   * Put a sorted shape on a zone's shelf.
+   *
+   * A FRESH ICON, NOT THE FLYING CARD. The card used to be flown into place
+   * with a translate measured from its home, left there, and trusted to have
+   * landed — three assumptions (the home is where it started, the transform
+   * composes, fill:forwards survives) any one of which puts the pile
+   * somewhere else on the screen entirely, which is where the last few ended
+   * up: stacked above the zones instead of inside them.
+   *
+   * So the card flies as decoration and is thrown away at the end of its
+   * flight, and what stays is drawn here, in the zone, in a grid derived from
+   * the shelf. It cannot land anywhere but on the shelf, and the icons shrink
+   * to fit as the pile grows rather than running out of the bottom.
+   */
+  function keepInZone(zone, name) {
+    if (!zone) return;
+    zone._kept.push(name);
+    while (zone._keptG.firstChild) zone._keptG.removeChild(zone._keptG.firstChild);
+
+    var sh = zone._shelf, n = zone._kept.length;
+    var cols = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(n))));
+    var rows = Math.ceil(n / cols);
+    var cw = sh.w / cols, ch = sh.h / rows;
+    var r = Math.min(cw, ch) * 0.34;
+
+    zone._kept.forEach(function (nm, i) {
+      var cx = sh.x + cw * ((i % cols) + 0.5);
+      var cy = sh.y + ch * (Math.floor(i / cols) + 0.5);
+      var cell = mk('g', { 'class': 'kept' }, zone._keptG);
+      mk('rect', { x: cx - r * 1.35, y: cy - r * 1.35, width: r * 2.7, height: r * 2.7,
+                   rx: r * 0.5, fill: 'rgba(255,255,255,.88)', stroke: 'rgba(255,255,255,.95)',
+                   'stroke-width': 2 }, cell);
+      drawShape(nm, r, cx, cy, cell);
+      // only the newest one celebrates; the rest are already part of the pile
+      if (i === n - 1 && !reduced() && cell.animate) {
+        cell.style.transformBox = 'fill-box'; cell.style.transformOrigin = 'center';
+        cell.animate([{ scale: '.2', opacity: 0 }, { scale: '1.18', opacity: 1, offset: .6 }, { scale: '1', opacity: 1 }],
+                     { duration: 340, easing: 'cubic-bezier(.3,1.4,.5,1)' });
+      }
+    });
+
+    zone._tally.textContent = n;
+    zone._tally.setAttribute('opacity', 0.85);
+    if (!reduced() && zone._tally.animate) {
+      zone._tally.style.transformBox = 'fill-box'; zone._tally.style.transformOrigin = 'center';
+      zone._tally.animate([{ scale: '1' }, { scale: '1.35' }, { scale: '1' }], { duration: 300 });
+    }
+  }
 
   /**
    * Put the next shape on the table.
@@ -939,6 +1070,39 @@
     });
   }
 
+  /**
+   * Lay out the cards a bin has been given, inside the bin.
+   *
+   * THE OLD GRID OVERLAPPED BY ARITHMETIC. A card is 112 square drawn at
+   * 0.8, so it paints 90 across; the grid stepped 110 along a row and 80 down
+   * to the next. Eighty is less than ninety: the second row began ten pixels
+   * before the first one ended, every time, and a third row hung out through
+   * the bottom of the bin. Nothing about it depended on the content, so it
+   * was wrong on every screen and every device equally.
+   *
+   * The grid is derived from the bin and from how many cards are in it, and
+   * every card is re-laid whenever one lands — so three cards are drawn
+   * large and six shrink to fit rather than piling up on each other. Capped
+   * at the original 0.8 so a bin holding one card does not blow it up.
+   */
+  function packBin(bin) {
+    var items = bin._items || [];
+    if (!items.length) return;
+    var r = bin._rect;
+    var PAD_X = 12, PAD_TOP = 34, PAD_BOT = 12;   // the title plate eats the top
+    var cols = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(items.length))));
+    var rows = Math.ceil(items.length / cols);
+    var cw = (r.w - PAD_X * 2) / cols;
+    var chh = (r.h - PAD_TOP - PAD_BOT) / rows;
+    var k = Math.min(0.8, Math.min(cw, chh) * 0.94 / 112);
+    items.forEach(function (it, i) {
+      var cx = r.x + PAD_X + cw * ((i % cols) + 0.5);
+      var cy = r.y + PAD_TOP + chh * (Math.floor(i / cols) + 0.5);
+      it._pos = { x: cx, y: cy };
+      it.setAttribute('transform', 'translate(' + cx + ',' + cy + ') scale(' + k.toFixed(3) + ')');
+    });
+  }
+
   function makeSortItem(name, x, y, i) {
     var g = mk('g', { 'class': 'sort-item', 'data-shape': name }, layers.ui);
     mk('rect', { x: -56, y: -56, width: 112, height: 112, rx: 22, fill: 'rgba(255,255,255,.92)', stroke: '#9fd6fb', 'stroke-width': 3 }, g);
@@ -974,12 +1138,76 @@
    * the squash for free. A badge is the same object without it: same
    * material, obviously not a control.
    */
-  var PILL_TONES = {
-    green: ['#58c47c', '#2e8a4e'],
-    pink:  ['#f0789e', '#b93c66'],
-    amber: ['#ffb515', '#d07f00'],
-    blue:  ['#4f9df5', '#2b6fc4']
+  /* ------------------------------------------------------------------ *
+   * Colour has two jobs here, and they must never be the same colour.
+   *
+   * EVALUATION answers "did I get that right?" — green yes, coral no. It is
+   * about the child.
+   *
+   * CONCEPT answers "what kind of shape is this?" — convex, concave, regular,
+   * irregular. It is about the shape, and none of the four is a mistake.
+   *
+   * They used to share one palette. The Convex bin, the Regular drop zone and
+   * the first of every pair of option buttons were drawn in the same green as
+   * a correct answer; the Concave bin, the Irregular zone and the second
+   * option were the same pink as a wrong one. So a child sorting shapes into
+   * a green box and a pink box was being told, in the fastest-reading
+   * language a screen has, that half the shapes were wrong — and asked to put
+   * a perfectly good concave hexagon in the "wrong" box.
+   *
+   * The two palettes now share no hue. EVAL is used only where the game is
+   * judging an answer; nothing else may touch it.
+   *
+   * Each concept carries four values, because a category shows up as a
+   * button, a drop zone and a label: "face" is the saturated body, "deep" is
+   * the shadow under it and the plate white type sits on, "wash" is the tint
+   * a drop zone is filled with, and "ink" is type on that wash. White on
+   * every `deep` clears 4.5:1, and every `ink` on its own `wash` clears 7:1.
+   * ------------------------------------------------------------------ */
+  var EVAL = {
+    yes: ['#58c47c', '#2e8a4e'],
+    no:  ['#f0789e', '#b93c66']
   };
+
+  var CONCEPT = {
+    convex:    { face: '#2bb8d6', deep: '#0f6f86', wash: '#e4f8fc', ink: '#0b5566' },
+    concave:   { face: '#f2a222', deep: '#95590a', wash: '#fff3dd', ink: '#6d4100' },
+    regular:   { face: '#19b5a2', deep: '#0a6c60', wash: '#e3f8f4', ink: '#07564c' },
+    irregular: { face: '#9270e6', deep: '#54399e', wash: '#f1ebfe', ink: '#3d2775' }
+  };
+
+  /** The four words this lesson sorts shapes by. Anything else is not a
+      category and must not borrow a category's colour. */
+  function conceptOf(text) {
+    var k = String(text == null ? '' : text).trim().toLowerCase();
+    return CONCEPT[k] ? k : null;
+  }
+
+  /* Options that are not categories — "Inside"/"Outside", "Still equal" —
+     need to look like a row of arcade buttons without claiming to mean
+     anything by their colour.
+
+     WARM, AND DARK-INKED. The cool blue and violet pair read as interface
+     rather than as something to press, and white type on a light warm face is
+     unreadable, so each of these carries its own ink as a third value. Sun
+     and tangerine come first because two options is by far the commonest
+     row, and a yellow button beside an orange one is unmistakably a pair of
+     buttons. */
+  var NEUTRAL = ['sun', 'tangerine', 'sky', 'plum'];
+
+  /* [face, lip, ink] — ink optional, white when absent. */
+  var PILL_TONES = {
+    correct:   EVAL.yes,
+    wrong:     EVAL.no,
+    sun:       ['#ffc53d', '#c07a00', '#5a3400'],
+    tangerine: ['#ff9138', '#bf5200', '#5a2300'],
+    sky:       ['#4f9df5', '#2b6fc4'],
+    plum:      ['#b271d8', '#7a3c9c'],
+    blue:      ['#4f9df5', '#2b6fc4']
+  };
+  Object.keys(CONCEPT).forEach(function (k) {
+    PILL_TONES[k] = [CONCEPT[k].face, CONCEPT[k].deep];
+  });
 
   function pill(parent, o) {
     var tone = PILL_TONES[o.tone] || PILL_TONES.blue;
@@ -996,7 +1224,7 @@
     var t = mk('text', {
       x: x + w / 2, y: y + h * 0.14,
       'text-anchor': 'middle', 'font-size': o.size || Math.round(h * 0.44),
-      'font-weight': 700, fill: o.ink || '#ffffff', text: o.label
+      'font-weight': 700, fill: o.ink || tone[2] || '#ffffff', text: o.label
     }, g);
 
     // The face and the lip are kept, because a badge can change what it
@@ -1004,10 +1232,14 @@
     // and the badge has to follow. Retinting means both, not just the face:
     // a green face over a pink lip is a different bug, not a fix.
     g._text = t; g._face = g.childNodes[1]; g._lip = g.childNodes[0];
+    // The box this pill occupies, so anything else on the stage can be told
+    // to get out of its way.
+    g._rect = { x: x, y: y - h / 2, w: w, h: h };
     g._retint = function (tone) {
       var p = PILL_TONES[tone] || PILL_TONES.blue;
       g._face.setAttribute('fill', p[0]);
       g._lip.setAttribute('fill', p[1]);
+      g._text.setAttribute('fill', o.ink || p[2] || '#ffffff');
     };
     if (o.press) g.style.cursor = 'pointer';
     return g;
@@ -1021,11 +1253,65 @@
    * pentagon has a flat side well above it, and a fixed height put the word
    * through the corner of one and left a gap under the other.
    */
+  /**
+   * The lowest a caption may reach when a row of option buttons is up, or
+   * null when there is no row.
+   */
+  function choiceCeiling() {
+    if (!st.choiceEls || !st.choiceEls.length) return null;
+    var top = Infinity;
+    st.choiceEls.forEach(function (b) { if (b._rect && b._rect.y < top) top = b._rect.y; });
+    return top === Infinity ? null : top - 18;
+  }
+
+  /**
+   * Move anything already on the stage up off the option row.
+   *
+   * Clamping a caption when it is DRAWN is not enough, because on several
+   * screens the row is built after it: the polygon and its "Diagonal" label
+   * go up first, the options arrive a beat later, and the label had nothing
+   * to clamp against at the time. So the row, once it exists, pushes.
+   *
+   * Running animations are finished first. The entrance pop is a transform,
+   * and a transform attribute set underneath a running transform animation
+   * is simply ignored — which is the same bug as the pulsing play button,
+   * one layer down.
+   */
+  function liftAboveChoices() {
+    var ceil = choiceCeiling();
+    if (ceil == null) return;
+    // The stepper as well as the captions. Some screens do not rebuild the
+    // stage at all — they inherit the previous screen's builder and only add
+    // a question — so panelFor() never sees them and the row arrives over a
+    // stepper that was placed for a taller panel.
+    var movers = [];
+    if (st.labelEl) movers.push(st.labelEl);
+    if (st.stepperG) movers.push(st.stepperG);
+    Object.keys(st.badges || {}).forEach(function (k) { movers.push(st.badges[k]); });
+    movers.forEach(function (g) {
+      if (!g || !g.getBBox) return;
+      if (g.getAnimations) { try { g.getAnimations().forEach(function (a) { a.finish(); }); } catch (e) {} }
+      var b;
+      try { b = g.getBBox(); } catch (e) { return; }
+      if (!b || !b.height) return;
+      var over = b.y + b.height - ceil;
+      if (over > 0) g.setAttribute('transform', 'translate(0,' + (-Math.ceil(over)) + ')');
+    });
+  }
+
+  /* A vertex is drawn as a disc with a stroke, and on touch it is drawn
+     bigger still. Clearing the CENTRE of the lowest one leaves a caption
+     sitting on the dot; the clearance has to start from the edge of what is
+     actually painted. */
+  var VERT_PAINT = 24;
+
   function belowShape(gap, floorPad) {
     var lowest = st.verts && st.verts.length
-      ? st.verts.reduce(function (m, p) { return p.y > m ? p.y : m; }, -Infinity)
+      ? st.verts.reduce(function (m, p) { return p.y > m ? p.y : m; }, -Infinity) + VERT_PAINT
       : null;
     var floorY = st.panel ? st.panel.y + st.panel.h - (floorPad == null ? 18 : floorPad) : H - 30;
+    var ceil = choiceCeiling();
+    if (ceil != null) floorY = Math.min(floorY, ceil);
     if (lowest == null) return floorY;
     return Math.min(floorY, lowest + (gap == null ? 52 : gap));
   }
@@ -1111,10 +1397,12 @@
         // to the panel when the shape leaves no room.
         x = st.cx;
         var lowest = st.verts && st.verts.length
-          ? st.verts.reduce(function (m, p) { return p.y > m ? p.y : m; }, -Infinity)
+          ? st.verts.reduce(function (m, p) { return p.y > m ? p.y : m; }, -Infinity) + VERT_PAINT
           : null;
         var floorY = st.panel.y + st.panel.h - 18;
-        y = lowest == null ? st.panel.y + st.panel.h - 30
+        var lceil = choiceCeiling();
+        if (lceil != null) floorY = Math.min(floorY, lceil);
+        y = lowest == null ? Math.min(floorY, st.panel.y + st.panel.h - 30)
                            : Math.min(floorY, lowest + 52);
       } else {
         var a = st.verts[st.segment[0]], b = st.verts[st.segment[1]];
@@ -1156,12 +1444,12 @@
         // Clear of the SHAPE, not at a fixed height above the panel's foot —
         // which a hexagon's bottom vertex reached straight through.
         x = st.cx;
-        y = belowShape(58, 34);
+        y = belowShape(30, 34);
         if (st.choiceEls && st.choiceEls.length) y = Math.min(y, H - 64 - 60);
       }
       var g = pill(layers.ui, {
         x: x - 96, y: y, w: 192, h: 56,
-        label: b.text, tone: b.tone || (b.text === 'Concave' ? 'pink' : 'green'),
+        label: b.text, tone: b.tone || conceptOf(b.text) || 'blue',
         attrs: { 'class': 'badge' }
       });
       st.badges[key] = g; if (b.live) st.liveBadge = g;
@@ -1203,17 +1491,20 @@
       x0 = Math.max(14, Math.min(x0, W - row - 14));
       list.forEach(function (label, i) {
         var x = x0 + i * (bw + gap);
-        // Two tones, so a pair of options reads as a CHOICE rather than as
-        // two copies of one control — the same green/pink the sorting bins
-        // and the swipe zones already use for the same pairs.
+        // An option that NAMES a category is drawn in that category's colour,
+        // so the word on the button, the bin it belongs in and the badge it
+        // earns all agree. Everything else gets a colour that means nothing —
+        // enough for a row to read as separate choices, never enough to hint
+        // which one is right.
         var b = pill(g, {
           x: x, y: y, w: bw, h: bh, label: label,
-          tone: ['green', 'pink', 'amber', 'blue'][i % 4],
+          tone: conceptOf(label) || NEUTRAL[i % NEUTRAL.length],
           press: true, attrs: { 'class': 'choice', 'data-label': label }
         });
         st.choiceEls.push(b);
         if (!reduced()) { b.style.opacity = 0; later(90 * i, function () { b.style.opacity = 1; enter(b, 'rise'); }); }
       });
+      liftAboveChoices();
     },
     checklist: function (c) {
       var items = c.checklist || [];
@@ -1221,7 +1512,9 @@
       var verdict = [res.sides + ' sides', res.concave ? 'Concave' : 'Convex', res.irregular ? 'Irregular' : 'Regular'];
       var x = st.panel.x + st.panel.w + 20, y = st.panel.y + 40;
       var g = mk('g', { 'class': 'checklist' }, layers.ui);
-      mk('rect', { x: x, y: y - 20, width: 200, height: 40 * items.length + 30, rx: 18, fill: '#e6f8ea', stroke: '#7fd49a', 'stroke-width': 3 }, g);
+      // Ice, not green. This panel holds ticks AND crosses, and a green card
+      // announces the result before the first row has been read.
+      mk('rect', { x: x, y: y - 20, width: 200, height: 40 * items.length + 30, rx: 18, fill: '#eef6ff', stroke: '#9cc6ea', 'stroke-width': 3 }, g);
       items.forEach(function (label, i) {
         var ok = !c.verify || verdict.indexOf(label) >= 0;
         var row = mk('g', {}, g);
@@ -1237,10 +1530,18 @@
         var c = st.compare[side]; if (!c.checks) return;
         var x = c.panel.x + 16, y = c.panel.y + c.panel.h + 30;
         c.checks.forEach(function (label, i) {
-          var ok = c.tone !== 'pink';
+          // THESE ARE FACTS, NOT A SCORE. Each line states something true
+          // about the shape above it — "All sides equal" of the regular
+          // pentagon, "Sides not all equal" of the irregular one. The second
+          // column's lines were marked with a red cross because its tone
+          // happened to be pink, so the screen told the child that the true
+          // sentence was the wrong answer, in the colour they read fastest.
+          // Both columns tick. What differs between them is the concept, so
+          // the concept's colour is what carries the difference.
+          var cc = CONCEPT[c.tone] || CONCEPT.convex;
           var row = mk('g', {}, layers.ui);
-          mk('circle', { cx: x + 12, cy: y + i * 30, r: 10, fill: ok ? '#2eab4e' : '#e05b5b' }, row);
-          mk('text', { x: x + 8, y: y + 5 + i * 30, 'font-size': 14, 'font-weight': 700, fill: '#fff', text: ok ? '✓' : '✕' }, row);
+          mk('circle', { cx: x + 12, cy: y + i * 30, r: 10, fill: cc.face }, row);
+          mk('text', { x: x + 8, y: y + 5 + i * 30, 'font-size': 14, 'font-weight': 700, fill: '#fff', text: '✓' }, row);
           mk('text', { x: x + 32, y: y + 6 + i * 30, 'font-size': 17, fill: '#1c2a4a', text: label }, row);
           if (r.animate && !reduced()) { row.style.opacity = 0; later((si * 2 + i) * 260, function () { row.style.opacity = 1; enter(row, 'pop'); }); }
         });
@@ -1445,6 +1746,15 @@
      * resolves it, and only the Next button calls Input.advance().
      */
     'tap-anywhere': function (spec, ctx) {
+      // THE WHOLE STAGE IS THE BUTTON HERE, so the whole stage shows a hand.
+      // Every other interaction in this file marks its own targets and the
+      // cursor follows; this one has no target to mark, and was the only
+      // place in the lesson where something was pressable and looked inert.
+      var wide = [svg, svg.parentNode].filter(Boolean);
+      wide.forEach(function (n) { if (n.style) n.style.cursor = 'pointer'; });
+      cleanup.push(function () {
+        wide.forEach(function (n) { if (n.style) n.style.cursor = ''; });
+      });
       return new Promise(function (resolve) {
         if (!global.Input) { on(svg, 'pointerdown', function () { resolve({ result: 'tap' }); }); return; }
         Input.mode('dialogue');
@@ -1513,7 +1823,7 @@
             if (spec.live === 'badge' && st.liveBadge) {
               var c = Poly.classify(st.verts);
               st.liveBadge._text.textContent = c.concave ? 'Concave' : 'Convex';
-              if (st.liveBadge._retint) st.liveBadge._retint(c.concave ? 'pink' : 'green');
+              if (st.liveBadge._retint) st.liveBadge._retint(c.concave ? 'concave' : 'convex');
             }
             var reached = spec.until === 'concave' ? Poly.classify(st.verts).concave
                         : spec.until === 'irregular' ? (!Poly.isRegular(st.verts) && Math.hypot(np.x - start.x, np.y - start.y) >= (spec.minMove || 0))
@@ -1605,21 +1915,21 @@
             //
             // It keeps its own drawing, so what is sitting in the Regular pile
             // is visibly the pentagon that was just judged.
-            var slot = zone ? (zone._kept = (zone._kept || 0), zone._kept++) : 0;
-            var per = 3, pitch = 58;
-            var tx = zone ? zone._rect.x + 42 + (slot % per) * pitch : 0;
-            var ty = zone ? zone._rect.y + 118 + Math.floor(slot / per) * pitch : 0;
+            // the card arcs into the mouth of the zone and is gone; what the
+            // child keeps is drawn on the shelf by keepInZone()
+            var tx = zone ? zone._shelf.x + zone._shelf.w / 2 : SWIPE_HOME.x;
+            var ty = zone ? zone._shelf.y + zone._shelf.h / 2 : SWIPE_HOME.y;
             var fly = card.animate
               ? card.animate([
                   { translate: dx + 'px 0', scale: '1', opacity: 1 },
-                  { translate: (dir * 140) + 'px -26px', scale: '.72', opacity: 1, offset: 0.55 },
-                  { translate: (tx - SWIPE_HOME.x) + 'px ' + (ty - SWIPE_HOME.y) + 'px', scale: '.28', opacity: 1 }
+                  { translate: (dir * 150) + 'px -34px', scale: '.8', opacity: 1, offset: 0.5 },
+                  { translate: (tx - SWIPE_HOME.x) + 'px ' + (ty - SWIPE_HOME.y) + 'px', scale: '.22', opacity: 0 }
                 ], { duration: 460, easing: 'cubic-bezier(.3,.8,.35,1)', fill: 'forwards' })
               : null;
             var after = function () {
-              // left where it landed, and out of the way of the next one
               card.style.pointerEvents = 'none';
-              card.classList.add('kept');
+              if (card.parentNode) card.parentNode.removeChild(card);
+              keepInZone(zone, card._name);
               sw.card = null;
               sw.i++;
               if (sw.i >= sw.items.length) { hold(260).then(function () { done(); }); return; }
@@ -1805,9 +2115,10 @@
             var c = Poly.classify(item._verts);
             var truth = bin._bin.id === 'convex' ? c.convex : bin._bin.id === 'concave' ? c.concave : bin._bin.id === 'regular' ? c.regular : c.irregular;
             if (truth) {
-              item._placed = true; S.placed++; var r = bin._rect; var slot = bin._count++;
-              item._pos = { x: r.x + 60 + (slot % 2) * 110, y: r.y + 70 + Math.floor(slot / 2) * 80 };
-              item.setAttribute('transform', 'translate(' + item._pos.x + ',' + item._pos.y + ') scale(.8)');
+              item._placed = true; S.placed++; bin._count++;
+              bin._items = bin._items || [];
+              bin._items.push(item);
+              packBin(bin);
               onTap('correct');
               if (S.queue && S.queue.length) { var next = makeSortItem(S.queue.shift(), W / 2 + 120, 210, 0); S.items.push(next); armItem(next); }
               if (S.placed >= S.total) { endInteraction(); resolve({ result: 'correct' }); }
@@ -1877,7 +2188,6 @@
    * Keeping the interaction alive
    * ------------------------------------------------------------------ */
 
-  var aliveAnims = [];
 
   /**
    * Breathe whatever the child is meant to touch, for as long as they have
@@ -1902,8 +2212,6 @@
    * SVG origin.
    */
   function alive(on) {
-    aliveAnims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
-    aliveAnims = [];
     if (svg) {
       var was = svg.querySelectorAll('.touchable');
       for (var k = 0; k < was.length; k++) was[k].classList.remove('touchable');
@@ -1921,20 +2229,12 @@
       // than inline paint, so it cannot fight whatever the lesson is already
       // saying with colour — a picked vertex, an outside diagonal in red.
       if (e.classList) e.classList.add('touchable');
-      if (!e.animate) continue;
-      pivot(e);
-      try {
-        aliveAnims.push(e.animate(
-          [{ scale: '1' }, { scale: '1.055' }, { scale: '1' }],
-          {
-            duration: 1500 + (i % 5) * 130,
-            delay: (i % 7) * 95,
-            iterations: Infinity,
-            easing: 'ease-in-out'
-          }
-        ));
-      } catch (err) {}
     }
+
+    // NO IDLE ANIMATION. Everything a target does now, it does in answer to
+    // the pointer — see the .touchable rules in the stylesheet. What used to
+    // be here was an infinite breath on every target at once, which is the
+    // screen talking over the child rather than waiting for them.
   }
 
   /**

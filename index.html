@@ -40,6 +40,14 @@
 
   /* Swiftee is an HTML/SVG overlay positioned by game.js */
   .swiftee { z-index: 3; }
+  /* Hovering in a corner. There is no flying sprite in the rig — the sheet
+     set has twenty-six states and none of them is a wing cycle — so what
+     makes him read as airborne is that he is off the ground and never quite
+     still. `translate`, not `transform`: the element is POSITIONED with a
+     transform, and animating that property would replace the position. */
+  .swiftee.hover-float { animation: swifteeFloat 3.4s ease-in-out infinite; }
+  @keyframes swifteeFloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -11px; } }
+  @media (prefers-reduced-motion: reduce) { .swiftee.hover-float { animation: none; } }
 
   /* ---- speech bubble --------------------------------------------------
      The shape and the motion are the supplied design; the colours are the
@@ -225,9 +233,24 @@
      A halo rather than a recolouring, because the lesson is already using
      colour to mean things: a picked vertex is yellow, a diagonal that falls
      outside is red. An affordance must not overwrite a fact. */
-  #stage .touchable {
-    filter: drop-shadow(0 0 5px rgba(255, 181, 21, .95))
-            drop-shadow(0 0 14px rgba(255, 181, 21, .5));
+  /* NOTHING GLOWS BY ITSELF.
+
+     The halo and the breathing were on for as long as a target existed, so a
+     screen with four cards had four things pulsing at the child the whole
+     time they were trying to read the question. An affordance that never
+     stops is not an affordance, it is noise.
+
+     What is left answers the pointer instead: a target lifts and warms under
+     the cursor and presses down when it is pushed. The hand cursor is still
+     what says 'touchable' before anyone reaches for it. */
+  #stage .touchable { transition: filter .14s ease, translate .14s ease; }
+  #stage .touchable:hover {
+    filter: drop-shadow(0 0 7px rgba(255, 181, 21, .9));
+    translate: 0 -3px;
+  }
+  #stage .touchable:active {
+    filter: drop-shadow(0 0 3px rgba(255, 181, 21, .7));
+    translate: 0 3px;
   }
   /* The polygon's own vertices carry it themselves — they are redrawn amber
      and larger while they are the target — so a halo on top would only blur
@@ -235,12 +258,41 @@
      already two hundred pixels of coloured dashed outline, and a glow around
      something that big reads as a rendering fault rather than as an
      invitation. The halo is for things the size of a control. */
-  #stage .vertex.touchable,
-  #stage .zone.touchable { filter: none; }
+  /* A drop zone is two hundred pixels of dashed outline; a ring around
+     something that big reads as a rendering fault. It still answers a press. */
+  #stage .zone.touchable:hover { filter: none; translate: 0; }
   @media (prefers-reduced-motion: reduce) {
-    #stage .touchable {
-      filter: drop-shadow(0 0 5px rgba(255, 181, 21, .95));
-    }
+    #stage .touchable { transition: none; }
+    #stage .touchable:hover { translate: 0; }
+  }
+
+  /* ---- TEMPORARY screen picker -------------------------------------------
+     Top-left, and quiet until it is wanted: at a quarter opacity it reads as
+     a tool rather than as part of the lesson, and it comes up to full on
+     hover or focus. Above the card, because the card is the other thing that
+     lives in this corner and the picker has to stay reachable. */
+  #jump {
+    /* NOT the top-left corner: that is the instruction card's corner (left:3%,
+       top:4%, up to 46% wide), and a picker sitting on top of it covered the
+       first line of the only text telling the child what to do. This sits in
+       the clear strip between the card and the HUD at every width, because
+       the card can never pass 49% and the HUD starts at the right edge. */
+    position: fixed; top: 6px; left: 52%; z-index: 60;
+    max-width: calc(48vw - 96px);
+    opacity: .3; transition: opacity .18s ease;
+  }
+  #jump:hover, #jump:focus-within { opacity: 1; }
+  #jump select {
+    width: 100%; max-width: 240px; height: 34px;
+    font: 600 13px/1 system-ui, sans-serif; color: #17324d;
+    background: rgba(255, 255, 255, .94);
+    border: 2px solid #9fd6fb; border-radius: 9px;
+    padding: 0 6px; cursor: pointer;
+  }
+  /* Under a phone width there is no clear strip, so it drops below the HUD
+     buttons and keeps its own row rather than fighting for one. */
+  @media (max-width: 680px) {
+    #jump { left: auto; right: 6px; top: 98px; max-width: 46vw; }
   }
 
   /* ---- instruction card --------------------------------------------------
@@ -447,6 +499,15 @@
     <button class="replay" type="button">Play again</button>
     <button class="mute" type="button" aria-label="Mute" aria-pressed="false">🔊</button>
     <button class="restart" type="button" aria-label="Restart">↻</button>
+  </div>
+  <!-- TEMPORARY. A screen picker for reviewing the lesson without playing
+       thirty-nine screens to reach the one in question. It is deliberately
+       easy to delete: this element, the #jump rules in the stylesheet, and
+       the wireJump() call in game.js. Marked data-dev so the test suites can
+       tell a review tool from part of the game. -->
+  <div id="jump" data-dev="1">
+    <label class="sr-only" for="jump-sel">Jump to screen</label>
+    <select id="jump-sel"></select>
   </div>
   <button id="next" type="button" aria-label="Next"><span>Next</span><span class="chev" aria-hidden="true">&#9654;</span></button>
   <div id="progress-track"><div id="progress"></div></div>

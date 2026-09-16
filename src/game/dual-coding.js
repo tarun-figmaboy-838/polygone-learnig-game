@@ -48,8 +48,8 @@
    * The registry.
    *
    * `color` is the binding hue and is deliberately near what the stage
-   * already paints: vertices highlight amber, diagonals draw yellow, convex
-   * badges are green, concave badges pink. `target` is a reference
+   * already paints: vertices highlight amber, diagonals draw yellow, and the
+   * four category words carry the category palette. `target` is a reference
    * stage.js's own `targets()` already understands, so nothing here needs
    * to know how a polygon is drawn.
    * ------------------------------------------------------------------ */
@@ -71,10 +71,19 @@
     // legible — so this one goes redder rather than browner. 7.2:1.
     diagonal:  { color: '#8a3d00', tint: '#fff4cc', target: 'polygon.diagonals', mode: 'trace' },
     angle:     { color: '#1d7a2e', tint: '#ddf6e1', target: 'polygon.vertices', mode: 'ring' },
-    convex:    { color: '#1d6b3a', tint: '#ddf1e3', target: 'polygon',          mode: 'ring' },
-    concave:   { color: '#a3245a', tint: '#fbe0ea', target: 'polygon',          mode: 'ring' },
-    regular:   { color: '#2c63c9', tint: '#e1ecff', target: 'polygon',          mode: 'ring' },
-    irregular: { color: '#7a3fb0', tint: '#f0e6fb', target: 'polygon',          mode: 'ring' }
+    // THE FOUR CATEGORY WORDS TAKE THE CATEGORY PALETTE.
+    //
+    // These are the same four concepts the bins, the drop zones, the badges
+    // and the option buttons are drawn in (see CONCEPT in stage.js), and the
+    // whole point of colouring a word is that the word and the thing agree.
+    // While convex was green here and cyan on the bin, the sentence "sort
+    // these as convex or concave" was printed in one pair of colours directly
+    // above a pair of bins in another — two colour schemes for one idea, on
+    // one screen. These are the deep/wash values of the same four concepts.
+    convex:    { color: '#0f6f86', tint: '#e4f8fc', target: 'polygon',          mode: 'ring' },
+    concave:   { color: '#95590a', tint: '#fff3dd', target: 'polygon',          mode: 'ring' },
+    regular:   { color: '#0a6c60', tint: '#e3f8f4', target: 'polygon',          mode: 'ring' },
+    irregular: { color: '#54399e', tint: '#f1ebfe', target: 'polygon',          mode: 'ring' }
   };
 
 
