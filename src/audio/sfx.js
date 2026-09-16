@@ -246,6 +246,26 @@
       noise({ f: 400, to: 3000, dur: 0.26, q: 0.8, filter: 'bandpass', gain: 0.13 });
     },
 
+    /** Ice giving way: one sharp report, then the fracture running out. */
+    crack: function () {
+      noise({ f: 5200, to: 1500, dur: 0.055, q: 3.2, gain: 0.16 });
+      tone({ f: note(11, 2), to: note(2, 1), dur: 0.1, type: 'square', gain: 0.05, glide: 'exp' });
+      // the split travelling outward, three quick ticks at falling pitch
+      for (var i = 0; i < 3; i++) {
+        noise({ f: 3800 - i * 700, to: 900, dur: 0.05, q: 2.4,
+                gain: 0.09 - i * 0.02, delay: 0.045 + i * 0.038 });
+      }
+    },
+
+    /** And the pieces coming down. */
+    shatter: function () {
+      for (var i = 0; i < 7; i++) {
+        noise({ f: 2600 + Math.random() * 2200, to: 700, dur: 0.07, q: 2.8,
+                gain: 0.055 + Math.random() * 0.03, delay: Math.random() * 0.26 });
+      }
+      tone({ f: note(7, 1), to: note(0, 0), dur: 0.34, type: 'triangle', gain: 0.04, glide: 'exp', delay: 0.04 });
+    },
+
     /** A line being drawn — the diagonal cue. */
     slice: function () {
       noise({ f: 3400, to: 900, dur: 0.15, q: 2.5, gain: 0.12 });
