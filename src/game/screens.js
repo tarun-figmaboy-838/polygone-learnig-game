@@ -410,7 +410,10 @@
 
     {
       id: 'compare', page: 21,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // Both panels sit across the middle and nothing is drawn under them on
+      // this screen, so the whole foot of the stage is his — centre stage,
+      // with the line directly over his head in the band he leaves.
+      swiftee: { pos: 'centre', size: 'medium' },
       instruction: 'Compare the diagonals in both pentagons.',
       say: 'Both are pentagons.',
       stage: { kind: 'compare', left: { sides: 5, diagonals: 'all' }, right: { sides: 5, dent: 0, diagonals: 'all', outsideColor: 'red' } },
@@ -652,7 +655,13 @@
 
     {
       id: 'regular-vs-irregular', page: 32, panel: 3,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // NOT top-left on this one. The panels start at 178 of a 1000 stage, so the
+      // band above them is the only full-width place the line can go — and he
+      // was standing in it, carving it below the height a bubble needs and
+      // pushing the sentence into a side column four rows deep. The checks sit
+      // under the panels and start at 194, so the foot of the left margin is
+      // genuinely free.
+      swiftee: { pos: 'left-low', size: 'small' },
       say: 'All sides AND all angles equal means regular. Otherwise, it\u2019s irregular.',
       stage: {
         kind: 'compare',

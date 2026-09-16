@@ -14,6 +14,7 @@
   var $ = function (s) { return document.querySelector(s); };
   var root, stageEl, hud, bubble, card, progress, loadEl, nextBtn;
   var director, current = -1, playing = false, settleTimer = null, mouthTimer = null, bubbleTimer = null;
+  var refitTimer = null, refitRaf = 0;
   var SAVE_KEY = 'swiftee.audio';
   var quest = Quest.create(), rewardTimer;
 
@@ -343,6 +344,26 @@
     var units = unitsOf(line);
     fitLine();
     reveal(line, ms, units);
+
+    // AND AGAIN ONCE THE SCENE HAS STOPPED MOVING.
+    //
+    // fitLine measures the room the line has at the instant the line is set,
+    // and on several screens that instant is too early: the sort tray arrives
+    // on staggered timers, Swiftee is still travelling to his mark, the panel
+    // is mid-entrance. The line gets placed against a scene that is not
+    // finished, and nothing ever asks again — which is how a sentence that
+    // fits on one row across the top of the screen ended up on three, in a
+    // half-width slot, over the cards it was asking about.
+    //
+    // Two more passes: the next frame, for anything that had not been laid
+    // out yet, and after the entrances are over. Both cancelled by the next
+    // line or the next screen, and both are measure-and-place with no side
+    // effects, so running them when nothing has changed costs a layout read.
+    clearTimeout(refitTimer);
+    if (refitRaf) cancelAnimationFrame(refitRaf);
+    var again = function () { if (bubble.classList.contains('show')) fitLine(); };
+    refitRaf = requestAnimationFrame(again);
+    refitTimer = setTimeout(again, 700);
   }
 
   /**
@@ -557,11 +578,14 @@
     // The same is true of the Next button and of the screen picker. They are
     // all fixed boxes over the play area, they are all off limits, and there
     // is no reason for the rule to name one of them.
+    // The screen picker is NOT in this list. It is a temporary review tool
+    // sitting across the top of the window, and treating it as an obstacle
+    // split the full-width band above the lesson into two short ones — so a
+    // sentence that fits on one row across the top came out on three, in a
+    // half-width slot, over the corner of the panel. A debug control must not
+    // be able to change how the game lays itself out.
     var blocks = [birdBox];
-    [hudBox, nextBox, (function () {
-      var j = document.querySelector('#jump');
-      return j && j.offsetWidth ? j.getBoundingClientRect() : null;
-    })()].forEach(function (b) {
+    [hudBox, nextBox].forEach(function (b) {
       if (!b || !b.width) return;
       blocks.push({ left: b.left - f.x - 8, right: b.right - f.x + 8,
                     top: b.top - f.y - 8, bottom: b.bottom - f.y + 8 });
@@ -1043,11 +1067,16 @@
     var content = Stage.contentBox && Stage.contentBox();
     var cardLeft = card.getBoundingClientRect().left;
     var cardRoom = content ? content.left - cardLeft - 16 : Infinity;
-    // Only cap when capping helps. On a centred panel there is no room to the
-    // left at all, and forcing a minimum width there just guarantees the
-    // overlap it was meant to prevent — the card sits above the panel instead,
-    // which its own top-left placement already achieves.
-    card.style.maxWidth = (isFinite(cardRoom) && cardRoom >= 200) ? cardRoom + 'px' : '';
+    // Only cap when capping leaves a card worth reading.
+    //
+    // 200px was not that. Once the compare pair was centred, the room to the
+    // left of the lesson fell to about that, the cap took it, and a sentence
+    // that fits on one line came out on FIVE in a column narrower than it was
+    // tall. A card that has to be capped below a readable width is a card
+    // that should not be beside the lesson at all: it sits above it instead,
+    // which its own top-left placement already does, and the panels start low
+    // enough to leave room for it.
+    card.style.maxWidth = (isFinite(cardRoom) && cardRoom >= 420) ? cardRoom + 'px' : '';
     card.style.top = (content && content.top < 90) ? '2%' : '';
     if (global.Juice) Juice.pop(card, { scale: 0.05 });
   }

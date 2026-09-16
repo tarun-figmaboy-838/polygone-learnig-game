@@ -340,8 +340,14 @@
   var PANELS = {
     right:  { x: 500, y: 60,  w: 460, h: 460 },
     center: { x: 230, y: 70,  w: 540, h: 430 },
-    left2:  { x: 490, y: 130, w: 235, h: 250 },
-    right2: { x: 750, y: 130, w: 235, h: 250 }
+    // THE COMPARE PAIR WAS PUSHED INTO THE RIGHT-HAND HALF and drawn small
+    // with it: 490 to 985 of a 1000-wide stage, so the whole left third was
+    // empty and the two shapes being compared were the smallest things on the
+    // screen. The margin existed to keep clear of Swiftee, who stood bottom
+    // left — he goes up into the corner on these screens now, so the lesson
+    // can have the room. Centred on 500, and half again as tall.
+    left2:  { x: 178, y: 104, w: 306, h: 330 },
+    right2: { x: 516, y: 104, w: 306, h: 330 }
   };
 
   /* ------------------------------------------------------------------ *
@@ -362,7 +368,7 @@
    * would buy empty space on two thirds of the lesson to solve a problem it
    * does not have.
    * ------------------------------------------------------------------ */
-  var CHOICE_BAND = 96;
+  var CHOICE_BAND = 104;
 
   function panelFor(name, spec) {
     var p = PANELS[name] || PANELS.right;
@@ -464,43 +470,65 @@
     el.animate(k, { duration: 460, easing: 'cubic-bezier(.22,1,.36,1)' });
   }
 
-  /* The shape sits a little ABOVE the middle of its panel.
-
-     Dead centre looks centred in an empty box and crowded in a real one:
-     everything that belongs to a shape — its name, its Convex/Concave badge,
-     a row of options — lives UNDER it, and centring left nothing between the
-     lowest vertex and the floor of the panel to put any of it in. A fifteenth
-     of the panel is enough room for a caption and still reads as centred. */
-  var SHAPE_LIFT = 0.07;
-
+  /**
+   * Fit a polygon into the room its panel actually has.
+   *
+   * THE SHAPE FILLS THE CARD; THE CARD DOES NOT PAD THE SHAPE.
+   *
+   * This used to be three constants that did not know about each other: a
+   * fixed fraction of the panel's short side for the size, dead centre for
+   * the position, and a fixed percentage lift on top. Nothing in that chain
+   * knew what else was on the screen, so the slack pooled wherever the
+   * arithmetic left it — on a 460x406 panel whose caption sits BESIDE the
+   * shape rather than under it, a hundred pixels of it ended up as a band of
+   * empty card along the bottom, under a shape that had been pushed up to
+   * make room for something that was never going there.
+   *
+   * It is a fit now. The box is worked out first — the panel, less a margin,
+   * less the strip a caption or a badge needs WHEN one is coming — and the
+   * shape is built at unit size, measured, and scaled until it touches the
+   * sides of that box. Two consequences worth having: there is no slack left
+   * to pool anywhere, and a pentagon and a hexagon in the same panel come out
+   * the same visual weight, which a common circumradius never gave them —
+   * a hexagon is 15% wider than a pentagon at the same r.
+   *
+   * The fit also replaces the clamp that used to follow it. A shape sized to
+   * its box cannot leave the box, so there is nothing left to correct.
+   */
   function polygonIn(p, n, opts) {
     opts = opts || {};
-    // Only lifted when something is going to be drawn underneath it; dead
-    // centre otherwise, because a gap left for nothing is just a gap.
-    var lift = opts.below === false ? 0 : p.h * SHAPE_LIFT;
-    var cx = p.x + p.w / 2, cy = p.y + p.h / 2 + (opts.dy || 0) - lift;
-    var r = Math.min(p.w, p.h) * (opts.rScale || 0.36);
-    var v = Poly.regular(n, r, cx, cy);
-    if (opts.dent != null) v = Poly.pullInward(v, opts.dent, 0.72);
-    if (opts.stretch != null) v[opts.stretch] = { x: v[opts.stretch].x, y: v[opts.stretch].y - r * 0.55 };
 
-    // AND THE WHOLE THING STAYS INSIDE THE PANEL.
-    //
-    // The lift above, a screen's own dy, and a stretched vertex all push the
-    // shape up, and they compose: the builder's triangle came out with its
-    // top handle sitting on the panel's rounded corner. A vertex is painted
-    // as a disc with a stroke, so the POINT being inside the panel is not the
-    // same as the shape being inside it — the clearance has to include what
-    // is drawn around the point.
-    var pad = 16 + VERT_PAINT;
-    var top = v.reduce(function (m, q) { return q.y < m ? q.y : m; }, Infinity);
-    var bot = v.reduce(function (m, q) { return q.y > m ? q.y : m; }, -Infinity);
-    var lo = p.y + pad, hi = p.y + p.h - pad, shift = 0;
-    if (top < lo) shift = lo - top;
-    if (bot + shift > hi) shift = Math.min(shift, hi - bot);   // never at the cost of the bottom
-    if (shift) { v.forEach(function (q) { q.y += shift; }); cy += shift; }
+    var mx = p.w * 0.085, mt = p.h * 0.085;
+    // Room for what is drawn beneath it, and none when nothing is.
+    var mb = opts.below ? p.h * 0.23 : p.h * 0.085;
+    var box = { x: p.x + mx, y: p.y + mt, w: p.w - mx * 2, h: p.h - mt - mb };
 
-    return { verts: v, cx: cx, cy: cy, r: r };
+    // Built at unit size WITH its deformations, so what gets measured is what
+    // gets drawn: a dented or stretched shape has a different bounding box
+    // from the regular one it started as.
+    var u = Poly.regular(n, 1, 0, 0);
+    if (opts.dent != null) u = Poly.pullInward(u, opts.dent, 0.72);
+    if (opts.stretch != null) u[opts.stretch] = { x: u[opts.stretch].x, y: u[opts.stretch].y - 0.55 };
+
+    var lo = { x: Infinity, y: Infinity }, hi = { x: -Infinity, y: -Infinity };
+    u.forEach(function (q) {
+      if (q.x < lo.x) lo.x = q.x;
+      if (q.x > hi.x) hi.x = q.x;
+      if (q.y < lo.y) lo.y = q.y;
+      if (q.y > hi.y) hi.y = q.y;
+    });
+
+    // The handles are painted OUTSIDE the outline, so the fit leaves room for
+    // them; otherwise a corner dot hangs over the edge of the panel.
+    var fill = opts.fill == null ? 0.96 : opts.fill;
+    var k = Math.min((box.w - VERT_PAINT * 2) / (hi.x - lo.x),
+                     (box.h - VERT_PAINT * 2) / (hi.y - lo.y)) * fill;
+
+    var cx = box.x + box.w / 2 - (lo.x + hi.x) / 2 * k;
+    var cy = box.y + box.h / 2 - (lo.y + hi.y) / 2 * k + (opts.dy || 0);
+
+    var v = u.map(function (q) { return { x: cx + q.x * k, y: cy + q.y * k }; });
+    return { verts: v, cx: cx, cy: cy, r: k };
   }
 
   /** (Re)draw the main polygon from st.verts. Called on every change. */
@@ -757,12 +785,16 @@
     'choice-grid': function (spec) {
       reset(); st.kind = 'grid';
       var opts = spec.options || [];
-      var cells = [[600, 60], [870, 60], [600, 330], [870, 330]];
+      // CENTRED. The four cells sat at 500..970 of a 1000-wide stage, so the
+      // question filled the right-hand third and the left half of the screen
+      // held nothing at all. Pulled in far enough to read as the middle of the
+      // screen, and still clear of where Swiftee stands on this one.
+      var cells = [[400, 50], [670, 50], [400, 300], [670, 300]];
       st.cards = opts.map(function (o, i) {
         var x = cells[i][0], y = cells[i][1];
         var g = mk('g', { 'class': 'card', 'data-id': o.id }, layers.ui);
-        mk('rect', { x: x - 100, y: y, width: 200, height: 200, rx: 30, fill: 'rgba(255,255,255,.85)', stroke: '#9fd6fb', 'stroke-width': 3 }, g);
-        drawShape(o.shape, 62, x, y + 100, g);
+        var seat = mk('g', { transform: 'translate(' + x + ',' + (y + 100) + ')' }, g);
+        g._card = optionCard(seat, 100, o.shape);
         g._opt = o;
         if (spec.enter === 'stagger' && !reduced()) { g.style.opacity = 0; later(i * 110, function () { g.style.opacity = 1; enter(g, 'pop'); }); }
         return g;
@@ -776,7 +808,7 @@
       sides.forEach(function (s, i) {
         var pnl = s[1], cfg = s[2] || {};
         var g = panel(pnl, { enter: spec.enter === 'split' ? 'rise' : 'pop' });
-        var P = polygonIn(pnl, cfg.sides || 5, { dent: cfg.dent, stretch: cfg.stretch, rScale: 0.34 });
+        var P = polygonIn(pnl, cfg.sides || 5, { dent: cfg.dent, stretch: cfg.stretch, below: !!cfg.caption });
         var pg = mk('g', {}, layers.poly);
         mk('path', { d: pathOf(P.verts), fill: '#5b95ee', stroke: '#1030c8', 'stroke-width': 5, 'stroke-linejoin': 'round' }, pg);
         if (cfg.diagonals === 'all') {
@@ -932,7 +964,7 @@
       var p = panelFor('center', spec); st.panel = p;
       panel(p, { enter: spec.enter });
       var n = spec.sides || 3;
-      var P = polygonIn(p, n, { rScale: 0.32, below: true });
+      var P = polygonIn(p, n, { below: true });
       st.verts = P.verts; st.cx = P.cx; st.cy = P.cy; st.r = P.r; st.n = n; st.showVerts = true;
       // A vertex that can be dragged is dressed as a handle — cream core,
       // dark amber ring, larger — wherever that is true. It was only being
@@ -1002,10 +1034,8 @@
       var cx = sh.x + cw * ((i % cols) + 0.5);
       var cy = sh.y + ch * (Math.floor(i / cols) + 0.5);
       var cell = mk('g', { 'class': 'kept' }, zone._keptG);
-      mk('rect', { x: cx - r * 1.35, y: cy - r * 1.35, width: r * 2.7, height: r * 2.7,
-                   rx: r * 0.5, fill: 'rgba(255,255,255,.88)', stroke: 'rgba(255,255,255,.95)',
-                   'stroke-width': 2 }, cell);
-      drawShape(nm, r, cx, cy, cell);
+      var seat = mk('g', { transform: 'translate(' + cx.toFixed(1) + ',' + cy.toFixed(1) + ')' }, cell);
+      optionCard(seat, r * 1.35, nm);
       // only the newest one celebrates; the rest are already part of the pile
       if (i === n - 1 && !reduced() && cell.animate) {
         cell.style.transformBox = 'fill-box'; cell.style.transformOrigin = 'center';
@@ -1034,11 +1064,12 @@
     if (!sw || sw.i >= sw.items.length) return null;
     var name = sw.items[sw.i];
     var g = mk('g', { 'class': 'swipe-card', 'data-shape': name }, layers.ui);
-    mk('rect', { x: -96, y: -96, width: 192, height: 192, rx: 28, fill: 'rgba(255,255,255,.5)', stroke: 'rgba(255,255,255,.75)', 'stroke-width': 3 }, g);
-    drawShape(name, 74, 0, 0, g);
+    var card = optionCard(g, 96, name);
     g.setAttribute('transform', 'translate(' + SWIPE_HOME.x + ',' + SWIPE_HOME.y + ')');
     g._name = name;
-    g._verts = shapeVerts(name, 74, 0, 0);
+    // The radius the card actually drew at, not a number typed beside it:
+    // these vertices are what Poly.isRegular judges the swipe against.
+    g._verts = shapeVerts(name, card._pane.r, card._pane.cx, card._pane.cy);
     g.style.cursor = 'grab';
     g.style.touchAction = 'pan-y';
     sw.card = g;
@@ -1103,12 +1134,112 @@
     });
   }
 
+  /**
+   * An option: the card, and the shape printed on its glass.
+   *
+   * THE CARD IS THE SUPPLIED ARTWORK, not a drawing of it. There were four
+   * hand-built rectangles here — the sorting tray, the swipe card, the icons
+   * stacked in a bin, the four in the choose-the-polygons grid — with four
+   * different fills and rims, three of them near-white on a white snowfield
+   * and one with a rim that was literally white-on-white. They are one
+   * <image> now, so the card cannot drift between the places it appears and
+   * redrawing it is a file swap rather than a hunt through this module.
+   *
+   * THE SHAPE GOES IN THE GLASS, NOT ON THE CARD. The frozen rim is not the
+   * same thickness on every edge — the top carries the snow caps — so the
+   * middle of the card is not the middle of the pane. Both come from
+   * card-frame.js, measured off the artwork by tools/build-card.js, and the
+   * shape is sized to the SHORT side of the pane so a wide hexagon and a tall
+   * pentagon both sit inside it.
+   *
+   * Returns the radius it drew at, because the swipe card keeps its own copy
+   * of the vertices and they have to be the ones on the screen.
+   */
+  function optionCard(parent, half, name) {
+    var F = global.CardFrame;
+    var g = mk('g', { 'class': 'shape-card' }, parent);
+
+    // The artwork is not square; forcing it into a square box would stretch
+    // the corners it is recognised by.
+    var aspect = F ? F.h / F.w : 1;
+    var halfH = half * aspect;
+
+    if (F) {
+      var img = mk('image', {
+        x: -half, y: -halfH, width: half * 2, height: halfH * 2,
+        preserveAspectRatio: 'none'
+      }, g);
+      img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', F.src);
+      img.setAttribute('href', F.src);
+    } else {
+      // No frame table: a plain slab rather than nothing at all.
+      mk('rect', { x: -half, y: -halfH, width: half * 2, height: halfH * 2, rx: half * 0.3,
+                   fill: '#f4fbff', stroke: '#2f96f5', 'stroke-width': Math.max(2, half * 0.06) }, g);
+    }
+
+    var p = (F && F.pane) || { x: 0.08, y: 0.09, w: 0.84, h: 0.8 };
+    var paneW = half * 2 * p.w;
+    var paneH = halfH * 2 * p.h;
+    var cx = -half + half * 2 * (p.x + p.w / 2);
+    var cy = -halfH + halfH * 2 * (p.y + p.h / 2);
+    // 0.86 of the half-extent: a regular polygon's width is up to twice its
+    // circumradius, and it needs air inside the glass rather than touching it.
+    var r = Math.min(paneW, paneH) / 2 * 0.86;
+
+    if (name) drawShape(name, r, cx, cy, g);
+
+    /* PICKED, AND WRONG.
+     *
+     * The card is a picture, so there is no fill or stroke on it to change —
+     * which is exactly how the choose-the-polygons grid lost its feedback the
+     * moment the artwork replaced the drawn rectangle: it was recolouring the
+     * card's first child, and the first child became an <image>. Tapping the
+     * right shape did nothing visible at all.
+     *
+     * A ring around the block, a tick in the corner, and a pop. All three are
+     * built here and hidden, so marking a card is a colour change rather than
+     * a DOM edit under a finger that is still on it. */
+    var ringW = Math.max(3, half * 0.085);
+    var ring = mk('rect', {
+      x: -half + ringW, y: -halfH + ringW,
+      width: (half - ringW) * 2, height: (halfH - ringW) * 2,
+      rx: half * 0.24, fill: 'none', stroke: 'none', 'stroke-width': ringW,
+      'pointer-events': 'none'
+    }, g);
+    var tick = mk('g', { opacity: 0, 'pointer-events': 'none' }, g);
+    var tr = half * 0.26;
+    mk('circle', { cx: half - tr * 0.75, cy: -halfH + tr * 0.85, r: tr, fill: EVAL.yes[1] }, tick);
+    mk('path', {
+      d: 'M' + (half - tr * 1.35) + ' ' + (-halfH + tr * 0.85) +
+         ' l' + (tr * 0.45) + ' ' + (tr * 0.45) + ' l' + (tr * 0.85) + ' ' + (-tr * 0.95),
+      fill: 'none', stroke: '#ffffff', 'stroke-width': Math.max(2, tr * 0.28),
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+    }, tick);
+
+    g._mark = function (state) {
+      ring.setAttribute('stroke', state === 'correct' ? EVAL.yes[1]
+                                : state === 'wrong' ? EVAL.no[1] : 'none');
+      tick.setAttribute('opacity', state === 'correct' ? 1 : 0);
+      if (state && !reduced() && g.animate) {
+        g.style.transformBox = 'fill-box';
+        g.style.transformOrigin = 'center';
+        try {
+          g.animate([{ scale: '1' }, { scale: state === 'wrong' ? '.93' : '1.09' }, { scale: '1' }],
+                    { duration: 320, easing: 'cubic-bezier(.3,1.35,.5,1)' });
+        } catch (e) {}
+      }
+    };
+
+    g._pane = { cx: cx, cy: cy, r: r };
+    return g;
+  }
+
   function makeSortItem(name, x, y, i) {
     var g = mk('g', { 'class': 'sort-item', 'data-shape': name }, layers.ui);
-    mk('rect', { x: -56, y: -56, width: 112, height: 112, rx: 22, fill: 'rgba(255,255,255,.92)', stroke: '#9fd6fb', 'stroke-width': 3 }, g);
-    drawShape(name, 40, 0, 0, g);
+    var card = optionCard(g, 56, name);
     g.setAttribute('transform', 'translate(' + x + ',' + y + ')');
-    g._home = { x: x, y: y }; g._name = name; g._verts = shapeVerts(name, 40, 0, 0);
+    g._home = { x: x, y: y }; g._name = name;
+    g._verts = shapeVerts(name, card._pane.r, card._pane.cx, card._pane.cy);
     if (!reduced()) { g.style.opacity = 0; later(i * 90, function () { g.style.opacity = 1; enter(g, 'pop'); }); }
     return g;
   }
@@ -1208,6 +1339,52 @@
   Object.keys(CONCEPT).forEach(function (k) {
     PILL_TONES[k] = [CONCEPT[k].face, CONCEPT[k].deep];
   });
+
+  /**
+   * A LABEL. Not a button.
+   *
+   * "Convex" under a shape is the game TELLING the child what the shape is.
+   * It was drawn with pill(): a saturated face, a darker lip under it and a
+   * gloss highlight along the top — which is the exact vocabulary this game
+   * uses for the things you press. So the one word on the screen that is a
+   * statement of fact looked like the control you were being asked to use,
+   * and a child who pressed it got nothing, which teaches them that pressing
+   * things in this game sometimes does nothing.
+   *
+   * A tag is flat: the concept's wash, a thin rim in the concept's deep, the
+   * concept's ink. No lip, no gloss, no pointer. It reads as a caption
+   * attached to the shape, which is what it is.
+   *
+   * It also fixes an overlap the pill caused. The badge is placed by its
+   * CENTRE and the lip hangs 7px below the face, so a label positioned to
+   * clear the bottom of the panel by its own half-height was still crossing
+   * the edge by the depth of a lip it did not need.
+   */
+  function tag(parent, o) {
+    var c = CONCEPT[o.tone] || null;
+    var h = o.h == null ? 44 : o.h;
+    var g = mk('g', o.attrs || {}, parent);
+    var face = mk('rect', {
+      x: o.x, y: o.y - h / 2, width: o.w, height: h, rx: h * 0.42,
+      fill: c ? c.wash : '#eef6ff', stroke: c ? c.deep : '#5f7da6', 'stroke-width': 2.5
+    }, g);
+    var t = mk('text', {
+      x: o.x + o.w / 2, y: o.y + h * 0.15, 'text-anchor': 'middle',
+      'font-size': o.size || Math.round(h * 0.48), 'font-weight': 700,
+      fill: c ? c.ink : '#1c2a4a', text: o.label
+    }, g);
+    g._text = t;
+    g._rect = { x: o.x, y: o.y - h / 2, w: o.w, h: h };
+    // The live badge changes what it says WHILE the child drags a vertex, so
+    // it has to be able to change what it is, too.
+    g._retint = function (tone) {
+      var cc = CONCEPT[tone];
+      face.setAttribute('fill', cc ? cc.wash : '#eef6ff');
+      face.setAttribute('stroke', cc ? cc.deep : '#5f7da6');
+      t.setAttribute('fill', cc ? cc.ink : '#1c2a4a');
+    };
+    return g;
+  }
 
   function pill(parent, o) {
     var tone = PILL_TONES[o.tone] || PILL_TONES.blue;
@@ -1447,9 +1624,9 @@
         y = belowShape(30, 34);
         if (st.choiceEls && st.choiceEls.length) y = Math.min(y, H - 64 - 60);
       }
-      var g = pill(layers.ui, {
-        x: x - 96, y: y, w: 192, h: 56,
-        label: b.text, tone: b.tone || conceptOf(b.text) || 'blue',
+      var g = tag(layers.ui, {
+        x: x - 84, y: y, w: 168, h: 44,
+        label: b.text, tone: b.tone || conceptOf(b.text),
         attrs: { 'class': 'badge' }
       });
       st.badges[key] = g; if (b.live) st.liveBadge = g;
@@ -1475,7 +1652,12 @@
       if (st.choiceG) { st.choiceG.remove(); st.choiceG = null; }
       if (!list) return;
       var g = mk('g', { 'class': 'choices' }, layers.ui); st.choiceG = g; st.choiceEls = [];
-      var bw = 216, gap = 26, bh = 64;
+      // SMALLER. At 216x64 of a 1000x562 stage these came out 276x82 real
+      // pixels on a laptop — a pair of slabs that took the eye before the
+      // question did. This is still well past a 44px finger target at every
+      // size the game runs at, and it lets the row sit clear of the card
+      // rather than jammed against it.
+      var bw = 184, gap = 30, bh = 54;
       var row = list.length * bw + (list.length - 1) * gap;
       var x0 = (st.panel ? st.panel.x + st.panel.w / 2 : W / 2) - row / 2;
       // Keep the row on the stage. `panel.y + panel.h + 44` is 564 for the
@@ -1840,7 +2022,10 @@
           on(b, 'pointerdown', function (e) {
             e.preventDefault(); st.lastEl = b;
             var ok = b.getAttribute('data-label') === spec.correct;
-            if (ok) { b.firstChild.setAttribute('fill', '#c8f2d2'); b.firstChild.setAttribute('stroke', '#5da86e'); }
+            // _retint, not firstChild: a pill draws its LIP first, so setting
+            // a fill on the first child recoloured the three-pixel shadow
+            // under the button and left the face it sits on untouched.
+            if (ok && b._retint) b._retint('correct');
             endInteraction(); resolve({ result: ok ? 'correct' : 'wrong', label: b.getAttribute('data-label') });
           });
         });
@@ -2068,8 +2253,16 @@
           c.style.cursor = 'pointer';
           on(c, 'pointerdown', function (e) {
             e.preventDefault(); if (c._done) return; st.lastEl = c;
-            if (c._opt.correct) { c._done = true; got++; c.firstChild.setAttribute('stroke', '#5da86e'); c.firstChild.setAttribute('fill', '#e6f8ea'); onTap('correct'); if (got >= need) { endInteraction(); resolve({ result: 'correct' }); } }
-            else { c.firstChild.setAttribute('stroke', '#e05b5b'); later(500, function () { c.firstChild.setAttribute('stroke', '#9fd6fb'); }); onTap('wrong'); }
+            if (c._opt.correct) {
+              c._done = true; got++;
+              if (c._card) c._card._mark('correct');
+              onTap('correct');
+              if (got >= need) { endInteraction(); resolve({ result: 'correct' }); }
+            } else {
+              if (c._card) c._card._mark('wrong');
+              later(500, function () { if (c._card) c._card._mark(null); });
+              onTap('wrong');
+            }
           });
         });
         if (ctx && ctx.onCancel) ctx.onCancel(endInteraction);
@@ -2137,7 +2330,7 @@
           n = Math.max(st.stepper.min, Math.min(st.stepper.max, n));
           if (n === st.n) return;
           var prev = st.verts.slice(); st.n = n;
-          var P = polygonIn(st.panel, n, { dy: -30, rScale: 0.32 }); st.verts = P.verts; st.stepText.textContent = n; renderPoly(); morphFrom(prev);
+          var P = polygonIn(st.panel, n, { below: true }); st.verts = P.verts; st.stepText.textContent = n; renderPoly(); morphFrom(prev);
           onTap('any');
           if (n === spec.target) { endInteraction(); resolve({ result: 'correct' }); }
         }
