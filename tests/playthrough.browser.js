@@ -629,9 +629,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const hud = document.querySelector('#hud').getBoundingClientRect();
     let bird = window.Swiftee.bounds && window.Swiftee.bounds();
     // Peeking over a card he is clipped at its rim: only what shows can overlap.
-    if (bird && window.Swiftee.clipY != null && bird.bottom > window.Swiftee.clipY) {
-      bird = Object.assign({}, bird, { bottom: window.Swiftee.clipY, height: Math.max(0, window.Swiftee.clipY - bird.top) });
-    }
+    // Peeking he is BEHIND the card by construction — cut at its rim, the frame
+    // hides the rest — so he cannot be an overlay on it.
+    if (window.Swiftee.pos === 'peek') bird = null;
     const against = (r, label) => { if (r && parts.some((p) => over(r, p))) hits.push(label); };
     against(bubble, 'bubble/stage');
     against(card, 'card/stage');

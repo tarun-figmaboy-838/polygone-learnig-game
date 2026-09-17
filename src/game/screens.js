@@ -455,18 +455,19 @@
       // Above, like the rest of this run of compare screens: the pair fills
       // the middle and Next reserves the foot, so a line placed near him at
       // the bottom had a 54px band to live in and came out four rows deep.
-      swiftee: { pos: 'top-left', size: 'small', purpose: 'concept'},
+      swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
       instruction: 'All diagonals inside means convex polygon.',
       // FLAG: grammar. Deck: "That's convex polygon."
       say: 'That\u2019s a convex polygon.',
       original: 'That\u2019s convex polygon.',
       stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex' } },
       beats: [
+        { swiftee: 'explain' },
+        { say: 'That\u2019s a convex polygon.', vo: 'p23' },
+        // then the rule, on the plank, once his line has been read
         { instruction: 'All diagonals inside means convex polygon.' },
         { stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex', enter: 'pop' } } },
         { sfx: 'correct' },
-        { swiftee: 'explain' },
-        { say: 'That\u2019s a convex polygon.', vo: 'p23' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -495,7 +496,7 @@
       // Above, like the rest of this run of compare screens: the pair fills
       // the middle and Next reserves the foot, so a line placed near him at
       // the bottom had a 54px band to live in and came out four rows deep.
-      swiftee: { pos: 'top-left', size: 'small', purpose: 'concept'},
+      swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
       // FLAG: the deck card reads "At least  one" with a double space.
       instruction: 'At least one diagonal outside means concave polygon.',
       // FLAG: grammar and capitalisation. Deck: "So it is Concave polygon."
@@ -503,11 +504,12 @@
       original: 'So it is Concave polygon.',
       stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'concave' } },
       beats: [
+        { swiftee: 'explain' },
+        { say: 'So it is a concave polygon.', vo: 'p25' },
+        // then the rule, on the plank, once his line has been read
         { instruction: 'At least one diagonal outside means concave polygon.' },
         { stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'concave', enter: 'pop' } } },
         { sfx: 'correct' },
-        { swiftee: 'explain' },
-        { say: 'So it is a concave polygon.', vo: 'p25' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -576,9 +578,9 @@
       // the position cannot avoid the panel it is defined against.
       swiftee: { pos: 'peek', size: 'small', purpose: 'hint'},
       say: 'Hmm\u2026 The sides look suspiciously alike.',
-      stage: { kind: 'polygon', sides: 5 },
+      stage: { kind: 'polygon', sides: 5, room: 'measure' },
       beats: [
-        { stage: { kind: 'polygon', sides: 5, enter: 'pop' } },
+        { stage: { kind: 'polygon', sides: 5, room: 'measure', enter: 'pop' } },
         { swiftee: 'inspect' },
         { say: 'Hmm\u2026 The sides look suspiciously alike.', vo: 'p28' },
         { input: { type: 'tap-anywhere' } }
@@ -890,9 +892,9 @@
  * bottom-left: for the measuring run, where he flies off it to each side, and
  * for the two screens after it, where the plank stays up with an instruction
  * and a head over the rim would sit under it. The intro, with no slab, keeps
- * 'left'. The three definition screens keep the plank up with the rule on it
- * while he speaks, so a head over the rim would sit under the plank: he takes
- * the top-left corner there, beside it.
+ * 'left'. On the two definition screens he speaks FIRST, over the compared
+ * pair, and the plank carries the rule only once his line has been read, so
+ * the bubble and the plank never want the same band.
  */
 global.Screens = {
     list: SCREENS,

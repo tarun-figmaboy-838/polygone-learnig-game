@@ -477,12 +477,21 @@
       // UP FROM BEHIND THE CARD. He is clipped at the slab's rim, so rising
       // from below that line is rising from behind it: a peek-a-boo, with
       // the rig that was drawn for one.
+      // Eyes first. He comes up far enough to look over the rim, holds
+      // there a beat — that is the peek — and then pops up the rest of the
+      // way with a small overshoot. One smooth rise read as a lift; the
+      // pause is what makes it a character deciding to show himself.
+      // 'curious', not 'peeping': the peeping rig is drawn peering round a
+      // wall of its own, and the wall came with it.
       var rise = (o.rise || 200);
       a = anim([
-        { translate: '0 ' + rise + 'px' },
-        { translate: '0 0' }
-      ], { duration: 520, easing: 'cubic-bezier(.2,.9,.3,1.2)' });
-      clip('peeping', 1);
+        { translate: '0 ' + rise + 'px', offset: 0 },
+        { translate: '0 ' + (rise * 0.32).toFixed(0) + 'px', offset: 0.30, easing: 'cubic-bezier(.2,.8,.4,1)' },   // eyes over the rim
+        { translate: '0 ' + (rise * 0.32).toFixed(0) + 'px', offset: 0.55 },
+        { translate: '0 -9px', offset: 0.82, easing: 'cubic-bezier(.3,.7,.3,1)' },
+        { translate: '0 0', offset: 1 }
+      ], { duration: 980, easing: 'ease-out' });
+      clip('curious', 1);
     } else {
       a = anim([
         { translate: (from * 360) + 'px 0', opacity: 0 },
@@ -829,12 +838,13 @@
       var g = fresh(); stateName = 'exit'; rigLoop = null;
       var a;
       if (o && o.to === 'below') {
-        // DOWN BEHIND THE CARD, the way he came up.
-        clip('peeping', 1);
+        // DOWN BEHIND THE CARD, the way he came up: a small hop, then gone.
+        clip('happy', 1);
         a = anim([
-          { translate: '0 0' },
-          { translate: '0 ' + (o.rise || 200) + 'px' }
-        ], { duration: 480, easing: 'cubic-bezier(.5,0,.8,.3)' });
+          { translate: '0 0', offset: 0 },
+          { translate: '0 -12px', offset: 0.28, easing: 'cubic-bezier(.3,.6,.4,1)' },
+          { translate: '0 ' + (o.rise || 200) + 'px', offset: 1, easing: 'cubic-bezier(.5,0,.8,.4)' }
+        ], { duration: 560 });
       } else {
         clip('flapping', Infinity);
         a = anim([

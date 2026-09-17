@@ -115,11 +115,12 @@
   function entrance() {
     if (!buddyOn || present || !global.Swiftee || !Swiftee.play) return Promise.resolve(false);
     if (entering) return entering;
-    var done = function () { present = true; entering = null; return true; };
+    var done = function () { present = true; entering = null; syncPeekRim(); return true; };
     // Capped. The walk-on is under half a second; if the rig cannot finish
     // it — no animation support, a sheet that will not load — the lesson
     // must not wait on him. He is simply there.
     entering = Promise.race([Swiftee.play('enter', wingFor('from')), pause(1500)]).then(done, done);
+    syncPeekRim();   // the rim is up before he rises behind it
     return entering;
   }
 
@@ -127,11 +128,70 @@
   function leave() {
     if (!present || !global.Swiftee || !Swiftee.play) return Promise.resolve();
     present = false;
-    var off = function () { if (Swiftee.place) Swiftee.place('off', Swiftee.size); };
+    var off = function () { if (Swiftee.place) Swiftee.place('off', Swiftee.size); syncPeekRim(); };
     return Promise.race([Swiftee.play('exit', wingFor('to')), pause(1200)]).then(off, off);
   }
 
   function pause(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /**
+   * A long line becomes two short ones, split where the sentence already
+   * breaks: "Whoa!" then "One of the diagonals went outside." Each fits
+   * beside his head on one or two rows where the whole was three and
+   * leaning on the card. A sentence with no break in it stays whole.
+   */
+  function splitLine(text) {
+    if (!text || text.length <= 42) return [text];
+    var m = /^(.{3,}?[.!?\u2026])\s+(\S.*)$/.exec(text);
+    if (m && m[2].length >= 8) return [m[1], m[2]];
+    var k = text.lastIndexOf(', ');
+    if (k >= 14 && text.length - k >= 12) return [text.slice(0, k + 1), text.slice(k + 2)];
+    return [text];
+  }
+
+  /**
+   * THE CARD IN FRONT OF HIM.
+   *
+   * He is an HTML sprite over an SVG stage, so nothing the stage draws can
+   * be in front of him. When he peeks over a card, a copy of that card's top
+   * band — the ice rim, caps and all, from the same artwork at the same
+   * place — is laid over him instead. His body is cut at the glass line
+   * underneath that band, so what shows is a bird whose body disappears
+   * into the frame of the card: behind it, as far as the eye can tell.
+   */
+  var rimEl = null;
+  function syncPeekRim() {
+    var want = global.Swiftee && Swiftee.pos === 'peek' && (present || entering) &&
+               global.Stage && Stage.peekAnchor && Stage.peekAnchor() &&
+               global.CardFrame && CardFrame.panel && Stage.svg && Stage.svg.getScreenCTM;
+    if (!want) { if (rimEl) rimEl.style.display = 'none'; return; }
+    var a = Stage.peekAnchor(), m = Stage.svg.getScreenCTM();
+    if (!m) { if (rimEl) rimEl.style.display = 'none'; return; }
+    if (!rimEl) {
+      rimEl = document.createElement('img');
+      rimEl.className = 'peek-rim';
+      rimEl.alt = '';
+      rimEl.setAttribute('aria-hidden', 'true');
+      rimEl.src = CardFrame.panel.src;
+      rimEl.style.cssText = 'position:absolute;z-index:4;pointer-events:none;';
+      var host = (Swiftee.el && Swiftee.el.parentNode) || document.body;
+      if (Swiftee.el && Swiftee.el.nextSibling) host.insertBefore(rimEl, Swiftee.el.nextSibling); else host.appendChild(rimEl);
+    }
+    var hostBox = rimEl.parentNode.getBoundingClientRect();
+    var x = m.a * a.x + m.e - hostBox.left, y = m.d * a.y + m.f - hostBox.top;
+    var w = m.a * a.w, h = m.d * a.h;
+    var paneY = CardFrame.panel.pane ? CardFrame.panel.pane.y : 0.082;
+    rimEl.style.display = '';
+    rimEl.style.left = x + 'px'; rimEl.style.top = y + 'px';
+    rimEl.style.width = w + 'px'; rimEl.style.height = h + 'px';
+    // only the band above the glass line — the rest of the card stays where
+    // the stage drew it, under the shape
+    // Feathered, not cut: a hard edge on the copy showed as a hairline
+    // across the glass. The band fades out over the first sliver of glass.
+    var to = ((paneY + 0.004) * 100).toFixed(2), gone = ((paneY + 0.04) * 100).toFixed(2);
+    var mask = 'linear-gradient(to bottom, #000 0%, #000 ' + to + '%, transparent ' + gone + '%)';
+    rimEl.style.webkitMaskImage = mask; rimEl.style.maskImage = mask;
+  }
 
   /** Which wing he uses: behind the card when he is peeking over it, the left edge otherwise. */
   function wingFor(key) {
@@ -263,10 +323,26 @@
     var anchor = global.Stage && Stage.peekAnchor && Stage.peekAnchor();
     if (anchor && !f.portrait) {
       var ax = function (x) { return (x / 1000); }, ay = function (y) { return (y / 562); };
-      var rim = anchor.y;                                   // the top edge of the slab's box
+      // THE CUT IS THE RIM'S OWN EDGE. The slab's box begins at the tips of
+      // its snow caps; cut there he ended in a straight line hanging above
+      // the card. Five percent down is where the ice frame actually starts,
+      // so his body goes into the frame and the frame is what hides it.
+      // The cut is at the top of the GLASS, not the rim: a copy of the rim
+      // is drawn over him (peekRim below), so the cut itself is never seen —
+      // his body goes into the frame and the frame is what hides it.
+      var paneY = (global.CardFrame && CardFrame.panel && CardFrame.panel.pane) ? CardFrame.panel.pane.y : 0.082;
+      // The cut sits a little ABOVE the glass line, well under the opaque
+      // part of the rim copy, so no edge of his ever shows through the fade.
+      var rim = anchor.y + anchor.h * (paneY - 0.012);
       var birdH = f.h * (BIRD_H[size] || BIRD_H.small);     // his drawn height on this screen
-      map['peek'] = { x: ax(anchor.x + anchor.w * 0.17), y: ay(rim) + (0.42 * birdH) / f.h };
-      map['corner'] = { x: ax(anchor.x - 70), y: ay(anchor.y + anchor.h) };
+      // His feet are 42% of his height below the card's TOP, so head and
+      // shoulders stand above the rim whatever the card's height; the rim
+      // copy hides the rest and the cut hides the feet.
+      map['peek'] = { x: ax(anchor.x + anchor.w * 0.24), y: ay(anchor.y) + (0.47 * birdH) / f.h };   // in from the corner cap
+      // INSIDE THE CARD, on the glass at its bottom-left: the measurer waits
+      // on the sheet he measures, and flies from there to each side.
+      var paneH = (global.CardFrame && CardFrame.panel && CardFrame.panel.pane) ? CardFrame.panel.pane.h : 0.85;
+      map['corner'] = { x: ax(anchor.x + anchor.w * 0.13), y: ay(anchor.y + anchor.h * (paneY + paneH)) - 0.012 };
       if (pos === 'peek') clipPage = f.y + ay(rim) * f.h;
     } else {
       map['peek'] = map['top-left'];
@@ -704,8 +780,10 @@
     var blocks = [birdBox];
     [hudBox, nextBox].forEach(function (b) {
       if (!b || !b.width) return;
-      blocks.push({ left: b.left - f.x - 8, right: b.right - f.x + 8,
-                    top: b.top - f.y - 8, bottom: b.bottom - f.y + 8 });
+      // A wide margin: the bubble bounces in at 103% and carries a shadow,
+      // and eight pixels from the HUD read as touching it.
+      blocks.push({ left: b.left - f.x - 28, right: b.right - f.x + 28,
+                    top: b.top - f.y - 28, bottom: b.bottom - f.y + 28 });
     });
 
     blocks.forEach(function (box) {
@@ -715,13 +793,16 @@
                  r.y < box.bottom && r.y + r.h > box.top;
         if (!ov) return r;
         var cands = [
-          { id: r.id, x: r.x, y: r.y, w: r.w, h: box.top - r.y },
+          { id: r.id, x: r.x, y: r.y, w: r.w, h: box.top - r.y, over: true },
           { id: r.id, x: r.x, y: box.bottom, w: r.w, h: r.y + r.h - box.bottom },
           { id: r.id, x: r.x, y: r.y, w: box.left - r.x, h: r.h },
           { id: r.id, x: box.right, y: r.y, w: r.x + r.w - box.right, h: r.h }
         ].filter(function (c) { return c.w >= MIN_W && c.h >= MIN_H; });
         if (!cands.length) return r;          // nowhere clear: leave it and let hits() fight
-        cands.sort(function (a, b) { return (b.w * b.h) - (a.w * a.h); });
+        // Peeking over a card, the strip straight above his head is where his
+        // words belong if a line fits there at all; otherwise the roomiest.
+        var overHim = box === birdBox && Swiftee.pos === 'peek';
+        cands.sort(function (a, b) { return ((overHim && b.over) - (overHim && a.over)) || ((b.w * b.h) - (a.w * a.h)); });
         return cands[0];
       });
     });
@@ -737,8 +818,16 @@
 
     // Prefer the side he is standing on, then the roomiest.
     var onLeft = L.x < vw / 2;
+    // Peeking over a card, the place for his words is straight above his
+    // head — the band over the card is his, the plank is not up while he
+    // speaks — so the band above is preferred and the bubble is centred on
+    // him inside it.
+    var peeking = Swiftee.pos === 'peek';
     slots.sort(function (a, b) {
-      var pref = function (r) { return (r.id === (onLeft ? 'left' : 'right')) ? 1 : 0; };
+      var pref = function (r) {
+        if (peeking) return r.id === 'above' ? 2 : 0;
+        return (r.id === (onLeft ? 'left' : 'right')) ? 1 : 0;
+      };
       return (pref(b) - pref(a)) || (b.w * b.h - a.w * a.h);
     });
     // Height depends on width, and width depends on the slot, so the only
@@ -785,7 +874,8 @@
     var placeIn = function (r, ww, hh) {
       var wx = (r.id === 'left' || r.id === 'right')
         ? L.x - ww / 2
-        : (onLeft ? Math.max(r.x, L.x - ww * 0.35) : Math.min(r.x + r.w - ww, L.x - ww * 0.65));
+        : (peeking ? L.x - ww / 2
+           : (onLeft ? Math.max(r.x, L.x - ww * 0.35) : Math.min(r.x + r.w - ww, L.x - ww * 0.65)));
       var wy = (r.id === 'left' || r.id === 'right')
         ? L.y - 256 * L.scale * CONTENT_FRAC - hh - 14
         : r.y + (r.h - hh) / 2;
@@ -1199,6 +1289,10 @@
    * already given away.
    */
   function setCard(text) {
+    // THE PLANK REPLACES THE BUBBLE. By the time an instruction follows his
+    // line, the line has had its reading time; left up, the plank's arrival
+    // re-laid the bubble and pushed it down onto the card.
+    if (text && bubble && bubble.classList.contains('show')) say(null);
     if (global.Instruction) Instruction.show(text || null);
     // The plank's height moves the lesson, so anything measured against the
     // lesson is measured again once it has settled.
@@ -1216,6 +1310,7 @@
    */
   function relayout() {
     Swiftee.relayout();
+    syncPeekRim();
     // placeBubble, not fitLine: the fit was worked out when the line was set
     // and the settle pass only needs to re-place it. Re-running the whole
     // whole fit here measured a box the previous run had already narrowed.
@@ -1350,7 +1445,20 @@
             });
           });
         }
-        say(text, null, opts.reading);
+        // TWO SHORT BUBBLES RATHER THAN ONE LONG ONE. The reading time is
+        // shared between the parts by their word counts, and the beat lasts
+        // as long as both need.
+        var parts = splitLine(text);
+        var reading = opts.reading || 1200;
+        var words = function (t) { return t.split(/\s+/).length; };
+        var total = parts.reduce(function (n, p) { return n + words(p); }, 0) || 1;
+        var shares = parts.map(function (p) { return Math.max(700, reading * words(p) / total); });
+        var spoken = shares.reduce(function (a, b) { return a + b; }, 0);
+        say(parts[0], null, shares[0]);
+        if (parts.length > 1) {
+          var partTimer = setTimeout(function () { say(parts[1], null, shares[1]); }, shares[0]);
+          if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(partTimer); });
+        }
         // The lesson is read, not spoken. Swiftee still rests on the
         // `talking` loop while a line is up — his mouth moving is what makes
         // the bubble read as him saying it rather than as a caption — and it
@@ -1359,7 +1467,7 @@
         Swiftee.speaking(true);
         var stop = function () { clearTimeout(mouthTimer); Swiftee.speaking(false); };
         clearTimeout(mouthTimer);
-        mouthTimer = setTimeout(stop, opts.reading || 1200);
+        mouthTimer = setTimeout(stop, spoken);
 
         // THE LINE CLEARS ITSELF once it has been read.
         //
@@ -1375,9 +1483,15 @@
         clearTimeout(bubbleTimer);
         bubbleTimer = setTimeout(function () {
           if (instruction && instruction.classList.contains('show')) say(null);
-        }, (opts.reading || 1200) + 1100);
+        }, spoken + 1100);
         if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(bubbleTimer); });
         if (ctx && ctx.onCancel) ctx.onCancel(stop);
+        if (parts.length > 1) {
+          return new Promise(function (res) {
+            var t = setTimeout(res, spoken);
+            if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(t); res(); });
+          });
+        }
         return Promise.resolve();
       },
       instruction: function (text) { setCard(text); },
@@ -1486,6 +1600,7 @@
       // screen that does not need him. This is the jump and the restart.
       Swiftee.place('off', Swiftee.size);
       present = false;
+      syncPeekRim();
       say(null);
     }
     if (buddyOn && s.swiftee && Swiftee.place) {
@@ -1508,6 +1623,7 @@
       }
       // On his mark but in the wing: his first beat brings him in.
       if (!present && Swiftee.visible) Swiftee.visible(false);
+      syncPeekRim();
       placeBubble();
     }
 
@@ -1859,6 +1975,14 @@
       // be on screen, which for a picker is every stage but the correct one.
       // So walk back to the nearest screen that does declare one and build
       // that first.
+      // THE LAYOUT READS WHERE HE STANDS, so he goes to the target screen's
+      // mark before its stage is built — otherwise a jump from the intro
+      // built every slab to the right of a bird who was about to leave.
+      var tgt = Screens.list[n];
+      if (global.Swiftee && Swiftee.place) {
+        Swiftee.place((tgt.swiftee && tgt.swiftee.purpose) ? (tgt.swiftee.pos || 'left') : 'off',
+                      (tgt.swiftee && tgt.swiftee.size) || Swiftee.size);
+      }
       for (var b = n; b >= 0; b--) {
         var sp = Screens.list[b].stage;
         if (sp && sp.kind) { Stage.apply(sp); break; }
