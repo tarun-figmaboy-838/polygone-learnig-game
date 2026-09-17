@@ -7,8 +7,6 @@
  *   panel   the slab a single shape is DISPLAYED on, with nothing to do
  *
  * `pane` is the clear area inside the rim, as a fraction of the card, so a
- * (panel.pane.h is hand-set to 0.85 after every rebuild: the detector stops at
- * the inner highlight, a tenth short of the glass; keep it.)
  * shape can be placed in it at any size the card is drawn at. Measured from
  * the artwork rather than eyeballed, because the rim is not the same
  * thickness on every edge and a shape centred on the card is not centred in
@@ -19,14 +17,21 @@
   var F = {
     "option": {
       "src": "assets/ui/card.webp",
-      "w": 512,
-      "h": 472,
-      "pane": {
-        "x": 0.0697,
-        "y": 0.0929,
-        "w": 0.858,
-        "h": 0.827
-      }
+      "w": 469,
+      "h": 445,
+      "pane": { "x": 0.09, "y": 0.13, "w": 0.82, "h": 0.78 }
+    },
+    "convexBin": {
+      "src": "assets/ui/bin-convex.webp",
+      "w": 470,
+      "h": 442,
+      "pane": { "x": 0.05, "y": 0.06, "w": 0.9, "h": 0.89 }
+    },
+    "concaveBin": {
+      "src": "assets/ui/bin-concave.webp",
+      "w": 468,
+      "h": 442,
+      "pane": { "x": 0.05, "y": 0.06, "w": 0.9, "h": 0.89 }
     },
     "panel": {
       "src": "assets/ui/bigcard.webp",
@@ -53,24 +58,14 @@
     "regular": {
       "src": "assets/ui/zone-regular.webp",
       "w": 640,
-      "h": 599,
-      "pane": {
-        "x": 0.0309,
-        "y": 0.0642,
-        "w": 0.9391,
-        "h": 0.8515
-      }
+      "h": 611,
+      "pane": { "x": 0.06, "y": 0.06, "w": 0.88, "h": 0.88 }
     },
     "irregular": {
       "src": "assets/ui/zone-irregular.webp",
       "w": 640,
-      "h": 589,
-      "pane": {
-        "x": 0.0588,
-        "y": 0.0764,
-        "w": 0.8825,
-        "h": 0.8282
-      }
+      "h": 612,
+      "pane": { "x": 0.06, "y": 0.06, "w": 0.88, "h": 0.88 }
     }
   };
   global.CardFrame = F;

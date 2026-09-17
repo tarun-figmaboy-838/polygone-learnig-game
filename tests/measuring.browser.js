@@ -24,7 +24,7 @@ const path = require('node:path');
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.setContent('<base href="http://127.0.0.1:' + server.address().port + '/"><style>body{margin:0}#stage{width:1280px;height:720px}</style><div id="stage"></div><div class="swiftee"></div>');
-    for (const file of ['src/core/polygon-math.js', 'src/fx/snowflake.js', 'src/character/swiftee-frames.js', 'src/game/stage.js']) {
+    for (const file of ['src/core/polygon-math.js', 'src/fx/snowflake.js', 'src/character/swiftee-frames.js', 'src/character/measuring-frames.js', 'src/game/stage.js']) {
       await page.addScriptTag({ path: path.join(root, file) });
     }
     await page.evaluate(() => {

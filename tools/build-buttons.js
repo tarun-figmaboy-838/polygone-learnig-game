@@ -4,7 +4,7 @@
  *
  *   node tools/build-buttons.js
  *
- * assets/ui/newbuttons.png is twenty finished buttons on a black background.
+ * assets/ui/buttonkit1.png is twenty finished buttons on a black background.
  *
  * WHY SLICE RATHER THAN STRETCH. The buttons in this game are every width
  * from a 64-unit stepper key to a 184-unit answer, and the sheet is one

@@ -10,7 +10,7 @@ w.requestAnimationFrame = fn => { callbacks.set(++id, fn); return id; };
 w.cancelAnimationFrame = key => callbacks.delete(key);
 w.Swiftee = { el: w.document.querySelector('#bird') };
 w.Juice = { reducedMotion: false };
-for (const file of ['src/core/polygon-math.js', 'src/fx/snowflake.js', 'src/character/swiftee-frames.js', 'src/game/stage.js']) {
+for (const file of ['src/core/polygon-math.js', 'src/fx/snowflake.js', 'src/character/swiftee-frames.js', 'src/character/measuring-frames.js', 'src/game/stage.js']) {
   w.eval(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'));
 }
 w.Stage.mount(w.document.querySelector('#stage'));
@@ -29,7 +29,7 @@ function prepare() {
   tap(0); tap(0); tap(1); tap(2); tap(3); tap(4);
   assert.equal(w.Stage.state.measure.sides.length, 0);
   assert.equal(w.document.querySelectorAll('.swiftee-measuring').length, 1);
-  for (let i = 0; i < 5; i++) { tick(16); tick(2000); }
+  for (let i = 0; i < 5; i++) { tick(16); tick(3000); }
   await complete;
   assert.equal(w.Stage.state.measure.sides.length, 5);
   assert.equal(w.document.querySelectorAll('.swiftee-measuring').length, 0);

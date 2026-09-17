@@ -10,6 +10,8 @@
     "test:screens": "node tests/screens.test.js",
     "test:swiftee": "node tests/swiftee.test.js",
     "test:measuring": "node tests/measuring.test.js",
+    "test:measuring:browser": "node tests/measuring.browser.js",
+    "build:measuring": "node tools/build-measuring.js",
     "test:play": "node tests/playthrough.jsdom.js",
     "test:browser": "node tests/playthrough.browser.js",
     "test:browser:checks": "node tests/playthrough.browser.js --checks",

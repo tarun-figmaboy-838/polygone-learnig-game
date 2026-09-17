@@ -1156,13 +1156,24 @@
         var g = mk('g', { 'class': 'bin', 'data-bin': b.id }, layers.ui);
         var c = CONCEPT[b.tone] || CONCEPT.convex;
         var tone = [c.wash, c.face, c.ink];
-        // A LIGHT CARD WITH A TITLE BAND, in the concept's colour — the same
-        // grammar as the stepper bar and the checklist. It was a dashed box
-        // with a dark pill riding its top edge, which is a dashboard widget.
-        mk('rect', { x: x, y: y, width: bw, height: bh, rx: UI.radius, fill: tone[0], stroke: tone[1], 'stroke-width': UI.rim }, g);
-        mk('rect', { x: x + 12, y: y + 10, width: bw - 24, height: 40, rx: 12, fill: tone[1], opacity: .28 }, g);
-        mk('text', { x: x + bw / 2, y: y + 38, 'text-anchor': 'middle', 'font-size': UI.title, 'font-weight': 800, fill: c.ink, text: b.label }, g);
+        // THE BIN IS A CARD FROM THE KIT — aqua for convex, lilac for
+        // concave — with the word lettered on a band of the concept's colour
+        // inside the top of its glass. The drawn card remains as the fallback.
+        var BF = global.CardFrame && CardFrame[b.tone + 'Bin'];
+        var pane = { x: x + 12, y: y + 10, w: bw - 24, h: bh - 20 };
+        if (BF) {
+          var im = mk('image', { x: x, y: y, width: bw, height: bh, preserveAspectRatio: 'none', 'pointer-events': 'none' }, g);
+          im.setAttributeNS('http://www.w3.org/1999/xlink', 'href', BF.src);
+          im.setAttribute('href', BF.src);
+          if (BF.pane) pane = { x: x + bw * BF.pane.x, y: y + bh * BF.pane.y, w: bw * BF.pane.w, h: bh * BF.pane.h };
+        } else {
+          mk('rect', { x: x, y: y, width: bw, height: bh, rx: UI.radius, fill: tone[0], stroke: tone[1], 'stroke-width': UI.rim }, g);
+        }
+        mk('rect', { x: pane.x + 10, y: pane.y + 8, width: pane.w - 20, height: 40, rx: 12, fill: tone[1], opacity: .30 }, g);
+        mk('text', { x: x + bw / 2, y: pane.y + 36, 'text-anchor': 'middle', 'font-size': UI.title, 'font-weight': 800, fill: c.ink, text: b.label }, g);
         g._bin = b; g._rect = { x: x, y: y, w: bw, h: bh }; g._count = 0;
+        // the shelf: the glass below the title band
+        g._pane = { x: pane.x, y: pane.y + 52, w: pane.w, h: pane.h - 56 };
         st.sort.bins.push(g);
         if (spec.enter && !reduced()) enter(g, 'rise');
       });
@@ -1350,8 +1361,8 @@
   function packBin(bin) {
     var items = bin._items || [];
     if (!items.length) return;
-    var r = bin._rect;
-    var PAD_X = 12, PAD_TOP = 56, PAD_BOT = 12;   // the title band eats the top
+    var r = bin._pane || bin._rect;
+    var PAD_X = bin._pane ? 6 : 12, PAD_TOP = bin._pane ? 6 : 56, PAD_BOT = bin._pane ? 6 : 12;   // a pane already excludes the title band
     var cols = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(items.length))));
     var rows = Math.ceil(items.length / cols);
     var cw = (r.w - PAD_X * 2) / cols;
@@ -1632,7 +1643,7 @@
   /**
    * A button.
    *
-   * THE ARTWORK, IN THREE PIECES. assets/ui/buttons.png is a sheet of
+   * THE ARTWORK, IN THREE PIECES. assets/ui/buttonkit1.png is a sheet of
    * finished buttons; tools/build-buttons.js cuts the four this lesson needs
    * out of it and measures where each round end finishes.
    *

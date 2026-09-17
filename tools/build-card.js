@@ -6,11 +6,11 @@
  *
  * Four cards, three jobs:
  *
- *   OPTION  assets/ui/CARD.png     the block of ice something you can TOUCH
+ *   OPTION  assets/ui/cardskit.png (cell 0)  the block of ice something you can TOUCH
  *                                  sits in — the sorting tray, the swipe
  *                                  card, the icons stacked in a bin, the four
  *                                  in the choose-the-polygons grid.
- *   PANEL   assets/ui/BIGCARD.png  the slab a single shape is DISPLAYED on,
+ *   PANEL   assets/ui/bigcardn.png  the slab a single shape is DISPLAYED on,
  *                                  where there is nothing to tap or drag.
  *
  * Which card a thing gets is the affordance. A child should be able to tell
@@ -48,7 +48,14 @@ const ROOT = path.join(__dirname, '..');
 const OUT_JS = path.join(ROOT, 'src/game/card-frame.js');
 
 const CARDS = [
-  { key: 'option',    src: 'assets/ui/CARD.png',      out: 'assets/ui/card.webp',      cap: 512 },
+  // The option card is the first cell of the frosted-card kit: a soft ice
+  // card with snow on its corners. `cell` crops one of a sheet's cells
+  // before the usual keying and measuring.
+  { key: 'option',    src: 'assets/ui/cardskit.png',  cell: { cols: 3, rows: 2, i: 0 }, out: 'assets/ui/card.webp', cap: 512 },
+  // The convex / concave bins on the sorting screen: aqua and lilac from
+  // the same kit, so the two halves of the answer are two cards.
+  { key: 'convexBin',  src: 'assets/ui/cardskit.png', cell: { cols: 3, rows: 2, i: 3 }, out: 'assets/ui/bin-convex.webp',  cap: 640 },
+  { key: 'concaveBin', src: 'assets/ui/cardskit.png', cell: { cols: 3, rows: 2, i: 5 }, out: 'assets/ui/bin-concave.webp', cap: 640 },
   { key: 'panel',     src: 'assets/ui/bigcardn.png', out: 'assets/ui/bigcard.webp',   cap: 1024 },
   // The two drop zones of the swipe practice. Their titles are drawn INTO the
   // artwork, so the game must not print a label over them — and the pane each
@@ -59,9 +66,9 @@ const CARDS = [
   { key: 'plank',     src: 'assets/ui/pannel.png',   out: 'assets/ui/plank.webp',           cap: 1400 },
   // The zone frames are blank glass now — a cyan rim for regular, a violet
   // one for irregular — and stage.js letters the word on them. The earlier
-  // regular.png / irregular.png carried their own title plates.
-  { key: 'regular',   src: 'assets/ui/NEWCARD.png',  out: 'assets/ui/zone-regular.webp',   cap: 640 },
-  { key: 'irregular', src: 'assets/ui/NEWCARD1.png', out: 'assets/ui/zone-irregular.webp', cap: 640 }
+  // the earlier zone art carried its own title plates.
+  { key: 'regular',   src: 'assets/ui/reg.png',  out: 'assets/ui/zone-regular.webp',   cap: 640 },
+  { key: 'irregular', src: 'assets/ui/irre.png', out: 'assets/ui/zone-irregular.webp', cap: 640 }
 ];
 
 function serve() {
@@ -78,15 +85,23 @@ function serve() {
 }
 
 const MEASURE = function (opts) {
-  const url = opts.url, cap = opts.cap;
+  const url = opts.url, cap = opts.cap, cell = opts.cell;
   return new Promise(function (resolve, reject) {
     const img = new Image();
     img.onerror = reject;
     img.onload = function () {
       const c = document.createElement('canvas');
-      c.width = img.width; c.height = img.height;
       const x = c.getContext('2d');
-      x.drawImage(img, 0, 0);
+      if (cell) {
+        // one cell of a sheet, cut on the grid; the rest of the pipeline
+        // sees it as if it were the whole file
+        const cw = Math.floor(img.width / cell.cols), ch = Math.floor(img.height / cell.rows);
+        c.width = cw; c.height = ch;
+        x.drawImage(img, (cell.i % cell.cols) * cw, Math.floor(cell.i / cell.cols) * ch, cw, ch, 0, 0, cw, ch);
+      } else {
+        c.width = img.width; c.height = img.height;
+        x.drawImage(img, 0, 0);
+      }
       const d = x.getImageData(0, 0, c.width, c.height).data;
       const at = function (px, py) {
         const i = (py * c.width + px) * 4;
@@ -94,7 +109,7 @@ const MEASURE = function (opts) {
       };
 
       /* 0. THE BLACK MATTE.
-            BIGCARD.png was exported onto an opaque black background rather
+            The slab was exported onto an opaque black background rather
             than onto transparency — every one of its border pixels is
             rgba(0,0,0,255) — so drawn as-is the display slab arrives inside a
             hard black rectangle. It is keyed out by flooding IN from the four
@@ -207,7 +222,7 @@ const MEASURE = function (opts) {
 
   const frames = {};
   for (const card of CARDS) {
-    const m = await page.evaluate(MEASURE, { url: `http://127.0.0.1:${port}/${card.src}`, cap: card.cap });
+    const m = await page.evaluate(MEASURE, { url: `http://127.0.0.1:${port}/${card.src}`, cap: card.cap, cell: card.cell || null });
     const bytes = Buffer.from(m.webp.split(',')[1], 'base64');
     fs.writeFileSync(path.join(ROOT, card.out), bytes);
     const before = fs.statSync(path.join(ROOT, card.src)).size;
