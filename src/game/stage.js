@@ -1231,8 +1231,8 @@
                    fill: UI.muted, text: (spec.stepper && spec.stepper.label) || 'Number of sides' }, g);
       mk('rect', { x: x1, y: sy - SH / 2, width: BW, height: SH, rx: UI.radius,
                    fill: UI.paper, stroke: UI.paperRim, 'stroke-width': UI.rim }, g);
-      st.stepMinus = pill(g, { x: x1 + 8, y: sy, w: 50, h: 40, label: '−', tone: 'sun', press: true, attrs: { 'class': 'step-minus' } });
-      st.stepPlus  = pill(g, { x: x1 + BW - 58, y: sy, w: 50, h: 40, label: '+', tone: 'sun', press: true, attrs: { 'class': 'step-plus' } });
+      st.stepMinus = pill(g, { x: x1 + 8, y: sy, w: 50, h: 44, label: '−', tone: 'sun', glyph: 'stepMinus', press: true, attrs: { 'class': 'step-minus' } });
+      st.stepPlus  = pill(g, { x: x1 + BW - 58, y: sy, w: 50, h: 44, label: '+', tone: 'sun', glyph: 'stepPlus', press: true, attrs: { 'class': 'step-plus' } });
       st.stepText = mk('text', { x: x1 + BW / 2, y: sy + 11, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 800, fill: UI.ink, text: n }, g);
       st.stepper = { min: (spec.stepper && spec.stepper.min) || 3, max: (spec.stepper && spec.stepper.max) || 8 };
     }
@@ -1671,17 +1671,58 @@
     var g = mk('g', o.attrs || {}, parent);
     var art = null, drawn = null;
 
+    // A GLYPH BUTTON IS ONE PICTURE. The stepper's minus and plus are cut
+    // whole from the kit — snow-capped ice cubes with the sign already on
+    // them — so they are drawn at their own proportions, and there is no
+    // word to fit.
+    var G = o.glyph && global.ButtonFrame && ButtonFrame[o.glyph];
+    if (G && G.glyph) {
+      var gw = h * (G.w / G.h);
+      var gx = x + (w - gw) / 2;
+      var im = mk('image', { x: gx, y: top, width: gw, height: h, preserveAspectRatio: 'none', 'pointer-events': 'none' }, g);
+      im.setAttributeNS('http://www.w3.org/1999/xlink', 'href', G.src);
+      im.setAttribute('href', G.src);
+      // a wide invisible target, so a small picture is still an easy tap
+      mk('rect', { x: x, y: top - 4, width: w, height: h + 8, fill: 'transparent' }, g);
+      g._rect = { x: gx, y: top, w: gw, h: h };
+      g._text = null; g._retint = function () {};
+      if (o.press) g.style.cursor = 'pointer';
+      return g;
+    }
+
     var B = global.ButtonFrame && ButtonFrame[o.tone];
+
+    // THE WORD FILLS THE PILL. A pill was 150 wide whatever it said, so
+    // "Inside" swam in it and a long word crowded it. Measured first, the
+    // pill is as wide as its word plus the two round caps — no empty face.
+    var size = o.size || Math.round(h * 0.5);
+    var probe = mk('text', { x: 0, y: 0, 'font-size': size, 'font-weight': 600, text: o.label, opacity: 0 }, g);
+    var tw = 0;
+    try { tw = probe.getComputedTextLength ? probe.getComputedTextLength() : 0; } catch (e) { tw = 0; }
+    g.removeChild(probe);
+    if (o.fit && tw > 0) {
+      var want = Math.ceil(tw + h * 1.15);
+      var nw = Math.max(o.minW || Math.round(h * 1.9), want);
+      x = x + (w - nw) / 2;          // keep the centre where the caller put it
+      w = nw;
+    }
+
     if (B) {
       art = sliced(g, B, x, top, w, h);
     } else {
       drawn = drawnPill(g, tone, x, top, w, h, r, lip);
     }
 
+    // Evident on glass: the word in white, semi-bold, over its own shadow.
+    mk('text', {
+      x: x + w / 2, y: y + h * 0.17 + 2,
+      'text-anchor': 'middle', 'font-size': size, 'font-weight': 600,
+      fill: 'rgba(30,20,10,.45)', text: o.label, 'pointer-events': 'none'
+    }, g);
     var t = mk('text', {
-      x: x + w / 2, y: y + h * 0.13,
-      'text-anchor': 'middle', 'font-size': o.size || Math.round(h * 0.42),
-      'font-weight': 700, fill: o.ink || tone[2] || '#ffffff', text: o.label,
+      x: x + w / 2, y: y + h * 0.17,
+      'text-anchor': 'middle', 'font-size': size, 'font-weight': 600,
+      fill: o.ink || tone[2] || '#ffffff', text: o.label,
       'pointer-events': 'none'
     }, g);
 
@@ -2054,9 +2095,10 @@
       // Under the object, sized to be found and not to be looked at first:
       // a row of answers is the third thing on the screen, after the plank
       // and the shape.
-      var bw = 150, gap = 24, bh = 48;
+      var bw = 150, gap = 24, bh = 50;
       var row = list.length * bw + (list.length - 1) * gap;
       var x0 = (st.panel ? st.panel.x + st.panel.w / 2 : W / 2) - row / 2;
+      var rowCentre = x0 + row / 2;
       // Directly under the panel (controlY), never off the foot. A panel
       // built before its question arrived is full height; liftAboveChoices()
       // then shortens it to clear the row, as it always has.
@@ -2070,12 +2112,24 @@
         // enough for a row to read as separate choices, never enough to hint
         // which one is right.
         var b = pill(g, {
-          x: x, y: y, w: bw, h: bh, label: label,
+          x: x, y: y, w: bw, h: bh, label: label, fit: true,
           tone: conceptOf(label) || NEUTRAL[i % NEUTRAL.length],
           press: true, attrs: { 'class': 'choice', 'data-label': label }
         });
         st.choiceEls.push(b);
         if (!reduced()) { b.style.opacity = 0; later(90 * i, function () { b.style.opacity = 1; enter(b, 'rise'); }); }
+      });
+      // Each pill is now as wide as its word, so the row is laid again from
+      // the real widths and centred where the fixed row would have been.
+      var total = st.choiceEls.reduce(function (n, b) { return n + b._rect.w; }, 0) + gap * (list.length - 1);
+      var cursor = rowCentre - total / 2;
+      st.choiceEls.forEach(function (b) {
+        var dx = cursor - b._rect.x;
+        if (Math.abs(dx) > 0.5) {
+          b.setAttribute('transform', 'translate(' + dx.toFixed(1) + ',0)');
+          b._rect = { x: b._rect.x + dx, y: b._rect.y, w: b._rect.w, h: b._rect.h };
+        }
+        cursor += b._rect.w + gap;
       });
       liftAboveChoices();
     },

@@ -424,20 +424,23 @@
   #next {
     position: absolute; z-index: 6; right: 22px; bottom: 26px;
     font: inherit; font-weight: 800; font-size: clamp(17px, 2vw, 23px); color: #fff;
-    background: #ff9f1c; border: var(--ink-w) solid var(--ink); border-radius: 999px;
-    padding: 13px 26px 13px 30px; cursor: pointer; display: none; align-items: center; gap: 10px;
-    box-shadow: var(--ink-shadow); text-shadow: 0 2px 0 rgba(150, 80, 0, .45);
-    transition: transform 90ms, box-shadow 90ms, opacity 160ms;
+    /* THE SAME PILL AS EVERY OTHER BUTTON: the kit's orange, its round
+       caps at true proportion and the middle stretched to the word. */
+    background: none; border: 0 solid transparent; border-width: 0 34px;
+    border-image: url("assets/ui/btn-tangerine.webp") 0 88 0 88 fill stretch;
+    height: 60px; line-height: 60px; padding: 0 6px 0 10px; cursor: pointer; display: none; align-items: center; gap: 8px;
+    filter: drop-shadow(0 4px 0 rgba(120, 60, 0, .35)); text-shadow: 0 2px 0 rgba(150, 80, 0, .5);
+    transition: transform 90ms, filter 90ms, opacity 160ms;
   }
   #next.show { display: inline-flex; animation: nextNudge 2.1s ease-in-out infinite; }
-  #next:active { transform: translate(4px, 5px); box-shadow: 0 0 0 rgba(28, 42, 74, .85); animation: none; }
+  #next:active { transform: translateY(4px); filter: drop-shadow(0 0 0 rgba(120, 60, 0, 0)) brightness(.94); animation: none; }
   #next .chev { font-size: 1.1em; line-height: 1; }
   @keyframes nextNudge {
     0%, 70%, 100% { transform: translateX(0); }
     80% { transform: translateX(5px); }
     90% { transform: translateX(1px); }
   }
-  @media (max-width: 760px) { #next { right: 14px; bottom: 18px; padding: 11px 20px 11px 24px; } }
+  @media (max-width: 760px) { #next { right: 14px; bottom: 18px; height: 50px; line-height: 50px; border-width: 0 28px; } }
   #progress-track { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255,255,255,.35); }
   #progress { height: 100%; width: 0; background: #f2b544;   /* the plank's warmth, not another blue */ transition: width 400ms ease; }
 
