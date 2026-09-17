@@ -7,6 +7,10 @@
  *   panel   the slab a single shape is DISPLAYED on, with nothing to do
  *
  * `pane` is the clear area inside the rim, as a fraction of the card, so a
+ * (panel.pane.h is hand-set to 0.85: the detector stopped at the inner
+ * highlight, a tenth of the glass short of the bottom rim, and every shape
+ * on the slab was drawn a tenth smaller than the glass allows. Keep it if
+ * the tool is re-run against the same artwork.)
  * shape can be placed in it at any size the card is drawn at. Measured from
  * the artwork rather than eyeballed, because the rim is not the same
  * thickness on every edge and a shape centred on the card is not centred in
@@ -34,7 +38,7 @@
         "x": 0.0414,
         "y": 0.0821,
         "w": 0.918,
-        "h": 0.7443
+        "h": 0.85
       }
     },
     "plank": {

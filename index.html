@@ -12,6 +12,7 @@
 <!-- the backdrop is the first thing on screen; fetch it alongside the scripts -->
 <link rel="preload" as="image" href="assets/ui/banner.webp">
 <link rel="preload" as="image" href="assets/bg/ice-vista.png">
+<link rel="preload" as="image" href="assets/swiftee/swiftee-measuring.png">
 <style>
   :root {
     --ink: #1c2a4a;
@@ -45,14 +46,6 @@
 
   /* Swiftee is an HTML/SVG overlay positioned by game.js */
   .swiftee { z-index: 3; }
-  /* Hovering in a corner. There is no flying sprite in the rig — the sheet
-     set has twenty-six states and none of them is a wing cycle — so what
-     makes him read as airborne is that he is off the ground and never quite
-     still. `translate`, not `transform`: the element is POSITIONED with a
-     transform, and animating that property would replace the position. */
-  .swiftee.hover-float { animation: swifteeFloat 3.4s ease-in-out infinite; }
-  @keyframes swifteeFloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -11px; } }
-  @media (prefers-reduced-motion: reduce) { .swiftee.hover-float { animation: none; } }
 
   /* ---- speech bubble --------------------------------------------------
      The shape and the motion are the supplied design; the colours are the
@@ -302,9 +295,12 @@
     left: 50%; transform: translateX(-50%);
     top: clamp(6px, 1.2vh, 18px);
     box-sizing: border-box;
-    width: max-content;
-    max-width: min(80vw, 1200px);
-    min-width: min(42vw, 420px);
+    /* ONE WIDTH, EVERY SCREEN. Sized to its sentence it was a different
+       plank on every page — a stub for "Let's check!", a beam for the next
+       line — and the eye read that as the UI changing. A fixed board with
+       the words centred on it is furniture; the words are what change. */
+    width: clamp(560px, 62vw, 1040px);
+    max-width: min(calc(100vw - 270px), 1200px);   /* never under the HUD buttons, at any width */
     height: auto;
 
     border-style: solid;
@@ -333,7 +329,7 @@
   #instruction.fading .instruction-text { opacity: 0; }
 
   @media (max-width: 760px) {
-    #instruction { max-width: 92vw; min-width: 0; font-size: clamp(15px, 3.4vw, 22px); }
+    #instruction { width: 92vw; max-width: 92vw; min-width: 0; font-size: clamp(15px, 3.4vw, 22px); }
   }
   @media (prefers-reduced-motion: reduce) {
     #instruction, #instruction .instruction-text { transition: none; }
@@ -379,7 +375,7 @@
   }
   @media (max-width: 760px) { #next { right: 14px; bottom: 18px; padding: 11px 20px 11px 24px; } }
   #progress-track { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255,255,255,.35); }
-  #progress { height: 100%; width: 0; background: #3d8bff; transition: width 400ms ease; }
+  #progress { height: 100%; width: 0; background: #f2b544;   /* the plank's warmth, not another blue */ transition: width 400ms ease; }
 
   /* ---- title screen ----------------------------------------------------
      The painted banner is the whole screen, with the snow that falls through

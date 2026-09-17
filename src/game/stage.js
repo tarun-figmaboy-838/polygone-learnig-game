@@ -337,6 +337,37 @@
    * Panels and polygons
    * ------------------------------------------------------------------ */
 
+  /* THE SCREEN READS TOP TO BOTTOM: INSTRUCTION, OBJECT, INTERACTION.
+   *
+   *   TOP      the plank's band. Two lines of it, at the widest the game
+   *            runs, come down to about 117 stage units; nothing the lesson
+   *            draws starts above this line, so the plank never covers it.
+   *   BOTTOM   the foot, above the progress bar.
+   *   CONTROL  the row of answers or the stepper bar: one height, one gap,
+   *            always directly under the panel it belongs to, so a control
+   *            is found where the eye lands after the object — not parked at
+   *            the bottom edge because there happened to be room there.
+   */
+  var TOP = 120;
+  var BOTTOM = H - 16;
+  var CONTROL_H = 56;
+  var CONTROL_GAP = 16;
+
+  /* The look of every card the stage draws itself. The artwork cards carry
+     their own; these keep the drawn ones — bins, the stepper bar, the
+     checklist, a tag — from each inventing a radius and a rim. */
+  var UI = {
+    radius: 18, rim: 2.5,
+    ink: '#1c2a4a', muted: '#5a6a8a',
+    paper: '#fff8ee', paperRim: '#d9bd92',        // warm, so the ice is the only blue
+    title: 22, body: 17
+  };
+
+  /* The learning object. One blue, used for nothing else on the stage, with
+     an edge that is a darker step of the same colour rather than a black
+     line — a coloured shape with a soft edge, not a diagram. */
+  var SHAPE = { fill: '#5f97f0', edge: '#2f5fc4', edgeW: 3.5 };
+
   var PANELS = {
     // THE NEXT BUTTON LIVES IN THE BOTTOM-RIGHT CORNER, always, over the
     // stage. At h:460 this slab ran to y 520 and Next starts at 493, so on
@@ -345,7 +376,14 @@
     // y 100, not 60: the instruction plank occupies the top band of every
     // screen now, and at 60 this slab ran up underneath it. Height comes down
     // with it so the foot still clears the Next button.
-    right:  { x: 500, y: 100, w: 460, h: 385 },
+    right:  { x: 500, y: TOP, w: 460, h: 365 },
+    // WITHOUT HIM, THE LESSON TAKES THE MIDDLE. The right-hand slab exists
+    // to leave the bottom-left to Swiftee. On the twenty-eight screens he is
+    // not on, it left half the screen to nobody; this is what a 'right'
+    // request becomes when he is off.
+    // Nearly square, because the thing it frames nearly is: a 600-wide slab
+    // around a pentagon was two thirds glass, and the shape read as small.
+    solo:   { x: 270, y: TOP, w: 460, h: 365 },
     // THE INSTRUCTION CARD COMES DOWN TO y 115. It is pinned top-left and
     // capped to whatever room the lesson leaves beside it — but a centred
     // panel leaves 200 units, which is narrower than the sentence is tall, so
@@ -383,14 +421,28 @@
    * would buy empty space on two thirds of the lesson to solve a problem it
    * does not have.
    * ------------------------------------------------------------------ */
-  var CHOICE_BAND = 104;
-
   function panelFor(name, spec) {
     var p = PANELS[name] || PANELS.right;
-    if (!spec || !spec.choices || !spec.choices.length) return p;
-    var floor = H - CHOICE_BAND;
-    if (p.y + p.h <= floor) return p;
-    return { x: p.x, y: p.y, w: p.w, h: Math.max(240, floor - p.y) };
+    // The right-hand slab is for a bird standing bottom-left, so his bubble
+    // has the left half to open in. Off, or up in the top-left corner where
+    // his bubble opens along the top band, the lesson takes the middle.
+    var standsLeft = global.Swiftee && /^left/.test(Swiftee.pos || '');
+    if (p === PANELS.right && !standsLeft) p = PANELS.solo;
+    var controls = spec && ((spec.choices && spec.choices.length) || spec.controls);
+    if (!controls) return p;
+    // A panel with a control under it stops above the control, and the pair
+    // is centred in the band between the plank and the foot — so a screen
+    // with a question is balanced, not weighted to whichever edge had room.
+    var floor = BOTTOM - CONTROL_H - CONTROL_GAP;
+    var h = Math.min(p.h, Math.max(240, floor - p.y));
+    var slack = (BOTTOM - TOP) - (h + CONTROL_GAP + CONTROL_H);
+    return { x: p.x, y: TOP + Math.max(0, slack / 2), w: p.w, h: h };
+  }
+
+  /** Where a control bar sits: under the panel, and never off the foot. */
+  function controlY() {
+    var y = st.panel ? st.panel.y + st.panel.h + CONTROL_GAP + CONTROL_H / 2 : BOTTOM - CONTROL_H / 2;
+    return Math.min(y, BOTTOM - CONTROL_H / 2);
   }
 
   /**
@@ -522,9 +574,12 @@
     opts = opts || {};
 
     var face = panelFace(p);
-    var mx = face.w * 0.04, mt = face.h * 0.05;
+    // Tight to the glass. The face is already inset from the rim by the
+    // artwork's own measurement, so the margin here only keeps a vertex off
+    // the inner edge; more than that was shape-sized emptiness.
+    var mx = face.w * 0.03, mt = face.h * 0.03;
     // Room for what is drawn beneath it, and none when nothing is.
-    var mb = opts.below ? face.h * 0.2 : face.h * 0.05;
+    var mb = opts.below ? face.h * 0.2 : face.h * 0.03;
     var box = { x: face.x + mx, y: face.y + mt, w: face.w - mx * 2, h: face.h - mt - mb };
 
     // Built at unit size WITH its deformations, so what gets measured is what
@@ -562,7 +617,7 @@
     while (g.firstChild) g.removeChild(g.firstChild);
     var v = st.verts, n = v.length;
 
-    st.fill = mk('path', { d: pathOf(v), fill: '#5b95ee', stroke: '#1030c8', 'stroke-width': 6, 'stroke-linejoin': 'round' }, g);
+    st.fill = mk('path', { d: pathOf(v), fill: SHAPE.fill, stroke: SHAPE.edge, 'stroke-width': SHAPE.edgeW, 'stroke-linejoin': 'round' }, g);
 
     // diagonals
     st.diagG = mk('g', {}, g);
@@ -642,10 +697,13 @@
       var col = st.vcolor && st.vcolor[j] ? st.vcolor[j] : null;
       var c = mk('circle', {
         cx: v[j].x, cy: v[j].y,
-        r: col ? 13 : (touch ? 19 : 9),
-        fill: col || (touch ? '#fff8e7' : '#1030c8'),
+        // A handle is a knob on a corner, not a coin on it: fifteen units
+        // is still thirty-plus device pixels to a finger at every size the
+        // game runs at, and reads as part of the shape rather than over it.
+        r: col ? 13 : (touch ? 15 : 9),
+        fill: col || (touch ? '#fff8e7' : SHAPE.edge),
         stroke: col ? '#5a4a00' : (touch ? '#6b3400' : 'none'),
-        'stroke-width': col ? 2 : (touch ? 3.5 : 2),
+        'stroke-width': col ? 2 : (touch ? 3 : 2),
         'class': 'vertex', 'data-i': j,
         opacity: col || st.showVerts ? 1 : 0
       }, g);
@@ -697,6 +755,7 @@
     // normal. This keeps every pixel outside, even along the bottom edge.
     var clearance = 9 + Math.abs(nx) * cell / 2 + Math.max(0, ny * baseline) + Math.max(0, -ny * (cell - baseline));
     var g = mk('g', { 'class': 'swiftee-measuring', 'pointer-events': 'none', 'aria-hidden': 'true', 'data-side': index }, layers.fx);
+    g.style.opacity = '0';   // nothing at the side until he has flown there
     var tapeG = mk('g', { transform: 'translate(' + (a.x + nx * 7) + ',' + (a.y + ny * 7) + ') rotate(' + angle + ')' }, g);
     var tape = mk('rect', { x: 0, y: -4, width: 0, height: 8, rx: 2, fill: '#ffe278', stroke: '#875b13', 'stroke-width': 1.2 }, tapeG);
     var ticks = mk('g', {}, tapeG), marks = [];
@@ -712,9 +771,38 @@
     var sheet = mk('image', { href: frames.image, width: frames.cols * frames.cell, height: frames.rows * frames.cell }, crop);
     var companion = global.Swiftee && Swiftee.el;
     var opacity = companion && companion.style.opacity;
-    if (companion) companion.style.opacity = '0';
     var raf = null, started = null, stopped = false;
-    var duration = Math.max(1400, Math.min(2100, length * 8));
+    var duration = Math.max(1100, Math.min(1800, length * 7));
+
+    /* HE FLIES TO THE SIDE, MEASURES IT, AND FLIES BACK.
+     *
+     * The measuring sprite used to appear at the side while he vanished from
+     * his mark, and vanish while he reappeared: two cuts, both sudden. Now
+     * the bird on his mark flies to the start of the side and fades as the
+     * measuring sprite takes over there; when the tape is laid he fades back
+     * in at the far end and flies home. One bird, one journey. Skipped when
+     * he is not on screen, or motion is reduced, or the element cannot
+     * animate — then it is the old cut. */
+    var M = svg.getScreenCTM && svg.getScreenCTM();
+    var page = function (x, y) { return M ? { x: M.a * x + M.e, y: M.d * y + M.f } : null; };
+    var flies = !!(companion && companion.animate && global.Swiftee.bounds && parseFloat(opacity || '0') > 0.05 && M);
+    var here = null, hb = flies && Swiftee.bounds();
+    if (hb && hb.width) here = { x: (hb.left + hb.right) / 2, y: hb.bottom }; else flies = false;
+    var startAt = page(a.x + nx * clearance, a.y + ny * clearance);
+    var endAt = page(b.x + nx * clearance, b.y + ny * clearance);
+    function fly(fromD, toD, fadeIn) {
+      return new Promise(function (res) {
+        var an;
+        try {
+          an = companion.animate([
+            { translate: fromD.x.toFixed(0) + 'px ' + fromD.y.toFixed(0) + 'px', opacity: fadeIn ? 0 : 1 },
+            { translate: toD.x.toFixed(0) + 'px ' + toD.y.toFixed(0) + 'px', opacity: fadeIn ? 1 : 0 }
+          ], { duration: 420, easing: 'cubic-bezier(.3,.7,.3,1)', composite: 'add', fill: 'none' });
+        } catch (e) { res(); return; }
+        an.finished.then(res, res);
+      });
+    }
+
     function stop() {
       if (stopped) return;
       stopped = true;
@@ -724,6 +812,14 @@
       var at = cleanup.indexOf(stop); if (at >= 0) cleanup.splice(at, 1);
     }
     cleanup.push(stop);
+    // The walk ends: the tape is laid. He comes home before the next side.
+    function finish() {
+      if (stopped) return;
+      stop();
+      if (flies && endAt) {
+        fly({ x: endAt.x - here.x, y: endAt.y - here.y }, { x: 0, y: 0 }, true).then(done);
+      } else done();
+    }
     function tick(time) {
       if (stopped) return;
       if (started === null) started = time;
@@ -739,9 +835,16 @@
       walker.setAttribute('data-frame', frame);
       lead.setAttribute('d', 'M' + (px + nx * 7) + ',' + (py + ny * 7) + ' L' + (wx + 30) + ',' + (wy - 24));
       if (elapsed < duration + 180) raf = global.requestAnimationFrame(tick);
-      else { stop(); done(); }
+      else finish();
     }
-    raf = global.requestAnimationFrame(tick);
+    var begin = function () {
+      if (stopped) return;
+      g.style.opacity = '1';
+      if (companion) companion.style.opacity = '0';
+      raf = global.requestAnimationFrame(tick);
+    };
+    if (flies && startAt) fly({ x: 0, y: 0 }, { x: startAt.x - here.x, y: startAt.y - here.y }, false).then(begin);
+    else begin();
   }
 
   function drawMeasurements(g) {
@@ -752,7 +855,7 @@
         var a = v[i], b = v[(i + 1) % n];
         var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
         var dx = mx - c.x, dy = my - c.y, len = Math.hypot(dx, dy) || 1;
-        var lx = mx + dx / len * 30, ly = my + dy / len * 30;
+        var lx = mx - dx / len * 34, ly = my - dy / len * 34;   // inside the shape, off the side
         var t = mk('g', { 'class': 'meas' }, g);
         mk('rect', { x: lx - 30, y: ly - 14, width: 60, height: 28, rx: 8, fill: '#fff', stroke: '#9fd6fb' }, t);
         mk('text', { x: lx, y: ly + 6, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#1c2a4a', text: (L[i] / 30).toFixed(0) + ' cm' }, t);
@@ -831,7 +934,9 @@
     if (name === 'circle') { mk('circle', { cx: cx, cy: cy, r: r * .85, fill: '#ffb27a', stroke: '#c9611a', 'stroke-width': 4 }, g); return g; }
     if (name === 'open-path') { mk('path', { d: 'M' + (cx - r) + ' ' + (cy + r * .7) + ' L' + (cx - r * .5) + ' ' + (cy - r * .6) + ' L' + (cx + r * .5) + ' ' + (cy - r * .6) + ' L' + (cx + r) + ' ' + (cy + r * .7), fill: 'none', stroke: '#a23bd6', 'stroke-width': 5, 'stroke-linecap': 'round' }, g); return g; }
     var v = shapeVerts(name, r, cx, cy);
-    mk('path', { d: pathOf(v), fill: col, 'fill-opacity': .85, stroke: '#1c2a4a', 'stroke-width': 4, 'stroke-linejoin': 'round' }, g);
+    // Edged in a darker step of its own colour, not in ink: a pink pentagon
+    // with a pink edge is a shape; with a black edge it is a diagram of one.
+    mk('path', { d: pathOf(v), fill: col, 'fill-opacity': .9, stroke: shade(col, -0.38), 'stroke-width': 3, 'stroke-linejoin': 'round' }, g);
     g._verts = v;
     return g;
   }
@@ -877,12 +982,18 @@
       // question filled the right-hand third and the left half of the screen
       // held nothing at all. Pulled in far enough to read as the middle of the
       // screen, and still clear of where Swiftee stands on this one.
-      var cells = [[400, 50], [670, 50], [400, 300], [670, 300]];
+      // Two by two, centred on the stage, in the band below the plank: the
+      // cells used to start at y 50 and the top row ran up under the plank.
+      var HALF = 84, PITCH_X = 270, band = BOTTOM - TOP;
+      var cells = [
+        [W / 2 - PITCH_X / 2, TOP + band * 0.25], [W / 2 + PITCH_X / 2, TOP + band * 0.25],
+        [W / 2 - PITCH_X / 2, TOP + band * 0.75], [W / 2 + PITCH_X / 2, TOP + band * 0.75]
+      ];
       st.cards = opts.map(function (o, i) {
         var x = cells[i][0], y = cells[i][1];
         var g = mk('g', { 'class': 'card', 'data-id': o.id }, layers.ui);
-        var seat = mk('g', { transform: 'translate(' + x + ',' + (y + 100) + ')' }, g);
-        g._card = optionCard(seat, 100, o.shape);
+        var seat = mk('g', { transform: 'translate(' + x + ',' + y + ')' }, g);
+        g._card = optionCard(seat, HALF, o.shape);
         g._opt = o;
         if (spec.enter === 'stagger' && !reduced()) { g.style.opacity = 0; later(i * 110, function () { g.style.opacity = 1; enter(g, 'pop'); }); }
         return g;
@@ -898,7 +1009,7 @@
         var g = panel(pnl, { enter: spec.enter === 'split' ? 'rise' : 'pop' });
         var P = polygonIn(pnl, cfg.sides || 5, { dent: cfg.dent, stretch: cfg.stretch, below: !!cfg.caption });
         var pg = mk('g', {}, layers.poly);
-        mk('path', { d: pathOf(P.verts), fill: '#5b95ee', stroke: '#1030c8', 'stroke-width': 5, 'stroke-linejoin': 'round' }, pg);
+        mk('path', { d: pathOf(P.verts), fill: SHAPE.fill, stroke: SHAPE.edge, 'stroke-width': SHAPE.edgeW, 'stroke-linejoin': 'round' }, pg);
         if (cfg.diagonals === 'all') {
           Poly.allDiagonals(P.verts.length).forEach(function (d) {
             var a = P.verts[d[0]], b = P.verts[d[1]];
@@ -943,7 +1054,7 @@
       // BIG ENOUGH TO BE A PLACE. These are not labels, they are the two
       // halves of the answer and they hold everything the child has sorted so
       // far, so they get real size and a real shelf inside them.
-      var ZW = 288, ZH = 330, ZY = 104;
+      var ZW = 288, ZH = 312, ZY = TOP;
       [{ id: 'regular', x: 96 },
        { id: 'irregular', x: W - 96 - ZW }].forEach(function (z) {
         var def = (spec.zones || []).filter(function (d) { return d.id === z.id; })[0] || { id: z.id, label: z.id };
@@ -1015,10 +1126,6 @@
           fill: 'none', stroke: col, 'stroke-width': 8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
           'class': 'swipe-arrow', 'data-zone': side, opacity: 0.9
         }, hint);
-        mk('text', {
-          x: cx, y: 512, 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 700,
-          fill: col, 'class': 'swipe-label', 'data-zone': side, text: word
-        }, hint);
       });
 
       dealCard();
@@ -1031,16 +1138,20 @@
       // Swiftee on the left, which left the lesson sitting off-centre on every
       // screen that uses it — and he is placed by the screen now, so the
       // lesson does not have to make room for a guess about where he is.
-      var bw = 300, gap = 30, x0 = (W - (bins.length * bw + (bins.length - 1) * gap)) / 2;
+      var bw = 300, gap = 30, bh = 200, by = 296;
+      var x0 = (W - (bins.length * bw + (bins.length - 1) * gap)) / 2;
       bins.forEach(function (b, i) {
-        var x = x0 + i * (bw + gap), y = 330;
+        var x = x0 + i * (bw + gap), y = by;
         var g = mk('g', { 'class': 'bin', 'data-bin': b.id }, layers.ui);
         var c = CONCEPT[b.tone] || CONCEPT.convex;
         var tone = [c.wash, c.face, c.ink];
-        mk('rect', { x: x, y: y, width: bw, height: 190, rx: 24, fill: tone[0], stroke: tone[1], 'stroke-width': 3, 'stroke-dasharray': '10 8' }, g);
-        mk('rect', { x: x + 40, y: y - 24, width: bw - 80, height: 48, rx: 14, fill: c.deep }, g);
-        mk('text', { x: x + bw / 2, y: y + 8, 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 700, fill: '#fff', text: b.label }, g);
-        g._bin = b; g._rect = { x: x, y: y, w: bw, h: 190 }; g._count = 0;
+        // A LIGHT CARD WITH A TITLE BAND, in the concept's colour — the same
+        // grammar as the stepper bar and the checklist. It was a dashed box
+        // with a dark pill riding its top edge, which is a dashboard widget.
+        mk('rect', { x: x, y: y, width: bw, height: bh, rx: UI.radius, fill: tone[0], stroke: tone[1], 'stroke-width': UI.rim }, g);
+        mk('rect', { x: x + 12, y: y + 10, width: bw - 24, height: 40, rx: 12, fill: tone[1], opacity: .28 }, g);
+        mk('text', { x: x + bw / 2, y: y + 38, 'text-anchor': 'middle', 'font-size': UI.title, 'font-weight': 800, fill: c.ink, text: b.label }, g);
+        g._bin = b; g._rect = { x: x, y: y, w: bw, h: bh }; g._count = 0;
         st.sort.bins.push(g);
         if (spec.enter && !reduced()) enter(g, 'rise');
       });
@@ -1060,7 +1171,7 @@
         st.sort.items.push(makeSortItem(
           name,
           spec.oneAtATime ? W / 2 + 120 : ix0 + i * pitch,
-          spec.oneAtATime ? 210 : 150,
+          spec.oneAtATime ? 210 : TOP + 72,           // clear of the plank
           i
         ));
       });
@@ -1068,17 +1179,17 @@
 
     builder: function (spec) {
       reset(); st.kind = 'builder';
-      var p = panelFor('center', spec); st.panel = p;
+      var p = panelFor('center', Object.assign({ controls: true }, spec)); st.panel = p;
       panel(p, { enter: spec.enter });
       var n = spec.sides || 3;
-      var P = polygonIn(p, n, { below: true });
-      st.verts = P.verts; st.cx = P.cx; st.cy = P.cy; st.r = P.r; st.n = n; st.showVerts = true;
-      // A vertex that can be dragged is dressed as a handle — cream core,
-      // dark amber ring, larger — wherever that is true. It was only being
-      // set where a vertex is PICKED, so on "Drag any vertex to make this
-      // polygon concave" the handles were plain blue dots on a blue shape
-      // and there was nothing to say what to take hold of.
-      st.touchVerts = true;
+      var P = polygonIn(p, n, {});
+      st.verts = P.verts; st.cx = P.cx; st.cy = P.cy; st.r = P.r; st.n = n;
+      // NO HANDLES UNTIL THERE IS SOMETHING TO TAKE HOLD OF. The builder
+      // used to dress every vertex as a drag handle from the first screen,
+      // where the only control is the stepper — five cream knobs on a shape
+      // nobody could drag yet. The 'drag-vertex' input dresses them when it
+      // arms, which is when they mean something.
+      st.showVerts = false; st.touchVerts = false;
       st.polyG = mk('g', { 'class': 'polygon' }, layers.poly);
       st.diagonals = [];
       renderPoly();
@@ -1088,19 +1199,22 @@
       // plus, as though one of them were disabled. The label has its own line
       // above the control now, and both buttons are the same amber pill as
       // everything else pressable in the game.
-      var sy = p.y + p.h - 76, sx = p.x + p.w / 2;
+      // A COMPACT BAR UNDER THE PANEL, not a feature card on top of the
+      // shape. It was 328 by 104 inside the slab, sitting on the polygon's
+      // own base vertices; it is an indicator now — the word, the number,
+      // and the two buttons — in the control band every other question
+      // uses, so the polygon has the whole panel to itself.
+      var sy = controlY(), sx = p.x + p.w / 2;
       var g = mk('g', { 'class': 'stepper' }, layers.ui);
       st.stepperG = g;
-      mk('rect', { x: sx - 164, y: sy - 52, width: 328, height: 104, rx: 22, fill: '#ffffff', opacity: .92 }, g);
-      mk('text', { x: sx, y: sy - 26, 'text-anchor': 'middle', 'font-size': 19, 'font-weight': 600,
-                   fill: '#5a6a8a', text: (spec.stepper && spec.stepper.label) || 'Number of sides' }, g);
-      // 'amber' no longer exists: the neutral palette is warm now and its
-      // names are sun/tangerine. An unknown tone falls back to blue, which is
-      // why these two came out the same pale blue as the panel behind them
-      // and stopped reading as buttons at all.
-      st.stepMinus = pill(g, { x: sx - 140, y: sy + 18, w: 64, h: 52, label: '−', tone: 'sun', press: true, attrs: { 'class': 'step-minus' } });
-      st.stepPlus  = pill(g, { x: sx + 76,  y: sy + 18, w: 64, h: 52, label: '+', tone: 'sun', press: true, attrs: { 'class': 'step-plus' } });
-      st.stepText = mk('text', { x: sx, y: sy + 32, 'text-anchor': 'middle', 'font-size': 38, 'font-weight': 700, fill: '#1c2a4a', text: n }, g);
+      var SW = 250, SH = CONTROL_H;
+      mk('rect', { x: sx - SW / 2, y: sy - SH / 2, width: SW, height: SH, rx: UI.radius,
+                   fill: UI.paper, stroke: UI.paperRim, 'stroke-width': UI.rim }, g);
+      mk('text', { x: sx, y: sy - 9, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 700,
+                   fill: UI.muted, text: (spec.stepper && spec.stepper.label) || 'Number of sides' }, g);
+      st.stepMinus = pill(g, { x: sx - SW / 2 + 8, y: sy, w: 50, h: 40, label: '−', tone: 'sun', press: true, attrs: { 'class': 'step-minus' } });
+      st.stepPlus  = pill(g, { x: sx + SW / 2 - 58, y: sy, w: 50, h: 40, label: '+', tone: 'sun', press: true, attrs: { 'class': 'step-plus' } });
+      st.stepText = mk('text', { x: sx, y: sy + 20, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 800, fill: UI.ink, text: n }, g);
       st.stepper = { min: (spec.stepper && spec.stepper.min) || 3, max: (spec.stepper && spec.stepper.max) || 8 };
     }
   };
@@ -1109,7 +1223,7 @@
    * Swipe classification
    * ------------------------------------------------------------------ */
 
-  var SWIPE_HOME = { x: W / 2, y: 300 };
+  var SWIPE_HOME = { x: W / 2, y: 276 };   // level with the middle of the zones
 
   /**
    * Put a sorted shape on a zone's shelf.
@@ -1221,7 +1335,7 @@
     var items = bin._items || [];
     if (!items.length) return;
     var r = bin._rect;
-    var PAD_X = 12, PAD_TOP = 34, PAD_BOT = 12;   // the title plate eats the top
+    var PAD_X = 12, PAD_TOP = 56, PAD_BOT = 12;   // the title band eats the top
     var cols = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(items.length))));
     var rows = Math.ceil(items.length / cols);
     var cw = (r.w - PAD_X * 2) / cols;
@@ -1467,7 +1581,7 @@
     var g = mk('g', o.attrs || {}, parent);
     var face = mk('rect', {
       x: o.x, y: o.y - h / 2, width: o.w, height: h, rx: h * 0.42,
-      fill: c ? c.wash : '#eef6ff', stroke: c ? c.deep : '#5f7da6', 'stroke-width': 2.5
+      fill: c ? c.wash : UI.paper, stroke: c ? c.deep : UI.paperRim, 'stroke-width': UI.rim
     }, g);
     var t = mk('text', {
       x: o.x + o.w / 2, y: o.y + h * 0.15, 'text-anchor': 'middle',
@@ -1480,8 +1594,8 @@
     // it has to be able to change what it is, too.
     g._retint = function (tone) {
       var cc = CONCEPT[tone];
-      face.setAttribute('fill', cc ? cc.wash : '#eef6ff');
-      face.setAttribute('stroke', cc ? cc.deep : '#5f7da6');
+      face.setAttribute('fill', cc ? cc.wash : UI.paper);
+      face.setAttribute('stroke', cc ? cc.deep : UI.paperRim);
       t.setAttribute('fill', cc ? cc.ink : '#1c2a4a');
     };
     return g;
@@ -1728,7 +1842,7 @@
      bigger still. Clearing the CENTRE of the lowest one leaves a caption
      sitting on the dot; the clearance has to start from the edge of what is
      actually painted. */
-  var VERT_PAINT = 24;
+  var VERT_PAINT = 16;   // a handle is r15 now; the reserve was sized for r19
 
   function belowShape(gap, floorPad) {
     var lowest = st.verts && st.verts.length
@@ -1831,6 +1945,14 @@
         if (lceil != null) floorY = Math.min(floorY, lceil);
         y = lowest == null ? Math.min(floorY, st.panel.y + st.panel.h - 30)
                            : Math.min(floorY, lowest + 52);
+        // NO ROOM UNDER THE SHAPE INSIDE THE SLAB — the shape was fitted to
+        // the whole face before this word existed — so the word goes under
+        // the slab, in the band the controls use, rather than onto the
+        // handles of the two lowest corners.
+        if (lowest != null && y < lowest + 52 && lceil == null) {
+          var under = st.panel.y + st.panel.h + 34;
+          if (under <= BOTTOM - 6) y = under;
+        }
       } else {
         var a = st.verts[st.segment[0]], b = st.verts[st.segment[1]];
         m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -1907,22 +2029,16 @@
       // question did. This is still well past a 44px finger target at every
       // size the game runs at, and it lets the row sit clear of the card
       // rather than jammed against it.
-      var bw = 184, gap = 30, bh = 54;
+      // Under the object, sized to be found and not to be looked at first:
+      // a row of answers is the third thing on the screen, after the plank
+      // and the shape.
+      var bw = 150, gap = 24, bh = 48;
       var row = list.length * bw + (list.length - 1) * gap;
       var x0 = (st.panel ? st.panel.x + st.panel.w / 2 : W / 2) - row / 2;
-      // Keep the row on the stage. `panel.y + panel.h + 44` is 564 for the
-      // right-hand panel, which is past the bottom of a 562-tall viewBox:
-      // the buttons were drawn mostly below the visible area, clipped, and
-      // unclickable. Sit them just inside the edge instead, and keep them
-      // inside the left and right edges for the same reason.
-      // Along the bottom edge of the stage, always. Measured from the panel
-      // they collided with whatever was under the shape: the row came out over
-      // the shape's own label on a tall panel, and past the bottom of the
-      // viewBox on a taller one — clipped, and unclickable.
-      // 14 left the row eight pixels off the foot of the stage, with the
-      // progress bar in those eight. A button now carries a lip below its
-      // face, so the box it paints is taller than the box it is given.
-      var y = H - bh / 2 - 24;
+      // Directly under the panel (controlY), never off the foot. A panel
+      // built before its question arrived is full height; liftAboveChoices()
+      // then shortens it to clear the row, as it always has.
+      var y = controlY();
       x0 = Math.max(14, Math.min(x0, W - row - 14));
       list.forEach(function (label, i) {
         var x = x0 + i * (bw + gap);
@@ -1949,7 +2065,7 @@
       var g = mk('g', { 'class': 'checklist' }, layers.ui);
       // Ice, not green. This panel holds ticks AND crosses, and a green card
       // announces the result before the first row has been read.
-      mk('rect', { x: x, y: y - 20, width: 200, height: 40 * items.length + 30, rx: 18, fill: '#eef6ff', stroke: '#9cc6ea', 'stroke-width': 3 }, g);
+      mk('rect', { x: x, y: y - 20, width: 200, height: 40 * items.length + 30, rx: UI.radius, fill: UI.paper, stroke: UI.paperRim, 'stroke-width': UI.rim }, g);
       items.forEach(function (label, i) {
         var ok = !c.verify || verdict.indexOf(label) >= 0;
         var row = mk('g', {}, g);
@@ -2245,7 +2361,10 @@
     'drag-vertex': function (spec, ctx) {
       return new Promise(function (resolve) {
         if (global.Input) Input.mode('polygon');
-        st.showVerts = spec.vertex === 'any'; renderPoly();
+        // Every vertex may be taken: dress them all as handles, now that
+        // they are. A single named vertex keeps its own highlight instead.
+        if (spec.vertex === 'any') { st.showVerts = true; st.touchVerts = true; }
+        renderPoly();
         var idxs = spec.vertex === 'any' ? st.verts.map(function (_, i) { return i; }) : [spec.vertex];
         var start = null, done = false;
         if (spec.live === 'diagonals') st.highlightOutside = true;
@@ -2849,14 +2968,16 @@
     var sel = '.panel, .polygon, .card, .sort-item, .bin, .choice, .stepper, .shape, .checklist, .badge';
     var out = [];
     var nodes = svg.querySelectorAll(sel);
-    var box = svg.getBoundingClientRect();
-    var k = box.width / W;
+    // Through the live matrix, as contentBox() does. Scaling by the svg box
+    // alone put every painted rect 96px too high on a 4:3 screen, where the
+    // stage is letterboxed inside the element and its top is not the top.
+    var m = svg.getScreenCTM && svg.getScreenCTM();
+    var px = function (x) { return m ? m.a * x + m.e : x; }, py = function (y) { return m ? m.d * y + m.f : y; };
     for (var i = 0; i < nodes.length; i++) {
       var q = nodes[i]._rect;
       var r = q
-        ? { left: box.left + q.x * k, top: box.top + q.y * k,
-            right: box.left + (q.x + q.w) * k, bottom: box.top + (q.y + q.h) * k,
-            width: q.w * k, height: q.h * k }
+        ? { left: px(q.x), top: py(q.y), right: px(q.x + q.w), bottom: py(q.y + q.h),
+            width: px(q.x + q.w) - px(q.x), height: py(q.y + q.h) - py(q.y) }
         : nodes[i].getBoundingClientRect();
       if (r.width > 4 && r.height > 4) out.push(r);
     }
@@ -2866,6 +2987,12 @@
   var api = {
     mount: mount, apply: apply, focus: focus, waitFor: waitFor, element: element, halo: halo,
     isEmpty: isEmpty, contentBox: contentBox, contentParts: contentParts,
+    /** The slab Swiftee peeks over or stands beside: the panel, or the left of a compared pair. */
+    peekAnchor: function () {
+      if (st.panel) return st.panel;
+      if (st.compare && st.compare.left && st.compare.left.panel) return st.compare.left.panel;
+      return null;
+    },
     onTap: function (fn) { onTap = fn || function () {}; },
     ambient: ambientPlay, flurry: flurry, alive: alive,
     /* How many delayed callbacks from a finished scene have been refused.
