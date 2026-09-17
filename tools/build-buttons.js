@@ -4,7 +4,7 @@
  *
  *   node tools/build-buttons.js
  *
- * assets/ui/buttonkit1.png is twenty finished buttons on a black background.
+ * assets/ui/btn.png is twenty finished buttons on a black background.
  *
  * WHY SLICE RATHER THAN STRETCH. The buttons in this game are every width
  * from a 64-unit stepper key to a 184-unit answer, and the sheet is one
@@ -50,7 +50,7 @@ const ROOT = path.join(__dirname, '..');
 const OUT_JS = path.join(ROOT, 'src/game/button-frame.js');
 
 /* THE KIT. Two sheets, each twenty-odd finished buttons on a black matte,
-   read in reading order. buttonkit1.png is glossy pills in twenty colours;
+   read in reading order. btn.png is matte pills in twenty colours;
    the game takes nine of them by the meaning each colour already carries
    here — sun and tangerine for a choice that means nothing, green and red
    for right and wrong, the concept colours for the words that name one.
@@ -58,18 +58,18 @@ const OUT_JS = path.join(ROOT, 'src/game/button-frame.js');
    the gold coins are the stepper's, glyph and all, so they are cut whole
    (glyph: true) rather than as caps and a stretch. */
 const SHEETS = [
-  { src: 'assets/ui/buttonkit1.png', want: [
-    { cell: 2,  tone: 'sun',       role: 'Primary' },
-    { cell: 1,  tone: 'tangerine', role: 'Secondary' },
-    // gold rim on a green face: the neighbour guard reads the rim as foreign, so these two are trusted by eye
-    { cell: 4,  tone: 'correct',   role: 'Success', trust: true },
-    { cell: 0,  tone: 'wrong',     role: 'Danger' },
-    { cell: 6,  tone: 'convex',    role: 'Concept' },
-    { cell: 1,  tone: 'concave',   role: 'Concept' },
-    { cell: 5,  tone: 'regular',   role: 'Concept' },
-    { cell: 9,  tone: 'irregular', role: 'Concept', trust: true },
-    { cell: 6,  tone: 'sky',       role: 'Neutral' },
-    { cell: 8,  tone: 'plum',      role: 'Neutral' }
+  { src: 'assets/ui/btn.png', want: [
+    // five across, four down; matte pills with soft dark outlines
+    { cell: 1,  tone: 'sun',       role: 'Primary' },
+    { cell: 2,  tone: 'tangerine', role: 'Secondary' },
+    { cell: 10, tone: 'correct',   role: 'Success' },
+    { cell: 11, tone: 'wrong',     role: 'Danger' },
+    { cell: 7,  tone: 'convex',    role: 'Concept' },
+    { cell: 0,  tone: 'concave',   role: 'Concept' },
+    { cell: 6,  tone: 'regular',   role: 'Concept' },
+    { cell: 13, tone: 'irregular', role: 'Concept' },
+    { cell: 3,  tone: 'sky',       role: 'Neutral' },
+    { cell: 13, tone: 'plum',      role: 'Neutral' }
   ] },
   { src: 'assets/ui/numberbutton1.png', want: [
     // the gold coins (yellow, like the rest of the game's neutral buttons), not the ice cubes

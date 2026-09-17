@@ -1643,7 +1643,7 @@
   /**
    * A button.
    *
-   * THE ARTWORK, IN THREE PIECES. assets/ui/buttonkit1.png is a sheet of
+   * THE ARTWORK, IN THREE PIECES. assets/ui/btn.png is a sheet of
    * finished buttons; tools/build-buttons.js cuts the four this lesson needs
    * out of it and measures where each round end finishes.
    *
