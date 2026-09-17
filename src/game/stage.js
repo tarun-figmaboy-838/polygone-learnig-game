@@ -1218,17 +1218,11 @@
       var sy = controlY(), sx = p.x + p.w / 2;
       var g = mk('g', { 'class': 'stepper' }, layers.ui);
       st.stepperG = g;
-      // THE WORD AND THE CONTROL ARE TWO THINGS. With the label tucked over
-      // the number inside one bar, the number sat low and off its centre and
-      // the pair read as misaligned. The label has its own small plate to
-      // the left; the bar holds only minus, the number, plus — and the
-      // number is centred in it.
-      var SH = CONTROL_H, LW = 150, BW = 186, GAP = 12;
-      var x0 = sx - (LW + GAP + BW) / 2, x1 = x0 + LW + GAP;
-      mk('rect', { x: x0, y: sy - SH / 2 + 8, width: LW, height: SH - 16, rx: 12,
-                   fill: UI.paper, stroke: UI.paperRim, 'stroke-width': UI.rim }, g);
-      mk('text', { x: x0 + LW / 2, y: sy + 5, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 700,
-                   fill: UI.muted, text: (spec.stepper && spec.stepper.label) || 'Number of sides' }, g);
+      // JUST THE CONTROL. The plank already says what the number is; a
+      // second label beside the bar said it again. Minus, the number, plus,
+      // centred under the shape.
+      var SH = CONTROL_H, BW = 186;
+      var x1 = sx - BW / 2;
       mk('rect', { x: x1, y: sy - SH / 2, width: BW, height: SH, rx: UI.radius,
                    fill: UI.paper, stroke: UI.paperRim, 'stroke-width': UI.rim }, g);
       st.stepMinus = pill(g, { x: x1 + 8, y: sy, w: 50, h: 44, label: '−', tone: 'sun', glyph: 'stepMinus', press: true, attrs: { 'class': 'step-minus' } });
