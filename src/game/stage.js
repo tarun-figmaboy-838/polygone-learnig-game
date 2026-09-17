@@ -399,8 +399,10 @@
     // can have the room. Centred on 500, and half again as tall.
     // 290, not 306: at 306 the pair reached 556px on a 720 window and he
     // stands centre-bottom on one of these screens with his head at 547.
-    left2:  { x: 178, y: 128, w: 306, h: 290 },
-    right2: { x: 516, y: 128, w: 306, h: 290 }
+    // 150, not 128: he peeks over the left one, and his head has to clear a
+    // one-line plank above it. The check lines below still end above the foot.
+    left2:  { x: 178, y: 150, w: 306, h: 290 },
+    right2: { x: 516, y: 150, w: 306, h: 290 }
   };
 
   /* ------------------------------------------------------------------ *
@@ -580,6 +582,10 @@
     var mx = face.w * 0.03, mt = face.h * 0.03;
     // Room for what is drawn beneath it, and none when nothing is.
     var mb = opts.below ? face.h * 0.2 : face.h * 0.03;
+    // A SHAPE THAT WILL BE MEASURED keeps a margin all round: the readings
+    // sit outside its sides, and the measurer walks outside them too, and
+    // both have to stay on the glass.
+    if (opts.room === 'measure') { mx = face.w * 0.11; mt = face.h * 0.15; mb = Math.max(mb, face.h * 0.15); }
     var box = { x: face.x + mx, y: face.y + mt, w: face.w - mx * 2, h: face.h - mt - mb };
 
     // Built at unit size WITH its deformations, so what gets measured is what
@@ -828,12 +834,16 @@
       marks.forEach(function (mark, i) { mark.setAttribute('visibility', i * 6 <= distance ? 'visible' : 'hidden'); });
       var px = a.x + dx * progress, py = a.y + dy * progress;
       var wx = px + nx * clearance, wy = py + ny * clearance;
-      walker.setAttribute('transform', 'translate(' + wx + ',' + wy + ')');
+      // FACING THE SIDE. The sheet walks to the right; on a side whose
+      // outside is to the right of the shape that had him walking away from
+      // the thing he was measuring. Mirrored there, he faces it.
+      var faceLeft = nx > 0.25;
+      walker.setAttribute('transform', 'translate(' + wx + ',' + wy + ')' + (faceLeft ? ' scale(-1,1)' : ''));
       var frame = frames.order[Math.floor(Math.min(elapsed, duration) * frames.fps / 1000) % frames.order.length];
       sheet.setAttribute('x', -(frame % frames.cols) * frames.cell);
       sheet.setAttribute('y', -Math.floor(frame / frames.cols) * frames.cell);
       walker.setAttribute('data-frame', frame);
-      lead.setAttribute('d', 'M' + (px + nx * 7) + ',' + (py + ny * 7) + ' L' + (wx + 30) + ',' + (wy - 24));
+      lead.setAttribute('d', 'M' + (px + nx * 7) + ',' + (py + ny * 7) + ' L' + (wx + (faceLeft ? -30 : 30)) + ',' + (wy - 24));
       if (elapsed < duration + 180) raf = global.requestAnimationFrame(tick);
       else finish();
     }
@@ -855,7 +865,7 @@
         var a = v[i], b = v[(i + 1) % n];
         var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
         var dx = mx - c.x, dy = my - c.y, len = Math.hypot(dx, dy) || 1;
-        var lx = mx - dx / len * 34, ly = my - dy / len * 34;   // inside the shape, off the side
+        var lx = mx + dx / len * 28, ly = my + dy / len * 28;   // outside the side, where a ruler's reading goes
         var t = mk('g', { 'class': 'meas' }, g);
         mk('rect', { x: lx - 30, y: ly - 14, width: 60, height: 28, rx: 8, fill: '#fff', stroke: '#9fd6fb' }, t);
         mk('text', { x: lx, y: ly + 6, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#1c2a4a', text: (L[i] / 30).toFixed(0) + ' cm' }, t);
@@ -963,7 +973,7 @@
       var p = panelFor(spec.panel || 'right', spec);
       st.panel = p; st.kind = 'polygon';
       panel(p, { enter: morph ? false : spec.enter });
-      var P = polygonIn(p, spec.sides || 5, { below: spec.below });
+      var P = polygonIn(p, spec.sides || 5, { below: spec.below, room: spec.room });
       st.verts = P.verts; st.cx = P.cx; st.cy = P.cy; st.r = P.r; st.n = spec.sides || 5;
       st.polyG = mk('g', { 'class': 'polygon' }, layers.poly);
       st.diagonals = [];
@@ -1054,27 +1064,22 @@
       // BIG ENOUGH TO BE A PLACE. These are not labels, they are the two
       // halves of the answer and they hold everything the child has sorted so
       // far, so they get real size and a real shelf inside them.
-      var ZW = 288, ZH = 312, ZY = TOP;
-      [{ id: 'regular', x: 96 },
-       { id: 'irregular', x: W - 96 - ZW }].forEach(function (z) {
+      var ZW = 316, ZH = 340, ZY = TOP;
+      [{ id: 'regular', x: 58 },
+       { id: 'irregular', x: W - 58 - ZW }].forEach(function (z) {
         var def = (spec.zones || []).filter(function (d) { return d.id === z.id; })[0] || { id: z.id, label: z.id };
         var c = CONCEPT[z.id] || CONCEPT.regular;
         var tone = [c.wash, c.face, c.ink];
         var g = mk('g', { 'class': 'zone', 'data-zone': z.id }, layers.ui);
 
-        /* THE ZONE IS THE ARTWORK, TITLE AND ALL.
+        /* THE ZONE IS THE ARTWORK, AND THE WORD IS LETTERED ON ITS GLASS.
          *
-         * assets/ui/regular.png and irregular.png are finished drop zones: the
-         * frame, the title plate with the word already lettered on it, and the
-         * shelf underneath for what the child has caught. So this does NOT
-         * print a label — the word is in the picture, and a second one drawn
-         * over it would be the same word twice in two different types.
-         *
-         * The shelf comes from the artwork's own measured pane rather than
-         * from an inset guessed here: the title plate takes the top quarter of
-         * the card, so a shelf centred in the card would stack the first row
-         * of shapes across the word. */
+         * The frames are blank ice — a cyan rim for regular, a violet one for
+         * irregular, the concept's own colours — so the title is drawn here,
+         * in the concept's ink on a band of its wash, inside the top of the
+         * pane. The shelf for what the child has caught begins under it. */
         var Z = global.CardFrame && CardFrame[z.id];
+        var TITLE_H = 46, titleBottom = 0;
         if (Z) {
           var im = mk('image', {
             x: z.x, y: ZY, width: ZW, height: ZH,
@@ -1082,6 +1087,12 @@
           }, g);
           im.setAttributeNS('http://www.w3.org/1999/xlink', 'href', Z.src);
           im.setAttribute('href', Z.src);
+          var pane = Z.pane || { x: 0.06, y: 0.09, w: 0.88, h: 0.82 };
+          var px0 = z.x + ZW * pane.x, pw = ZW * pane.w, py0 = ZY + ZH * pane.y + 10;
+          mk('rect', { x: px0 + 14, y: py0, width: pw - 28, height: TITLE_H, rx: 14, fill: c.face, opacity: 0.30 }, g);
+          mk('text', { x: z.x + ZW / 2, y: py0 + 32, 'text-anchor': 'middle', 'font-size': 27,
+                       'font-weight': 800, fill: c.ink, text: def.label }, g);
+          titleBottom = py0 + TITLE_H + 8;
         } else {
           // No artwork: the drawn zone, so the practice still works.
           mk('rect', { x: z.x, y: ZY + 7, width: ZW, height: ZH, rx: 26, fill: tone[1], opacity: 0.35 }, g);
@@ -1094,7 +1105,7 @@
         g._rect = { x: z.x, y: ZY, w: ZW, h: ZH };
         var q = Z && Z.pane;
         g._shelf = q
-          ? { x: z.x + ZW * q.x, y: ZY + ZH * q.y, w: ZW * q.w, h: ZH * q.h }
+          ? { x: z.x + ZW * q.x, y: titleBottom, w: ZW * q.w, h: ZY + ZH * (q.y + q.h) - titleBottom - 6 }
           : { x: z.x + 26, y: ZY + 86, w: ZW - 52, h: ZH - 112 };
         g._kept = [];
         g._keptG = mk('g', { 'class': 'zone-kept' }, g);
@@ -1138,7 +1149,7 @@
       // Swiftee on the left, which left the lesson sitting off-centre on every
       // screen that uses it — and he is placed by the screen now, so the
       // lesson does not have to make room for a guess about where he is.
-      var bw = 300, gap = 30, bh = 200, by = 296;
+      var bw = 340, gap = 30, bh = 236, by = 282;   // the collection is the point: it gets the room
       var x0 = (W - (bins.length * bw + (bins.length - 1) * gap)) / 2;
       bins.forEach(function (b, i) {
         var x = x0 + i * (bw + gap), y = by;
@@ -1163,7 +1174,7 @@
       // 132px pitch put the sixth of six shapes at x = 1005 in a 1000-wide
       // viewBox: drawn off the edge, clipped, and impossible to drag. Derive
       // the pitch from the width instead, and never exceed the natural one.
-      var ITEM = 112, MARGIN = 24;
+      var ITEM = 92, MARGIN = 24;
       var pitch = Math.min(ITEM + 12, (W - 2 * MARGIN - ITEM) / Math.max(1, visible.length - 1));
       var span = (visible.length - 1) * pitch;
       var ix0 = (W - span) / 2;
@@ -1171,7 +1182,7 @@
         st.sort.items.push(makeSortItem(
           name,
           spec.oneAtATime ? W / 2 + 120 : ix0 + i * pitch,
-          spec.oneAtATime ? 210 : TOP + 72,           // clear of the plank
+          spec.oneAtATime ? 210 : TOP + 58,           // clear of the plank
           i
         ));
       });
@@ -1207,14 +1218,22 @@
       var sy = controlY(), sx = p.x + p.w / 2;
       var g = mk('g', { 'class': 'stepper' }, layers.ui);
       st.stepperG = g;
-      var SW = 250, SH = CONTROL_H;
-      mk('rect', { x: sx - SW / 2, y: sy - SH / 2, width: SW, height: SH, rx: UI.radius,
+      // THE WORD AND THE CONTROL ARE TWO THINGS. With the label tucked over
+      // the number inside one bar, the number sat low and off its centre and
+      // the pair read as misaligned. The label has its own small plate to
+      // the left; the bar holds only minus, the number, plus — and the
+      // number is centred in it.
+      var SH = CONTROL_H, LW = 150, BW = 186, GAP = 12;
+      var x0 = sx - (LW + GAP + BW) / 2, x1 = x0 + LW + GAP;
+      mk('rect', { x: x0, y: sy - SH / 2 + 8, width: LW, height: SH - 16, rx: 12,
                    fill: UI.paper, stroke: UI.paperRim, 'stroke-width': UI.rim }, g);
-      mk('text', { x: sx, y: sy - 9, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 700,
+      mk('text', { x: x0 + LW / 2, y: sy + 5, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 700,
                    fill: UI.muted, text: (spec.stepper && spec.stepper.label) || 'Number of sides' }, g);
-      st.stepMinus = pill(g, { x: sx - SW / 2 + 8, y: sy, w: 50, h: 40, label: '−', tone: 'sun', press: true, attrs: { 'class': 'step-minus' } });
-      st.stepPlus  = pill(g, { x: sx + SW / 2 - 58, y: sy, w: 50, h: 40, label: '+', tone: 'sun', press: true, attrs: { 'class': 'step-plus' } });
-      st.stepText = mk('text', { x: sx, y: sy + 20, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 800, fill: UI.ink, text: n }, g);
+      mk('rect', { x: x1, y: sy - SH / 2, width: BW, height: SH, rx: UI.radius,
+                   fill: UI.paper, stroke: UI.paperRim, 'stroke-width': UI.rim }, g);
+      st.stepMinus = pill(g, { x: x1 + 8, y: sy, w: 50, h: 40, label: '−', tone: 'sun', press: true, attrs: { 'class': 'step-minus' } });
+      st.stepPlus  = pill(g, { x: x1 + BW - 58, y: sy, w: 50, h: 40, label: '+', tone: 'sun', press: true, attrs: { 'class': 'step-plus' } });
+      st.stepText = mk('text', { x: x1 + BW / 2, y: sy + 11, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 800, fill: UI.ink, text: n }, g);
       st.stepper = { min: (spec.stepper && spec.stepper.min) || 3, max: (spec.stepper && spec.stepper.max) || 8 };
     }
   };
@@ -1277,6 +1296,9 @@
   function dealCard() {
     var sw = st.swipe;
     if (!sw || sw.i >= sw.items.length) return null;
+    // WHERE IT CAN GO. Both zones breathe while a card is waiting — the
+    // hint is the destination, never the answer — and stop when it lands.
+    Object.keys(sw.zones).forEach(function (k) { if (sw.zones[k].classList) sw.zones[k].classList.add('hint'); });
     var name = sw.items[sw.i];
     var g = mk('g', { 'class': 'swipe-card', 'data-shape': name }, layers.ui);
     var card = optionCard(g, 96, name);
@@ -1451,7 +1473,7 @@
 
   function makeSortItem(name, x, y, i) {
     var g = mk('g', { 'class': 'sort-item', 'data-shape': name }, layers.ui);
-    var card = optionCard(g, 56, name);
+    var card = optionCard(g, 46, name);   // the option is the small thing; the bin it goes in is the big one
     g.setAttribute('transform', 'translate(' + x + ',' + y + ')');
     g._home = { x: x, y: y }; g._name = name;
     g._verts = shapeVerts(name, card._pane.r, card._pane.cx, card._pane.cy);
@@ -2455,6 +2477,13 @@
           if (ok) {
             var zone = sw.zones[answer];
             sfx('correct');
+            Object.keys(sw.zones).forEach(function (k) { if (sw.zones[k].classList) sw.zones[k].classList.remove('hint'); });
+            if (zone && zone.classList) {
+              // the zone that caught it lights up for a moment
+              zone.classList.remove('landed'); void zone.getBBox && zone.getBBox();
+              zone.classList.add('landed');
+              later(700, function () { zone.classList.remove('landed'); });
+            }
             juice('pop', card);
             if (zone && !reduced() && zone.animate) {
               zone.animate([{ scale: '1' }, { scale: '1.07' }, { scale: '1' }],
@@ -2650,7 +2679,16 @@
         st.measure = st.measure || {}; st.measure[isSides ? 'sides' : 'angles'] = [];
         st.showVerts = !isSides; st.touchVerts = !isSides; renderPoly();
         var cls = isSides ? 'edge' : 'vertex';
-        (isSides ? st.edgeEls : st.vertEls).forEach(function (el) { el.style.cursor = 'pointer'; });
+        // WHERE TO TAP. Every target still waiting carries a soft pulse — a
+        // glow along the side, a breath on the corner — and loses it the
+        // moment it has been measured, so the pulse is always the to-do list.
+        var hint = function () {
+          (isSides ? st.edgeEls : st.vertEls).forEach(function (el, i) {
+            el.style.cursor = 'pointer';
+            if (el.classList) el.classList.toggle('hint', !seen[i]);
+          });
+        };
+        hint();
         // Delegated: renderPoly() runs after every reveal.
         on(st.polyG, 'pointerdown', function (e) {
           var t = e.target; if (!t || !t.classList || !t.classList.contains(cls)) return;
@@ -2666,7 +2704,7 @@
             count++;
             st.measure[isSides ? 'sides' : 'angles'].push(i); renderPoly();
             st.lastEl = (isSides ? st.edgeEls : st.vertEls)[i];
-            (isSides ? st.edgeEls : st.vertEls).forEach(function (el) { el.style.cursor = 'pointer'; });
+            hint();
             onTap('correct'); measuring = false;
             if (count >= need) { endInteraction(); resolve({ result: 'correct' }); }
             else next();

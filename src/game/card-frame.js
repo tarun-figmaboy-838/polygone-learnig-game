@@ -7,10 +7,8 @@
  *   panel   the slab a single shape is DISPLAYED on, with nothing to do
  *
  * `pane` is the clear area inside the rim, as a fraction of the card, so a
- * (panel.pane.h is hand-set to 0.85: the detector stopped at the inner
- * highlight, a tenth of the glass short of the bottom rim, and every shape
- * on the slab was drawn a tenth smaller than the glass allows. Keep it if
- * the tool is re-run against the same artwork.)
+ * (panel.pane.h is hand-set to 0.85 after every rebuild: the detector stops at
+ * the inner highlight, a tenth short of the glass; keep it.)
  * shape can be placed in it at any size the card is drawn at. Measured from
  * the artwork rather than eyeballed, because the rim is not the same
  * thickness on every edge and a shape centred on the card is not centred in
@@ -33,12 +31,12 @@
     "panel": {
       "src": "assets/ui/bigcard.webp",
       "w": 1024,
-      "h": 816,
+      "h": 0.85,
       "pane": {
         "x": 0.0414,
         "y": 0.0821,
         "w": 0.918,
-        "h": 0.85
+        "h": 0.7443
       }
     },
     "plank": {
@@ -55,23 +53,23 @@
     "regular": {
       "src": "assets/ui/zone-regular.webp",
       "w": 640,
-      "h": 727,
+      "h": 599,
       "pane": {
-        "x": 0.0523,
-        "y": 0.2538,
-        "w": 0.8955,
-        "h": 0.6186
+        "x": 0.0309,
+        "y": 0.0642,
+        "w": 0.9391,
+        "h": 0.8515
       }
     },
     "irregular": {
       "src": "assets/ui/zone-irregular.webp",
       "w": 640,
-      "h": 691,
+      "h": 589,
       "pane": {
-        "x": 0.0604,
-        "y": 0.2518,
-        "w": 0.8782,
-        "h": 0.676
+        "x": 0.0588,
+        "y": 0.0764,
+        "w": 0.8825,
+        "h": 0.8282
       }
     }
   };

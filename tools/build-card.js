@@ -57,8 +57,11 @@ const CARDS = [
   // border-image, so what matters is where the flat middle starts on each
   // edge — the snow caps live in the corner slices and must never stretch.
   { key: 'plank',     src: 'assets/ui/pannel.png',   out: 'assets/ui/plank.webp',           cap: 1400 },
-  { key: 'regular',   src: 'assets/ui/regular.png',   out: 'assets/ui/zone-regular.webp',   cap: 640 },
-  { key: 'irregular', src: 'assets/ui/irregular.png', out: 'assets/ui/zone-irregular.webp', cap: 640 }
+  // The zone frames are blank glass now — a cyan rim for regular, a violet
+  // one for irregular — and stage.js letters the word on them. The earlier
+  // regular.png / irregular.png carried their own title plates.
+  { key: 'regular',   src: 'assets/ui/NEWCARD.png',  out: 'assets/ui/zone-regular.webp',   cap: 640 },
+  { key: 'irregular', src: 'assets/ui/NEWCARD1.png', out: 'assets/ui/zone-irregular.webp', cap: 640 }
 ];
 
 function serve() {

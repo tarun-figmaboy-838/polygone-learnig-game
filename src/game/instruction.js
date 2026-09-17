@@ -55,6 +55,30 @@
 
   var table = null;
 
+  /**
+   * ONE LINE, ALWAYS.
+   *
+   * The plank is as wide as its sentence and no wider, so there is no empty
+   * wood either side of the words; and the sentence is never allowed to wrap,
+   * because a plank that grows a second line pushes the whole lesson down and
+   * reads as a different piece of furniture. When the sentence would not fit
+   * the room the HUD leaves it, the type steps down a pixel at a time until
+   * it does. Only a sentence no readable size can hold is allowed to wrap.
+   */
+  var MIN_PX = 15;
+  function fit() {
+    if (!el || !textEl) return;
+    textEl.style.whiteSpace = 'nowrap';
+    el.style.fontSize = '';
+    var size = parseFloat(global.getComputedStyle(el).fontSize) || 24;
+    var guard = 0;
+    while (textEl.scrollWidth > textEl.clientWidth + 1 && size > MIN_PX && guard++ < 40) {
+      size -= 1;
+      el.style.fontSize = size + 'px';
+    }
+    if (textEl.scrollWidth > textEl.clientWidth + 1) textEl.style.whiteSpace = 'normal';
+  }
+
   function mount() {
     if (el) return el;
     el = global.document.getElementById('instruction');
@@ -76,6 +100,7 @@
       global.addEventListener('resize', publish);
     }
     el.__publish = publish;
+    global.addEventListener('resize', function () { if (current) fit(); publish(); });
     return el;
   }
 
@@ -108,6 +133,7 @@
       else textEl.textContent = text;
       el.classList.remove('out');
       el.classList.add('show');
+      fit();
       el.__publish();
     };
 

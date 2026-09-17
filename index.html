@@ -259,6 +259,39 @@
   /* A drop zone is two hundred pixels of dashed outline; a ring around
      something that big reads as a rendering fault. It still answers a press. */
   #stage .zone.touchable:hover { filter: none; translate: 0; }
+
+  /* WHERE TO TAP. A side or corner still waiting to be measured breathes:
+     a soft warm glow that comes and goes, never a flash. The class is put
+     on by the tap-each input and taken off the moment the target is done. */
+  #stage .edge.hint {
+    stroke: #ffd95a; stroke-width: 14; stroke-linecap: round;
+    animation: hintGlow 1.3s ease-in-out infinite;
+  }
+  #stage .vertex.hint {
+    transform-box: fill-box; transform-origin: center;
+    animation: hintBreathe 1.3s ease-in-out infinite;
+  }
+  @keyframes hintGlow { 0%, 100% { stroke-opacity: .16; } 50% { stroke-opacity: .58; } }
+  /* A drop zone breathes while a card is waiting for it, and flares once
+     when a card lands. Both zones, always: the glow says "here is where
+     things go", never which one is right. */
+  #stage .zone.hint { animation: zoneGlow 1.5s ease-in-out infinite; }
+  #stage .zone.landed { animation: zoneLand .65s ease-out; }
+  @keyframes zoneGlow {
+    0%, 100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); }
+    50% { filter: drop-shadow(0 0 14px rgba(255,255,255,.85)); }
+  }
+  @keyframes zoneLand {
+    0% { filter: drop-shadow(0 0 0 #fff) brightness(1); }
+    30% { filter: drop-shadow(0 0 24px #fff) brightness(1.2); }
+    100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)) brightness(1); }
+  }
+  @keyframes hintBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.22); } }
+  @media (prefers-reduced-motion: reduce) {
+    #stage .edge.hint { animation: none; stroke-opacity: .4; }
+    #stage .vertex.hint { animation: none; }
+    #stage .zone.hint, #stage .zone.landed { animation: none; }
+  }
   @media (prefers-reduced-motion: reduce) {
     #stage .touchable { transition: none; }
     #stage .touchable:hover { translate: 0; }
@@ -323,18 +356,21 @@
     left: 50%; transform: translateX(-50%);
     top: clamp(6px, 1.2vh, 18px);
     box-sizing: border-box;
-    /* ONE WIDTH, EVERY SCREEN. Sized to its sentence it was a different
-       plank on every page — a stub for "Let's check!", a beam for the next
-       line — and the eye read that as the UI changing. A fixed board with
-       the words centred on it is furniture; the words are what change. */
-    width: clamp(560px, 62vw, 1040px);
+    /* AS WIDE AS ITS SENTENCE, on one line. instruction.js steps the type
+       down until the sentence fits the room the HUD leaves, so the plank
+       never wraps and never carries empty wood either side of the words. */
+    width: max-content;
+    min-width: 0;
     max-width: min(calc(100vw - 270px), 1200px);   /* never under the HUD buttons, at any width */
     height: auto;
 
     border-style: solid;
-    border-width: clamp(26px, 3.4vw, 62px) clamp(30px, 4.4vw, 80px) clamp(18px, 2.4vw, 44px);
+    /* The side slices sit PAST the snow caps (270 of 1400), so the caps are
+       never cut and stretched; cut at 150 the cap edge ran down the plank
+       as a seam. The cap border keeps the cap in proportion. */
+    border-width: clamp(26px, 3.4vw, 62px) clamp(46px, 5.2vw, 96px) clamp(18px, 2.4vw, 44px);
     border-image-source: url("assets/ui/plank.webp");
-    border-image-slice: 120 150 90 150 fill;
+    border-image-slice: 120 270 90 270 fill;
     border-image-repeat: stretch;
 
     padding: 0 clamp(4px, .8vw, 14px) clamp(2px, .4vw, 8px);
@@ -357,7 +393,7 @@
   #instruction.fading .instruction-text { opacity: 0; }
 
   @media (max-width: 760px) {
-    #instruction { width: 92vw; max-width: 92vw; min-width: 0; font-size: clamp(15px, 3.4vw, 22px); }
+    #instruction { width: max-content; max-width: 92vw; min-width: 0; font-size: clamp(15px, 3.4vw, 22px); }
   }
   @media (prefers-reduced-motion: reduce) {
     #instruction, #instruction .instruction-text { transition: none; }
