@@ -230,7 +230,7 @@
 
     {
       id: 'made-diagonal', page: 12,
-      swiftee: { pos: 'left-low', size: 'medium', purpose: 'celebrate'},
+      swiftee: { pos: 'peek', size: 'small', purpose: 'celebrate'},
       instruction: 'Drag the line segment to a different vertex.',
       say: 'Yay! You made a diagonal.',
       stage: { label: { text: 'Diagonal', at: 'below-polygon' } },
@@ -244,7 +244,7 @@
 
     {
       id: 'define-diagonal', page: 13,
-      swiftee: { pos: 'left-low', size: 'medium', purpose: 'concept'},
+      swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
       instruction: 'Drag the line segment to a different vertex.',
       // FLAG: content error. The deck says "two non-adjacent SIDES". A
       // diagonal joins two non-adjacent VERTICES. The deck's own picture
@@ -399,7 +399,7 @@
 
     {
       id: 'whoa', page: 20,
-      swiftee: { pos: 'left-low', size: 'medium', purpose: 'surprise'},
+      swiftee: { pos: 'peek', size: 'small', purpose: 'surprise'},
       say: 'Whoa! One of the diagonals went outside.',
       stage: { highlight: { diagonal: 'outside', color: 'red', style: 'dashed' } },
       beats: [
@@ -574,12 +574,11 @@
       id: 'suspicious', page: 28,
       // NOT polygon-top-right: that corner is inside the right-hand slab, so
       // the position cannot avoid the panel it is defined against.
-      swiftee: { pos: 'left-low', size: 'small', purpose: 'hint'},
+      swiftee: { pos: 'peek', size: 'small', purpose: 'hint'},
       say: 'Hmm\u2026 The sides look suspiciously alike.',
-      stage: { kind: 'polygon', sides: 5, panel: 'right' },
+      stage: { kind: 'polygon', sides: 5 },
       beats: [
-        { stage: { kind: 'polygon', sides: 5, panel: 'right', enter: 'pop' } },
-        { swiftee: 'move', to: 'left', size: 'medium' },
+        { stage: { kind: 'polygon', sides: 5, enter: 'pop' } },
         { swiftee: 'inspect' },
         { say: 'Hmm\u2026 The sides look suspiciously alike.', vo: 'p28' },
         { input: { type: 'tap-anywhere' } }
@@ -588,11 +587,10 @@
 
     {
       id: 'measure-sides', page: 29,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      swiftee: { pos: 'corner', size: 'small', purpose: 'demo' },
       instruction: 'Tap the sides to measure them.',
       say: 'Let\u2019s check!',
       beats: [
-        { swiftee: 'move', to: 'left-low', size: 'medium' },
         { instruction: 'Tap the sides to measure them.' },
         { say: 'Let\u2019s check!', vo: 'p29' },
         { swiftee: 'inspect' },
@@ -608,7 +606,7 @@
 
     {
       id: 'sides-equal', page: 30,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      swiftee: { pos: 'corner', size: 'small', purpose: 'celebrate' },
       // FLAG: on this deck page the instruction card already reads "Tap the
       // angles..." while Swiftee is still concluding the SIDES check. The
       // card is held on the sides instruction until the line finishes, then
@@ -626,7 +624,7 @@
 
     {
       id: 'measure-angles', page: 31,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      swiftee: { pos: 'corner', size: 'small', purpose: 'celebrate' },
       instruction: 'Tap the angles to measure them.',
       say: 'The angles match too!',
       beats: [
@@ -686,7 +684,7 @@
       // under the panels and start at 194, so the foot of the left margin is
       // ABOVE. The pair fills the middle and its checks fill the foot, so
       // the band above them is the only place a sentence fits.
-      swiftee: { pos: 'top-left', size: 'small', purpose: 'concept'},
+      swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
       say: 'All sides AND all angles equal means regular. Otherwise, it\u2019s irregular.',
       stage: {
         kind: 'compare',
@@ -816,7 +814,7 @@
       // Medium. This screen uses the CENTRED slab, which starts at x 230 — at
       // large he is 175 units across from x 62 and his wing is on the card.
       // The finale is carried by the celebrate clip and the confetti.
-      swiftee: { pos: 'left-low', size: 'medium', purpose: 'celebrate'},
+      swiftee: { pos: 'peek', size: 'small', purpose: 'celebrate'},
       say: 'Nice! You built a concave and irregular pentagon.',
       stage: { checklist: ['5 sides', 'Concave', 'Irregular'] },
       beats: [
@@ -884,7 +882,17 @@
  * same order, no bird. He was on every screen and had stopped meaning
  * anything by the fourth.
  *
- *   purpose: 'introduce' | 'concept' | 'hint' | 'surprise' | 'celebrate'
+ *   purpose: 'introduce' | 'concept' | 'hint' | 'surprise' | 'celebrate' | 'demo'
+ *
+ * Where he stands when he is on: 'peek' is behind the top-left rim of the
+ * slab, head and shoulders over it — the mark for every line spoken beside
+ * a card while the plank is empty. 'corner' is on the snow at the slab's
+ * bottom-left: for the measuring run, where he flies off it to each side, and
+ * for the two screens after it, where the plank stays up with an instruction
+ * and a head over the rim would sit under it. The intro, with no slab, keeps
+ * 'left'. The three definition screens keep the plank up with the rule on it
+ * while he speaks, so a head over the rim would sit under the plank: he takes
+ * the top-left corner there, beside it.
  */
 global.Screens = {
     list: SCREENS,

@@ -24,6 +24,14 @@
      Page 8 is the case: no dialogue, no input, just his entrance and a line
      being drawn, and without this it was over before the child had looked. */
   var BEAT_WITHOUT_HIM_MS = 600;
+  /* Whether he is actually on the stage, as opposed to buddyOn, which is
+     whether this screen wants him. They differ for the length of an
+     entrance or an exit — and those two animations are what keep him from
+     popping into a corner or vanishing out of one. */
+  var present = false, entering = null;
+  /* Bumped by every play(); a loop that wakes from an await and finds a
+     newer one has started steps aside instead of running a screen over it. */
+  var playGen = 0;
   var refitTimer = null, refitRaf = 0;
   var SAVE_KEY = 'swiftee.audio';
   var quest = Quest.create(), rewardTimer;
@@ -48,12 +56,19 @@
     if (el) el.textContent = text || '';
     rewardTimer = setTimeout(function () { if (el) el.textContent = ''; }, 4000);
 
-    if (global.Juice) Juice.shower({ count: big ? 110 : 55, duration: big ? 2300 : 1800 });
+    // A BURST FROM THE OBJECT, not a shower over the whole screen: the
+    // reward belongs to the shape the child just finished measuring, or
+    // sorting, or building, and the paper should come from there.
+    if (global.Juice && Juice.confetti) {
+      var near = null;
+      try { near = Stage.element && Stage.element('polygon'); } catch (e) { near = null; }
+      Juice.confetti(near || Stage.svg, { count: big ? 90 : 50 });
+    }
     if (global.SFX) SFX.play(big ? 'levelUp' : 'sparkle');
     // He joins the celebration only if he is on this screen. Off, the
     // confetti, the level-up sound and the reward line carry it; a bird
     // popping into a layout that was set without him is not a reward.
-    if (buddyOn && global.Swiftee && Swiftee.play) {
+    if (buddyOn && present && global.Swiftee && Swiftee.play) {
       try {
         Swiftee.play('celebrate');
         if (global.Juice && Swiftee.el) Juice.tada(Swiftee.el);
@@ -92,9 +107,52 @@
    * verdict. On a right one he is simply pleased, which is a smaller thing
    * than the full celebration a first-time award gets.
    */
+  /**
+   * He comes in before his first line on a screen he joins: a slide in from
+   * the wing, never a pop. One entrance per appearance, however many beats
+   * ask for it while it is still running.
+   */
+  function entrance() {
+    if (!buddyOn || present || !global.Swiftee || !Swiftee.play) return Promise.resolve(false);
+    if (entering) return entering;
+    var done = function () { present = true; entering = null; return true; };
+    // Capped. The walk-on is under half a second; if the rig cannot finish
+    // it — no animation support, a sheet that will not load — the lesson
+    // must not wait on him. He is simply there.
+    entering = Promise.race([Swiftee.play('enter', wingFor('from')), pause(1500)]).then(done, done);
+    return entering;
+  }
+
+  /** And he leaves before a screen that does not need him: a wave, and off to the wing. */
+  function leave() {
+    if (!present || !global.Swiftee || !Swiftee.play) return Promise.resolve();
+    present = false;
+    var off = function () { if (Swiftee.place) Swiftee.place('off', Swiftee.size); };
+    return Promise.race([Swiftee.play('exit', wingFor('to')), pause(1200)]).then(off, off);
+  }
+
+  function pause(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  /** Which wing he uses: behind the card when he is peeking over it, the left edge otherwise. */
+  function wingFor(key) {
+    var o = {};
+    if (Swiftee.pos === 'peek') {
+      o[key] = 'below';
+      o.rise = Math.round(frame().h * (BIRD_H[Swiftee.size] || BIRD_H.small) * 0.8);
+    } else {
+      o[key] = 'left';
+    }
+    return o;
+  }
+
+  function wantsBuddy(i) {
+    var s = Screens.list[i];
+    return !!(s && s.swiftee && s.swiftee.purpose);
+  }
+
   function react(kind) {
     if (kind === 'wrong') quest.mistake();
-    if (!buddyOn) return;   // the sound and the confetti carry the verdict
+    if (!buddyOn || !present) return;   // the sound and the confetti carry the verdict
     if (!global.Swiftee || !Swiftee.play) return;
     try {
       if (kind === 'wrong') Swiftee.play('confused');
@@ -195,6 +253,25 @@
       'centre':             { x: 0.50, y: 0.93 },
       'off':                { x: -0.3, y: 0.9 }
     };
+
+    // TWO MARKS THAT BELONG TO THE CARD, NOT THE SCREEN. 'peek' is behind
+    // the slab's top-left rim, head and shoulders showing; 'corner' is on
+    // the snow at its bottom-left. Both are read off the panel the stage
+    // actually drew, so they follow it when it moves. With no slab to hold
+    // on to they fall back to the fixed corner marks.
+    var clipPage = null;
+    var anchor = global.Stage && Stage.peekAnchor && Stage.peekAnchor();
+    if (anchor && !f.portrait) {
+      var ax = function (x) { return (x / 1000); }, ay = function (y) { return (y / 562); };
+      var rim = anchor.y;                                   // the top edge of the slab's box
+      var birdH = f.h * (BIRD_H[size] || BIRD_H.small);     // his drawn height on this screen
+      map['peek'] = { x: ax(anchor.x + anchor.w * 0.17), y: ay(rim) + (0.42 * birdH) / f.h };
+      map['corner'] = { x: ax(anchor.x - 70), y: ay(anchor.y + anchor.h) };
+      if (pos === 'peek') clipPage = f.y + ay(rim) * f.h;
+    } else {
+      map['peek'] = map['top-left'];
+      map['corner'] = map['left-low'];
+    }
     if (f.portrait) {
       // Stage letterboxes; put Swiftee below the box so he never covers it.
       map['left'] = { x: 0.18, y: 1.02 }; map['left-low'] = { x: 0.16, y: 1.02 };
@@ -228,7 +305,9 @@
       y = Math.max(y, f.y + f.h + 8 + 256 * CONTENT_FRAC * scale);
     }
 
-    return fit({ x: f.x + m.x * f.w, y: y, scale: scale }, pos);
+    var L = fit({ x: f.x + m.x * f.w, y: y, scale: scale }, pos);
+    if (clipPage != null) L.clip = clipPage;
+    return L;
   }
 
   /**
@@ -819,8 +898,12 @@
     var hits = function () {
       var l = parseFloat(bubble.style.left) || 0, t = parseFloat(bubble.style.top) || 0;
       var r = { left: l, right: l + bubble.offsetWidth, top: t, bottom: t + bubble.offsetHeight };
+      // A SHARED EDGE IS NOT AN OVERLAP. The slot beside him starts exactly
+      // where his box ends, so the bubble's left edge equals his right edge
+      // to within a fraction of a pixel — and that fraction counted as a hit,
+      // narrowed the bubble three times, and turned one row into three.
       var over = function (p) {
-        return r.left < p.right && r.right > p.left && r.top < p.bottom && r.bottom > p.top;
+        return r.left < p.right - 1 && r.right > p.left + 1 && r.top < p.bottom - 1 && r.bottom > p.top + 1;
       };
       for (var i = 0; i < parts.length; i++) if (over(parts[i])) return true;
       return !!(birdBox && over(birdBox));
@@ -1170,7 +1253,7 @@
     (beats || []).forEach(function (b) {
       if (b.sfx && global.SFX) SFX.play(b.sfx, b);
       if (b.juice && global.Juice && Juice[b.juice]) Juice[b.juice](Stage.element(b.target), b);
-      if (b.swiftee && buddyOn) Swiftee.play(b.swiftee, b);
+      if (b.swiftee && buddyOn && present) Swiftee.play(b.swiftee, b);
       if (b.stage) Stage.apply(b.stage);
     });
   }
@@ -1218,7 +1301,7 @@
         settleTimer = setTimeout(relayout, 620);
         void wasSolo;
       },
-      swiftee: function (state, opts, ctx) {
+      swiftee: function handlerSwiftee(state, opts, ctx) {
         // No bird, but still a beat: the screen paces as it did, and only
         // the animation is skipped. Cancellable, so a jump or Restart does
         // not leave the old screen waiting on a bird that is not there.
@@ -1228,14 +1311,27 @@
             if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(t); resolve(); });
           });
         }
+        // Not on yet? He comes in first, then does what the beat asked.
+        if (state !== 'enter' && !present) {
+          return entrance().then(function () { return handlerSwiftee(state, opts, ctx); });
+        }
         var o = Object.assign({}, opts);
         if (o.at) o.at = Stage.element(o.at);
 
         var p = Swiftee.play(state, o, ctx);
+        if (state === 'enter') {
+          // THIS IS THE ENTRANCE. Anything that asks for him before it is
+          // over — a line the director reaches because the ride outran its
+          // beat ceiling — waits on it rather than starting a second one,
+          // which was a walk-on bird sliding in beside the one still landing.
+          var landed = function (r) { present = true; entering = null; return r; };
+          p = Promise.resolve(p).then(landed, landed);
+          entering = Promise.race([p, pause(9000)]).then(function (r) { landed(r); return r; });
+        }
         if (state === 'move' || state === 'enter') p.then(placeBubble);
         return p;
       },
-      say: function (text, opts, ctx) {
+      say: function handlerSay(text, opts, ctx) {
         if (!buddyOn) {
           // THE SAME WORDS, ON THE PLANK. The line is still read for its
           // reading time, so the screen's pacing is what it was; it is only
@@ -1243,6 +1339,16 @@
           // replaces it, exactly as it replaced the bubble.
           if (global.Instruction) Instruction.show(text || null);
           return Promise.resolve();
+        }
+        if (!present) {
+          // He comes in, then says it. The line still gets its whole reading
+          // time after it appears, not whatever the entrance left of it.
+          return entrance().then(function () { return handlerSay(text, opts, ctx); }).then(function () {
+            return new Promise(function (res) {
+              var t = setTimeout(res, opts.reading || 1200);
+              if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(t); res(); });
+            });
+          });
         }
         say(text, null, opts.reading);
         // The lesson is read, not spoken. Swiftee still rests on the
@@ -1376,7 +1482,10 @@
     // because seeding them would flash the deck's stale instruction first.
     if (s.instruction && !textBeforeInput(s)) setCard(s.instruction);
     if (!buddyOn && Swiftee.place) {
+      // Normally he has already left: the loop plays his exit before a
+      // screen that does not need him. This is the jump and the restart.
       Swiftee.place('off', Swiftee.size);
+      present = false;
       say(null);
     }
     if (buddyOn && s.swiftee && Swiftee.place) {
@@ -1389,8 +1498,16 @@
       // director abandoning a long beat — inherited a character four hundred
       // pixels off-stage with nothing left to bring him back. Placing him is
       // cheap and saying it twice costs a layout read.
-      Swiftee.place(wantPos, wantSize);
-      if (Swiftee.el) Swiftee.el.classList.toggle('hover-float', wantPos === 'top-left');
+      if (present && (wantPos !== Swiftee.pos || wantSize !== Swiftee.size) && Swiftee.play) {
+        // ALREADY ON, ON A DIFFERENT MARK: he goes there, he does not jump
+        // there. The move is a FLIP and lands on place(), so the bubble and
+        // the clip are right the moment it resolves.
+        Swiftee.play('move', { to: wantPos, size: wantSize });
+      } else {
+        Swiftee.place(wantPos, wantSize);
+      }
+      // On his mark but in the wing: his first beat brings him in.
+      if (!present && Swiftee.visible) Swiftee.visible(false);
       placeBubble();
     }
 
@@ -1537,9 +1654,15 @@
 
   async function play(from) {
     if (playing) return; playing = true;
+    var gen = ++playGen;
     var start = from || 0;
     for (var i = start; i < Screens.list.length; i++) {
+      // HE LEAVES BEFORE A SCREEN THAT DOES NOT NEED HIM: a wave and off to
+      // the wing, and only then the ice cracks, rather than being switched
+      // off underneath the transition.
+      if (i > start && present && !wantsBuddy(i)) { await leave(); if (gen !== playGen) return; }
       var r = await changeScreen(i, i === start);
+      if (gen !== playGen) return;                 // a restart took over while this waited
       if (r === Director.CANCELLED) { playing = false; return; }
       var badge = quest.complete(i);
       if (badge) { reward('Badge unlocked: ' + badge.name + '.', true); }
@@ -1697,6 +1820,8 @@
   global.Game = {
     restart: restart, play: play, relayout: relayout,
     get screen() { return current; },
+    /* Read by the suites: whether this screen wants him, and whether he is actually on. */
+    get buddy() { return { on: buddyOn, present: present, entering: !!entering }; },
     get director() { return director; }
   };
 

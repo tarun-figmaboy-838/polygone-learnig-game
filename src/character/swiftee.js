@@ -89,21 +89,21 @@
     wave:        { rig: 'waving',      loops: 2 },
     // `confident` is the closer match for a nod, but its loop is a 4.4s
     // pingpong — far too long for a beat that just means "yes, go on".
-    nod:         { rig: 'happy',       loops: 1 },
+    nod:         { rig: 'happy',       loops: 1, mood: 'glad' },
     // The director awaits this one, so it gates every correct answer. One
     // loop is 3.4s end to end; two made the reward outstay its welcome.
-    celebrate:   { rig: 'celebrating', loops: 1 },
-    encourage:   { rig: 'love',        loops: 1 },
-    confused:    { rig: 'confused',    loops: 1 },
-    surprised:   { rig: 'surprised',   loops: 1 },
+    celebrate:   { rig: 'celebrating', loops: 1, mood: 'glad' },
+    encourage:   { rig: 'love',        loops: 1, mood: 'glad' },
+    confused:    { rig: 'confused',    loops: 1, mood: 'puzzled' },
+    surprised:   { rig: 'surprised',   loops: 1, mood: 'amazed' },
     mischief:    { rig: 'playful',     loops: 2 },
     'step-back': { rig: 'relieved',    loops: 1, shift: -34 },
 
     // moments the game reaches outside screens.js
-    proud:       { rig: 'proud',       loops: 2 },
-    excited:     { rig: 'excited',     loops: 1 },
-    stuck:       { rig: 'puzzleing',   loops: 2 },
-    happy:       { rig: 'happy',       loops: 1 },
+    proud:       { rig: 'proud',       loops: 2, mood: 'glad' },
+    excited:     { rig: 'excited',     loops: 1, mood: 'glad' },
+    stuck:       { rig: 'puzzleing',   loops: 2, mood: 'puzzled' },
+    happy:       { rig: 'happy',       loops: 1, mood: 'glad' },
     daydream:    { rig: 'daydreaming', hold: true },
     // NOT 'sleeping'. Seventy-five seconds is a child reading a definition
     // and thinking about it, and a companion who lies down with a pillow and
@@ -115,6 +115,11 @@
     // 'look' — which matters after 'calling', where a rig was chosen on the
     // strength of its name and turned out to be a phone ringing.
     sleep:       { rig: 'curious',     hold: true },
+
+    // moods: what a line is spoken in when it follows a reaction
+    glad:        { rig: 'happy',       hold: true },
+    amazed:      { rig: 'surprised',   hold: true },
+    puzzled:     { rig: 'confused',    hold: true },
 
     // travel — a standalone loop under a WAAPI move
     enter:       { rig: 'driving',     hold: true },
@@ -170,6 +175,15 @@
   var stateName = 'idle';             // the storyboard state we are resting in
   var rigLoop = null;                 // the rig loop clip that still owes a `stop`
   var speaking = false;
+  /* THE FACE HE SAYS IT WITH. A one-shot reaction ends and he falls back to
+     the resting loop, so "Yay! You made a diagonal." was delivered by the
+     anxious attentive face of 'listening' two seconds after he had finished
+     celebrating. A reaction now leaves a mood behind — glad, amazed,
+     puzzled — and a line that starts soon after is spoken in that mood.
+     The mood is dropped when the line ends, or if nothing is said for a
+     while, so an old smile does not colour a line about something else. */
+  var mood = null, moodAt = 0;
+  var MOOD_MS = 3000;
   var idleTimer = null, idleLevel = 0;
   var rafId = null, lastT = 0, painted = null;   // url of the sheet currently bound
   var sheets = {};                    // url -> { img, promise, ok, used, pinned }
@@ -433,7 +447,7 @@
    * ------------------------------------------------------------------ */
 
   function restingState() {
-    if (speaking) return 'explain';                    // narrating -> talking loop
+    if (speaking) return mood || 'explain';            // narrating -> the mood, else the talking loop
     if (idleLevel === 2) return 'sleep';
     if (idleLevel === 1) return 'daydream';
     return 'idle';
@@ -457,12 +471,25 @@
     place(pos, size);
     el.style.opacity = '1';
     stateName = 'enter';
-    if (reduced() || !el.animate) return rest();
-    var a = anim([
-      { translate: (from * 360) + 'px 0', opacity: 0 },
-      { translate: '0 0', opacity: 1 }
-    ], { duration: 460, easing: 'cubic-bezier(.2,.9,.3,1.25)' });
-    clip('playful', 1);
+    if (reduced || !el.animate) return rest();
+    var a;
+    if (o && o.from === 'below') {
+      // UP FROM BEHIND THE CARD. He is clipped at the slab's rim, so rising
+      // from below that line is rising from behind it: a peek-a-boo, with
+      // the rig that was drawn for one.
+      var rise = (o.rise || 200);
+      a = anim([
+        { translate: '0 ' + rise + 'px' },
+        { translate: '0 0' }
+      ], { duration: 520, easing: 'cubic-bezier(.2,.9,.3,1.2)' });
+      clip('peeping', 1);
+    } else {
+      a = anim([
+        { translate: (from * 360) + 'px 0', opacity: 0 },
+        { translate: '0 0', opacity: 1 }
+      ], { duration: 460, easing: 'cubic-bezier(.2,.9,.3,1.25)' });
+      clip('playful', 1);
+    }
     return a.finished.then(function () { return stale(g) ? null : rest(); },
                            function () { return stale(g) ? null : rest(); });
   }
@@ -470,6 +497,10 @@
   function rest() {
     // Whatever he stepped aside for is over.
     if (shiftAnim) { try { shiftAnim.cancel(); } catch (e) {} shiftAnim = null; }
+    // A mood is measured from the END of the reaction that set it: a
+    // celebration is three seconds long on its own, and dated from its start
+    // the line that follows it always found the mood expired.
+    if (STATES[stateName] && STATES[stateName].mood) moodAt = Date.now();
     var want = restingState();
     // Already resting in the right loop: re-running the triad here would
     // play a stop and a start for no visible reason, which reads as a hitch
@@ -494,7 +525,8 @@
   }
 
   function isResting() {
-    return stateName === 'idle' || stateName === 'daydream' || stateName === 'sleep' || stateName === 'explain';
+    return stateName === 'idle' || stateName === 'daydream' || stateName === 'sleep' || stateName === 'explain'
+        || stateName === 'glad' || stateName === 'amazed' || stateName === 'puzzled';
   }
 
   /**
@@ -514,6 +546,22 @@
    * Placement and motion
    * ------------------------------------------------------------------ */
 
+  /* BEHIND THE CARD. A layout may hand back a page-y below which he is not
+     to be painted — the top rim of the slab he is peeking over. Everything
+     under that line is clipped, so he reads as standing behind the card
+     rather than in front of it. Percentages, because clip-path measures the
+     element's own box and the box is scaled: a fraction survives the scale
+     where a pixel count would not. */
+  var clipY = null;
+  function applyClip() {
+    if (!el) return;
+    if (clipY == null) { el.style.clipPath = ''; return; }
+    var r = el.getBoundingClientRect();
+    if (!r.height) return;
+    var frac = Math.max(0, Math.min(1, (clipY - r.top) / r.height));
+    el.style.clipPath = 'inset(0 0 ' + ((1 - frac) * 100).toFixed(2) + '% 0)';
+  }
+
   function place(p, s) {
     if (!layout || !el) return;
     var L = layout(p, s);
@@ -521,6 +569,8 @@
     el.style.top = L.y + 'px';
     el.style.transform = 'translate(-50%,-' + (F.baselineY * 100).toFixed(1) + '%) scale(' + L.scale + ')';
     chooseScale(L.scale);
+    clipY = L.clip == null ? null : L.clip;
+    applyClip();
   }
 
   /**
@@ -777,11 +827,21 @@
     exit: function (o) {
       var to = (o && o.to === 'right') ? 1 : -1;
       var g = fresh(); stateName = 'exit'; rigLoop = null;
-      clip('flapping', Infinity);
-      var a = anim([
-        { transform: 'translateX(0) translateY(0)', opacity: 1 },
-        { transform: 'translateX(' + (to * 400) + 'px) translateY(-40px)', opacity: 0 }
-      ], { duration: 620, easing: 'cubic-bezier(.36,0,.66,-.56)' });
+      var a;
+      if (o && o.to === 'below') {
+        // DOWN BEHIND THE CARD, the way he came up.
+        clip('peeping', 1);
+        a = anim([
+          { translate: '0 0' },
+          { translate: '0 ' + (o.rise || 200) + 'px' }
+        ], { duration: 480, easing: 'cubic-bezier(.5,0,.8,.3)' });
+      } else {
+        clip('flapping', Infinity);
+        a = anim([
+          { transform: 'translateX(0) translateY(0)', opacity: 1 },
+          { transform: 'translateX(' + (to * 400) + 'px) translateY(-40px)', opacity: 0 }
+        ], { duration: 620, easing: 'cubic-bezier(.36,0,.66,-.56)' });
+      }
       return a.finished.then(function () {
         el.style.opacity = '0';
         stopActive();
@@ -807,16 +867,21 @@
       clip('flapping', Infinity);
       liftShadow(680);
       place(pos, size);
+      // The clip belongs to where he lands, not to the flight: cut at the
+      // rim while still in the air he would arrive in two pieces.
+      var landingClip = clipY; clipY = null; applyClip();
 
       var dx = toP.x - fromP.x, dy = toP.y - fromP.y, ds = fromP.scale / toP.scale;
       var a = anim([
         { transform: 'translate(' + (-dx) + 'px,' + (-dy) + 'px) scale(' + ds + ')' },
         { transform: 'translate(0,0) scale(1)' }
       ], { duration: 680, easing: 'cubic-bezier(.22,1,.36,1)' });
+      var land = function () { clipY = landingClip; applyClip(); };
       return a.finished.then(function () {
+        land();
         if (stale(g)) return;
         return rest();
-      });
+      }, land);
     }
   };
 
@@ -860,6 +925,10 @@
       if (global.console) console.warn('Swiftee: no state "' + state + '"');
       return Promise.resolve();
     }
+    // A reaction sets the mood the next line is spoken in; anything else
+    // he is asked to do clears it.
+    if (def.mood) { mood = def.mood; moodAt = Date.now(); }
+    else if (!def.hold || state === 'explain') mood = null;
 
     if (def.lean && opts.at) lean(opts.at);
     if (def.shift) {
@@ -963,6 +1032,10 @@
     speaking: function (v) {
       var was = speaking;
       speaking = !!v;
+      // A mood only colours a line that follows its reaction closely; a
+      // stale one is dropped, and any mood ends with the line.
+      if (speaking && mood && Date.now() - moodAt > MOOD_MS) mood = null;
+      if (!speaking) mood = null;
       if (was !== speaking) { stir(); if (isResting()) rest(); }
       return speaking;
     },
@@ -970,7 +1043,12 @@
     place: function (p, s) {
       pos = p || pos; size = s || size;
       if (!el) return;
-      el.style.opacity = pos === 'off' ? '0' : '1';
+      // NOT BEFORE HE HAS ARRIVED. Every screen places him before its beats
+      // run, and the first screen's first beat is the sleigh. Revealing him
+      // here put him on the snow, centre stage, for the gap before that beat
+      // hid him again — a blink on a fast machine and a full second on one
+      // still fetching the sleigh sheet. The landing is what shows him.
+      el.style.opacity = (pos === 'off' || !arrived) ? '0' : '1';
       place(pos, size);
     },
 
@@ -1012,6 +1090,10 @@
 
     get el() { return el; },
     get pos() { return pos; },
+    /** Has the sleigh been? Read by the suites and probes. */
+    get arrived() { return arrived; },
+    /** The page-y below which he is clipped (peeking over a card), or null. */
+    get clipY() { return clipY; },
     get size() { return size; },
     get state() { return stateName; },
     get scale() { return scale; },

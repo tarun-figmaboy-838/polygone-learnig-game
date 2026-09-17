@@ -156,10 +156,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const s = window.Game.screen;
         if (s === 0 || performance.now() - (window.__startAt[s] || 0) < 500) return;
         const el = window.Swiftee && window.Swiftee.el; if (!el) return;
-        const on = parseFloat(getComputedStyle(el).opacity) > 0.05;
+        const st = window.Swiftee.state;
+        // Coming in counts as on; going out counts as off.
+        const on = parseFloat(getComputedStyle(el).opacity) > 0.05 || st === 'enter';
         const want = !!(window.Screens.list[s].swiftee && window.Screens.list[s].swiftee.purpose);
-        if (on !== want) window.__buddy.push((s + 1) + ':' + (on ? 'on' : 'off'));
-      }, 700);
+        // Leaving at the end of his screen, or away measuring a side, is not absence.
+        const leaving = st === 'exit', measuring = !!document.querySelector('.swiftee-measuring');
+        const bad = want ? !(on || leaving || measuring) : (on && !leaving);
+        if (bad) window.__buddy.push((s + 1) + ':' + (on ? 'on' : 'off'));
+      }, 1400);
     });
     window.Game.director.on('input', ({ spec }) => { window.__pending = spec; window.__asked.push(spec.type); });
   });
@@ -622,7 +627,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const hits = [];
     const bubble = box('#bubble'), card = box('#instruction');
     const hud = document.querySelector('#hud').getBoundingClientRect();
-    const bird = window.Swiftee.bounds && window.Swiftee.bounds();
+    let bird = window.Swiftee.bounds && window.Swiftee.bounds();
+    // Peeking over a card he is clipped at its rim: only what shows can overlap.
+    if (bird && window.Swiftee.clipY != null && bird.bottom > window.Swiftee.clipY) {
+      bird = Object.assign({}, bird, { bottom: window.Swiftee.clipY, height: Math.max(0, window.Swiftee.clipY - bird.top) });
+    }
     const against = (r, label) => { if (r && parts.some((p) => over(r, p))) hits.push(label); };
     against(bubble, 'bubble/stage');
     against(card, 'card/stage');
