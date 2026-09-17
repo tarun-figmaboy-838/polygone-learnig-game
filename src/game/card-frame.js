@@ -36,13 +36,8 @@
     "panel": {
       "src": "assets/ui/bigcard.webp",
       "w": 1024,
-      "h": 0.85,
-      "pane": {
-        "x": 0.0414,
-        "y": 0.0821,
-        "w": 0.918,
-        "h": 0.7443
-      }
+      "h": 816,
+      "pane": { "x": 0.0414, "y": 0.0821, "w": 0.918, "h": 0.85 }
     },
     "plank": {
       "src": "assets/ui/plank.webp",
@@ -54,6 +49,12 @@
         "w": 0.9349,
         "h": 0.6785
       }
+    },
+    "compare": {
+      "src": "assets/ui/compare.webp",
+      "w": 640,
+      "h": 542,
+      "pane": { "x": 0.07, "y": 0.09, "w": 0.86, "h": 0.83 }
     },
     "regular": {
       "src": "assets/ui/zone-regular.webp",

@@ -180,7 +180,9 @@
     var hostBox = rimEl.parentNode.getBoundingClientRect();
     var x = m.a * a.x + m.e - hostBox.left, y = m.d * a.y + m.f - hostBox.top;
     var w = m.a * a.w, h = m.d * a.h;
-    var paneY = CardFrame.panel.pane ? CardFrame.panel.pane.y : 0.082;
+    var PF = CardFrame[a.frame || 'panel'] || CardFrame.panel;
+    if (rimEl.getAttribute('src') !== PF.src) rimEl.src = PF.src;
+    var paneY = PF.pane ? PF.pane.y : 0.082;
     rimEl.style.display = '';
     rimEl.style.left = x + 'px'; rimEl.style.top = y + 'px';
     rimEl.style.width = w + 'px'; rimEl.style.height = h + 'px';
@@ -330,7 +332,8 @@
       // The cut is at the top of the GLASS, not the rim: a copy of the rim
       // is drawn over him (peekRim below), so the cut itself is never seen —
       // his body goes into the frame and the frame is what hides it.
-      var paneY = (global.CardFrame && CardFrame.panel && CardFrame.panel.pane) ? CardFrame.panel.pane.y : 0.082;
+      var PF = global.CardFrame && (CardFrame[anchor.frame || 'panel'] || CardFrame.panel);
+      var paneY = (PF && PF.pane) ? PF.pane.y : 0.082;
       // The cut sits a little ABOVE the glass line, well under the opaque
       // part of the rim copy, so no edge of his ever shows through the fade.
       var rim = anchor.y + anchor.h * (paneY - 0.012);

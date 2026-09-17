@@ -67,6 +67,9 @@ const CARDS = [
   // The zone frames are blank glass now — a cyan rim for regular, a violet
   // one for irregular — and stage.js letters the word on them. The earlier
   // the earlier zone art carried its own title plates.
+  // The card a shape is COMPARED on: two of these side by side, lighter
+  // and plainer than the display slab, so the pair reads as a pair.
+  { key: 'compare',   src: 'assets/ui/compare-card.png', out: 'assets/ui/compare.webp', cap: 640 },
   { key: 'regular',   src: 'assets/ui/reg.png',  out: 'assets/ui/zone-regular.webp',   cap: 640 },
   { key: 'irregular', src: 'assets/ui/irre.png', out: 'assets/ui/zone-irregular.webp', cap: 640 }
 ];

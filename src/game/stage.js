@@ -401,8 +401,8 @@
     // stands centre-bottom on one of these screens with his head at 547.
     // 150, not 128: he peeks over the left one, and his head has to clear a
     // one-line plank above it. The check lines below still end above the foot.
-    left2:  { x: 178, y: 150, w: 306, h: 290 },
-    right2: { x: 516, y: 150, w: 306, h: 290 }
+    left2:  { x: 178, y: 150, w: 306, h: 290, frame: 'compare' },
+    right2: { x: 516, y: 150, w: 306, h: 290, frame: 'compare' }
   };
 
   /* ------------------------------------------------------------------ *
@@ -492,7 +492,7 @@
     var g = mk('g', { 'class': 'panel' }, layers.panel);
     st.panelEl = g;
     g._rect = { x: p.x, y: p.y, w: p.w, h: p.h };
-    var F = global.CardFrame && CardFrame.panel;
+    var F = global.CardFrame && (CardFrame[p.frame || 'panel'] || CardFrame.panel);
 
     if (F) {
       var img = mk('image', {
@@ -566,7 +566,7 @@
    * card — so the box a shape may use is not the box the panel occupies.
    */
   function panelFace(p) {
-    var F = global.CardFrame && CardFrame.panel;
+    var F = global.CardFrame && (CardFrame[p.frame || 'panel'] || CardFrame.panel);
     var q = F && F.pane;
     if (!q) return p;
     return { x: p.x + p.w * q.x, y: p.y + p.h * q.y, w: p.w * q.w, h: p.h * q.h };
