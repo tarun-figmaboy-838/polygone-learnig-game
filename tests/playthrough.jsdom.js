@@ -108,7 +108,10 @@ async function act(spec){
       // where there is real geometry to drag across.
       const zoneOf=id=>svg().querySelector('.zone[data-zone="'+id+'"]');
       let first=true, guard=0;
-      while(St().swipe && St().swipe.i<St().swipe.items.length && guard++<40){
+      while(St().swipe && St().swipe.i<St().swipe.items.length && guard++<200){   // eight rounds, and the 300ms hold between them spins this loop
+        // wait for the next card to be dealt (a 300ms hold follows each catch) rather than tapping into the gap and paying a full timeout for it
+        await until(()=>!St().swipe || !!St().swipe.card, 2500).catch(()=>{});
+        if(!St().swipe) break;
         const card=St().swipe.card;
         if(!card){ await sleep(40); continue; }
         const right=P.isRegular(card._verts)?'regular':'irregular';
@@ -116,7 +119,7 @@ async function act(spec){
         if(first){ tapEl(zoneOf(wrong)); wrongTried++; first=false; await sleep(120); }
         const before=St().swipe.i;
         tapEl(zoneOf(right));
-        await until(()=>!St().swipe || St().swipe.i>before, 3000).catch(()=>{});
+        await until(()=>!St().swipe || St().swipe.i>before, 1500).catch(()=>{});
         await sleep(40);
       }
       return;
@@ -137,7 +140,7 @@ async function act(spec){
   // react to every input request the director makes
   let pending=null; w.Game.director.on('input',({spec})=>{ pending=spec; });
   const N=w.Screens.list.length; const t0=Date.now();
-  while(!d.querySelector('#hud .replay.show') && Date.now()-t0<120000){
+  while(!d.querySelector('#hud .replay.show') && Date.now()-t0<180000){
     if(pending){ const sp=pending; pending=null; try{ await act(sp); }catch(e){ errors.push('act '+sp.type+' on screen '+w.Game.screen+': '+e.message); } }
     await sleep(15);
   }

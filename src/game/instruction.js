@@ -161,6 +161,8 @@
   global.Instruction = {
     show: show,
     set: set,
+    /** The sentence on the plank right now, or null. */
+    current: function () { return current; },
     get text() { return current; },
     get el() { return mount(); },
     /* for a deck that is rebuilt at runtime */

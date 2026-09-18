@@ -89,7 +89,10 @@
 
     {
       id: 'which-polygons', page: 4,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      transition: false,   // straight on from the intro: no ice between the definition and the first question
+      // The same mark as the three screens before: no wipe, no walk — the
+      // options simply appear on his right and he asks about them.
+      swiftee: { pos: 'left', size: 'large', purpose: 'ask' },
       say: 'Which of these are polygons?',
       stage: {
         kind: 'choice-grid',
@@ -102,7 +105,6 @@
         multi: true
       },
       beats: [
-        { swiftee: 'move', to: 'left-low', size: 'medium' },
         { stage: { kind: 'choice-grid', enter: 'stagger' } },
         { wait: 300 },
         { say: 'Which of these are polygons?', vo: 'p04' },
@@ -592,7 +594,12 @@
       swiftee: { pos: 'corner', size: 'small', purpose: 'demo' },
       instruction: 'Tap the sides to measure them.',
       say: 'Let\u2019s check!',
+      // The same pentagon as the screen before, built again under the
+      // wipe: he waits inside this card, so it sits in the middle, where
+      // the one he stood beside sat to the right.
+      stage: { kind: 'polygon', sides: 5, room: 'measure' },
       beats: [
+        { stage: { kind: 'polygon' } },
         { instruction: 'Tap the sides to measure them.' },
         { say: 'Let\u2019s check!', vo: 'p29' },
         { swiftee: 'inspect' },
@@ -647,8 +654,11 @@
       swiftee: { pos: 'left-low', size: 'medium' },
       instruction: 'Drag the highlighted vertex.',
       say: 'Help me stretch this corner. Let\u2019s see what happens to the sides and angles!',
-      stage: { highlight: { vertex: 0, color: 'yellow' }, measurements: 'live' },
+      // Built again under the wipe: he is back on the ground at the left,
+      // so the card goes back to the right.
+      stage: { kind: 'polygon', sides: 5, room: 'measure', highlight: { vertex: 0, color: 'yellow' }, measurements: 'live' },
       beats: [
+        { stage: { kind: 'polygon' } },
         { instruction: 'Drag the highlighted vertex.' },
         { say: 'Help me stretch this corner. Let\u2019s see what happens to the sides and angles!', vo: 'p32a' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
@@ -745,7 +755,9 @@
       stage: {
         kind: 'swipe-sort',
         zones: [{ id: 'regular', label: 'Regular' }, { id: 'irregular', label: 'Irregular' }],
-        items: ['pentagon', 'irregular-quad', 'hexagon', 'stretched-hexagon', 'equilateral-concave-hexagon']
+        // Four regular and four irregular, dealt turn about, so the child
+        // cannot ride one answer: every second card changes the rule.
+        items: ['pentagon', 'rhombus', 'triangle', 'stretched-hexagon', 'square', 'star', 'hexagon', 'l-shape']
       },
       originalMechanic: 'swipe',
       beats: [
@@ -896,7 +908,29 @@
  * pair, and the plank carries the rule only once his line has been read, so
  * the bubble and the plank never want the same band.
  */
+/* WHO SAYS A LINE.
+ *
+ * A line that addresses the child — "I", "we", "you", "let's", "help me",
+ * "see", "look", "they" — is a person talking, and the person is Swiftee:
+ * he pops up from behind the card, says it, and drops back. A line that
+ * merely states or instructs — "Pick any vertex." "Both are pentagons." —
+ * is the plank's. A screen is his if it has a purpose, or if any line on it
+ * talks to the child. */
+var SPEAKS = /\b(i|i'll|i'm|i\u2019ll|i\u2019m|we|we'll|we\u2019ll|let's|let\u2019s|you|your|me|us|they|see|look|help)\b/i;
+function speaks(screen) {
+  if (!screen) return false;
+  var lines = [];
+  if (typeof screen.say === 'string') lines.push(screen.say);
+  (screen.beats || []).forEach(function (b) { if (b && typeof b.say === 'string') lines.push(b.say); });
+  return lines.some(function (t) { return SPEAKS.test(t); });
+}
+function wantsBuddy(screen) {
+  return !!(screen && screen.swiftee && screen.swiftee.purpose) || speaks(screen);
+}
+
 global.Screens = {
+  speaks: speaks,
+  wantsBuddy: wantsBuddy,
     list: SCREENS,
     byId: byId,
     notScreens: NOT_SCREENS,

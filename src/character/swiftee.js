@@ -484,7 +484,11 @@
       // 'curious', not 'peeping': the peeping rig is drawn peering round a
       // wall of its own, and the wall came with it.
       var rise = (o.rise || 200);
-      a = anim([
+      a = o.quick
+        // a cheer does not peek first: straight up, one bounce
+        ? anim([{ translate: '0 ' + rise + 'px' }, { translate: '0 -8px', offset: 0.8 }, { translate: '0 0' }],
+               { duration: 420, easing: 'cubic-bezier(.2,.9,.3,1.2)' })
+        : anim([
         { translate: '0 ' + rise + 'px', offset: 0 },
         { translate: '0 ' + (rise * 0.32).toFixed(0) + 'px', offset: 0.30, easing: 'cubic-bezier(.2,.8,.4,1)' },   // eyes over the rim
         { translate: '0 ' + (rise * 0.32).toFixed(0) + 'px', offset: 0.55 },
@@ -614,14 +618,47 @@
     } catch (e) {}
   }
 
+  /* THE CUT BELONGS TO THE CARD, NOT TO HIM. clip-path is measured in his
+     own box, so a clip set for where he rests travels with every translate:
+     rising from behind the rim he came up already cut, a straight line
+     across his eyes sliding up the card face. So each keyframe that moves
+     him carries the clip that keeps the cut on the rim at that height —
+     lower on his body as he rises, higher as he sinks — and the rim copy
+     over the top of him does the rest. */
+  function pinClip(keyframes) {
+    if (clipY == null || !keyframes || !keyframes.some(function (f) { return f && f.translate != null; })) return null;
+    var r = el.getBoundingClientRect();
+    if (!r.height) return null;
+    return keyframes.map(function (f) {
+      var y = (f && f.translate != null) ? (parseFloat(String(f.translate).trim().split(/\s+/)[1] || '0') || 0) : 0;
+      // not clamped at nothing-visible: an inset past 100% is legal, and
+      // interpolating from the true value keeps the cut on the rim mid-flight
+      var frac = Math.min(1, (clipY - r.top - y) / r.height);
+      var k = { clipPath: 'inset(0 0 ' + ((1 - frac) * 100).toFixed(2) + '% 0)' };
+      if (f && f.offset != null) k.offset = f.offset;
+      if (f && f.easing) k.easing = f.easing;
+      return k;
+    });
+  }
+
   function anim(keyframes, opts) {
     if (!el || !el.animate || reduced) return { finished: Promise.resolve(), cancel: function () {} };
-    var a;
-    try { a = el.animate(keyframes, Object.assign({ composite: 'add', fill: 'none' }, opts)); }
-    catch (e) { return { finished: Promise.resolve(), cancel: function () {} }; }
+    var a, c = null;
+    var clipFrames = pinClip(keyframes);
+    try {
+      a = el.animate(keyframes, Object.assign({ composite: 'add', fill: 'none' }, opts));
+      // The clip rides alongside as its own animation, REPLACING the resting
+      // clip rather than adding to it: the movement is additive so hops can
+      // stack on a walk, but an inset added to an inset cut him twice over.
+      if (clipFrames) c = el.animate(clipFrames, Object.assign({}, opts, { composite: 'replace', fill: 'none' }));
+    } catch (e) { return { finished: Promise.resolve(), cancel: function () {} }; }
     live.push(a);
+    if (c) live.push(c);
     a.finished.then(drop, drop);
-    function drop() { var i = live.indexOf(a); if (i >= 0) live.splice(i, 1); }
+    function drop() {
+      var i = live.indexOf(a); if (i >= 0) live.splice(i, 1);
+      if (c) { try { c.cancel(); } catch (e) {} var j = live.indexOf(c); if (j >= 0) live.splice(j, 1); }
+    }
     return a;
   }
 
@@ -824,7 +861,6 @@
       return SleighIntro.play(container, mark).then(function () {
         el.style.opacity = '1';
         if (stale(g)) return;
-        if (global.Juice) Juice.squash(el, { amount: 0.1 });
         return rest();
       }, function () {
         el.style.opacity = '1';
@@ -1016,6 +1052,10 @@
 
     if (opts.layout) layout = opts.layout;
     preload(PRELOAD);
+    // Decode the one-off arrival art while the title screen is waiting. The
+    // three large sheets used to start loading only after Start was pressed,
+    // which presented an empty canvas as a visible pause before the sleigh.
+    if (global.SleighIntro) SleighIntro.preload().catch(function () {});
     ready = true;
 
     // Park on the idle loop immediately so there is never an empty cell.

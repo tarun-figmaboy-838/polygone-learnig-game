@@ -159,10 +159,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const st = window.Swiftee.state;
         // Coming in counts as on; going out counts as off.
         const on = parseFloat(getComputedStyle(el).opacity) > 0.05 || st === 'enter';
-        const want = !!(window.Screens.list[s].swiftee && window.Screens.list[s].swiftee.purpose);
+        const scr = window.Screens.list[s];
+        // A screen with a PURPOSE must have him; a screen he speaks on only
+        // because a line addresses the child may have him or not — he comes
+        // up for the line and drops back when the plank returns. Anywhere
+        // else he must be gone.
+        const must = !!(scr.swiftee && scr.swiftee.purpose);
+        const may = window.Screens.wantsBuddy ? window.Screens.wantsBuddy(scr) : must;
         // Leaving at the end of his screen, or away measuring a side, is not absence.
         const leaving = st === 'exit', measuring = !!document.querySelector('.swiftee-measuring');
-        const bad = want ? !(on || leaving || measuring) : (on && !leaving);
+        const bad = must ? !(on || leaving || measuring) : (!may && on && !leaving);
         if (bad) window.__buddy.push((s + 1) + ':' + (on ? 'on' : 'off'));
       }, 1400);
     });

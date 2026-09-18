@@ -265,11 +265,11 @@ t('every juice effect referenced exists', unknown(used.juice, JUICE).length === 
 /* ------------------------------------------------------------------ *
  * The swipe practice teaches five different facts
  *
- * The five shapes are the page's whole content, and the one that matters
- * most is the fifth: equal sides alone do not make a polygon regular. The
- * second used to be a rhombus — equal sides, unequal angles — which is the
- * fifth's property taught twice, leaving the "neither equal" case never
- * shown at all. That is invisible in a playthrough, because both answers
+ * The eight shapes are the page's whole content: four regular, four not,
+ * dealt turn about. The one that matters most is the rhombus — equal sides,
+ * unequal angles — because equal sides alone do not make a polygon regular;
+ * and at least one irregular shape has neither, so both ways of failing are
+ * shown. That is invisible in a playthrough, because both answers
  * are IRREGULAR and the screen passes either way. It is only visible from
  * the geometry, which is why it is checked here.
  * ------------------------------------------------------------------ */
@@ -278,22 +278,22 @@ t('every juice effect referenced exists', unknown(used.juice, JUICE).length === 
   t('the swipe practice exists', !!sw);
   if (sw) {
     const items = sw.stage.items || [];
-    t('it runs exactly five rounds', items.length === 5, items.length);
-    t('it asks the deck\'s own question',
+    t('it runs eight rounds: four regular, four not', items.length === 8, items.length);
+    t('it asks the deck\x27s own question',
       sw.say === 'Where does this polygon belong?', sw.say);
 
     const verts = items.map((n) => Stage.shapeVerts(n, 74, 0, 0));
     const got = verts.map((v) => (Poly.isRegular(v) ? 'regular' : 'irregular'));
-    t('the answers are regular, irregular, regular, irregular, irregular',
-      got.join(',') === 'regular,irregular,regular,irregular,irregular', got.join(','));
+    t('the answers alternate, so no single answer rides the round',
+      got.join(',') === 'regular,irregular,regular,irregular,regular,irregular,regular,irregular', got.join(','));
 
-    // the properties the five shapes exist to separate
-    t('1 is equilateral AND equiangular', Poly.isEquilateral(verts[0]) && Poly.isEquiangular(verts[0]));
-    t('2 is NEITHER equilateral nor equiangular', !Poly.isEquilateral(verts[1]) && !Poly.isEquiangular(verts[1]));
-    t('3 is equilateral AND equiangular', Poly.isEquilateral(verts[2]) && Poly.isEquiangular(verts[2]));
-    t('4 has unequal sides', !Poly.isEquilateral(verts[3]));
-    t('5 has EQUAL sides and unequal angles — the point of the page',
-      Poly.isEquilateral(verts[4]) && !Poly.isEquiangular(verts[4]));
+    // the properties the deck exists to separate
+    t('every regular one is equilateral AND equiangular',
+      [0, 2, 4, 6].every((i) => Poly.isEquilateral(verts[i]) && Poly.isEquiangular(verts[i])));
+    t('the rhombus has EQUAL sides and unequal angles — the point of the page',
+      Poly.isEquilateral(verts[1]) && !Poly.isEquiangular(verts[1]));
+    t('at least one irregular shape is NEITHER equilateral nor equiangular',
+      [1, 3, 5, 7].some((i) => !Poly.isEquilateral(verts[i]) && !Poly.isEquiangular(verts[i])));
     t('every shape is a simple polygon', verts.every((v) => Poly.isSimple(v)));
   }
 }

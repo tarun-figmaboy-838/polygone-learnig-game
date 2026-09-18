@@ -112,14 +112,15 @@
    * the wing, never a pop. One entrance per appearance, however many beats
    * ask for it while it is still running.
    */
-  function entrance() {
+  function entrance(quick) {
     if (!buddyOn || present || !global.Swiftee || !Swiftee.play) return Promise.resolve(false);
     if (entering) return entering;
     var done = function () { present = true; entering = null; syncPeekRim(); return true; };
     // Capped. The walk-on is under half a second; if the rig cannot finish
     // it — no animation support, a sheet that will not load — the lesson
     // must not wait on him. He is simply there.
-    entering = Promise.race([Swiftee.play('enter', wingFor('from')), pause(1500)]).then(done, done);
+    var wing = wingFor('from'); if (quick) wing.quick = true;
+    entering = Promise.race([Swiftee.play('enter', wing), pause(1500)]).then(done, done);
     syncPeekRim();   // the rim is up before he rises behind it
     return entering;
   }
@@ -209,17 +210,92 @@
 
   function wantsBuddy(i) {
     var s = Screens.list[i];
-    return !!(s && s.swiftee && s.swiftee.purpose);
+    return !!(s && Screens.wantsBuddy && Screens.wantsBuddy(s));
   }
+
+  /* WHAT THE STAGE SHOWS BY THE END OF SCREEN i. Most screens carry the
+     scene over from the one before and only some rebuild it, so the kind of
+     scene a screen is about is the last one declared at or before it —
+     at screen level or in a beat. */
+  function sceneKindAt(i) {
+    var kind = null;
+    for (var k = 0; k <= i && k < Screens.list.length; k++) {
+      var s = Screens.list[k];
+      if (s.stage && s.stage.kind) kind = s.stage.kind;
+      (s.beats || []).forEach(function (b) { if (b && b.stage && b.stage.kind) kind = b.stage.kind; });
+    }
+    return kind;
+  }
+
+  /* WHERE HE CAN HIDE. Popping up from behind a card is a trick for a
+     screen with two or more cards on it — the comparison — where one card
+     is his to be behind and the child's eye is on the other. A screen with
+     one card has nothing for him to hide behind: there he stands on the
+     ground at the left and the card sits on the right. */
+  function peeksBehind(i) {
+    return sceneKindAt(i) === 'compare';
+  }
+
+  /* HIS MARK ON SCREEN i, or null if the screen is not his.
+     TWO OR MORE CARDS: he pops up from behind one for his line and drops
+     back. ONE CARD: he stands on the ground at the left, the card takes
+     the right, and he stays for the screen — a screen that is his only
+     because a line on it talks to the child keeps its own left-hand mark
+     if it has one, and a screen written for the peek stands down to the
+     ground when there is nothing to peek from behind. The same answer for
+     the play loop and for the debug picker, so a jump builds the scene the
+     way play would. */
+  function markFor(i, curPos, curSize) {
+    var s = Screens.list[i];
+    if (!s || !s.swiftee || !wantsBuddy(i)) return null;
+    var pos = s.swiftee.pos || curPos || 'left', size = s.swiftee.size || curSize || 'medium';
+    var behind = peeksBehind(i);
+    if (!s.swiftee.purpose) {
+      if (behind) { pos = 'peek'; size = 'small'; }
+      else if (!/^left/.test(pos)) { pos = 'left-low'; size = 'medium'; }
+    } else if (pos === 'peek' && !behind) { pos = 'left-low'; size = 'medium'; }
+    return { pos: pos, size: size };
+  }
+
+  /* What he says when the child gets it, and when they do not. Short, so
+     they fit in one bubble beside his head, and varied, so the tenth right
+     answer is not met with the same word as the first. */
+  var PRAISE = ['Nice!', 'That\u2019s it!', 'Great job!', 'You got it!', 'Yes!', 'Well done!'];
+  var NUDGE = ['Hmm, not quite.', 'Try again!', 'Almost! Have another go.', 'Not that one.'];
+  var praiseN = 0, nudgeN = 0, lastFeedbackAt = 0, feedbackScreen = -1, praisedHere = false;
+  var cheerUntil = 0;   // the lesson does not move on while he is still saying it
 
   function react(kind) {
     if (kind === 'wrong') quest.mistake();
-    if (!buddyOn || !present) return;   // the sound and the confetti carry the verdict
+    if (!buddyOn) return;   // the sound and the confetti carry the verdict
     if (!global.Swiftee || !Swiftee.play) return;
-    try {
-      if (kind === 'wrong') Swiftee.play('confused');
-      else if (kind === 'correct') Swiftee.play('happy');
-    } catch (e) {}
+    // A WORD FROM HIM, NOT A COMMENTARY. One cheer per screen for a right
+    // answer — the first — and a nudge for a wrong one no oftener than every
+    // three seconds, so a screen of five taps is not five "Nice!"s. If he
+    // has dropped behind the card he pops up for it, and drops back after.
+    var now = Date.now();
+    if (current !== feedbackScreen) { feedbackScreen = current; praisedHere = false; }
+    var line = null, mood = null;
+    if (kind === 'correct' && !praisedHere) { praisedHere = true; line = PRAISE[praiseN++ % PRAISE.length]; mood = 'win'; }
+    else if (kind === 'wrong' && now - lastFeedbackAt > 3000) { line = NUDGE[nudgeN++ % NUDGE.length]; mood = 'hint'; }
+    if (!line) {
+      if (present) { try { Swiftee.play(kind === 'wrong' ? 'confused' : 'happy'); } catch (e) {} }
+      return;
+    }
+    lastFeedbackAt = now;
+    cheerUntil = now + (kind === 'wrong' ? 2100 : 1900) + (present ? 0 : 420);
+    var wasUp = present;
+    var speak = function () {
+      try { Swiftee.play(kind === 'wrong' ? 'confused' : 'happy'); } catch (e) {}
+      say(line, mood, 900);
+      clearTimeout(bubbleTimer);
+      bubbleTimer = setTimeout(function () {
+        say(null);
+        // he only came up to say it
+        if (!wasUp && present && Swiftee.pos === 'peek') leave();
+      }, kind === 'wrong' ? 1900 : 1600);
+    };
+    if (present) speak(); else entrance(true).then(speak);
   }
 
   /* ------------------------------------------------------------------ *
@@ -245,7 +321,7 @@
    * cell overstates him by a third — which is how he ended up towering over
    * the lesson. These are the numbers to change if he looks wrong.
    */
-  var BIRD_H = { small: 0.17, medium: 0.24, large: 0.31 };
+  var BIRD_H = { small: 0.28, medium: 0.28, large: 0.28 };
   var CONTENT_FRAC = 0.764;      // (449 - 58) / 512, from the manifest bounds
   var EDGE = 8;                  // px of breathing room at the viewport edge
 
@@ -305,7 +381,9 @@
       // Mid-height, at the left edge. The sorting screens put a tray across
       // the top and bins across the bottom, and the only band a line can live
       // in is the corridor between them — so he stands in it too.
-      'left-mid':           { x: 0.115, y: 0.66 },
+      // 0.075, not 0.115: the bins grew to 340 wide, and at 0.115 his wing
+      // reached into the first one.
+      'left-mid':           { x: 0.075, y: 0.66 },
       // Up in the corner, off the ground — for screens where the lesson needs
       // the whole floor and he should be a narrator rather than a bystander
       // standing in it.
@@ -363,7 +441,7 @@
       // him a thumbnail in a tall empty strip. Size against the strip he is
       // actually standing in instead.
       var below = Math.max(120, (window.innerHeight || 800) - (f.y + f.h));
-      scale = (below * ({ small: 0.40, medium: 0.52, large: 0.64 }[size] || 0.52)) / (256 * CONTENT_FRAC);
+      scale = (below * 0.56) / (256 * CONTENT_FRAC);
     }
 
     // When the stage is nothing but scenery, standing off to one side leaves
@@ -371,7 +449,7 @@
     // do not need to know this — they still say "left"; the layout decides
     // that "left of nothing" means the middle, with a little more presence.
     var m = map[pos] || map['left-low'];
-    if (pos !== 'off' && soloed()) { m = map['centre']; scale *= 1.08; }
+    if (pos !== 'off' && soloed()) { m = map['centre']; }
 
     var y = f.y + m.y * f.h;
 
@@ -1296,6 +1374,10 @@
     // line, the line has had its reading time; left up, the plank's arrival
     // re-laid the bubble and pushed it down onto the card.
     if (text && bubble && bubble.classList.contains('show')) say(null);
+    // AND SENDS A PEEKING BIRD BACK DOWN. His head over the card's rim and
+    // the plank want the same band; he has said his piece, so he drops
+    // behind the card as the instruction comes up. A cheer brings him back.
+    if (text && present && !entering && global.Swiftee && Swiftee.pos === 'peek') leave();
     if (global.Instruction) Instruction.show(text || null);
     // The plank's height moves the lesson, so anything measured against the
     // lesson is measured again once it has settled.
@@ -1451,6 +1533,11 @@
         // TWO SHORT BUBBLES RATHER THAN ONE LONG ONE. The reading time is
         // shared between the parts by their word counts, and the beat lasts
         // as long as both need.
+        // THE PLANK STEPS ASIDE WHILE HE SPEAKS. Two boxes of words in the top
+        // band fought for it; his bubble and the instruction now take turns,
+        // and the instruction comes back the moment the line has been read.
+        var held = (global.Instruction && Instruction.current) ? Instruction.current() : null;
+        if (held) setCard(null);
         var parts = splitLine(text);
         var reading = opts.reading || 1200;
         var words = function (t) { return t.split(/\s+/).length; };
@@ -1485,8 +1572,10 @@
         // without one would be left saying nothing at all, so those keep it.
         clearTimeout(bubbleTimer);
         bubbleTimer = setTimeout(function () {
+          if (held) { say(null); setCard(held); return; }
           if (instruction && instruction.classList.contains('show')) say(null);
         }, spoken + 1100);
+        if (ctx && ctx.onCancel) ctx.onCancel(function () { if (held && !(instruction && instruction.classList.contains('show'))) setCard(held); });
         if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(bubbleTimer); });
         if (ctx && ctx.onCancel) ctx.onCancel(stop);
         if (parts.length > 1) {
@@ -1523,7 +1612,9 @@
             // already banked — got no reaction at all, which is the same
             // desync as a wrong answer getting none.
             if (earned) reward('+' + earned + ' XP. Challenge complete.', false);
-            else react('correct');
+            // and he says so, whether or not there was XP in it: react() is
+            // the one place his word on an answer comes from
+            react('correct');
           } else if (r && r.result === 'wrong') react('wrong');
           return r;
         }, function (e) { showNext(false); throw e; });
@@ -1586,7 +1677,7 @@
     // transition on every screen that wipes rather than as a jump.
     // ONLY A PURPOSE PUTS HIM ON SCREEN. Every screen has a position for him;
     // eleven have a reason. The rest get the plank.
-    buddyOn = !!(s.swiftee && s.swiftee.purpose);
+    buddyOn = !!(Screens.wantsBuddy ? Screens.wantsBuddy(s) : (s.swiftee && s.swiftee.purpose));
 
     // THE PLANK IS NOT BLANK WHILE THE CHILD IS ASKED TO ACT.
     //
@@ -1607,8 +1698,8 @@
       say(null);
     }
     if (buddyOn && s.swiftee && Swiftee.place) {
-      var wantPos = s.swiftee.pos || Swiftee.pos;
-      var wantSize = s.swiftee.size || Swiftee.size;
+      var mark = markFor(i, Swiftee.pos, Swiftee.size);
+      var wantPos = mark.pos, wantSize = mark.size;
       // ALWAYS, not only when it differs. place() puts him on his mark AND
       // makes him visible, and the state he arrives in may have left him
       // neither: 'exit' flies him off the left edge and sets opacity 0, and a
@@ -1727,6 +1818,11 @@
   // order, and answerable by a test without playing the game.
   var wipeTable = null;
   function wipesAt(i) {
+    // A screen may decline the ice: the first question follows the intro
+    // directly, and a whole freeze-and-shatter between "here is a polygon"
+    // and "which of these are polygons" was a wall where a step was wanted.
+    var scr = Screens.list[i];
+    if (scr && scr.transition === false) return false;
     if (!wipeTable) {
       var last = null;
       wipeTable = (Screens.list || []).map(function (s, k) {
@@ -1783,6 +1879,10 @@
       var r = await changeScreen(i, i === start);
       if (gen !== playGen) return;                 // a restart took over while this waited
       if (r === Director.CANCELLED) { playing = false; return; }
+      // A CHEER IS HEARD OUT. A right answer ends a screen at once, and his
+      // "Nice!" was being cut off by the ice; the lesson waits for it.
+      var owed = cheerUntil - Date.now();
+      if (owed > 0) { await pause(owed); if (gen !== playGen) return; }
       var badge = quest.complete(i);
       if (badge) { reward('Badge unlocked: ' + badge.name + '.', true); }
     }
@@ -1981,14 +2081,20 @@
       // THE LAYOUT READS WHERE HE STANDS, so he goes to the target screen's
       // mark before its stage is built — otherwise a jump from the intro
       // built every slab to the right of a bird who was about to leave.
-      var tgt = Screens.list[n];
-      if (global.Swiftee && Swiftee.place) {
-        Swiftee.place((tgt.swiftee && tgt.swiftee.purpose) ? (tgt.swiftee.pos || 'left') : 'off',
-                      (tgt.swiftee && tgt.swiftee.size) || Swiftee.size);
-      }
+      var built = -1;
       for (var b = n; b >= 0; b--) {
         var sp = Screens.list[b].stage;
-        if (sp && sp.kind) { Stage.apply(sp); break; }
+        if (sp && sp.kind) { built = b; break; }
+      }
+      if (global.Swiftee && Swiftee.place) {
+        // the scene was laid out for wherever he stood when it was built
+        var mb = built >= 0 ? markFor(built, Swiftee.pos, Swiftee.size) : null;
+        Swiftee.place(mb ? mb.pos : 'off', mb ? mb.size : Swiftee.size);
+      }
+      if (built >= 0) Stage.apply(Screens.list[built].stage);
+      if (global.Swiftee && Swiftee.place) {
+        var m = markFor(n, Swiftee.pos, Swiftee.size);
+        Swiftee.place(m ? m.pos : 'off', m ? m.size : Swiftee.size);
       }
       box.blur();                       // so the arrow keys go back to the lesson
       setTimeout(function () { play(n); }, 80);
