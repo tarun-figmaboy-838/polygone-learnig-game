@@ -275,6 +275,15 @@
   /* A drop zone breathes while a card is waiting for it, and flares once
      when a card lands. Both zones, always: the glow says "here is where
      things go", never which one is right. */
+  /* A right card glows green, a wrong one flushes red. The glow is the
+     verdict: no ring and no tick on top of the shape. */
+  #stage .shape-card.mark-good { filter: drop-shadow(0 0 12px rgba(46,171,78,.95)) drop-shadow(0 0 3px rgba(46,171,78,.9)); animation: markGood .7s ease-out; }
+  #stage .shape-card.mark-bad  { filter: drop-shadow(0 0 10px rgba(224,91,91,.9)); }
+  @keyframes markGood {
+    0% { filter: drop-shadow(0 0 0 rgba(46,171,78,0)); }
+    35% { filter: drop-shadow(0 0 26px rgba(46,171,78,1)) drop-shadow(0 0 6px rgba(255,255,255,.9)); }
+    100% { filter: drop-shadow(0 0 12px rgba(46,171,78,.95)) drop-shadow(0 0 3px rgba(46,171,78,.9)); }
+  }
   #stage .zone.hint { animation: zoneGlow 1.5s ease-in-out infinite; }
   #stage .zone.landed { animation: zoneLand .65s ease-out; }
   @keyframes zoneGlow {

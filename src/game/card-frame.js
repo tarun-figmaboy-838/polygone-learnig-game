@@ -37,7 +37,7 @@
       "src": "assets/ui/bigcard.webp",
       "w": 1024,
       "h": 816,
-      "pane": { "x": 0.0414, "y": 0.0821, "w": 0.918, "h": 0.85 }
+      "pane": { "x": 0.0414, "y": 0.0821, "w": 0.918, "h": 0.87 }
     },
     "plank": {
       "src": "assets/ui/plank.webp",

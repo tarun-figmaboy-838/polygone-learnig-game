@@ -227,6 +227,22 @@
 
       var n = Math.min(120, o.count == null ? 30 : o.count);
       var done = [];
+      if (o.fromEdge && r) {
+        // FROM BEHIND. Each piece starts on the edge of the thing and flies
+        // away from its centre, so the burst reads as coming out from under
+        // the card rather than being sprayed on top of it.
+        var L = r.left - hostRect.left, T = r.top - hostRect.top, Wd = r.width, Ht = r.height;
+        var mx = L + Wd / 2, my = T + Ht / 2;
+        for (var q = 0; q < n; q++) {
+          var t = Math.random() * 2 * (Wd + Ht), px, py;
+          if (t < Wd) { px = L + t; py = T; }
+          else if (t < Wd + Ht) { px = L + Wd; py = T + (t - Wd); }
+          else if (t < 2 * Wd + Ht) { px = L + (t - Wd - Ht); py = T + Ht; }
+          else { px = L; py = T + (t - 2 * Wd - Ht); }
+          done.push(piece(doc, px, py, Object.assign({}, o, { angle: Math.atan2(py - my, px - mx) })));
+        }
+        return Promise.all(done);
+      }
       for (var i = 0; i < n; i++) done.push(piece(doc, cx, cy, o));
       return Promise.all(done);
     },
@@ -326,7 +342,8 @@
       'border-radius:' + (Math.random() < 0.4 ? '50%' : '2px') + ';opacity:0';
     host.appendChild(el);
 
-    var angle = (-Math.PI / 2) + (Math.random() - 0.5) * (o.spread == null ? 1.9 : o.spread);
+    var angle = o.angle != null ? o.angle + (Math.random() - 0.5) * 0.5
+              : (-Math.PI / 2) + (Math.random() - 0.5) * (o.spread == null ? 1.9 : o.spread);
     var speed = 120 + Math.random() * 260;
     var dx = Math.cos(angle) * speed;
     var rise = Math.sin(angle) * speed;
