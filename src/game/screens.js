@@ -546,7 +546,7 @@
       // the top and the bins across the bottom, so the only band tall enough
       // for a sentence is the gap between them — and standing above the tray
       // put him two hundred pixels from his own speech bubble.
-      swiftee: { pos: 'left-mid', size: 'small' },
+      swiftee: { pos: 'top-left', size: 'small' },
       say: 'Can you sort these polygons as convex or concave?',
       stage: {
         kind: 'sort',
@@ -592,16 +592,14 @@
     {
       id: 'measure-sides', page: 29,
       swiftee: { pos: 'corner', size: 'small', purpose: 'demo' },
-      instruction: 'Tap the sides to measure them.',
-      say: 'Let\u2019s check!',
+      say: 'Let\u2019s check! Tap each side and I\u2019ll measure it.',
       // The same pentagon as the screen before, built again under the
       // wipe: he waits inside this card, so it sits in the middle, where
       // the one he stood beside sat to the right.
       stage: { kind: 'polygon', sides: 5, room: 'measure' },
       beats: [
         { stage: { kind: 'polygon' } },
-        { instruction: 'Tap the sides to measure them.' },
-        { say: 'Let\u2019s check!', vo: 'p29' },
+        { say: 'Let\u2019s check! Tap each side and I\u2019ll measure it.', vo: 'p29' },
         { swiftee: 'inspect' },
         { focus: 'polygon.sides', style: 'pulse' },
         // Each tap reveals that side's length. Lengths come from
@@ -620,13 +618,11 @@
       // angles..." while Swiftee is still concluding the SIDES check. The
       // card is held on the sides instruction until the line finishes, then
       // swapped — otherwise the child is told to do two things at once.
-      instruction: 'Tap the angles to measure them.',
-      say: 'Every side is equal. But what about the angles?',
+      say: 'Every side is equal! Now tap the angles.',
       beats: [
         { swiftee: 'nod' },
-        { say: 'Every side is equal. But what about the angles?', vo: 'p30' },
+        { say: 'Every side is equal! Now tap the angles.', vo: 'p30' },
         { swiftee: 'think' },
-        { instruction: 'Tap the angles to measure them.' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -634,7 +630,6 @@
     {
       id: 'measure-angles', page: 31,
       swiftee: { pos: 'corner', size: 'small', purpose: 'celebrate' },
-      instruction: 'Tap the angles to measure them.',
       say: 'The angles match too!',
       beats: [
         { focus: 'polygon.vertices', style: 'pulse' },
@@ -924,8 +919,27 @@ function speaks(screen) {
   (screen.beats || []).forEach(function (b) { if (b && typeof b.say === 'string') lines.push(b.say); });
   return lines.some(function (t) { return SPEAKS.test(t); });
 }
+/* Does the screen have a line to SAY at all? "This is a side of the
+   polygon." addresses nobody, but it is still said, not ordered: the plank
+   is for instructions ("Pick any vertex."), and a statement read off a
+   plank is a caption. So any screen with a say line is his to speak. */
+/* An ORDER is the plank's even when the deck writes it as a say line:
+   "Pick any vertex." is an instruction, and read from his beak and then
+   again from the plank it is said twice. */
+var IMPERATIVE = /^(pick|drag|tap|draw|sort|choose|swipe|count|connect|move|pull|press|select|find|put|match|build|drop|place|touch|click|measure|compare|turn)\b/i;
+function isOrder(text, screen) {
+  var t = String(text || '').trim();
+  if (!t) return true;
+  if (screen && screen.instruction && t === String(screen.instruction).trim()) return true;
+  return IMPERATIVE.test(t);
+}
+function saysAnything(screen) {
+  if (!screen) return false;
+  if (typeof screen.say === 'string' && screen.say && !isOrder(screen.say, screen)) return true;
+  return (screen.beats || []).some(function (b) { return b && typeof b.say === 'string' && b.say && !isOrder(b.say, screen); });
+}
 function wantsBuddy(screen) {
-  return !!(screen && screen.swiftee && screen.swiftee.purpose) || speaks(screen);
+  return !!(screen && screen.swiftee && screen.swiftee.purpose) || speaks(screen) || saysAnything(screen);
 }
 
 global.Screens = {

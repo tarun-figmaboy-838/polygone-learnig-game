@@ -105,6 +105,10 @@
     stuck:       { rig: 'puzzleing',   loops: 2, mood: 'puzzled' },
     happy:       { rig: 'happy',       loops: 1, mood: 'glad' },
     daydream:    { rig: 'daydreaming', hold: true },
+    // IN THE AIR: wings going, for as long as he is on a mark with no
+    // ground under it (layout gives those marks `air`). The bob is CSS
+    // (.swiftee.air), so it rides under every other move.
+    hover:       { rig: 'flapping',    hold: true },
     // NOT 'sleeping'. Seventy-five seconds is a child reading a definition
     // and thinking about it, and a companion who lies down with a pillow and
     // Zs over its head at that point is telling them they have taken too
@@ -448,6 +452,7 @@
 
   function restingState() {
     if (speaking) return mood || 'explain';            // narrating -> the mood, else the talking loop
+    if (airborne) return 'hover';                      // nothing to stand on: he flies
     if (idleLevel === 2) return 'sleep';
     if (idleLevel === 1) return 'daydream';
     return 'idle';
@@ -566,6 +571,7 @@
      element's own box and the box is scaled: a fraction survives the scale
      where a pixel count would not. */
   var clipY = null;
+  var airborne = false;
   function applyClip() {
     if (!el) return;
     if (clipY == null) { el.style.clipPath = ''; return; }
@@ -584,6 +590,8 @@
     chooseScale(L.scale);
     clipY = L.clip == null ? null : L.clip;
     applyClip();
+    airborne = !!L.air;
+    if (el.classList) el.classList.toggle('air', airborne);
   }
 
   /**

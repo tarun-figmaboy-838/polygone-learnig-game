@@ -115,6 +115,7 @@
   function entrance(quick) {
     if (!buddyOn || present || !global.Swiftee || !Swiftee.play) return Promise.resolve(false);
     if (entering) return entering;
+    leaveGen++; leaving = false;   // any leave still running is overtaken (see leave())
     var done = function () { present = true; entering = null; syncPeekRim(); return true; };
     // Capped. The walk-on is under half a second; if the rig cannot finish
     // it — no animation support, a sheet that will not load — the lesson
@@ -126,10 +127,24 @@
   }
 
   /** And he leaves before a screen that does not need him: a wave, and off to the wing. */
+  var leaving = false, leaveGen = 0;
   function leave() {
     if (!present || !global.Swiftee || !Swiftee.play) return Promise.resolve();
     present = false;
-    var off = function () { if (Swiftee.place) Swiftee.place('off', Swiftee.size); syncPeekRim(); };
+    // THE RIM STAYS OVER HIM UNTIL HE IS GONE. With present already false,
+    // any re-sync during the sink dropped the rim copy, and for half a
+    // second he was sinking in front of the card, cut off at the pane.
+    leaving = true;
+    // AN ENTRANCE OVERTAKES A LEAVE. If his next line calls him back while
+    // he is still going, the new entrance cancels the exit — and the exit's
+    // own ending then parked him off-stage, under the entrance, so he came
+    // up nowhere and spoke from the wing. A leave that has been overtaken
+    // ends without touching him.
+    var gen = ++leaveGen;
+    var off = function () {
+      if (gen !== leaveGen || present || entering) return;
+      leaving = false; if (Swiftee.place) Swiftee.place('off', Swiftee.size); syncPeekRim();
+    };
     return Promise.race([Swiftee.play('exit', wingFor('to')), pause(1200)]).then(off, off);
   }
 
@@ -162,7 +177,7 @@
    */
   var rimEl = null;
   function syncPeekRim() {
-    var want = global.Swiftee && Swiftee.pos === 'peek' && (present || entering) &&
+    var want = global.Swiftee && Swiftee.pos === 'peek' && (present || entering || leaving) &&
                global.Stage && Stage.peekAnchor && Stage.peekAnchor() &&
                global.CardFrame && CardFrame.panel && Stage.svg && Stage.svg.getScreenCTM;
     if (!want) { if (rimEl) rimEl.style.display = 'none'; return; }
@@ -233,7 +248,10 @@
      one card has nothing for him to hide behind: there he stands on the
      ground at the left and the card sits on the right. */
   function peeksBehind(i) {
-    return sceneKindAt(i) === 'compare';
+    var k = sceneKindAt(i);
+    // the comparison's two cards, or the swipe practice's two zones — both
+    // are cards with a rim he can come up behind, clear of the plank
+    return k === 'compare' || k === 'swipe-sort';
   }
 
   /* HIS MARK ON SCREEN i, or null if the screen is not his.
@@ -252,7 +270,7 @@
     var behind = peeksBehind(i);
     if (!s.swiftee.purpose) {
       if (behind) { pos = 'peek'; size = 'small'; }
-      else if (!/^left/.test(pos)) { pos = 'left-low'; size = 'medium'; }
+      else if (!/^(left|top-left)/.test(pos)) { pos = 'left-low'; size = 'medium'; }
     } else if (pos === 'peek' && !behind) { pos = 'left-low'; size = 'medium'; }
     return { pos: pos, size: size };
   }
@@ -321,7 +339,10 @@
    * cell overstates him by a third — which is how he ended up towering over
    * the lesson. These are the numbers to change if he looks wrong.
    */
-  var BIRD_H = { small: 0.28, medium: 0.28, large: 0.28 };
+  // SMALL IS SMALL. All three were 0.28; a bird waiting inside the card's
+  // corner, or peeking over a rim, is a smaller thing than one standing on
+  // the ice beside it.
+  var BIRD_H = { small: 0.22, medium: 0.28, large: 0.28 };
   var CONTENT_FRAC = 0.764;      // (449 - 58) / 512, from the manifest bounds
   var EDGE = 8;                  // px of breathing room at the viewport edge
 
@@ -348,9 +369,27 @@
   function wantsRoomBelow(scr) {
     var beats = (scr.beats || []).concat(
       Object.keys(scr.perTap || {}).reduce(function (a, k) { return a.concat(scr.perTap[k] || []); }, []));
+    // Readings, a checklist, a stepper: things drawn INSIDE the face that
+    // want the shape a little higher. A label, a badge or an answer row
+    // goes UNDER the card instead (wantsBand), and takes no room inside.
     var has = function (o) {
-      return !!(o && (o.label || o.badge || o.choices || o.checklist || o.stepper || o.measurements));
+      return !!(o && (o.checklist || o.stepper || o.measurements));
     };
+    if (has(scr.stage)) return true;
+    return beats.some(function (b) {
+      return has(b.stage) ||
+        (b.on && Object.keys(b.on).some(function (k) { return (b.on[k] || []).some(function (x) { return has(x.stage); }); })) ||
+        (b.otherwise || []).some(function (x) { return has(x.stage); });
+    });
+  }
+
+  /* Is anything going UNDER the card on this screen — a name tag, a badge,
+     a row of answers? Then the card is built short, to the control line,
+     and the thing sits in the band below it. */
+  function wantsBand(scr) {
+    var beats = (scr.beats || []).concat(
+      Object.keys(scr.perTap || {}).reduce(function (a, k) { return a.concat(scr.perTap[k] || []); }, []));
+    var has = function (o) { return !!(o && (o.label || o.badge || (o.choices && o.choices.length))); };
     if (has(scr.stage)) return true;
     return beats.some(function (b) {
       return has(b.stage) ||
@@ -383,13 +422,16 @@
       // in is the corridor between them — so he stands in it too.
       // 0.075, not 0.115: the bins grew to 340 wide, and at 0.115 his wing
       // reached into the first one.
-      'left-mid':           { x: 0.075, y: 0.66 },
+      'left-mid':           { x: 0.075, y: 0.66, air: true },
       // Up in the corner, off the ground — for screens where the lesson needs
       // the whole floor and he should be a narrator rather than a bystander
       // standing in it.
       // 0.075, not 0.11: at 0.11 his wing reached four pixels into the first
       // card of the sorting tray.
-      'top-left':           { x: 0.075, y: 0.30 },
+      // IN THE AIR. There is no ground at either of these marks — the
+      // sorting screens put their tray and bins where the floor would be —
+      // so he flies here: a hover, wings going, bobbing (swiftee.js 'air').
+      'top-left':           { x: 0.075, y: 0.30, air: true },
       'centre':             { x: 0.50, y: 0.93 },
       'off':                { x: -0.3, y: 0.9 }
     };
@@ -464,6 +506,7 @@
 
     var L = fit({ x: f.x + m.x * f.w, y: y, scale: scale }, pos);
     if (clipPage != null) L.clip = clipPage;
+    if (m.air) L.air = true;
     return L;
   }
 
@@ -1463,7 +1506,7 @@
         // The stage cannot know — the label and the badge arrive later, in
         // beats — so it is worked out here, where the whole screen is
         // visible, and passed in.
-        if (spec && spec.kind && scr) spec = Object.assign({}, spec, { below: wantsRoomBelow(scr) });
+        if (spec && spec.kind && scr) spec = Object.assign({}, spec, { below: wantsRoomBelow(scr), controls: spec.controls || wantsBand(scr) });
         var wasSolo = soloed();
         Stage.apply(spec);
         // Building or clearing a scene changes whether Swiftee is alone, and
@@ -1587,7 +1630,14 @@
         return Promise.resolve();
       },
       instruction: function (text) { setCard(text); },
-      focus: function (target, opts) { Stage.focus(target, opts.style); },
+      focus: function (target, opts) {
+        Stage.focus(target, opts.style);
+        // the card in focus is the one he peeks from: if he is waiting in
+        // the wing for his cue, his mark moves with it
+        if (opts.style === 'dim-others' && global.Swiftee && Swiftee.pos === 'peek' && !present && !entering && Swiftee.place) {
+          Swiftee.place('peek', Swiftee.size); syncPeekRim(); placeBubble();
+        }
+      },
       input: function (spec, ctx) {
         // Next is shown only while the game is actually waiting to be told to
         // move on. Every other interaction wants the child looking at the
@@ -1875,7 +1925,14 @@
       // HE LEAVES BEFORE A SCREEN THAT DOES NOT NEED HIM: a wave and off to
       // the wing, and only then the ice cracks, rather than being switched
       // off underneath the transition.
-      if (i > start && present && !wantsBuddy(i)) { await leave(); if (gen !== playGen) return; }
+      var nextMark = wantsBuddy(i) ? markFor(i, Swiftee.pos, Swiftee.size) : null;
+      var hidden = /^(peek|corner)$/;
+      var switchesHiding = !!(nextMark && present && nextMark.pos !== Swiftee.pos &&
+                              (hidden.test(nextMark.pos) || hidden.test(Swiftee.pos || '')));
+      // ...and before a screen where he pops from behind a card, or comes
+      // out from inside one: those marks are not walked to. He goes off, the
+      // ice cracks, and his first line brings him up behind the new card.
+      if (i > start && present && (!wantsBuddy(i) || switchesHiding)) { await leave(); if (gen !== playGen) return; }
       var r = await changeScreen(i, i === start);
       if (gen !== playGen) return;                 // a restart took over while this waited
       if (r === Director.CANCELLED) { playing = false; return; }
