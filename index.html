@@ -209,16 +209,23 @@
 
   /* ---- dual coding: the term is tinted, and the thing it names lights
      up on the stage in that same colour, as the word appears ---- */
+  /* INK, NOT A CHIP. The tinted block behind each term broke the sentence
+     into labels; the word is now simply set in its own warm ink, bold. */
   .dc-term {
     display: inline-block;
-    padding: .04em .34em; margin: 0 .03em;
-    border-radius: .4em; font-weight: 800; white-space: nowrap;
+    padding: 0; margin: 0;
+    font-weight: 800; white-space: nowrap;
   }
   /* A tinted term and the punctuation that follows it, held together — see
      the note in dual-coding.js. The negative margin closes the gap the chip's
      right padding would otherwise open in front of the mark. */
+  /* ON THE PLANK, BLUE. Warm ink on warm wood was the one place the key
+     word did not stand out; against the brown lettering a deep glacier
+     blue is the coldest thing on the board, and reads at a glance. The
+     bubble is white, and keeps the warm ink. */
+  #instruction .dc-term { color: #0f4fc0 !important; }
   .dc-keep { white-space: nowrap; }
-  .dc-keep > .w, .dc-keep > .dc-punct { margin-left: -.26em; }
+  .dc-keep > .w, .dc-keep > .dc-punct { margin-left: 0; }
 
   /* ---- the interaction language ------------------------------------------
      One rule for the whole game: anything the child can touch right now is
@@ -264,10 +271,13 @@
      a soft warm glow that comes and goes, never a flash. The class is put
      on by the tap-each input and taken off the moment the target is done. */
   #stage .edge.hint {
-    stroke: #ffd95a; stroke-width: 14; stroke-linecap: round;
+    stroke: #dffaff; stroke-width: 14; stroke-linecap: round;
     animation: hintGlow 1.3s ease-in-out infinite;
   }
-  #stage .vertex.hint {
+  /* a bird on a mark with no ground under it bobs on the air */
+  .swiftee.air { animation: hoverBob 1.6s ease-in-out infinite; }
+  @keyframes hoverBob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -12px; } }
+  #stage .knob.hint {
     transform-box: fill-box; transform-origin: center;
     animation: hintBreathe 1.3s ease-in-out infinite;
   }
@@ -298,7 +308,8 @@
   @keyframes hintBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.22); } }
   @media (prefers-reduced-motion: reduce) {
     #stage .edge.hint { animation: none; stroke-opacity: .4; }
-    #stage .vertex.hint { animation: none; }
+    #stage .knob.hint { animation: none; }
+    .swiftee.air { animation: none; }
     #stage .zone.hint, #stage .zone.landed { animation: none; }
   }
   @media (prefers-reduced-motion: reduce) {

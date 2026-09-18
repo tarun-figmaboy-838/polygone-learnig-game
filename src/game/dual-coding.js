@@ -101,6 +101,14 @@
     ['regular', 'regular']
   ];
 
+  /* THE WORD'S OWN INK. The child reads the sentence on cream wood or a
+     white bubble, and a warm orange is the one thing on either that is not
+     blue or white: the parts of a shape in deep amber, the kinds of shape in
+     orange. The stage's halo keeps each concept's own colour (TERMS.color);
+     only the lettering changes. */
+  var INK = { vertex: '#d98a00', side: '#d98a00', diagonal: '#d98a00', angle: '#d98a00',
+              polygon: '#e8590c', convex: '#e8590c', concave: '#e8590c', regular: '#e8590c', irregular: '#e8590c' };
+
   var RE = new RegExp('\\b(' + FORMS.map(function (f) { return f[0]; }).join('|') + ')\\b', 'gi');
   var LOOKUP = {};
   FORMS.forEach(function (f) { LOOKUP[f[0]] = f[1]; });
@@ -137,8 +145,8 @@
       // colour still does the binding on its own: the term is tinted, and the
       // thing it names lights up on the stage in that same colour as the word
       // appears. Same pairing, one less thing in the text.
-      var chip = '<span class="dc-term" data-term="' + term + '" style="color:' + def.color +
-                 ';background:' + def.tint + '">' + esc(m[0]) + '</span>';
+      var chip = '<span class="dc-term" data-term="' + term + '" style="color:' + (INK[term] || '#e8590c') +
+                 '">' + esc(m[0]) + '</span>';
       last = m.index + m[0].length;
 
       // PUNCTUATION NEVER LEAVES THE WORD IT BELONGS TO.
