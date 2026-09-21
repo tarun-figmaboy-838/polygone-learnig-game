@@ -44,7 +44,9 @@ by a gate that fails the build, not by looking at it once.
 | ✅ | **No overlay covers the lesson, the character, or another overlay** — checked against real geometry, not assumed |
 | ✅ | Bubble placement measures the free space beside the shape, then verifies and shrinks up to three times if it still collides |
 | ✅ | Re-measured after the webfont loads, so the first line is not sized against a fallback |
-| ✅ | Swiftee **never cropped** at any edge, at desktop or phone width |
+| ✅ | Swiftee **never cropped** at any edge |
+| ✅ | **A portrait phone is asked to turn** rather than shown a letterbox strip — the lesson is 16:9 and a tall window gives it a third of the screen |
+| ✅ | The band above and below the board on a 16:10 or 4:3 screen is **the vista's own sky and snow**, so the fit has no visible seam |
 | ✅ | Swiftee **not oversized** — sized as a fraction of the drawn bird, not of the mostly-empty sprite cell |
 | ✅ | Centred when he is alone on screen, with a ground shadow so he reads against the vista |
 | ✅ | No horizontal overflow at phone width |
@@ -132,10 +134,35 @@ Both green at the commit this file ships in.
 
 ---
 
+## The teaching notation
+
+| | |
+| --- | --- |
+| ✅ | Sides are measured one at a time and each tap writes that side's length; the **equal-side ticks arrive together** when the last side is in, because a tick is a statement about the whole shape |
+| ✅ | The centimetre tags **come off when the angles begin** — five tags, five arcs and five numbers on one pentagon is a wall of type |
+| ✅ | Once the sides or angles differ, the numbers go and **each set of equals takes its own ticks or its own arcs**, which is how a geometry book says it |
+| ✅ | The live *Convex / Concave* badge and the answer wait for a dent of **15% of the shape's radius** — a notch a child can see, not a crossing of a line by a hair |
+| ✅ | A dragged vertex is **judged when it is let go**, so the child can keep pulling; too shallow earns "Pull it in more!" and the corner stays where they left it |
+| ✅ | A wrong swipe **shows why**: the ticks appear on the card for a second and a half and he names what they show |
+
+## Hints
+
+| | |
+| --- | --- |
+| ✅ | The hint is the thing itself **breathing**, never a ring painted over it |
+| ✅ | A hint never points at a right answer — every card still in play pulses, not the correct one |
+| ✅ | Ghost gestures for every drag, including "draw all the diagonals from this vertex" |
+| ✅ | The screen picker is a review tool behind **`?dev=1`** and is removed from the page for everybody else |
+
+---
+
 ## Known, and deliberate
 
-- **No narration.** The lesson is read, not spoken. The bubble shows the line
-  and the director's reading time paces it.
+- **Landscape only.** A portrait window is asked to turn. The lesson is a 16:9
+  board with touch targets sized for it.
+- **No narration yet.** The lines and their delivery notes are in
+  [VO.md](VO.md) and the player is wired; `assets/vo/index.json` lists the
+  clips that exist, and a line with no clip is simply silent.
 - **No music.** `SFX.musicBus()` and `SFX.duck()` exist; no loop is wired.
 - **Not tested on a real tablet.** Everything here is Chrome and jsdom on a
   desktop. The playthroughs prove the lesson cannot get stuck and that every

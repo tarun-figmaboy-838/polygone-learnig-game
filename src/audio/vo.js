@@ -16,6 +16,20 @@
   'use strict';
   var BASE = 'assets/vo/', EXT = '.mp3';
   var current = null, known = {};   // known[id] = false once a clip has failed to load
+  // THE INDEX. assets/vo/index.json lists the clips that exist; only those
+  // are ever requested. Asking the server for a clip that is not there logs
+  // a 404 in the console for every line — noise a child never hears but a
+  // test gate counts as an error. tools/build-vo-index.js writes the index
+  // from the folder; until it is fetched, or if it is missing, nothing plays.
+  var index = null;
+  function loadIndex() {
+    if (index || typeof fetch !== 'function') return;
+    index = {};
+    fetch(BASE + 'index.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      (j && j.clips || []).forEach(function (id) { index[id] = true; });
+    }).catch(function () {});
+  }
+  loadIndex();
 
   function muted() { return !!(global.SFX && SFX.isMuted && SFX.isMuted()); }
 
@@ -27,7 +41,7 @@
 
   /** Play the clip for a line. Returns the Audio element, or null. */
   function play(id) {
-    if (!id || typeof Audio === 'undefined' || known[id] === false || muted()) return null;
+    if (!id || typeof Audio === 'undefined' || known[id] === false || muted() || !index || !index[id]) return null;
     stop();
     var a;
     try { a = new Audio(BASE + id + EXT); } catch (e) { return null; }
@@ -44,7 +58,7 @@
   /** Warm the clips a screen is about to need. */
   function preload(ids) {
     (ids || []).forEach(function (id) {
-      if (!id || known[id] != null) return;
+      if (!id || known[id] != null || !index || !index[id]) return;
       try { var a = new Audio(BASE + id + EXT); a.preload = 'auto'; known[id] = true; a.addEventListener('error', function () { known[id] = false; }); } catch (e) {}
     });
   }

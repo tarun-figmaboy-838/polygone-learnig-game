@@ -10,8 +10,18 @@ artifacts/
 #   node tools/export-used-sprites.js
 swiftee-in-use/
 
+# The raw voice take: one 3MB mp3 of every line read end to end, dropped in
+# for cutting up. The game plays per-line clips from assets/vo/ (see
+# docs/VO.md), so this is source material, not a deliverable — it would ship
+# 3MB to every child and play nothing.
+src/audio/voices.mp3
+
 # editor / OS litter
 .DS_Store
 Thumbs.db
 .vscode/
 .vercel/
+
+# Raw voice takes cut by tools/split-vo.js. Source material: the per-line
+# clips that ship are assets/vo/<id>.mp3, placed by `node tools/split-vo.js --apply`.
+assets/vo/take/
