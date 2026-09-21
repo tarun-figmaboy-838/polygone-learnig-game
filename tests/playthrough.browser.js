@@ -165,7 +165,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         // up for the line and drops back when the plank returns. Anywhere
         // else he must be gone.
         const must = !!(scr.swiftee && scr.swiftee.purpose);
-        const may = window.Screens.wantsBuddy ? window.Screens.wantsBuddy(scr) : must;
+        const may = window.Screens.wantsBuddyAt ? window.Screens.wantsBuddyAt(s)
+                  : (window.Screens.wantsBuddy ? window.Screens.wantsBuddy(scr) : must);
         // Leaving at the end of his screen, or away measuring a side, is not absence.
         const leaving = st === 'exit', measuring = !!document.querySelector('.swiftee-measuring');
         const bad = must ? !(on || leaving || measuring) : (!may && on && !leaving);
@@ -299,7 +300,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const toScreen = (pts) => page.evaluate((qs) => {
     const svg = window.Stage.svg, m = svg.getScreenCTM(), pt = svg.createSVGPoint();
-    return qs.map((q) => { pt.x = q.x; pt.y = q.y; const r = pt.matrixTransform(m); return { x: r.x, y: r.y }; });
+    // the scene may be seated higher on a plank-free screen: the layers carry a translate the matrix does not know about
+    const seat = (window.Stage && window.Stage.seatY) || 0;
+    return qs.map((q) => { pt.x = q.x; pt.y = q.y + seat; const r = pt.matrixTransform(m); return { x: r.x, y: r.y }; });
   }, pts);
 
   const dragPath = async (from, to, steps = 8) => {

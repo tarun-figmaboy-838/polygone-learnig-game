@@ -217,7 +217,7 @@
       instruction: 'Drag the line segment to a different vertex.',
       stage: { label: { text: 'Side' } },
       beats: [
-        { instruction: 'Drag the line segment to a different vertex.' },
+        { instruction: 'Drag the line segment to a different vertex.', vo: 'p11i' },
         { focus: 'segment.endpoint', style: 'pulse' },
         { swiftee: 'point', at: 'segment.endpoint' },
         // Dropping on the OTHER adjacent vertex makes another side, not a
@@ -276,7 +276,7 @@
       // the hexagon screen where the brief's "your turn" makes it a leak.
       stage: { ghost: { from: 'picked', to: 'remaining-diagonal', style: 'dashed' } },
       beats: [
-        { instruction: 'Draw another diagonal from the same vertex.' },
+        { instruction: 'Draw another diagonal from the same vertex.', vo: 'p14i' },
         { say: 'Can you draw another diagonal from here?', vo: 'p14' },
         { stage: { ghost: { from: 'picked', to: 'remaining-diagonal', style: 'dashed', enter: 'fade' } } },
         { swiftee: 'point', at: 'picked' },
@@ -307,7 +307,7 @@
         { stage: { kind: 'polygon', sides: 6, enter: 'morph', label: { text: 'Hexagon', at: 'below-polygon' } } },
         { sfx: 'pop' },
         { wait: 400 },
-        { instruction: 'Draw all the diagonals from this vertex.' },
+        { instruction: 'Draw all the diagonals from this vertex.', vo: 'p15i' },
         { swiftee: 'encourage' },
         { say: 'Your turn! Draw all the diagonals from this vertex.', vo: 'p15' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
@@ -356,9 +356,11 @@
       say: 'Are they inside or outside?',
       stage: { kind: 'polygon', sides: 5, diagonals: 'all', choices: ['Inside', 'Outside'] },
       beats: [
-        { instruction: 'Are the diagonals inside or outside?' },
+        { instruction: 'Are the diagonals inside or outside?', vo: 'p17i' },
         { say: 'Are they inside or outside?', vo: 'p17' },
-        { stage: { choices: ['Inside', 'Outside'], enter: 'rise' } },
+        // the name tag from the screen before comes down: the question is
+        // about where the diagonals are, not what they are called
+        { stage: { choices: ['Inside', 'Outside'], enter: 'rise', label: null } },
         { swiftee: 'think' },
         { input: { type: 'choice', correct: 'Inside' } },
         { branch: true,
@@ -387,7 +389,7 @@
       say: 'Help me pull this vertex inside.',
       stage: { highlight: { vertex: 0, color: 'yellow' } },
       beats: [
-        { instruction: 'Drag the vertex inward' },
+        { instruction: 'Drag the vertex inward', vo: 'p19i' },
         { say: 'Help me pull this vertex inside.', vo: 'p19' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
         { swiftee: 'point', at: 'polygon.vertex.0' },
@@ -425,7 +427,7 @@
       say: 'Both are pentagons.',
       stage: { kind: 'compare', left: { sides: 5, diagonals: 'all' }, right: { sides: 5, dent: 0, diagonals: 'all', outsideColor: 'red' } },
       beats: [
-        { instruction: 'Compare the diagonals in both pentagons.' },
+        { instruction: 'Compare the diagonals in both pentagons.', vo: 'p21i' },
         { stage: { kind: 'compare', enter: 'split' } },
         { sfx: 'menuWhoosh' },
         { wait: 400 },
@@ -467,7 +469,7 @@
         { swiftee: 'explain' },
         { say: 'That\u2019s a convex polygon.', vo: 'p23' },
         // then the rule, on the plank, once his line has been read
-        { instruction: 'All diagonals inside means convex polygon.' },
+        { instruction: 'All diagonals inside means convex polygon.', vo: 'p23i' },
         { stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex', enter: 'pop' } } },
         { sfx: 'correct' },
         { input: { type: 'tap-anywhere' } }
@@ -509,7 +511,7 @@
         { swiftee: 'explain' },
         { say: 'So it is a concave polygon.', vo: 'p25' },
         // then the rule, on the plank, once his line has been read
-        { instruction: 'At least one diagonal outside means concave polygon.' },
+        { instruction: 'At least one diagonal outside means concave polygon.', vo: 'p25i' },
         { stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'concave', enter: 'pop' } } },
         { sfx: 'correct' },
         { input: { type: 'tap-anywhere' } }
@@ -527,7 +529,7 @@
         { swiftee: 'exit', to: 'left' },
         { stage: { kind: 'polygon', sides: 6, panel: 'center', enter: 'pop', badge: { text: 'Convex', live: true } } },
         { sfx: 'pop' },
-        { instruction: 'Drag any vertex to make this polygon concave.' },
+        { instruction: 'Drag any vertex to make this polygon concave.', vo: 'p26i' },
         { focus: 'polygon.vertices', style: 'pulse' },
         { input: { type: 'drag-vertex', vertex: 'any', until: 'concave', clamp: 'simple', live: 'badge' } },
         { feedback: [{ sfx: 'boing' }, { juice: 'celebrate', target: 'polygon' }] },
@@ -553,7 +555,10 @@
         bins: [{ id: 'convex', label: 'Convex', tone: 'convex' }, { id: 'concave', label: 'Concave', tone: 'concave' }],
         // Judged by Poly.classify at runtime, never by a hard-coded answer
         // column — so an art change cannot desync the shape from its key.
-        items: ['triangle', 'chevron', 'pentagon', 'l-shape', 'hexagon', 'star'],
+        // a square, not a triangle: a triangle can never be concave, so it shows
+        // the child nothing about the difference; a square is a shape they know
+        // and it sits in the Convex bin for a reason they can see
+        items: ['square', 'chevron', 'pentagon', 'l-shape', 'hexagon', 'star'],
         mechanic: 'drag-to-bin'
       },
       beats: [
@@ -591,15 +596,15 @@
 
     {
       id: 'measure-sides', page: 29,
-      swiftee: { pos: 'corner', size: 'small', purpose: 'demo' },
-      say: 'Let\u2019s check! Tap each side and I\u2019ll measure it.',
+      swiftee: { pos: 'corner', size: 'tiny', purpose: 'demo' },
+      say: 'Tap a side. I\u2019ll measure it!',
       // The same pentagon as the screen before, built again under the
       // wipe: he waits inside this card, so it sits in the middle, where
       // the one he stood beside sat to the right.
       stage: { kind: 'polygon', sides: 5, room: 'measure' },
       beats: [
         { stage: { kind: 'polygon' } },
-        { say: 'Let\u2019s check! Tap each side and I\u2019ll measure it.', vo: 'p29' },
+        { say: 'Tap a side. I\u2019ll measure it!', vo: 'p29' },
         { swiftee: 'inspect' },
         { focus: 'polygon.sides', style: 'pulse' },
         // Each tap reveals that side's length. Lengths come from
@@ -613,15 +618,15 @@
 
     {
       id: 'sides-equal', page: 30,
-      swiftee: { pos: 'corner', size: 'small', purpose: 'celebrate' },
+      swiftee: { pos: 'corner', size: 'tiny', purpose: 'celebrate' },
       // FLAG: on this deck page the instruction card already reads "Tap the
       // angles..." while Swiftee is still concluding the SIDES check. The
       // card is held on the sides instruction until the line finishes, then
       // swapped — otherwise the child is told to do two things at once.
-      say: 'Every side is equal! Now tap the angles.',
+      say: 'Equal sides! Now tap the angles.',
       beats: [
         { swiftee: 'nod' },
-        { say: 'Every side is equal! Now tap the angles.', vo: 'p30' },
+        { say: 'Equal sides! Now tap the angles.', vo: 'p30' },
         { swiftee: 'think' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -629,7 +634,7 @@
 
     {
       id: 'measure-angles', page: 31,
-      swiftee: { pos: 'corner', size: 'small', purpose: 'celebrate' },
+      swiftee: { pos: 'corner', size: 'tiny', purpose: 'celebrate' },
       say: 'The angles match too!',
       beats: [
         { focus: 'polygon.vertices', style: 'pulse' },
@@ -646,16 +651,17 @@
 
     {
       id: 'distort', page: 32, panel: 1,
-      swiftee: { pos: 'left-low', size: 'medium' },
-      instruction: 'Drag the highlighted vertex.',
-      say: 'Help me stretch this corner. Let\u2019s see what happens to the sides and angles!',
+      // ON THE MEASURING SLAB, where the sides and angles were just measured:
+      // he waits in its corner, small, and the readings have the width of the
+      // slab to change in. Beside one card they crowded the shape.
+      swiftee: { pos: 'corner', size: 'tiny', purpose: 'demo' },
+      say: 'Help me stretch this corner! Watch the sides and angles!',
       // Built again under the wipe: he is back on the ground at the left,
       // so the card goes back to the right.
       stage: { kind: 'polygon', sides: 5, room: 'measure', highlight: { vertex: 0, color: 'yellow' }, measurements: 'live' },
       beats: [
         { stage: { kind: 'polygon' } },
-        { instruction: 'Drag the highlighted vertex.' },
-        { say: 'Help me stretch this corner. Let\u2019s see what happens to the sides and angles!', vo: 'p32a' },
+        { say: 'Help me stretch this corner! Watch the sides and angles!', vo: 'p32a' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
         { swiftee: 'point', at: 'polygon.vertex.0' },
         // Completes once the shape is no longer regular by measurement,
@@ -667,13 +673,13 @@
 
     {
       id: 'stayed-changed', page: 32, panel: 2,
-      swiftee: { pos: 'left-low', size: 'medium' },
-      say: 'It\u2019s still a pentagon. But are the sides and angles still equal?',
+      swiftee: { pos: 'corner', size: 'tiny', purpose: 'ask' },
+      say: 'Still a pentagon! Are they still equal?',
       stage: { choices: ['Still equal', 'Not equal'] },
       beats: [
         { instruction: null },
         { swiftee: 'think' },
-        { say: 'It\u2019s still a pentagon. But are the sides and angles still equal?', vo: 'p32b' },
+        { say: 'Still a pentagon! Are they still equal?', vo: 'p32b' },
         { stage: { choices: ['Still equal', 'Not equal'], enter: 'rise' } },
         { input: { type: 'choice', correct: 'Not equal' } },
         { branch: true,
@@ -695,8 +701,8 @@
       say: 'All sides AND all angles equal means regular. Otherwise, it\u2019s irregular.',
       stage: {
         kind: 'compare',
-        left:  { sides: 5, caption: 'Regular pentagon',   checks: ['All sides equal', 'All angles equal'], tone: 'regular' },
-        right: { sides: 5, stretch: 0, caption: 'Irregular pentagon', checks: ['Sides not all equal', 'Angles not all equal'], tone: 'irregular' }
+        left:  { sides: 5, caption: 'Regular pentagon',   tone: 'regular' },
+        right: { sides: 5, stretch: 0, caption: 'Irregular pentagon', tone: 'irregular' }
       },
       beats: [
         { stage: { kind: 'compare', enter: 'split' } },
@@ -704,7 +710,6 @@
         { wait: 300 },
         { swiftee: 'explain' },
         { say: 'All sides AND all angles equal means regular. Otherwise, it\u2019s irregular.', vo: 'p32c' },
-        { stage: { reveal: 'checks', animate: 'sequential' } },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -778,11 +783,14 @@
     {
       id: 'build-sides', page: 35, panel: 1,
       swiftee: { pos: 'left-low', size: 'medium' },
-      say: 'Let\u2019s start by making a pentagon. Adjust the number of sides.',
-      stage: { kind: 'builder', sides: 3, stepper: { min: 3, max: 8, label: 'Number of sides' } },
+      // ONE SIDE TO BEGIN. A line, then a corner, then the third side closes
+      // a triangle, and on to five: the child builds the idea of a polygon
+      // side by side, rather than being handed a triangle to grow.
+      say: 'Let\u2019s build a pentagon! Add the sides one at a time.',
+      stage: { kind: 'builder', sides: 1, stepper: { min: 1, max: 8, label: 'Number of sides' } },
       beats: [
-        { stage: { kind: 'builder', sides: 3, enter: 'pop' } },
-        { say: 'Let\u2019s start by making a pentagon. Adjust the number of sides.', vo: 'p35a' },
+        { stage: { kind: 'builder', sides: 1, enter: 'pop' } },
+        { say: 'Let\u2019s build a pentagon! Add the sides one at a time.', vo: 'p35a' },
         { swiftee: 'point', at: 'builder' },
         { focus: 'builder.stepper', style: 'pulse' },
         // The polygon morphs live as the stepper changes. Completes at 5.
@@ -825,11 +833,9 @@
       // The finale is carried by the celebrate clip and the confetti.
       swiftee: { pos: 'peek', size: 'small', purpose: 'celebrate'},
       say: 'Nice! You built a concave and irregular pentagon.',
-      stage: { checklist: ['5 sides', 'Concave', 'Irregular'] },
       beats: [
         // Ticks land one at a time, each verified by Poly.classify on the
         // learner's actual shape, so the checklist can never lie.
-        { stage: { checklist: ['5 sides', 'Concave', 'Irregular'], animate: 'sequential', each: 350, verify: true } },
         { sfx: 'sparkle' },
         { swiftee: 'celebrate' },
         { say: 'Nice! You built a concave and irregular pentagon.', vo: 'p35d' },
@@ -942,9 +948,38 @@ function wantsBuddy(screen) {
   return !!(screen && screen.swiftee && screen.swiftee.purpose) || speaks(screen) || saysAnything(screen);
 }
 
+/* WHAT THE STAGE SHOWS BY THE END OF SCREEN i. Most screens carry the scene
+   over from the one before and only some rebuild it, so the kind of scene a
+   screen is about is the last one declared at or before it. */
+function sceneKindAt(i) {
+  var kind = null;
+  for (var k = 0; k <= i && k < SCREENS.length; k++) {
+    var s = SCREENS[k];
+    if (s.stage && s.stage.kind) kind = s.stage.kind;
+    (s.beats || []).forEach(function (b) { if (b && b.stage && b.stage.kind) kind = b.stage.kind; });
+  }
+  return kind;
+}
+
+/* HE INSTRUCTS FROM THE ICE. On a screen with one card, or two, there is
+   empty ice at the left for him to stand on — so every line on such a
+   screen, instructions included, is his, and no plank is shown. The plank
+   is for the wide layouts (the option grid, the sorting tray and bins, the
+   swipe zones) where the floor is the lesson's. */
+function speaksAll(i) {
+  var kind = sceneKindAt(i);
+  return kind === 'polygon' || kind === 'compare' || kind === 'builder';
+}
+function wantsBuddyAt(i) {
+  return wantsBuddy(SCREENS[i]) || speaksAll(i);
+}
+
 global.Screens = {
   speaks: speaks,
   wantsBuddy: wantsBuddy,
+  sceneKindAt: sceneKindAt,
+  speaksAll: speaksAll,
+  wantsBuddyAt: wantsBuddyAt,
     list: SCREENS,
     byId: byId,
     notScreens: NOT_SCREENS,

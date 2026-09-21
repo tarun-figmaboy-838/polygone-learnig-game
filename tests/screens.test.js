@@ -328,7 +328,7 @@ t('Swiftee positions are ones the layout knows',
   S.filter((s) => s.swiftee && POSITIONS.indexOf(s.swiftee.pos) < 0).map((s) => s.id));
 
 t('Swiftee sizes are ones the layout knows',
-  S.every((s) => !s.swiftee || ['small', 'medium', 'large'].indexOf(s.swiftee.size) >= 0));
+  S.every((s) => !s.swiftee || ['tiny', 'small', 'medium', 'large'].indexOf(s.swiftee.size) >= 0));
 
 t('every move beat names a position the layout knows',
   S.every((s) => allBeats(s).every((b) =>

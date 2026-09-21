@@ -93,18 +93,24 @@
     // The director awaits this one, so it gates every correct answer. One
     // loop is 3.4s end to end; two made the reward outstay its welcome.
     celebrate:   { rig: 'celebrating', loops: 1, mood: 'glad' },
-    encourage:   { rig: 'love',        loops: 1, mood: 'glad' },
-    confused:    { rig: 'confused',    loops: 1, mood: 'puzzled' },
-    surprised:   { rig: 'surprised',   loops: 1, mood: 'amazed' },
+    // A SMALL, LEGIBLE SET. Hearts for encouragement, a wiped brow for
+    // stepping back, a puzzle for being stuck: each read as a character
+    // from another story. He is glad, curious, confident, surprised or
+    // puzzled — the faces a child meets while learning a shape — and no
+    // more. A reaction does not colour the next line: 'confused' and
+    // 'surprised' are moments, and he talks normally after them.
+    encourage:   { rig: 'happy',       loops: 1, mood: 'glad' },
+    confused:    { rig: 'confused',    loops: 1 },
+    surprised:   { rig: 'surprised',   loops: 1 },
     mischief:    { rig: 'playful',     loops: 2 },
-    'step-back': { rig: 'relieved',    loops: 1, shift: -34 },
+    'step-back': { rig: 'proud',       loops: 1, shift: -34 },
 
     // moments the game reaches outside screens.js
     proud:       { rig: 'proud',       loops: 2, mood: 'glad' },
     excited:     { rig: 'excited',     loops: 1, mood: 'glad' },
-    stuck:       { rig: 'puzzleing',   loops: 2, mood: 'puzzled' },
+    stuck:       { rig: 'thinking',    loops: 2 },
     happy:       { rig: 'happy',       loops: 1, mood: 'glad' },
-    daydream:    { rig: 'daydreaming', hold: true },
+    daydream:    { rig: 'curious',     hold: true },   // a look around, not a doze: the child is thinking, not gone
     // IN THE AIR: wings going, for as long as he is on a mark with no
     // ground under it (layout gives those marks `air`). The bob is CSS
     // (.swiftee.air), so it rides under every other move.
@@ -129,8 +135,8 @@
     enter:       { rig: 'driving',     hold: true },
     // No flight rig exists either. He waves as he goes, and travels on the
     // liveliest loop the set has.
-    exit:        { rig: 'waving',      hold: true },
-    move:        { rig: 'playful',     hold: true }
+    exit:        { rig: 'flapping',    hold: true },   // he flies off, wings going
+    move:        { rig: 'flapping',    hold: true }
   };
 
   /**

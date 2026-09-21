@@ -87,36 +87,61 @@
        measurement — the marks would be the one part of the bubble free to
        land on the shape.
   */
+  /* ---- THE SPEECH BUBBLE ----
+     A bordered box of paper with a tail that is ONE SILHOUETTE with it.
+
+     The tail is a 60x60 SVG on a "0 0 60 60" viewBox, so one unit is one
+     CSS pixel. y=12 in that box is the MOUTH, placed on the centreline of
+     the bubble's border. The fill starts at y=0, twelve pixels before the
+     mouth, so it covers the border across the mouth's width; without that
+     the border paints straight across the join and the two read as separate
+     pieces. Only the two FREE edges are stroked — the border is already the
+     line at the mouth. The stroke is 4 user units = the 4px border, and it
+     scales with the element, so the border is 4px at every size.
+
+     The same square serves all four sides by rotating about its centre.
+     Offsets: element 60, mouth at 12, border 4 -> 12 - 4/2 = 10.
+     game.js (paintSkin) picks the side that faces Swiftee, slides the tail
+     along it to his head, and mirrors the sweep so the tip leans his way. */
   #bubble {
-    --cream: #fff8e7;
-    --cream-light: #fffdf5;
-    --cream-foot: #fff2d6;
-    --orange: #ffb515;
-    --orange-dark: #e08200;
-    --text: #064d68;
-    --rim: 4px;
+    --bubble-edge:   #169F99;   /* the border; the tail's outline follows it */
+    --bubble-paper:  #FFFBEA;   /* the fill; the tail's fill follows it      */
+    --bubble-ink:    #174B52;
+    --bubble-border: 4px;       /* keep in step with --tail-offset            */
+    --bubble-radius: 26px;
+    --tail-offset:   10px;      /* mouth(12) - border/2                       */
+    --tail-x:        calc(70% - 30px);
+    --tail-y:        calc(50% - 30px);
 
     position: absolute; z-index: 4;
+    isolation: isolate;
     box-sizing: border-box;
-    /* One size for the whole component; the padding below is em of this, and
-       so is everything the skin is drawn from. */
+    /* One size for the whole component; the padding is em of this. */
     font-size: clamp(20px, 2.3vw, 33px);
     max-width: min(820px, 68vw);
     min-width: 5em;
-    padding: .62em 1em;
+    padding: .58em .95em;
     display: flex; align-items: center; justify-content: center;
-
-    /* NO BORDER, NO BACKGROUND, NO RADIUS.
-       All three now belong to .bubble-skin, an SVG drawn behind the words —
-       see paintSkin() in game.js. A CSS box cannot grow a tail, so the tail
-       used to be a second SVG laid over the box's bottom edge, and the seam
-       between the two was a losing battle: cover the rim and the outline has
-       a gap in it, leave it and the tail reads as pinned on. Body and horn
-       are one path now, so there is no junction to get wrong. */
+    border: var(--bubble-border) solid var(--bubble-edge);
+    border-radius: var(--bubble-radius);
+    background: var(--bubble-paper);
+    color: var(--bubble-ink);
+    box-shadow:
+      inset 0 2px 0 #FFFFFF,
+      0 0 14px 2px rgb(22 159 153 / .16),
+      0 0 30px 8px rgb(22 159 153 / .07),
+      0 8px 20px rgb(12 64 78 / .16);
     opacity: 0; pointer-events: none;
     transform: scale(.15);
     transform-origin: 12% 100%;
     transition: transform 440ms cubic-bezier(.2, .9, .3, 1.45), opacity 200ms ease;
+  }
+  /* the small catch-light that keeps the paper playful */
+  #bubble::before {
+    content: '';
+    position: absolute; left: 14px; top: 10px;
+    width: .8em; height: .28em; border-radius: 999px;
+    background: #fff; transform: rotate(-22deg); pointer-events: none;
   }
   #bubble.show { opacity: 1; pointer-events: auto; cursor: pointer; transform: none; }
   /* going away is quicker than arriving, and does not overshoot */
@@ -124,67 +149,54 @@
 
   .dialogue-inner {
     position: relative; z-index: 2; max-width: 100%;
-    color: var(--text);
+    color: var(--bubble-ink);
     font-family: "Fredoka", "Baloo 2", "Arial Rounded MT Bold", var(--sans);
-    font-size: inherit; font-weight: 600; line-height: 1.2;
+    font-size: inherit; font-weight: 700; line-height: 1.22;
     letter-spacing: .2px; text-align: center;
-    /* NOT text-wrap: balance. Balance evens the rows of a wrapped sentence so
-       neither row reaches the edge of the box — which, in a box sized to the
-       space beside the lesson, means a band of empty paper down both sides
-       and a short-looking line adrift in a wide frame. Ordinary wrapping
-       fills the first row to the edge, so the box the text shrink-wraps into
-       is the box the text actually needs. */
+    /* NOT text-wrap: balance — ordinary wrapping fills the first row to the
+       edge, so the box the text shrink-wraps into is the box it needs. */
   }
-  /* Screens with nothing else on them get room to breathe. It is one number,
-     because everything else is em. */
+  /* Screens with nothing else on them get room to breathe. */
   #bubble.solo { font-size: clamp(26px, 3.15vw, 46px); }
-  /* ONE step down, and only one.
-
-     The type used to be shrunk sentence by sentence — three per cent at a
-     time, down to half — until each line fit on a single row. It worked, and
-     a child reading the game saw the words change size every time Swiftee
-     spoke, because the size was being decided by how long that particular
-     sentence happened to be. Text that changes size looks squeezed in, and it
-     is the loudest way for a game to read as unfinished.
-
-     So there are two sizes per tier and nothing in between: the normal one,
-     and this, used only when a sentence would otherwise run past two rows in
-     the space it has been given. Two discrete sizes are a decision; a
-     continuous scale is an accident. */
+  /* ONE step down, and only one: used when a sentence would otherwise run
+     past two rows in the space it has. Two sizes are a decision. */
   #bubble.tight .dialogue-inner { font-size: clamp(17px, 1.95vw, 27px); }
   #bubble.tight.solo .dialogue-inner { font-size: clamp(22px, 2.6vw, 38px); }
 
-  /* Mood tints the paper and nothing else. The rim is the bubble's identity
-     and never changes, so a win does not arrive looking like a different
-     widget. */
-  #bubble[data-mood="win"]   { --cream: #f3fce9; --cream-light: #fdfff8; --cream-foot: #e9f8d9; }
-  #bubble[data-mood="hint"]  { --cream: #fff1cf; --cream-light: #fffbee; --cream-foot: #ffeabb; }
-  #bubble[data-mood="think"] { --cream: #f1f9fb; --cream-light: #fbfeff; --cream-foot: #e4f3f8; }
+  /* ONE BUBBLE, ONE LOOK. Praise, hints and questions all come in the same
+     teal-and-cream bubble; a bubble that changed colour with its mood read
+     as a different widget each time. data-mood stays on the element for
+     the tests and for anyone who wants it, and styles nothing. */
 
-  /* ---- the skin ----
-     One SVG, one path: the rounded body and the horn drawn as a single
-     outline, filled once and stroked once. It is rebuilt whenever the box is
-     measured, which is whenever the line changes or the window does.
-
-     It sits outside the bubble's own box by SKIN_PAD on every side, because
-     the horn and the stroke are drawn beyond the border box and would
-     otherwise be clipped — and because the glow is a drop-shadow on the SVG
-     rather than a box-shadow on the div, which would draw a rectangle. */
-  .skin-fill  { fill: var(--cream); }
-  .skin-line  { fill: none; stroke: var(--orange); stroke-width: var(--rim); stroke-linejoin: round; }
-  .skin-sheen { fill: #fff; opacity: .9; }
-  .bubble-skin {
-    position: absolute; z-index: 0; pointer-events: none; overflow: visible;
-    filter: drop-shadow(0 6px 14px rgba(20, 70, 92, .22))
-            drop-shadow(0 0 16px rgba(255, 181, 21, .3));
+  /* ---- the tail ---- */
+  .bubble-tail {
+    position: absolute;
+    width: 60px; height: 60px;   /* square: required, so it rotates about its centre */
+    overflow: visible; pointer-events: none;
+    transform-origin: center;
+    z-index: 1;                  /* above the bubble's own border, so the fill hides it */
+    left: var(--tail-x); top: calc(100% - var(--tail-offset));
   }
+  .bubble-tail-fill   { fill: var(--bubble-paper); }
+  .bubble-tail-stroke {
+    fill: none; stroke: var(--bubble-edge);
+    stroke-width: 4;             /* user units == the border, and scales with it */
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  #bubble[data-tail="bottom"] > .bubble-tail { left: var(--tail-x); top: calc(100% - var(--tail-offset)); transform: none; }
+  #bubble[data-tail="top"]    > .bubble-tail { left: var(--tail-x); top: calc(-60px + var(--tail-offset)); transform: rotate(180deg); }
+  #bubble[data-tail="right"]  > .bubble-tail { left: calc(100% - var(--tail-offset)); top: var(--tail-y); transform: rotate(-90deg); }
+  #bubble[data-tail="left"]   > .bubble-tail { left: calc(-60px + var(--tail-offset)); top: var(--tail-y); transform: rotate(90deg); }
+  #bubble:not([data-tail]) > .bubble-tail { display: none; }
+  /* Mirror the tail's sweep without moving it. */
+  #bubble[data-tail-flip] > .bubble-tail > g { transform: scale(-1,1); transform-origin: 30px 30px; }
 
   @media (max-width: 900px) {
     #bubble { font-size: clamp(18px, 2.6vw, 27px); }
     #bubble.solo { font-size: clamp(22px, 3.4vw, 34px); }
   }
   @media (max-width: 600px) {
-    #bubble { font-size: clamp(16px, 4.6vw, 23px); --rim: 3px; }
+    #bubble { font-size: clamp(16px, 4.6vw, 23px); }
     #bubble.solo { font-size: clamp(18px, 5.4vw, 26px); }
   }
 
@@ -271,7 +283,7 @@
      a soft warm glow that comes and goes, never a flash. The class is put
      on by the tap-each input and taken off the moment the target is done. */
   #stage .edge.hint {
-    stroke: #dffaff; stroke-width: 14; stroke-linecap: round;
+    stroke: #4be0ff; stroke-width: 14; stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(75, 224, 255, .9));
     animation: hintGlow 1.3s ease-in-out infinite;
   }
   /* a bird on a mark with no ground under it bobs on the air */
@@ -545,7 +557,10 @@
 <div id="game">
   <div id="stage"></div>
   <div id="bubble" role="status" aria-live="polite" aria-atomic="true">
-    <svg class="bubble-skin" aria-hidden="true"><path class="skin-fill"/><path class="skin-line"/><ellipse class="skin-sheen"/></svg>
+    <svg class="bubble-tail" viewBox="0 0 60 60" aria-hidden="true"><g>
+      <path class="bubble-tail-fill"   d="M14 0 H46 V12 C44 26 34 40 12 54 C16 40 18 26 14 12 Z"></path>
+      <path class="bubble-tail-stroke" d="M46 12 C44 26 34 40 12 54 C16 40 18 26 14 12"></path>
+    </g></svg>
     <div class="dialogue-inner"><span class="bubble-line"></span></div>
   </div>
   <!-- Progress is announced to a screen reader only. On screen it is the
@@ -590,6 +605,7 @@
 
 <!-- Load order is the dependency order: each module reads the ones above it. -->
 <script src="src/audio/sfx.js"></script>
+<script src="src/audio/vo.js"></script>
 <script src="src/fx/juice.js"></script>
 <script src="src/fx/snowflake.js"></script>
 <script src="src/fx/titlefx.js"></script>
@@ -604,7 +620,7 @@
 <script src="src/character/sleigh-frames.js"></script>
 <script src="src/fx/sleigh-intro.js"></script>
 <script src="src/character/swiftee.js"></script>
-<!-- generated from assets/ui/cardskit.png, bigcardn.png, pannel.png, reg.png and irre.png by tools/build-card.js -->
+<!-- generated from assets/ui/cardskit.png, panel-card.png, measure-card.png, compare-card.png, pannel.png, reg.png and irre.png by tools/build-card.js -->
 <script src="src/game/card-frame.js"></script>
 <script src="src/game/instruction.js"></script>
 <!-- generated from assets/ui/btn.png and numberbutton1.png by tools/build-buttons.js -->

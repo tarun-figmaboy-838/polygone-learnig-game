@@ -17,11 +17,9 @@
  *   Juice.pop(el, { scale })
  *   Juice.wobble(el) / refuse(el)           // "not that one"
  *   Juice.collect(el) / celebrate(el)       // "yes"
- *   Juice.squash(el, { amount })
  *   Juice.tada(el, { angle })
  *   Juice.flash(el)
  *   Juice.confetti(near, { count, offsetX })   // a burst, from a place
- *   Juice.shower({ count, duration })          // paper down the whole screen
  */
 (function (global) {
   'use strict';
@@ -35,7 +33,22 @@
     } catch (e) {}
   }
 
-  var CONFETTI = ['#ff8fa3', '#ffd166', '#63e0a4', '#5ec8ff', '#b98cff', '#ffb27a'];
+  // Saturated party paper, plus white: pale pastels vanished against the ice.
+  var CONFETTI = ['#ff5f8a', '#ffc933', '#38d98a', '#39b6ff', '#a970ff', '#ff9a3c', '#ffffff', '#ffe066'];
+  var STAR = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
+
+  /** The pop at the heart of a burst: a soft flash that swells and is gone. */
+  function flash(doc, cx, cy) {
+    var el = doc.createElement('div');
+    el.style.cssText = 'position:absolute;left:' + cx + 'px;top:' + cy + 'px;width:120px;height:120px;margin:-60px;' +
+      'border-radius:50%;pointer-events:none;will-change:transform,opacity;opacity:0;' +
+      'background:radial-gradient(circle,rgba(255,255,255,.95) 0%,rgba(255,240,180,.7) 30%,rgba(255,220,120,0) 70%);';
+    host.appendChild(el);
+    if (!el.animate) { el.remove(); return; }
+    el.animate([
+      { transform: 'scale(.2)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: 0.25 }, { transform: 'scale(1.9)', opacity: 0 }
+    ], { duration: 520, easing: 'ease-out', fill: 'forwards' }).finished.then(function () { el.remove(); }, function () { el.remove(); });
+  }
 
   /* ------------------------------------------------------------------ *
    * Helpers
@@ -168,17 +181,6 @@
     },
 
     /** Landing weight. Used after an entrance. */
-    squash: function (el, o) {
-      o = o || {};
-      var a = o.amount == null ? 0.14 : o.amount;
-      return run(el, [
-        { transform: 'scale(1,1)' },
-        { transform: 'scale(' + (1 + a) + ',' + (1 - a) + ')', offset: 0.25 },
-        { transform: 'scale(' + (1 - a * 0.5) + ',' + (1 + a * 0.5) + ')', offset: 0.6 },
-        { transform: 'scale(1,1)' }
-      ], { duration: o.duration || 420, easing: 'cubic-bezier(.34,1.56,.64,1)' }).finished;
-    },
-
     /** Attention, with rotation. */
     tada: function (el, o) {
       o = o || {};
@@ -225,8 +227,9 @@
       var cx = (r ? (r.left + r.width / 2) : (hostRect.left + hostRect.width / 2)) - hostRect.left + (o.offsetX || 0);
       var cy = (r ? (r.top + r.height * 0.35) : (hostRect.top + hostRect.height * 0.3)) - hostRect.top + (o.offsetY || 0);
 
-      var n = Math.min(120, o.count == null ? 30 : o.count);
+      var n = Math.min(120, o.count == null ? 36 : o.count);
       var done = [];
+      flash(doc, cx, cy);
       if (o.fromEdge && r) {
         // FROM BEHIND. Each piece starts on the edge of the thing and flies
         // away from its centre, so the burst reads as coming out from under
@@ -247,116 +250,47 @@
       return Promise.all(done);
     },
 
-    /**
-     * Confetti falling across the whole screen, not thrown from a point.
-     *
-     * confetti() is a burst: it belongs to a thing that just happened in one
-     * place. A finished task belongs to the whole screen, so this seeds the
-     * full width above the top edge and lets it come down — paper, streamers
-     * and a few crystals, each on its own clock, so it arrives as a shower
-     * rather than as one curtain dropping.
-     */
-    shower: function (o) {
-      o = o || {};
-      if (reduced || !host || !host.ownerDocument) return Promise.resolve();
-      var doc = host.ownerDocument;
-      var hostRect = rectOf(host);
-      if (!hostRect) return Promise.resolve();
-
-      var n = Math.min(200, o.count == null ? 70 : o.count);
-      var done = [];
-      for (var i = 0; i < n; i++) done.push(fallingPiece(doc, hostRect.width, hostRect.height, o));
-      return Promise.all(done);
-    },
-
     get reducedMotion() { return reduced; },
-    set reducedMotion(v) { reduced = !!v; },
-
-    /** Test seam: makes every effect a no-op without touching the OS setting. */
-    disable: function (v) { reduced = v !== false; return reduced; }
+    set reducedMotion(v) { reduced = !!v; }
   };
 
+
   /**
-   * One scrap of a shower: paper, a streamer, or a snow crystal.
-   *
-   * Seeded above the top edge with a stagger of up to most of a second, so
-   * the fall is continuous instead of the whole batch arriving as a line.
+   * One piece of confetti. BIG ENOUGH TO SEE, and it tumbles: it pops out
+   * with a little swell, arcs up and over, flutters as it falls (a paper
+   * scrap turning edge-on and back) and fades near the ground. Three kinds
+   * — a strip, a dot, a star — in bright party colours with a white glint.
    */
-  function fallingPiece(doc, W, H, o) {
-    var el = doc.createElement('div');
-    var kind = Math.random();
-    var x = Math.random() * W;
-    var y = -40 - Math.random() * H * 0.4;
-    var w, h, css;
-
-    if (kind < 0.16 && global.Snowflake) {
-      w = 12 + Math.random() * 20;
-      css = 'width:' + w.toFixed(0) + 'px;height:' + w.toFixed(0) + 'px;';
-    } else if (kind < 0.34) {
-      // a streamer: long, thin and slow, so the fall has more than one speed
-      w = 4 + Math.random() * 3; h = 18 + Math.random() * 22;
-      css = 'width:' + w.toFixed(1) + 'px;height:' + h.toFixed(1) + 'px;border-radius:3px;' +
-            'background:' + CONFETTI[(Math.random() * CONFETTI.length) | 0] + ';';
-    } else {
-      w = 7 + Math.random() * 8; h = w * (0.45 + Math.random() * 0.7);
-      css = 'width:' + w.toFixed(1) + 'px;height:' + h.toFixed(1) + 'px;' +
-            'background:' + CONFETTI[(Math.random() * CONFETTI.length) | 0] + ';' +
-            'border-radius:' + (Math.random() < 0.4 ? '50%' : '2px') + ';';
-    }
-
-    el.style.cssText = 'position:absolute;will-change:transform,opacity;pointer-events:none;' +
-      'left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;' + css;
-    if (kind < 0.16 && global.Snowflake) {
-      el.innerHTML = Snowflake.svg(w, (Math.random() * 3) | 0, { weight: Math.max(1, w * 0.05), glow: 'rgba(210,238,255,.8)' });
-    }
-    host.appendChild(el);
-
-    if (!el.animate) { el.remove(); return Promise.resolve(); }
-
-    var sway = (Math.random() - 0.5) * 180;
-    var spin = (Math.random() - 0.5) * 1100;
-    var drop = H - y + 80;
-    var dur = (o.duration || 1900) + Math.random() * 1100;
-
-    var a = el.animate([
-      { transform: 'translate(0,0) rotate(0deg)', opacity: 0 },
-      { transform: 'translate(' + (sway * 0.3).toFixed(0) + 'px,' + (drop * 0.12).toFixed(0) + 'px) rotate(' + (spin * 0.12).toFixed(0) + 'deg)', opacity: 1, offset: 0.12 },
-      { transform: 'translate(' + (-sway * 0.6).toFixed(0) + 'px,' + (drop * 0.55).toFixed(0) + 'px) rotate(' + (spin * 0.55).toFixed(0) + 'deg)', opacity: 1, offset: 0.55 },
-      { transform: 'translate(' + sway.toFixed(0) + 'px,' + drop.toFixed(0) + 'px) rotate(' + spin.toFixed(0) + 'deg)', opacity: 0 }
-    ], {
-      duration: dur,
-      delay: Math.random() * 700,
-      easing: 'cubic-bezier(.25,.55,.45,1)',
-      fill: 'forwards'
-    });
-    return a.finished.catch(function () {}).then(function () { if (el.parentNode) el.parentNode.removeChild(el); });
-  }
-
   function piece(doc, cx, cy, o) {
     var el = doc.createElement('div');
-    var w = 7 + Math.random() * 7;
-    var h = w * (0.45 + Math.random() * 0.7);
+    var kind = Math.random();
+    var size = 11 + Math.random() * 11;
+    var w = size, h = kind < 0.4 ? size * (0.45 + Math.random() * 0.4) : size;
     var col = CONFETTI[(Math.random() * CONFETTI.length) | 0];
+    var shape = kind < 0.4 ? 'border-radius:3px;' : kind < 0.72 ? 'border-radius:50%;' : 'clip-path:' + STAR + ';';
     el.style.cssText = 'position:absolute;will-change:transform,opacity;left:' + cx + 'px;top:' + cy + 'px;' +
-      'width:' + w.toFixed(1) + 'px;height:' + h.toFixed(1) + 'px;background:' + col + ';' +
-      'border-radius:' + (Math.random() < 0.4 ? '50%' : '2px') + ';opacity:0';
+      'width:' + w.toFixed(1) + 'px;height:' + h.toFixed(1) + 'px;margin:' + (-h / 2).toFixed(1) + 'px 0 0 ' + (-w / 2).toFixed(1) + 'px;' +
+      'background:' + col + ';' + shape + (kind < 0.72 ? 'box-shadow:0 0 6px rgba(255,255,255,.55);' : '') + 'opacity:0';
     host.appendChild(el);
 
     var angle = o.angle != null ? o.angle + (Math.random() - 0.5) * 0.5
-              : (-Math.PI / 2) + (Math.random() - 0.5) * (o.spread == null ? 1.9 : o.spread);
-    var speed = 120 + Math.random() * 260;
+              : (-Math.PI / 2) + (Math.random() - 0.5) * (o.spread == null ? 2.1 : o.spread);
+    var speed = (180 + Math.random() * 300) * (o.speed || 1);   // o.speed: shorter throws keep a burst close to its card
     var dx = Math.cos(angle) * speed;
     var rise = Math.sin(angle) * speed;
-    var fall = 260 + Math.random() * 320;
-    var spin = (Math.random() - 0.5) * 900;
-    var dur = 1100 + Math.random() * 900;
+    var fall = 300 + Math.random() * 360;
+    var spin = (Math.random() - 0.5) * 1400;
+    var dur = 1500 + Math.random() * 900;
+    var flutter = 0.25 + Math.random() * 0.35;   // how edge-on it turns mid-fall
 
     if (!el.animate) { el.remove(); return Promise.resolve(); }
     var a = el.animate([
-      { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
-      { transform: 'translate(' + (dx * 0.6).toFixed(1) + 'px,' + rise.toFixed(1) + 'px) rotate(' + (spin * 0.4).toFixed(0) + 'deg)', opacity: 1, offset: 0.35 },
-      { transform: 'translate(' + dx.toFixed(1) + 'px,' + fall.toFixed(1) + 'px) rotate(' + spin.toFixed(0) + 'deg)', opacity: 0 }
-    ], { duration: dur, easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'forwards' });
+      { transform: 'translate(0,0) rotate(0deg) scale(.3)', opacity: 1, offset: 0 },
+      { transform: 'translate(' + (dx * 0.22).toFixed(1) + 'px,' + (rise * 0.5).toFixed(1) + 'px) rotate(' + (spin * 0.12).toFixed(0) + 'deg) scale(1.25)', opacity: 1, offset: 0.12 },
+      { transform: 'translate(' + (dx * 0.7).toFixed(1) + 'px,' + rise.toFixed(1) + 'px) rotate(' + (spin * 0.45).toFixed(0) + 'deg) scale(1)', opacity: 1, offset: 0.42 },
+      { transform: 'translate(' + (dx * 0.92).toFixed(1) + 'px,' + (fall * 0.5).toFixed(1) + 'px) rotate(' + (spin * 0.78).toFixed(0) + 'deg) scale(' + flutter.toFixed(2) + ',1)', opacity: 1, offset: 0.74 },
+      { transform: 'translate(' + dx.toFixed(1) + 'px,' + fall.toFixed(1) + 'px) rotate(' + spin.toFixed(0) + 'deg) scale(1)', opacity: 0, offset: 1 }
+    ], { duration: dur, easing: 'cubic-bezier(.25,.6,.35,1)', fill: 'forwards' });
 
     return a.finished.then(cleanup, cleanup);
     function cleanup() { if (el.parentNode) el.parentNode.removeChild(el); }

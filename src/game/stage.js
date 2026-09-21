@@ -19,6 +19,34 @@
   var VISTA_SRC = 'assets/bg/ice-vista.png';
 
   var svg, layers = {}, st = {};
+
+  /* SEATING. Every panel is laid out under the plank's band, because a scene
+     is often carried into a screen that shows a plank. On a screen with no
+     plank at all — Swiftee says the line — that band is empty, and the card
+     sat low. So the whole scene (panel, shape, controls, effects) is drawn
+     with one translate on its layers: lifted to centre the card when the
+     screen is plank-free, and eased back down when a plank arrives on a
+     carried scene. Stage coordinates never change; the few readers that map
+     stage to page (pt, contentParts, contentBox, nook, peekAnchor, the
+     measuring flight) add seatY. */
+  var seatY = 0, plankFree = false;
+  var SEAT_LAYERS = ['panel', 'poly', 'ui', 'fx'];
+  function applySeat(animate) {
+    var p = (st.kind === 'polygon' && st.panel) ? st.panel : null;
+    var target = (plankFree && p) ? -Math.max(0, Math.min(52, p.y - 56)) : 0;
+    if (target === seatY) return;
+    var from = seatY; seatY = target;
+    SEAT_LAYERS.forEach(function (n) {
+      var g = layers[n]; if (!g) return;
+      g.setAttribute('transform', target ? 'translate(0,' + target + ')' : '');
+      if (animate && !reduced() && g.animate) {
+        try {
+          g.animate([{ transform: 'translate(0,' + from + 'px)' }, { transform: 'translate(0,' + target + 'px)' }],
+                    { duration: 640, easing: 'cubic-bezier(.22,1,.36,1)' });
+        } catch (e) {}
+      }
+    });
+  }
   var onTap = function () {};       // game.js hooks perTap feedback here
   var cleanup = [];                 // listeners to remove when an interaction ends
 
@@ -38,12 +66,116 @@
   function clear(layer) { var l = layers[layer]; while (l.firstChild) l.removeChild(l.firstChild); }
   function pt(e) {
     var p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
-    var m = svg.getScreenCTM(); return m ? p.matrixTransform(m.inverse()) : { x: 0, y: 0 };
+    var m = svg.getScreenCTM(); if (!m) return { x: 0, y: 0 };
+    var q = p.matrixTransform(m.inverse());
+    return { x: q.x, y: q.y - seatY };   // into the seated layers' own space
   }
   function on(el, ev, fn, opts) { el.addEventListener(ev, fn, opts); cleanup.push(function () { el.removeEventListener(ev, fn, opts); }); }
-  function endInteraction() { cleanup.splice(0).forEach(function (f) { f(); }); }
+  /**
+   * THE TAP GHOST. Two ice rings close on the place to tap, again and
+   * again, until the child touches the stage. The tapping equivalent of the
+   * drag ghost: it shows the gesture, on the first of the things to tap.
+   */
+  function tapGhost(x, y) {
+    if (reduced() || !svg) return function () {};
+    var g = mk('g', { 'class': 'tap-ghost', 'pointer-events': 'none' }, layers.fx);
+    var live = true, anims = [];
+    [0, 700].forEach(function (delay) {
+      // a glow ring under a white ring, closing from well outside the target
+      var ring = mk('circle', { cx: x, cy: y, r: 44, fill: 'none', stroke: '#ffffff', 'stroke-width': 4, opacity: 0, style: litGlow(HI.lit) }, g);
+      [ring].forEach(function (c) {
+        if (!c.animate) return;
+        anims.push(c.animate([
+          { r: '48px', opacity: 0, offset: 0 }, { r: '44px', opacity: 0.95, offset: 0.12 },
+          { r: '14px', opacity: 0.95, offset: 0.72 }, { r: '12px', opacity: 0, offset: 1 }
+        ], { duration: 2100, iterations: Infinity, delay: 700 + delay, easing: 'cubic-bezier(.3,.7,.3,1)' }));
+      });
+    });
+    var stop = function () {
+      if (!live) return; live = false;
+      anims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+      g.remove();
+    };
+    cleanup.push(stop);
+    on(svg, 'pointerdown', stop);
+    return stop;
+  }
+
+  function endInteraction() {
+    cleanup.splice(0).forEach(function (f) { f(); });
+    // NOTHING INACTIVE SHOWS A HAND. Whatever an interaction dressed as
+    // touchable is plain again the moment the interaction is over.
+    if (svg) {
+      svg.style.cursor = '';
+      var dressed = svg.querySelectorAll('[style*="cursor"]');
+      for (var i = 0; i < dressed.length; i++) dressed[i].style.cursor = '';
+    }
+  }
   function pathOf(v) { return v.map(function (p, i) { return (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' ') + ' Z'; }
+  /** The same chain of points, left open: one side is a line, two are a corner. */
+  function pathOpen(v) { return v.map(function (p, i) { return (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join(' '); }
+  /** Is the figure on the stage still open — fewer than three sides? */
+  function isOpen() { return st.n != null && st.n < 3; }
   function juice(name, el, o) { if (global.Juice && el && Juice[name]) Juice[name](el, o); }
+
+  /**
+   * THE GHOST SHOWS THE MOVE. Where a screen asks for a drag, a translucent
+   * knob (or a translucent copy of the thing to drag) leaves the start, slides
+   * to where the drag goes, fades, and goes again — until the child touches
+   * the stage, when it is gone for good. It never shows an answer the child
+   * must find; it shows the gesture.
+   *
+   * Returns a stop function; the interaction's cleanup calls it too.
+   */
+  function gestureGhost(from, to, opts) {
+    opts = opts || {};
+    if (reduced() || !svg) return function () {};
+    var g = mk('g', { 'class': 'gesture-ghost', 'pointer-events': 'none' }, layers.fx);
+    var mover;
+    if (opts.clone) {
+      mover = opts.clone.cloneNode(true);
+      mover.removeAttribute('class'); mover.setAttribute('class', 'gesture-ghost-copy');
+      // inert to every selector: no data attributes, no classes on what it copied
+      mover.removeAttribute('data-shape'); mover.removeAttribute('data-id');
+      var copied = mover.querySelectorAll('[class]'); for (var ci = 0; ci < copied.length; ci++) copied[ci].removeAttribute('class');
+      mover.style.pointerEvents = 'none';
+      mover.setAttribute('transform', 'translate(' + from.x + ',' + from.y + ')');
+      g.appendChild(mover);
+    } else {
+      mover = mk('circle', { cx: from.x, cy: from.y, r: opts.r || 11, fill: HI.knob, stroke: HI.edge, 'stroke-width': 2.5 }, g);
+    }
+    var trail = null;
+    if (opts.trail !== false) {
+      var tp = litLine(g, { x1: from.x, y1: from.y, x2: to.x, y2: to.y, 'stroke-width': 4, 'stroke-linecap': 'round', 'stroke-dasharray': '8 10', opacity: 0 });
+      trail = mk('g', {}, g); trail.appendChild(tp[0]); trail.appendChild(tp[1]);
+      g.insertBefore(trail, mover);
+    }
+    var dx = to.x - from.x, dy = to.y - from.y, live = true;
+    var frames = [
+      { translate: '0 0', opacity: 0, offset: 0 },
+      { translate: '0 0', opacity: 0.85, offset: 0.14 },
+      { translate: dx + 'px ' + dy + 'px', opacity: 0.85, offset: 0.66, easing: 'cubic-bezier(.35,.6,.3,1)' },
+      { translate: dx + 'px ' + dy + 'px', opacity: 0.85, offset: 0.82 },
+      { translate: dx + 'px ' + dy + 'px', opacity: 0, offset: 0.94 },
+      { translate: dx + 'px ' + dy + 'px', opacity: 0, offset: 1 }
+    ];
+    var anims = [];
+    if (mover.animate) anims.push(mover.animate(frames, { duration: opts.duration || 3200, iterations: Infinity, delay: opts.delay || 700 }));
+    if (trail && trail.animate) anims.push(trail.animate([
+      { opacity: 0, offset: 0 }, { opacity: 0.55, offset: 0.2 }, { opacity: 0.55, offset: 0.76 }, { opacity: 0, offset: 0.92 }, { opacity: 0, offset: 1 }
+    ], { duration: opts.duration || 3200, iterations: Infinity, delay: opts.delay || 700 }));
+    var stop = function () {
+      if (!live) return; live = false;
+      anims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+      if (g.animate) {
+        try { var f = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: 'forwards' }); f.finished.then(function () { g.remove(); }, function () { g.remove(); }); return; } catch (e) {}
+      }
+      g.remove();
+    };
+    cleanup.push(stop);
+    on(svg, 'pointerdown', stop);
+    return stop;
+  }
   /** The visible knob at vertex i (the touch disc over it is st.vertEls[i]). */
   function knobOf(i) { return (st.knobEls && st.knobEls[i]) || null; }
   function sfx(name, o) { if (global.SFX) SFX.play(name, o); }
@@ -384,13 +516,31 @@
      aurora violet, which is the irregular concept's own colour and the one
      hue on this stage that is neither blue nor warm. Highlighted sides are
      ice-white over a deep-water under-edge, so they stand off the blue. */
-  var HI = { fill: '#4be0ff', edge: '#0b4f9e', line: '#ffd54a', glow: '#ffe27a', hot: '#7ff0d0',
-             bad: '#a86bff', badGlow: '#d3bcff', knob: '#eaf9ff', rim: '#4fb8ea' };
-  // LINES GLOW GOLD. A diagonal, a drawn segment, the side being measured:
-  // each is a gold dashed or solid line over a soft gold glow, which is what
-  // a white dash on blue could never be — the one lit thing on the shape.
-  // The diagonal that has fallen OUTSIDE glows violet instead, so the child
-  // sees the odd one without reading anything.
+  var HI = { fill: '#4be0ff', edge: '#0b4f9e', line: '#eafcff', lit: '#4be0ff', hot: '#7ff0d0',
+             bad: '#b98cff', badLit: '#7a4cff', knob: '#eaf9ff', rim: '#4fb8ea' };
+  /** A lit line: the glow first (wider, translucent, the same dashes), then the ice core. Returns [glow, core]. */
+  /**
+   * THE GLOW IS ON THE LINE ITSELF. An SVG blur filter takes its region from
+   * the element's own box, and a thin tick lying nearly along an axis has a
+   * box a few pixels tall — the glow came out cropped to a slot, and on a
+   * vertical tick to nothing. A CSS drop-shadow grows its own region and
+   * follows the dashes, so every lit line glows the same way, whole.
+   */
+  function litGlow(col) {
+    return 'filter: drop-shadow(0 0 3px ' + col + ') drop-shadow(0 0 7px ' + col + ');';
+  }
+  /** A lit line: an ice core with its own glow. Returns [core, core] — the same element twice, for callers that kept a glow and a core. */
+  function litLine(parent, attrs, o) {
+    o = o || {};
+    var bad = !!o.bad;
+    var glowCol = bad ? HI.badLit : (o.warm ? '#ffb020' : HI.lit), coreCol = bad ? HI.bad : (o.warm ? '#ffe27a' : HI.line);
+    var core = mk('line', Object.assign({}, attrs, { stroke: coreCol, style: litGlow(glowCol) }), parent);
+    return [core, core];
+  }
+  // LINES ARE GOLD. A diagonal, a drawn segment, the side being measured:
+  // each is a gold dash or stroke, the one lit thing on the blue shape. The
+  // diagonal that has fallen OUTSIDE is violet instead, so the child sees
+  // the odd one without reading anything.
 
   var PANELS = {
     // THE NEXT BUTTON LIVES IN THE BOTTOM-RIGHT CORNER, always, over the
@@ -408,7 +558,10 @@
     // up to 108 (fourteen under the plank's foot), and down to the floor,
     // 456 × 438: nearly square around a shape that nearly is, and a fifth
     // bigger. Its right edge, 836, keeps clear of Next.
-    right:  { x: 380, y: 108, w: 456, h: 438 },
+    // 396..852 × 108..538: in from the corner, clear of Next (x 855+, y 495+)
+    // and 18 under the plank's foot. When no plank is on the screen the whole
+    // scene is SEATED higher — see applySeat() — so the card is centred.
+    right:  { x: 396, y: 108, w: 456, h: 430 },
     // WITHOUT HIM, THE LESSON TAKES THE MIDDLE. The right-hand slab exists
     // to leave the bottom-left to Swiftee. On the twenty-eight screens he is
     // not on, it left half the screen to nobody; this is what a 'right'
@@ -417,7 +570,18 @@
     // around a pentagon was two thirds glass, and the shape read as small.
     // The same slab, centred: the measuring screens, where he waits inside
     // it, and the screens he is off.
-    solo:   { x: 220, y: 108, w: 560, h: 438 },   // wide: he waits inside it, bottom-left, beside the shape
+    solo:   { x: 272, y: 108, w: 456, h: 430 },
+    // THE MEASURING SLAB: the wide ice frame the user supplied, at its own
+    // aspect (1672×941), the full height of the band and nearly the width
+    // of the stage. He waits small in its bottom-left corner and the shape
+    // has the middle to be big in. Chosen by panelFor() for a 'measure'
+    // room when he is not standing on the ice beside the card.
+    // Centred in the whole height, with the same air above and below: he
+    // narrates these screens, so no plank ever sits over this slab. Its
+    // right edge stops at 912 and its top at 49, just clear of the HUD.
+    // 100..900 × 34..484, its own aspect: clear of the HUD's corner above
+    // and of Next below, which used to sit on this slab's bottom-right rim.
+    measure: { x: 100, y: 34, w: 800, h: 450, frame: 'measure' },
     // THE INSTRUCTION CARD COMES DOWN TO y 115. It is pinned top-left and
     // capped to whatever room the lesson leaves beside it — but a centred
     // panel leaves 200 units, which is narrower than the sentence is tall, so
@@ -435,8 +599,11 @@
     // stands centre-bottom on one of these screens with his head at 547.
     // 150, not 128: he peeks over the left one, and his head has to clear a
     // one-line plank above it. The check lines below still end above the foot.
-    left2:  { x: 178, y: 150, w: 306, h: 290, frame: 'compare' },
-    right2: { x: 516, y: 150, w: 306, h: 290, frame: 'compare' }
+    // Shifted right of centre by 60: he stands on the ice at the left of
+    // the pair and instructs from there, and the pair's right edge (882)
+    // stays clear of the HUD.
+    left2:  { x: 238, y: 150, w: 306, h: 290, frame: 'compare' },
+    right2: { x: 576, y: 150, w: 306, h: 290, frame: 'compare' }
   };
 
   /* ------------------------------------------------------------------ *
@@ -463,7 +630,9 @@
     // has the left half to open in. Off, or up in the top-left corner where
     // his bubble opens along the top band, the lesson takes the middle.
     var standsLeft = global.Swiftee && /^left/.test(Swiftee.pos || '');
-    if (p === PANELS.right && !standsLeft) p = PANELS.solo;
+    if (p === PANELS.right && !standsLeft) {
+      p = (spec && spec.room === 'measure' && global.CardFrame && CardFrame.measure) ? PANELS.measure : PANELS.solo;
+    }
     var controls = spec && ((spec.choices && spec.choices.length) || spec.controls);
     if (!controls) return p;
     // A panel with a control under it stops above the control, and the pair
@@ -626,13 +795,24 @@
     // A SHAPE THAT WILL BE MEASURED keeps a margin all round: the readings
     // sit outside its sides, and the measurer walks outside them too, and
     // both have to stay on the glass.
-    if (opts.room === 'measure') { mx = face.w * 0.11; mt = face.h * 0.15; mb = Math.max(mb, face.h * 0.15); }
+    // 12%, not 15%: on the wide measuring slab the face is short, and the
+    // readings (a 28-tall plate 28 outside the side) fit in twelve.
+    // and never less than 64: the measuring sprite stands on the side, some
+    // 58 units out from it, and must not reach the rim on any side
+    // 48: the walking bird stands 3 out from the side and is 45 tall at the
+    // 56 cell, so his head stays on the glass; a reading tag sits within 44.
+    if (opts.room === 'measure') { mx = Math.max(face.w * 0.07, 48); mt = Math.max(face.h * 0.06, 48); mb = Math.max(mb, face.h * 0.10, 48); }
     var box = { x: face.x + mx, y: face.y + mt, w: face.w - mx * 2, h: face.h - mt - mb };
 
     // Built at unit size WITH its deformations, so what gets measured is what
     // gets drawn: a dented or stretched shape has a different bounding box
     // from the regular one it started as.
-    var u = Poly.regular(n, 1, 0, 0);
+    // ONE SIDE IS A LINE, TWO ARE A CORNER. Below three there is no polygon
+    // to draw, and the builder starts there on purpose: the child adds the
+    // sides one at a time and sees the third one close the shape.
+    var u = n === 1 ? [{ x: -1, y: 0 }, { x: 1, y: 0 }]
+          : n === 2 ? [{ x: -0.92, y: 0.62 }, { x: 0, y: -0.62 }, { x: 0.92, y: 0.62 }]
+          : Poly.regular(n, 1, 0, 0);
     // 0.92, not 0.72. Pulled 72% of the way to the centre, a pentagon's top
     // vertex lands three hundredths of a radius below its neighbours: a
     // flat top with a red line along it, which no child reads as a dent.
@@ -652,8 +832,11 @@
     // The handles are painted OUTSIDE the outline, so the fit leaves room for
     // them; otherwise a corner dot hangs over the edge of the panel.
     var fill = opts.fill == null ? 0.96 : opts.fill;
-    var k = Math.min((box.w - VERT_PAINT * 2) / (hi.x - lo.x),
-                     (box.h - VERT_PAINT * 2) / (hi.y - lo.y)) * fill;
+    // a flat line has no height to fit: give it the height of a corner, so
+    // the line is drawn at the width a two-sided corner would have
+    var ext = { x: Math.max(hi.x - lo.x, 0.5), y: Math.max(hi.y - lo.y, 1.24) };
+    var k = Math.min((box.w - VERT_PAINT * 2) / ext.x,
+                     (box.h - VERT_PAINT * 2) / ext.y) * fill;
 
     var cx = box.x + box.w / 2 - (lo.x + hi.x) / 2 * k;
     var cy = box.y + box.h / 2 - (lo.y + hi.y) / 2 * k + (opts.dy || 0);
@@ -669,7 +852,10 @@
     while (g.firstChild) g.removeChild(g.firstChild);
     var v = st.verts, n = v.length;
 
-    st.fill = mk('path', { d: pathOf(v), fill: 'url(#' + candy(SHAPE.fill) + ')', stroke: SHAPE.edge, 'stroke-width': SHAPE.edgeW, 'stroke-linejoin': 'round' }, g);
+    st.fill = isOpen()
+      // not a shape yet: the sides alone, thick and rounded, nothing to fill
+      ? mk('path', { d: pathOpen(v), fill: 'none', stroke: SHAPE.edge, 'stroke-width': 8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g)
+      : mk('path', { d: pathOf(v), fill: 'url(#' + candy(SHAPE.fill) + ')', stroke: SHAPE.edge, 'stroke-width': SHAPE.edgeW, 'stroke-linejoin': 'round' }, g);
 
     // diagonals
     st.diagG = mk('g', {}, g);
@@ -684,19 +870,20 @@
       // over a shape that has just changed is a tangle; the child needs to
       // see the one diagonal that now runs outside, alone.
       if (st.onlyOutside && !outside) dg.style.display = 'none';
-      // JUST THE DASHES. A soft band under each one read as a faint fill
-      // laid over the shape; the gold dash on its own is the lit thing.
-      var line = mk('line', {
+      var pair = litLine(dg, {
         x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-        stroke: hl ? HI.bad : HI.line,
         'stroke-width': hl || d.solid ? 6 : 5, 'stroke-linecap': 'round',
         'stroke-dasharray': d.solid ? null : '14 12'
-      }, dg);
+      }, { bad: hl });
+      var line = pair[1];
       if (d.animate && !reduced()) {
+        // drawn in slowly enough to be watched, glow and core together
         var len = Math.hypot(b.x - a.x, b.y - a.y);
-        line.style.strokeDasharray = len; line.style.strokeDashoffset = len;
-        line.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 380, delay: (d.delay || 0), fill: 'forwards' })
-          .finished.then(function () { if (!d.solid) { line.style.strokeDasharray = '14 12'; } line.style.strokeDashoffset = 0; });
+        [line].forEach(function (ln) {
+          ln.style.strokeDasharray = len; ln.style.strokeDashoffset = len;
+          ln.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 720, delay: (d.delay || 0), easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'forwards' })
+            .finished.then(function () { if (!d.solid) { ln.style.strokeDasharray = '14 12'; } ln.style.strokeDashoffset = 0; });
+        });
       }
     });
 
@@ -710,8 +897,8 @@
       var ga = v[st.ghost.from], gb = v[st.ghost.to];
       var gg = mk('g', { 'class': 'ghost-demo', 'pointer-events': 'none' }, g);
       var glen = Math.hypot(gb.x - ga.x, gb.y - ga.y) || 1;
-      var trail = mk('line', { x1: ga.x, y1: ga.y, x2: gb.x, y2: gb.y, stroke: HI.line, 'stroke-width': 4,
-                               'stroke-linecap': 'round', opacity: .45 }, gg);
+      var trailPair = litLine(gg, { x1: ga.x, y1: ga.y, x2: gb.x, y2: gb.y, 'stroke-width': 4, 'stroke-linecap': 'round' });
+      var trail = trailPair[1]; trailPair[0].setAttribute('opacity', .3); trail.setAttribute('opacity', .55);
       var gk = mk('circle', { cx: ga.x, cy: ga.y, r: 9, fill: HI.knob, stroke: HI.edge, 'stroke-width': 2.5, opacity: .6 }, gg);
       if (reduced() || !gk.animate) {
         // no motion: the trail alone, dashed, so the hint is still there
@@ -723,25 +910,26 @@
           { strokeDashoffset: '0px', opacity: 0.45, offset: 0.62, easing: 'cubic-bezier(.3,.7,.3,1)' },
           { strokeDashoffset: '0px', opacity: 0.45, offset: 0.78 },
           { strokeDashoffset: '0px', opacity: 0, offset: 1 }
-        ], { duration: 2400, iterations: Infinity });
+        ], { duration: 3400, iterations: Infinity });
         gk.animate([
           { translate: '0 0', opacity: 0.6, offset: 0 },
           { translate: (gb.x - ga.x) + 'px ' + (gb.y - ga.y) + 'px', opacity: 0.6, offset: 0.62, easing: 'cubic-bezier(.3,.7,.3,1)' },
           { translate: (gb.x - ga.x) + 'px ' + (gb.y - ga.y) + 'px', opacity: 0.6, offset: 0.78 },
           { translate: (gb.x - ga.x) + 'px ' + (gb.y - ga.y) + 'px', opacity: 0, offset: 1 }
-        ], { duration: 2400, iterations: Infinity });
+        ], { duration: 3400, iterations: Infinity });
       }
     }
 
     // highlighted segment (side or new diagonal)
     if (st.segment) {
       var sa = v[st.segment[0]], sb = v[st.segment[1]];
-      st.segLine = mk('line', { x1: sa.x, y1: sa.y, x2: sb.x, y2: sb.y, stroke: HI.line, 'stroke-width': 7, 'stroke-linecap': 'round' }, g);
+      var seg = litLine(g, { x1: sa.x, y1: sa.y, x2: sb.x, y2: sb.y, 'stroke-width': 7, 'stroke-linecap': 'round' });
+      st.segGlow = seg[0]; st.segLine = seg[1];
     }
 
-    // edges as tap targets (invisible, wide)
+    // edges as tap targets (invisible, wide) — an open figure has no closing side
     st.edgeEls = [];
-    for (var i = 0; i < n; i++) {
+    for (var i = 0; i < (isOpen() ? n - 1 : n); i++) {
       var e1 = v[i], e2 = v[(i + 1) % n];
       var edge = mk('line', { x1: e1.x, y1: e1.y, x2: e2.x, y2: e2.y, stroke: 'transparent', 'stroke-width': 30, 'class': 'edge', 'data-i': i }, g);
       st.edgeEls.push(edge);
@@ -791,7 +979,7 @@
     var touch = !!st.touchVerts;
     for (var j = 0; j < n; j++) {
       var col = st.vcolor && st.vcolor[j] ? st.vcolor[j] : null;
-      var shown = !!(col || st.showVerts);
+      var shown = !!(col || st.showVerts || isOpen());   // an open figure shows its corners
       var knob = mk('circle', {
         cx: v[j].x, cy: v[j].y,
         r: col ? 10 : (touch ? 9 : 6),
@@ -827,20 +1015,21 @@
         var d = st.diagonals[i], a = v[d[0]], b = v[d[1]], G = groups[i];
         var out = !Poly.isDiagonalInside(v, d[0], d[1]);
         var hl = st.highlightOutside && out;
-        var kids = G.childNodes, glow = kids.length > 1 ? kids[0] : null, L = kids[kids.length - 1];
+        var kids = G.childNodes, w = hl || d.solid ? 6 : 5;
         for (var q = 0; q < kids.length; q++) {
-          kids[q].setAttribute('x1', a.x); kids[q].setAttribute('y1', a.y); kids[q].setAttribute('x2', b.x); kids[q].setAttribute('y2', b.y);
-        }
-        if (glow) { glow.setAttribute('stroke', hl ? HI.badGlow : HI.glow); glow.setAttribute('stroke-width', hl ? 16 : 13); glow.setAttribute('opacity', hl ? .5 : .42); }
-        if (L) {
-          L.setAttribute('stroke', hl ? HI.bad : HI.line);
-          L.setAttribute('stroke-width', hl || d.solid ? 6 : 5);
+          var L = kids[q], isGlow = kids.length > 1 && q === 0;
+          L.setAttribute('x1', a.x); L.setAttribute('y1', a.y); L.setAttribute('x2', b.x); L.setAttribute('y2', b.y);
+          L.setAttribute('stroke', isGlow ? (hl ? HI.badLit : HI.lit) : (hl ? HI.bad : HI.line));
+          L.setAttribute('stroke-width', isGlow ? w + 7 : w);
           L.style.strokeDasharray = d.solid ? '' : '14 12'; L.style.strokeDashoffset = 0;
         }
         G.style.display = (st.onlyOutside && !out) ? 'none' : '';
       }
     }
-    if (st.segLine && st.segment) { var sa = v[st.segment[0]], sb = v[st.segment[1]]; st.segLine.setAttribute('x1', sa.x); st.segLine.setAttribute('y1', sa.y); st.segLine.setAttribute('x2', sb.x); st.segLine.setAttribute('y2', sb.y); }
+    if (st.segLine && st.segment) {
+      var sa = v[st.segment[0]], sb = v[st.segment[1]];
+      [st.segGlow, st.segLine].forEach(function (ln) { if (!ln) return; ln.setAttribute('x1', sa.x); ln.setAttribute('y1', sa.y); ln.setAttribute('x2', sb.x); ln.setAttribute('y2', sb.y); });
+    }
     for (i = 0; i < n && st.edgeEls; i++) { var e1 = v[i], e2 = v[(i + 1) % n], E = st.edgeEls[i]; if (!E) continue; E.setAttribute('x1', e1.x); E.setAttribute('y1', e1.y); E.setAttribute('x2', e2.x); E.setAttribute('y2', e2.y); }
     for (i = 0; i < n && st.vertEls; i++) {
       var C = st.vertEls[i]; if (C) { C.setAttribute('cx', v[i].x); C.setAttribute('cy', v[i].y); }
@@ -867,21 +1056,34 @@
     var angle = Math.atan2(dy, dx) * 180 / Math.PI;
     var center = Poly.centroid(st.verts), nx = -dy / length, ny = dx / length;
     if (nx * ((a.x + b.x) / 2 - center.x) + ny * ((a.y + b.y) / 2 - center.y) < 0) { nx = -nx; ny = -ny; }
-    var cell = 72, baseline = cell * frames.baseline / frames.cell;
+    // 56: small enough that, standing on the side, his head stays inside the
+    // slab's face with a 48-unit margin — and the shape gets the rest.
+    var cell = 56, baseline = cell * frames.baseline / frames.cell;
+    // WHERE THE TAPE IS IN HIS HAND, measured from the sheet: the housing and
+    // its tongue lie at y 136..185 of the 256 cell (centre 158), from x 86.
+    // The drawn tape runs along the side at that height above his feet and
+    // ends under the housing, so the tape he holds and the tape on the shape
+    // are one tape.
+    var sc = cell / frames.cell, TAPE_Y = 158, TAPE_HEAD = 86;
+    var TAPE_OUT = 3 + (frames.baseline - TAPE_Y) * sc;
+    var TAPE_TRAIL = (128 - TAPE_HEAD) * sc - 4 * sc;   // how far the strip stops short of his feet' centre
     // Minimum projection of the full upright sprite box onto the outward
     // normal. This keeps every pixel outside, even along the bottom edge.
-    var clearance = 9 + Math.abs(nx) * cell / 2 + Math.max(0, ny * baseline) + Math.max(0, -ny * (cell - baseline));
+    // ON THE LINE. His feet are on the side itself and his body stands out
+    // from it, the way an ant walks the edge of a leaf; the sprite is turned
+    // to the side's outward normal in tick(). Three units keeps his soles
+    // just clear of the stroke.
+    var ON_LINE = 3;
     var g = mk('g', { 'class': 'swiftee-measuring', 'pointer-events': 'none', 'aria-hidden': 'true', 'data-side': index }, layers.fx);
     g.style.opacity = '0';   // nothing at the side until he has flown there
-    var tapeG = mk('g', { transform: 'translate(' + (a.x + nx * 7) + ',' + (a.y + ny * 7) + ') rotate(' + angle + ')' }, g);
-    var tape = mk('rect', { x: 0, y: -4, width: 0, height: 8, rx: 2, fill: '#ffe278', stroke: '#875b13', 'stroke-width': 1.2 }, tapeG);
+    var tapeG = mk('g', { transform: 'translate(' + (a.x + nx * TAPE_OUT) + ',' + (a.y + ny * TAPE_OUT) + ') rotate(' + angle + ')' }, g);
+    var tape = mk('rect', { x: 0, y: -3.5, width: 0, height: 7, rx: 1.5, fill: '#ffe278', stroke: '#875b13', 'stroke-width': 1.2 }, tapeG);
     var ticks = mk('g', {}, tapeG), marks = [];
     for (var x = 0; x <= length; x += 6) {
-      marks.push(mk('line', { x1: x, x2: x, y1: -4, y2: x % 30 === 0 ? 3 : 0,
+      marks.push(mk('line', { x1: x, x2: x, y1: -3.5, y2: x % 30 === 0 ? 2.5 : -0.5,
         stroke: '#65491f', 'stroke-width': 1, visibility: 'hidden' }, ticks));
     }
-    mk('path', { d: 'M0,-7 L0,7 L5,7', fill: 'none', stroke: '#586c7c', 'stroke-width': 3 }, tapeG);
-    var lead = mk('path', { fill: 'none', stroke: '#d7a530', 'stroke-width': 3, 'stroke-linecap': 'round' }, g);
+    mk('path', { d: 'M0,-6 L0,6 L4,6', fill: 'none', stroke: '#586c7c', 'stroke-width': 3 }, tapeG);   // the hook, at the start
     var walker = mk('g', { 'class': 'measuring-walker' }, g);
     var crop = mk('svg', { x: -cell / 2, y: -baseline, width: cell, height: cell,
       viewBox: '0 0 ' + frames.cell + ' ' + frames.cell, overflow: 'hidden' }, walker);
@@ -889,7 +1091,7 @@
     var companion = global.Swiftee && Swiftee.el;
     var opacity = companion && companion.style.opacity;
     var raf = null, started = null, stopped = false;
-    var duration = Math.max(1100, Math.min(1800, length * 7));
+    var duration = Math.max(1600, Math.min(2600, length * 10));   // a walk the child can watch
 
     /* HE FLIES TO THE SIDE, MEASURES IT, AND FLIES BACK.
      *
@@ -901,12 +1103,12 @@
      * he is not on screen, or motion is reduced, or the element cannot
      * animate — then it is the old cut. */
     var M = svg.getScreenCTM && svg.getScreenCTM();
-    var page = function (x, y) { return M ? { x: M.a * x + M.e, y: M.d * y + M.f } : null; };
+    var page = function (x, y) { return M ? { x: M.a * x + M.e, y: M.d * (y + seatY) + M.f } : null; };
     var flies = !!(companion && companion.animate && global.Swiftee.bounds && parseFloat(opacity || '0') > 0.05 && M);
     var here = null, hb = flies && Swiftee.bounds();
     if (hb && hb.width) here = { x: (hb.left + hb.right) / 2, y: hb.bottom }; else flies = false;
-    var startAt = page(a.x + nx * clearance, a.y + ny * clearance);
-    var endAt = page(b.x + nx * clearance, b.y + ny * clearance);
+    var startAt = page(a.x + nx * ON_LINE, a.y + ny * ON_LINE);
+    var endAt = page(b.x + nx * ON_LINE, b.y + ny * ON_LINE);
     function fly(fromD, toD, fadeIn) {
       return new Promise(function (res) {
         var an;
@@ -914,7 +1116,7 @@
           an = companion.animate([
             { translate: fromD.x.toFixed(0) + 'px ' + fromD.y.toFixed(0) + 'px', opacity: fadeIn ? 0 : 1 },
             { translate: toD.x.toFixed(0) + 'px ' + toD.y.toFixed(0) + 'px', opacity: fadeIn ? 1 : 0 }
-          ], { duration: 420, easing: 'cubic-bezier(.3,.7,.3,1)', composite: 'add', fill: 'none' });
+          ], { duration: 640, easing: 'cubic-bezier(.3,.7,.3,1)', composite: 'add', fill: 'none' });
         } catch (e) { res(); return; }
         an.finished.then(res, res);
       });
@@ -941,20 +1143,22 @@
       if (stopped) return;
       if (started === null) started = time;
       var elapsed = time - started, progress = Math.min(1, elapsed / duration), distance = length * progress;
-      tape.setAttribute('width', distance);
-      marks.forEach(function (mark, i) { mark.setAttribute('visibility', i * 6 <= distance ? 'visible' : 'hidden'); });
+      var drawn = Math.max(0, distance - TAPE_TRAIL);   // the strip ends under the housing in his hand
+      tape.setAttribute('width', drawn);
+      marks.forEach(function (mark, i) { mark.setAttribute('visibility', i * 6 <= drawn ? 'visible' : 'hidden'); });
       var px = a.x + dx * progress, py = a.y + dy * progress;
-      var wx = px + nx * clearance, wy = py + ny * clearance;
-      // FACING THE SIDE. The sheet walks to the right; on a side whose
-      // outside is to the right of the shape that had him walking away from
-      // the thing he was measuring. Mirrored there, he faces it.
-      var faceLeft = dx < 0;   // he faces the way he walks
-      walker.setAttribute('transform', 'translate(' + wx + ',' + wy + ')' + (faceLeft ? ' scale(-1,1)' : ''));
+      var wx = px + nx * ON_LINE, wy = py + ny * ON_LINE;
+      // Turned so his "up" is the side's outward normal, and mirrored when
+      // the walk runs against the sheet's own left-to-right stride, so he
+      // always faces the way he is going.
+      var rot = Math.atan2(nx, -ny) * 180 / Math.PI;
+      var rr = rot * Math.PI / 180, rx = Math.cos(rr), ry = Math.sin(rr);   // the sprite's "right", in stage space
+      var faceLeft = (dx * rx + dy * ry) < 0;
+      walker.setAttribute('transform', 'translate(' + wx + ',' + wy + ') rotate(' + rot.toFixed(2) + ')' + (faceLeft ? ' scale(-1,1)' : ''));
       var frame = frames.order[Math.floor(Math.min(elapsed, duration) * frames.fps / 1000) % frames.order.length];
       sheet.setAttribute('x', -(frame % frames.cols) * frames.cell);
       sheet.setAttribute('y', -Math.floor(frame / frames.cols) * frames.cell);
       walker.setAttribute('data-frame', frame);
-      lead.setAttribute('d', 'M' + (px + nx * 7) + ',' + (py + ny * 7) + ' L' + (wx + (faceLeft ? -30 : 30)) + ',' + (wy - 24));
       if (elapsed < duration + 180) raf = global.requestAnimationFrame(tick);
       else finish();
     }
@@ -971,15 +1175,44 @@
   function drawMeasurements(g) {
     var v = st.verts, n = v.length, L = Poly.sideLengths(v), A = Poly.interiorAngles(v);
     var c = Poly.centroid(v);
+    // EQUAL SIDES CARRY THE SAME MARK, as a geometry book draws them: one
+    // small tick across each side of one length, two across each side of
+    // another, so equality is seen without reading a number. Only the sides
+    // whose length has been revealed take part; a side with no equal gets
+    // no mark.
+    var shown = [], groups = {}, order = [];
+    for (var si = 0; si < n; si++) {
+      if (!(st.measure.sides && (st.measure.sides === 'all' || st.measure.sides.indexOf(si) >= 0))) continue;
+      var key = String(Math.round(L[si] / 30 * 2) / 2);
+      if (!groups[key]) { groups[key] = []; order.push(key); }
+      groups[key].push(si); shown.push(si);
+    }
+    var ticksOf = {}, rank = 0;
+    order.forEach(function (key) { if (groups[key].length >= 2) { rank++; groups[key].forEach(function (si) { ticksOf[si] = Math.min(3, rank); }); } });
     for (var i = 0; i < n; i++) {
       if (st.measure.sides && (st.measure.sides === 'all' || st.measure.sides.indexOf(i) >= 0)) {
         var a = v[i], b = v[(i + 1) % n];
         var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
         var dx = mx - c.x, dy = my - c.y, len = Math.hypot(dx, dy) || 1;
-        var lx = mx + dx / len * 28, ly = my + dy / len * 28;   // outside the side, where a ruler's reading goes
+        // AN ICE TAG, SET OFF BY ITS OWN SIZE. The same plate as the name tag;
+        // its distance from the side is what keeps its near corner off the
+        // stroke — a wide plate beside a steep side needs more room than a
+        // plate under a flat one — so nothing touches and nothing crowds.
+        var ux = dx / len, uy = dy / len, TW = 66, TH = 30;
+        var off = 10 + Math.abs(ux) * (TW / 2) + Math.abs(uy) * (TH / 2);
+        var lx = mx + ux * off, ly = my + uy * off;
         var t = mk('g', { 'class': 'meas' }, g);
-        mk('rect', { x: lx - 30, y: ly - 14, width: 60, height: 28, rx: 8, fill: '#fff', stroke: '#9fd6fb' }, t);
-        mk('text', { x: lx, y: ly + 6, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#1c2a4a', text: (L[i] / 30).toFixed(0) + ' cm' }, t);
+        mk('rect', { x: lx - TW / 2, y: ly - TH / 2, width: TW, height: TH, rx: 10, fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 2.5 }, t);
+        mk('text', { x: lx, y: ly + 6, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 800, fill: '#0f3f8f', text: (L[i] / 30).toFixed(0) + ' cm' }, t);
+        if (ticksOf[i]) {
+          // the ticks sit across the side at its middle, spaced along it
+          var tdx = (b.x - a.x) / (Math.hypot(b.x - a.x, b.y - a.y) || 1), tdy = (b.y - a.y) / (Math.hypot(b.x - a.x, b.y - a.y) || 1);
+          var tnx = -tdy, tny = tdx, TL = 9, TS = 7, cnt = ticksOf[i];
+          for (var k = 0; k < cnt; k++) {
+            var o = (k - (cnt - 1) / 2) * TS, cx2 = mx + tdx * o, cy2 = my + tdy * o;
+            litLine(t, { x1: cx2 - tnx * TL, y1: cy2 - tny * TL, x2: cx2 + tnx * TL, y2: cy2 + tny * TL, 'stroke-width': 3.5, 'stroke-linecap': 'round' }, { warm: true });
+          }
+        }
       }
       if (st.measure.angles && (st.measure.angles === 'all' || st.measure.angles.indexOf(i) >= 0)) {
         drawArc(g, i, A[i]);
@@ -991,7 +1224,6 @@
     var v = st.verts, n = v.length, p = v[i], q = v[(i + n - 1) % n], s = v[(i + 1) % n];
     var a1 = Math.atan2(q.y - p.y, q.x - p.x), a2 = Math.atan2(s.y - p.y, s.x - p.x), r = 26;
     var sweep = ((a2 - a1) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
-    var orient = Poly.interiorAngles(v)[i] > 180 ? 1 : 0;
     // THE ANGLE IS DRAWN THE WAY A GEOMETRY BOOK DRAWS IT: a line, not a
     // fill. A gold arc inside the corner, from one side to the other, and
     // for a right angle the small square instead — the mark the child will
@@ -1011,8 +1243,7 @@
       var rs = r * 0.7, ux = Math.cos(a1) * rs, uy = Math.sin(a1) * rs, wx = Math.cos(a2) * rs, wy = Math.sin(a2) * rs;
       d = 'M' + (p.x + ux) + ' ' + (p.y + uy) + ' L' + (p.x + ux + wx) + ' ' + (p.y + uy + wy) + ' L' + (p.x + wx) + ' ' + (p.y + wy);
     }
-    mk('path', { d: d, fill: 'none', stroke: HI.edge, 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: .45 }, g);
-    var w = mk('path', { d: d, fill: 'none', stroke: HI.line, 'stroke-width': 3.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g);
+    var w = mk('path', { d: d, fill: 'none', stroke: HI.line, 'stroke-width': 3.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', style: litGlow(HI.lit) }, g);
     // THE NUMBER SITS INSIDE THE SHAPE, on the corner's bisector, past the
     // wedge — degrees inside, centimetres outside, and neither on the other.
     if (deg != null) {
@@ -1022,7 +1253,6 @@
                    stroke: '#123a7a', 'stroke-width': 3.5, 'paint-order': 'stroke', 'stroke-linejoin': 'round',
                    text: Math.round(deg) + '°' }, g);
     }
-    void orient;
     return w;
   }
 
@@ -1094,6 +1324,7 @@
     endInteraction();
     clear('panel'); clear('poly'); clear('ui'); clear('fx');
     st = { showVerts: false, touchVerts: false };
+    applySeat(false);
   }
 
   var BUILD = {
@@ -1172,19 +1403,20 @@
       sides.forEach(function (s, i) {
         var pnl = s[1], cfg = s[2] || {};
         var g = panel(pnl, { enter: spec.enter === 'split' ? 'rise' : 'pop' });
-        var P = polygonIn(pnl, cfg.sides || 5, { dent: cfg.dent, stretch: cfg.stretch, below: !!cfg.caption });
+        // the caption goes UNDER the card as a name tag, so the shape has the whole face
+        var P = polygonIn(pnl, cfg.sides || 5, { dent: cfg.dent, stretch: cfg.stretch });
         var pg = mk('g', {}, layers.poly);
         mk('path', { d: pathOf(P.verts), fill: 'url(#' + candy(SHAPE.fill) + ')', stroke: SHAPE.edge, 'stroke-width': SHAPE.edgeW, 'stroke-linejoin': 'round' }, pg);
         if (cfg.diagonals === 'all') {
           Poly.allDiagonals(P.verts.length).forEach(function (d) {
             var a = P.verts[d[0]], b = P.verts[d[1]];
             var out = !Poly.isDiagonalInside(P.verts, d[0], d[1]);
-            mk('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: out ? HI.bad : HI.line, 'stroke-width': out ? 5 : 4, 'stroke-dasharray': '10 9', 'stroke-linecap': 'round' }, pg);
+            litLine(pg, { x1: a.x, y1: a.y, x2: b.x, y2: b.y, 'stroke-width': out ? 5 : 4, 'stroke-dasharray': '10 9', 'stroke-linecap': 'round' }, { bad: out });
           });
         }
         if (cfg.dent != null) mk('circle', { cx: P.verts[cfg.dent].x, cy: P.verts[cfg.dent].y, r: 9, fill: HI.fill, stroke: HI.edge, 'stroke-width': 2.5 }, pg);
-        if (cfg.caption) mk('text', { x: pnl.x + pnl.w / 2, y: pnl.y + pnl.h - 16, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 700, fill: '#1c2a4a', text: cfg.caption }, layers.ui);
-        st.compare[s[0]] = { panel: pnl, g: g, pg: pg, verts: P.verts, checks: cfg.checks, tone: cfg.tone };
+        if (cfg.caption) nameTag(layers.ui, pnl.x + pnl.w / 2, pnl.y + pnl.h + 30, cfg.caption);
+        st.compare[s[0]] = { panel: pnl, g: g, pg: pg, verts: P.verts, tone: cfg.tone };
       });
     },
 
@@ -1272,47 +1504,6 @@
         if (spec.enter !== false) enter(g, 'rise');
       });
 
-      // The direction hint.
-      //
-      // Both labels used to be centred a few dozen pixels either side of the
-      // middle, and each is three hundred wide — so they were printed straight
-      // over one another and neither could be read. Each now sits under its
-      // OWN arrow, out where its zone is, and says the one word that matters:
-      // the arrow carries the direction, so the sentence does not have to.
-      var hint = mk('g', { 'class': 'swipe-hint' }, layers.ui);
-      st.swipe.hint = hint;
-      // THE SWIPE A THUMB MAKES. Two arcs leave the card's shoulders and
-      // curve up and out into the zones, in each zone's colour, with the
-      // arrowhead set along the curve's end — the gesture, drawn, rather
-      // than a straight arrow parked under the zone.
-      // NO ARROWS. The ghost of the card sliding into each zone is the whole
-      // hint; two arcs beside it were lines on the ice for the child to
-      // read, and the child is seven. The group stays for the fade logic.
-      [].forEach(function (d) {
-        var dir = d[0], side = d[1];
-        var col = (CONCEPT[side] || CONCEPT.regular).deep;
-        var sx = SWIPE_HOME.x + dir * 118, sy = SWIPE_HOME.y + 58;
-        var qx = SWIPE_HOME.x + dir * 208, qy = SWIPE_HOME.y + 66;
-        var ex = SWIPE_HOME.x + dir * 218, ey = SWIPE_HOME.y - 36;
-        mk('path', {
-          d: 'M' + sx + ' ' + sy + ' Q' + qx + ' ' + qy + ' ' + ex + ' ' + ey,
-          fill: 'none', stroke: col, 'stroke-width': 7, 'stroke-linecap': 'round',
-          'class': 'swipe-arrow', 'data-zone': side, opacity: 0.9
-        }, hint);
-        // The head begins where the stroke ends and points on along the
-        // curve's tangent, so the stroke's round cap is hidden under the
-        // head's base instead of poking out past its tip as a dot.
-        var tx = ex - qx, ty = ey - qy, tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
-        var nx = -ty, ny = tx, hl = 26, hw = 15;
-        mk('path', {
-          d: 'M' + (ex + tx * hl).toFixed(1) + ' ' + (ey + ty * hl).toFixed(1) +
-             ' L' + (ex + nx * hw).toFixed(1) + ' ' + (ey + ny * hw).toFixed(1) +
-             ' L' + (ex - nx * hw).toFixed(1) + ' ' + (ey - ny * hw).toFixed(1) + ' Z',
-          fill: col, 'stroke': col, 'stroke-width': 2, 'stroke-linejoin': 'round',
-          'class': 'swipe-arrow', 'data-zone': side, opacity: 0.9
-        }, hint);
-      });
-
       dealCard();
     },
 
@@ -1375,7 +1566,10 @@
 
     builder: function (spec) {
       reset(); st.kind = 'builder';
-      var p = panelFor('center', Object.assign({ controls: true }, spec)); st.panel = p;
+      // THE SAME CARD AS EVERY OTHER SINGLE-SHAPE SCREEN: on the right, with
+      // him on the ice at the left and his words beside his head. Centred,
+      // the card left no band for the bubble, and his line went to the top.
+      var p = panelFor('right', Object.assign({ controls: true }, spec)); st.panel = p;
       panel(p, { enter: spec.enter });
       var n = spec.sides || 3;
       var P = polygonIn(p, n, {});
@@ -1413,7 +1607,7 @@
       st.stepMinus = pill(g, { x: x1 + 8, y: sy, w: 50, h: 44, label: '−', tone: 'sun', glyph: 'stepMinus', press: true, attrs: { 'class': 'step-minus' } });
       st.stepPlus  = pill(g, { x: x1 + BW - 58, y: sy, w: 50, h: 44, label: '+', tone: 'sun', glyph: 'stepPlus', press: true, attrs: { 'class': 'step-plus' } });
       st.stepText = mk('text', { x: x1 + BW / 2, y: sy + 11, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 800, fill: UI.ink, text: n }, g);
-      st.stepper = { min: (spec.stepper && spec.stepper.min) || 3, max: (spec.stepper && spec.stepper.max) || 8 };
+      st.stepper = { min: (spec.stepper && spec.stepper.min) || 1, max: (spec.stepper && spec.stepper.max) || 8 };
     }
   };
 
@@ -1535,11 +1729,6 @@
       }
       g.classList.toggle('zone-live', want);
     });
-    (sw.hint ? [].slice.call(sw.hint.querySelectorAll('[data-zone]')) : []).forEach(function (el) {
-      el.setAttribute('opacity', (on && el.getAttribute('data-zone') === id) ? 1 : 0.85);
-      el.setAttribute('stroke-width', el.tagName === 'path'
-        ? ((on && el.getAttribute('data-zone') === id) ? 9 : 7) : null);
-    });
   }
 
   /**
@@ -1656,7 +1845,7 @@
         if (state === 'wrong') g.classList.add('mark-bad');
       }
       if (state === 'correct' && global.Juice && Juice.confetti && !reduced()) {
-        try { Juice.confetti(g, { count: 26, fromEdge: true }); } catch (e) {}
+        try { Juice.confetti(g, { count: 46, fromEdge: true, speed: 0.62 }); } catch (e) {}
       }
       if (state && !reduced() && g.animate) {
         g.style.transformBox = 'fill-box';
@@ -1798,6 +1987,18 @@
    * clear the bottom of the panel by its own half-height was still crossing
    * the edge by the depth of a lip it did not need.
    */
+  /** A NAME TAG under a card: the ice plate the shape's own label uses, sized to its words. */
+  function nameTag(parent, x, y, text) {
+    var g = mk('g', { 'class': 'badge' }, parent);
+    var t = mk('text', { x: x, y: y + 8, 'text-anchor': 'middle', 'font-size': 24, 'font-weight': 800, fill: '#0f3f8f', text: text }, g);
+    var w = 0; try { w = t.getComputedTextLength ? t.getComputedTextLength() : 0; } catch (e) { w = 0; }
+    if (!w) w = text.length * 13;
+    var plate = mk('rect', { x: x - w / 2 - 18, y: y - 20, width: w + 36, height: 40, rx: 11, fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 3 }, g);
+    g.insertBefore(plate, t);
+    g._rect = { x: x - w / 2 - 18, y: y - 20, w: w + 36, h: 40 };
+    return g;
+  }
+
   function tag(parent, o) {
     var c = CONCEPT[o.tone] || null;
     var h = o.h == null ? 44 : o.h;
@@ -2144,13 +2345,6 @@
     return Math.min(floorY, lowest + (gap == null ? 52 : gap));
   }
 
-  function button(parent, x, y, w, h, label, fill, color) {
-    var g = mk('g', { 'class': 'btn' }, parent);
-    mk('rect', { x: x, y: y - h / 2, width: w, height: h, rx: 12, fill: fill, stroke: 'rgba(0,0,0,.08)' }, g);
-    mk('text', { x: x + w / 2, y: y + 9, 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 700, fill: color, text: label }, g);
-    g.style.cursor = 'pointer';
-    return g;
-  }
 
   /**
    * THE SHAPE MAKES ROOM FOR ITS NAME. A scene built on one screen is
@@ -2216,10 +2410,27 @@
   function morphFrom(prev) {
     if (reduced() || !st.fill || !st.fill.animate) return;
     // Resample both outlines to a common count so the path can tween.
-    var from = resample(prev, 60), to = resample(st.verts, 60);
+    // An open figure tweens as an open chain and a closed one as a ring;
+    // the two path forms cannot interpolate, so the NEW figure decides.
+    // Closing a corner into a triangle draws the third side in; opening a
+    // triangle back to a corner takes it away.
+    var open = isOpen();
+    var from = open ? resampleOpen(prev, 60) : resample(prev, 60);
+    var to = open ? resampleOpen(st.verts, 60) : resample(st.verts, 60);
+    var P = open ? pathOpen : pathOf;
     var f = st.fill;
-    var a = f.animate([{ d: 'path("' + pathOf(from) + '")' }, { d: 'path("' + pathOf(to) + '")' }], { duration: 560, easing: 'cubic-bezier(.22,1,.36,1)' });
+    var a = f.animate([{ d: 'path("' + P(from) + '")' }, { d: 'path("' + P(to) + '")' }], { duration: 640, easing: 'cubic-bezier(.22,1,.36,1)' });
     void a;
+  }
+  /** The open chain through v, resampled to count points (the last vertex kept). */
+  function resampleOpen(v, count) {
+    var segs = Math.max(1, v.length - 1), out = [], per = (count - 1) / segs;
+    for (var i = 0; i < segs; i++) {
+      var a = v[i], b = v[Math.min(i + 1, v.length - 1)];
+      for (var k = 0; k < per; k++) { var t = k / per; out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }); }
+    }
+    out.push(v[v.length - 1]);
+    return out;
   }
   function resample(v, count) {
     var n = v.length, out = [], per = count / n;
@@ -2462,55 +2673,6 @@
       });
       liftAboveChoices();
     },
-    checklist: function (c) {
-      var items = c.checklist || [];
-      var res = Poly.classify(st.verts);
-      var verdict = [res.sides + ' sides', res.concave ? 'Concave' : 'Convex', res.irregular ? 'Irregular' : 'Regular'];
-      var x = st.panel.x + st.panel.w + 20, y = st.panel.y + 40;
-      var g = mk('g', { 'class': 'checklist' }, layers.ui);
-      // Ice, not green. This panel holds ticks AND crosses, and a green card
-      // announces the result before the first row has been read.
-      mk('rect', { x: x, y: y - 20, width: 200, height: 40 * items.length + 30, rx: UI.radius, fill: UI.paper, stroke: UI.paperRim, 'stroke-width': UI.rim }, g);
-      items.forEach(function (label, i) {
-        var ok = !c.verify || verdict.indexOf(label) >= 0;
-        var row = mk('g', {}, g);
-        mk('circle', { cx: x + 26, cy: y + 10 + i * 40, r: 12, fill: ok ? '#2eab4e' : '#e05b5b' }, row);
-        mk('text', { x: x + 21, y: y + 15 + i * 40, 'font-size': 16, 'font-weight': 700, fill: '#fff', text: ok ? '✓' : '✕' }, row);
-        mk('text', { x: x + 50, y: y + 16 + i * 40, 'font-size': 20, 'font-weight': 600, fill: '#1c2a4a', text: label }, row);
-        if (c.animate && !reduced()) { row.style.opacity = 0; later(i * (c.each || 300), function () { row.style.opacity = 1; enter(row, 'pop'); sfx('tick'); }); }
-      });
-    },
-    reveal: function (r) {
-      if (r.reveal !== 'checks' || !st.compare) return;
-      Object.keys(st.compare).forEach(function (side, si) {
-        var c = st.compare[side]; if (!c.checks) return;
-        var x = c.panel.x + 16, y = c.panel.y + c.panel.h + 30;
-        c.checks.forEach(function (label, i) {
-          // THESE ARE FACTS, NOT A SCORE. Each line states something true
-          // about the shape above it — "All sides equal" of the regular
-          // pentagon, "Sides not all equal" of the irregular one. The second
-          // column's lines were marked with a red cross because its tone
-          // happened to be pink, so the screen told the child that the true
-          // sentence was the wrong answer, in the colour they read fastest.
-          // Both columns tick. What differs between them is the concept, so
-          // the concept's colour is what carries the difference.
-          var cc = CONCEPT[c.tone] || CONCEPT.convex;
-          // A CHIP, NOT A LINE OF TEXT: a tinted plate in the concept's wash
-          // with its rim, the tick in the concept's colour, the words in its
-          // ink and bold. Plain ink on the snow read as a footnote.
-          var row = mk('g', {}, layers.ui);
-          var ry = y + i * 34;
-          var lab = mk('text', { x: x + 40, y: ry + 6, 'font-size': 18, 'font-weight': 800, fill: cc.ink, text: label }, row);
-          var lw = 0; try { lw = lab.getComputedTextLength ? lab.getComputedTextLength() : 0; } catch (e) { lw = 0; }
-          if (!lw) lw = label.length * 10;
-          var chip = mk('rect', { x: x - 2, y: ry - 15, width: lw + 56, height: 32, rx: 16, fill: cc.wash, stroke: cc.face, 'stroke-width': 2 }, row);
-          row.insertBefore(chip, lab);
-          mk('circle', { cx: x + 16, cy: ry, r: 11, fill: cc.face }, row);
-          mk('text', { x: x + 11, y: ry + 5, 'font-size': 15, 'font-weight': 800, fill: '#fff', text: '✓' }, row);
-          if (r.animate && !reduced()) { row.style.opacity = 0; later((si * 2 + i) * 260, function () { row.style.opacity = 1; enter(row, 'pop'); }); }
-        });
-      });
-    },
     stepper: function (s) { if (s === 'locked' && st.stepMinus) { st.stepMinus.style.opacity = .35; st.stepPlus.style.opacity = .35; st.stepLocked = true; } },
     measurements: function (m) { if (m === 'live') { st.measure = { sides: 'all', angles: 'all' }; renderPoly(); } }
   };
@@ -2523,13 +2685,14 @@
     if (spec.diagonals && !spec.kind) op.diagonals(spec);
     if ('ghost' in spec && !spec.kind) op.ghost(spec.ghost);
     if (spec.label && !spec.kind) op.label(spec.label);
+    // a carried name tag is taken down by a beat that says label: null
+    if (spec.label === null && st.labelEl) { st.labelEl.remove(); st.labelEl = null; }
     if (spec.badge && !spec.kind) op.badge(spec.badge);
     if ('choices' in spec) op.choices(spec.choices);
-    if (spec.checklist) op.checklist(spec);
-    if (spec.reveal) op.reveal(spec);
     if (spec.stepper && typeof spec.stepper === 'string') op.stepper(spec.stepper);
     if (spec.measurements) op.measurements(spec.measurements);
     if (spec.returnItem && st.sort && st.sort.dragging) returnItem(st.sort.dragging);
+    if (spec.kind) applySeat(false);
   }
 
   /* ------------------------------------------------------------------ *
@@ -2567,7 +2730,10 @@
           el.style.filter = dim ? 'saturate(.25) brightness(1.04)' : '';
           el.style.transition = 'opacity 320ms ease, filter 320ms ease';
         });
-        c.g.style.filter = dim ? 'saturate(.25) brightness(1.04)' : 'drop-shadow(0 0 16px rgba(255,255,255,.85))';
+        // No glow on the one in focus: the card's face is translucent glass,
+        // and a drop-shadow showed through it as a pale line inside the rim.
+        // The other card stepping back is the whole cue.
+        c.g.style.filter = dim ? 'saturate(.25) brightness(1.04)' : '';
       });
       return;
     }
@@ -2743,6 +2909,23 @@
   }
   function dragVertex(i, moveFn, upFn, ctx) { return dragVertices([i], moveFn, upFn, ctx); }
 
+  /**
+   * HOW DEEP THE DENT IS. The distance of vertex i inside the line between
+   * its two neighbours, as a fraction of that line — positive once it has
+   * crossed toward the shape's middle. A pentagon becomes concave the
+   * instant its vertex crosses that line, and at that instant it looks
+   * like a trapezium with a knob on its top edge; the child has to see a
+   * notch, so the concave activities ask for a depth, not a crossing.
+   */
+  function dentDepth(v, i) {
+    var n = v.length, a = v[(i + n - 1) % n], b = v[(i + 1) % n], p = v[i];
+    var dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    var c = Poly.centroid(v);
+    var side = (dx * (c.y - a.y) - dy * (c.x - a.x)) >= 0 ? 1 : -1;
+    var d = (dx * (p.y - a.y) - dy * (p.x - a.x)) / len;
+    return d * side / len;
+  }
+
   var INTERACT = {
 
     /**
@@ -2776,6 +2959,7 @@
       return new Promise(function (resolve) {
         if (global.Input) Input.mode('polygon');
         st.showVerts = true; st.touchVerts = true; renderPoly();
+        if (st.verts && st.verts[0]) tapGhost(st.verts[0].x, st.verts[0].y);
         st.vertEls.forEach(function (c, i) {
           c.style.cursor = 'pointer';
           on(c, 'pointerdown', function (e) {
@@ -2796,6 +2980,9 @@
         if (!st.segment) { var p0 = st.picked == null ? 0 : st.picked; st.segment = [p0, (p0 + 1) % st.n]; renderPoly(); }
         var from = st.segment[0], moving = st.segment[1];
         var ghostLine = mk('line', { x1: st.verts[from].x, y1: st.verts[from].y, x2: st.verts[moving].x, y2: st.verts[moving].y, stroke: HI.line, 'stroke-width': 7, 'stroke-linecap': 'round', opacity: 0 }, layers.fx);
+        // the gesture: the endpoint slides to a vertex it may be dropped on
+        var gt = Poly.diagonalsFrom(from, st.n).filter(function (j) { return j !== moving; })[0];
+        if (gt != null) gestureGhost(st.verts[moving], st.verts[gt], { r: 11 });
         dragVertex(moving, function (p) {
           ghostLine.setAttribute('opacity', 1); ghostLine.setAttribute('x2', p.x); ghostLine.setAttribute('y2', p.y);
           if (st.segLine) st.segLine.setAttribute('opacity', .25);
@@ -2827,6 +3014,11 @@
         var idxs = spec.vertex === 'any' ? st.verts.map(function (_, i) { return i; }) : [spec.vertex];
         var start = null, done = false;
         if (spec.live === 'diagonals') st.highlightOutside = true;
+        // the gesture: from the vertex, inward toward the middle to make a
+        // dent, or out along its own line to stretch the shape
+        var gi = idxs[0], gv = st.verts[gi], gc = Poly.centroid(st.verts);
+        var glen = Math.hypot(gc.x - gv.x, gc.y - gv.y) || 1, gdir = spec.until === 'concave' ? 1 : -0.55;
+        gestureGhost(gv, { x: gv.x + (gc.x - gv.x) / glen * 78 * gdir, y: gv.y + (gc.y - gv.y) / glen * 78 * gdir }, { r: 11 });
         dragVertices(idxs, function (p, i) {
             if (done) return;
             if (!start) start = { x: st.verts[i].x, y: st.verts[i].y };
@@ -2838,7 +3030,7 @@
               st.liveBadge._text.textContent = c.concave ? 'Concave' : 'Convex';
               if (st.liveBadge._retint) st.liveBadge._retint(c.concave ? 'concave' : 'convex');
             }
-            var reached = spec.until === 'concave' ? Poly.classify(st.verts).concave
+            var reached = spec.until === 'concave' ? (Poly.classify(st.verts).concave && dentDepth(st.verts, i) >= 0.05)
                         : spec.until === 'irregular' ? (!Poly.isRegular(st.verts) && Math.hypot(np.x - start.x, np.y - start.y) >= (spec.minMove || 0))
                         : false;
             if (reached) {
@@ -2973,16 +3165,6 @@
               card.style.pointerEvents = 'none';
               if (card.parentNode) card.parentNode.removeChild(card);
               keepInZone(zone, card._name);
-              // THE GESTURE HAS BEEN LEARNED. The arcs showed the swipe; once
-              // the child has made it, they would only lie across the piles.
-              if (sw.i === 0 && sw.hint) {
-                var h = sw.hint; sw.hint = null;
-                var gone = function () { if (h.parentNode) h.parentNode.removeChild(h); };
-                if (!reduced() && h.animate) {
-                  var fade = h.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 450, easing: 'ease-out', fill: 'forwards' });
-                  if (fade.finished) fade.finished.then(gone, gone); else later(460, gone);
-                } else gone();
-              }
               sw.card = null;
               sw.i++;
               if (sw.i >= sw.items.length) { hold(260).then(function () { done(); }); return; }
@@ -3134,12 +3316,15 @@
       return new Promise(function (resolve) {
         if (global.Input) Input.mode('polygon');
         var need = st.cards.filter(function (c) { return c._opt.correct; }).length, got = 0;
+        if (st.cards[0] && st.cards[0].getBBox) {
+          try { var cb = st.cards[0].getBBox(); tapGhost(cb.x + cb.width / 2, cb.y + cb.height / 2); } catch (e) {}
+        }
         st.cards.forEach(function (c) {
           c.style.cursor = 'pointer';
           on(c, 'pointerdown', function (e) {
             e.preventDefault(); if (c._done) return; st.lastEl = c;
             if (c._opt.correct) {
-              c._done = true; got++;
+              c._done = true; got++; c.style.cursor = '';
               if (c._card) c._card._mark('correct');
               onTap('correct');
               if (got >= need) { endInteraction(); resolve({ result: 'correct' }); }
@@ -3168,13 +3353,17 @@
         // moment it has been measured, so the pulse is always the to-do list.
         var hint = function () {
           (isSides ? st.edgeEls : st.vertEls).forEach(function (el, i) {
-            el.style.cursor = 'pointer';
+            el.style.cursor = seen[i] ? '' : 'pointer';   // a measured side is done with
             if (el.classList) el.classList.toggle('hint', !seen[i]);
             // the pulse is drawn on the knob, the tap is taken by the disc
             if (!isSides && knobOf(i) && knobOf(i).classList) knobOf(i).classList.toggle('hint', !seen[i]);
           });
         };
         hint();
+        if (st.verts && st.verts.length > 1) {
+          var g0 = st.verts[0], g1 = st.verts[1];
+          if (isSides) tapGhost((g0.x + g1.x) / 2, (g0.y + g1.y) / 2); else tapGhost(g0.x, g0.y);
+        }
         // Delegated: renderPoly() runs after every reveal.
         on(st.polyG, 'pointerdown', function (e) {
           var t = e.target; if (!t || !t.classList || !t.classList.contains(cls)) return;
@@ -3219,7 +3408,7 @@
             var c = Poly.classify(item._verts);
             var truth = bin._bin.id === 'convex' ? c.convex : bin._bin.id === 'concave' ? c.concave : bin._bin.id === 'regular' ? c.regular : c.irregular;
             if (truth) {
-              item._placed = true; S.placed++; bin._count++;
+              item._placed = true; S.placed++; bin._count++; item.style.cursor = '';
               bin._items = bin._items || [];
               bin._items.push(item);
               packBin(bin);
@@ -3230,6 +3419,14 @@
           });
         }
         S.items.forEach(armItem);
+        // the gesture: a ghost of the first card slides down toward the bins
+        // and fades — the move, not the answer — until the child takes one
+        var first = S.items.filter(function (it) { return !it._placed; })[0];
+        if (first && S.bins && S.bins.length) {
+          var b0 = S.bins[0]._rect, b1 = S.bins[S.bins.length - 1]._rect;
+          var gapX = (b0.x + b0.w + b1.x) / 2, home = first._pos || first._home;
+          gestureGhost(home, { x: gapX, y: b0.y + 40 }, { clone: first, trail: false, duration: 2600 });
+        }
         if (ctx && ctx.onCancel) ctx.onCancel(endInteraction);
       });
     },
@@ -3241,7 +3438,7 @@
           n = Math.max(st.stepper.min, Math.min(st.stepper.max, n));
           if (n === st.n) return;
           var prev = st.verts.slice(); st.n = n;
-          var P = polygonIn(st.panel, n, { below: true }); st.verts = P.verts; st.stepText.textContent = n; renderPoly(); morphFrom(prev);
+          var P = polygonIn(st.panel, n, {}); st.verts = P.verts; st.stepText.textContent = n; renderPoly(); morphFrom(prev);
           onTap('any');
           if (n === spec.target) { endInteraction(); resolve({ result: 'correct' }); }
         }
@@ -3462,8 +3659,8 @@
     // viewBox units -> CSS pixels, through the live matrix, so this is right
     // at every letterbox and every zoom.
     var p = svg.createSVGPoint();
-    p.x = box.x; p.y = box.y; var tl = p.matrixTransform(m);
-    p.x = box.r; p.y = box.b2; var br = p.matrixTransform(m);
+    p.x = box.x; p.y = box.y + seatY; var tl = p.matrixTransform(m);
+    p.x = box.r; p.y = box.b2 + seatY; var br = p.matrixTransform(m);
     return { left: tl.x, top: tl.y, right: br.x, bottom: br.y, width: br.x - tl.x, height: br.y - tl.y };
   }
 
@@ -3487,9 +3684,12 @@
    * built knows its own box and records it as _rect; that is the one to
    * believe, and getBoundingClientRect is the fallback for the rest.
    */
-  function contentParts() {
+  function contentParts(opts) {
     if (!svg || !st.kind) return [];
-    var sel = '.panel, .polygon, .card, .sort-item, .bin, .choice, .stepper, .shape, .checklist, .badge';
+    // `glass`: the slab itself does not count, only what is drawn on it —
+    // for a bird waiting INSIDE the card, whose words belong beside him on
+    // the glass rather than banished above the rim.
+    var sel = ((opts && opts.glass) ? '' : '.panel, ') + '.polygon, .meas, .card, .sort-item, .bin, .choice, .stepper, .shape, .badge';
     var out = [];
     var nodes = svg.querySelectorAll(sel);
     // Through the live matrix, as contentBox() does. Scaling by the svg box
@@ -3499,10 +3699,12 @@
     var px = function (x) { return m ? m.a * x + m.e : x; }, py = function (y) { return m ? m.d * y + m.f : y; };
     for (var i = 0; i < nodes.length; i++) {
       var q = nodes[i]._rect;
+      // on the glass, the polygon counts as its outline alone (see nook())
+      var el = (opts && opts.glass && nodes[i] === st.polyG && st.fill) ? st.fill : nodes[i];
       var r = q
-        ? { left: px(q.x), top: py(q.y), right: px(q.x + q.w), bottom: py(q.y + q.h),
+        ? { left: px(q.x), top: py(q.y + seatY), right: px(q.x + q.w), bottom: py(q.y + q.h + seatY),
             width: px(q.x + q.w) - px(q.x), height: py(q.y + q.h) - py(q.y) }
-        : nodes[i].getBoundingClientRect();
+        : el.getBoundingClientRect();
       if (r.width > 4 && r.height > 4) out.push(r);
     }
     return out;
@@ -3511,9 +3713,22 @@
   var api = {
     mount: mount, apply: apply, focus: focus, waitFor: waitFor, element: element, halo: halo,
     isEmpty: isEmpty, contentBox: contentBox, contentParts: contentParts,
+    /** The card's face and the shape's box, in page pixels: the nook beside
+        the shape where a bird waiting in the corner can be spoken from. */
+    nook: function () {
+      if (!st.panel || !st.polyG || !svg || !svg.getScreenCTM) return null;
+      var m = svg.getScreenCTM(); if (!m) return null;
+      var pf = panelFace(st.panel);
+      var face = { left: m.a * pf.x + m.e, top: m.d * (pf.y + seatY) + m.f, right: m.a * (pf.x + pf.w) + m.e, bottom: m.d * (pf.y + pf.h + seatY) + m.f };
+      // the shape's own outline, not the readings and tags hung round it:
+      // those sit inside the shape's margin, and the bubble may pass over
+      // that margin on its way to his head
+      var poly; try { poly = (st.fill || st.polyG).getBoundingClientRect(); } catch (e) { return null; }
+      return { face: face, poly: poly };
+    },
     /** The slab Swiftee peeks over or stands beside: the panel, or the left of a compared pair. */
     peekAnchor: function () {
-      if (st.panel) return st.panel;
+      if (st.panel) return seatY ? Object.assign({}, st.panel, { y: st.panel.y + seatY }) : st.panel;
       if (st.compare) {
         // the card the lesson is looking at — the one glowing — else the left
         var k = st.compareFocus && st.compare[st.compareFocus] ? st.compareFocus : 'left';
@@ -3527,6 +3742,9 @@
       return null;
     },
     onTap: function (fn) { onTap = fn || function () {}; },
+    /** A plank-free screen lifts a lone card to the centre; a plank seats it under the band. Animated. */
+    seat: function (free) { plankFree = !!free; applySeat(true); },
+    get seatY() { return seatY; },
     ambient: ambientPlay, flurry: flurry, alive: alive,
     /* How many delayed callbacks from a finished scene have been refused.
        A test reads this: a suppression mechanism that never suppresses

@@ -165,6 +165,8 @@ const LUM = `(function (c) {
         next: !!document.querySelector('#next.show'),
         // what is telling the child what to do, right now?
         hasCard: !!(card && card.classList.contains('show') && card.textContent.trim()),
+        // his bubble is the instruction channel on card screens now
+        bubble: !!(document.querySelector('#bubble.show') && document.querySelector('#bubble.show').textContent.trim()),
         haloed: svg ? svg.querySelectorAll('.touchable').length : 0,
         targets: touch.map((el) => {
           const r = el.getBoundingClientRect();
@@ -190,7 +192,7 @@ const LUM = `(function (c) {
     // been offered yet — so sampling is only evidence of a fault when the
     // screen is left behind having never said anything at all.
     seen[s.screen] = true;
-    if (s.next || s.hasCard || s.haloed > 0 || s.targets.length) cued[s.screen] = true;
+    if (s.next || s.hasCard || s.bubble || s.haloed > 0 || s.targets.length) cued[s.screen] = true;
 
     // a child turns the tablet
     if (step === 14 || step === 46) {

@@ -157,11 +157,27 @@
    * leaning on the card. A sentence with no break in it stays whole.
    */
   function splitLine(text) {
-    if (!text || text.length <= 42) return [text];
+    // 32, not 42: beside a pair of cards the band he speaks in is narrow, and
+    // a sentence of forty characters is four rows there — which the layout
+    // refuses, and sends the bubble to the top of the screen, far from him.
+    // Two short bubbles in turn stay at his head.
+    if (!text || text.length <= 32) return [text];
     var m = /^(.{3,}?[.!?\u2026])\s+(\S.*)$/.exec(text);
     if (m && m[2].length >= 8) return [m[1], m[2]];
     var k = text.lastIndexOf(', ');
     if (k >= 14 && text.length - k >= 12) return [text.slice(0, k + 1), text.slice(k + 2)];
+    // No punctuation to break at: break before the joining word nearest the
+    // middle — "All diagonals inside" then "means convex polygon."
+    var joins = [' means ', ' and ', ' or ', ' so ', ' but ', ' then ', ' because ', ' when ', ' if ', ' to ', ' with '];
+    var best = -1, bestD = Infinity, mid = text.length / 2;
+    joins.forEach(function (j) {
+      var at = -1;
+      while ((at = text.indexOf(j, at + 1)) >= 0) {
+        var d = Math.abs(at - mid);
+        if (d < bestD && at >= 10 && text.length - at - 1 >= 10) { bestD = d; best = at; }
+      }
+    });
+    if (best > 0) return [text.slice(0, best), text.slice(best + 1)];
     return [text];
   }
 
@@ -225,22 +241,18 @@
 
   function wantsBuddy(i) {
     var s = Screens.list[i];
-    return !!(s && Screens.wantsBuddy && Screens.wantsBuddy(s));
+    if (!s) return false;
+    if (Screens.wantsBuddyAt) return !!Screens.wantsBuddyAt(i);
+    return !!(Screens.wantsBuddy && Screens.wantsBuddy(s));
   }
+  /** On a one- or two-card screen he says the instructions too (Screens.speaksAll). */
+  function speaksAll(i) { return !!(Screens.speaksAll && Screens.speaksAll(i)); }
 
   /* WHAT THE STAGE SHOWS BY THE END OF SCREEN i. Most screens carry the
      scene over from the one before and only some rebuild it, so the kind of
      scene a screen is about is the last one declared at or before it —
      at screen level or in a beat. */
-  function sceneKindAt(i) {
-    var kind = null;
-    for (var k = 0; k <= i && k < Screens.list.length; k++) {
-      var s = Screens.list[k];
-      if (s.stage && s.stage.kind) kind = s.stage.kind;
-      (s.beats || []).forEach(function (b) { if (b && b.stage && b.stage.kind) kind = b.stage.kind; });
-    }
-    return kind;
-  }
+  function sceneKindAt(i) { return Screens.sceneKindAt ? Screens.sceneKindAt(i) : null; }
 
   /* WHERE HE CAN HIDE. Popping up from behind a card is a trick for a
      screen with two or more cards on it — the comparison — where one card
@@ -248,10 +260,10 @@
      one card has nothing for him to hide behind: there he stands on the
      ground at the left and the card sits on the right. */
   function peeksBehind(i) {
-    var k = sceneKindAt(i);
-    // the comparison's two cards, or the swipe practice's two zones — both
-    // are cards with a rim he can come up behind, clear of the plank
-    return k === 'compare' || k === 'swipe-sort';
+    // Only the swipe practice: its zones fill the floor, so he comes up
+    // from behind the Regular zone's rim. Beside one card or two he STANDS
+    // on the ice at the left and instructs from there.
+    return sceneKindAt(i) === 'swipe-sort';
   }
 
   /* HIS MARK ON SCREEN i, or null if the screen is not his.
@@ -278,8 +290,16 @@
   /* What he says when the child gets it, and when they do not. Short, so
      they fit in one bubble beside his head, and varied, so the tenth right
      answer is not met with the same word as the first. */
-  var PRAISE = ['Nice!', 'That\u2019s it!', 'Great job!', 'You got it!', 'Yes!', 'Well done!'];
-  var NUDGE = ['Hmm, not quite.', 'Try again!', 'Almost! Have another go.', 'Not that one.'];
+  // Each carries the id of its voice clip (assets/vo/<id>.mp3), listed in
+  // docs/VO.md with everything else he says.
+  var PRAISE = [
+    { t: 'Nice!', vo: 'fb01' }, { t: 'That\u2019s it!', vo: 'fb02' }, { t: 'Great job!', vo: 'fb03' },
+    { t: 'You got it!', vo: 'fb04' }, { t: 'Yes!', vo: 'fb05' }, { t: 'Well done!', vo: 'fb06' }
+  ];
+  var NUDGE = [
+    { t: 'Hmm, not quite.', vo: 'fb07' }, { t: 'Try again!', vo: 'fb08' },
+    { t: 'Almost! Have another go.', vo: 'fb09' }, { t: 'Not that one.', vo: 'fb10' }
+  ];
   var praiseN = 0, nudgeN = 0, lastFeedbackAt = 0, feedbackScreen = -1, praisedHere = false;
   var cheerUntil = 0;   // the lesson does not move on while he is still saying it
 
@@ -294,8 +314,10 @@
     var now = Date.now();
     if (current !== feedbackScreen) { feedbackScreen = current; praisedHere = false; }
     var line = null, mood = null;
-    if (kind === 'correct' && !praisedHere) { praisedHere = true; line = PRAISE[praiseN++ % PRAISE.length]; mood = 'win'; }
-    else if (kind === 'wrong' && now - lastFeedbackAt > 3000) { line = NUDGE[nudgeN++ % NUDGE.length]; mood = 'hint'; }
+    var pick = null;
+    if (kind === 'correct' && !praisedHere) { praisedHere = true; pick = PRAISE[praiseN++ % PRAISE.length]; mood = 'win'; }
+    else if (kind === 'wrong' && now - lastFeedbackAt > 3000) { pick = NUDGE[nudgeN++ % NUDGE.length]; mood = 'hint'; }
+    if (pick) line = pick.t;
     if (!line) {
       if (present) { try { Swiftee.play(kind === 'wrong' ? 'confused' : 'happy'); } catch (e) {} }
       return;
@@ -305,6 +327,7 @@
     var wasUp = present;
     var speak = function () {
       try { Swiftee.play(kind === 'wrong' ? 'confused' : 'happy'); } catch (e) {}
+      if (global.VO && pick) VO.play(pick.vo);
       say(line, mood, 900);
       clearTimeout(bubbleTimer);
       bubbleTimer = setTimeout(function () {
@@ -342,7 +365,7 @@
   // SMALL IS SMALL. All three were 0.28; a bird waiting inside the card's
   // corner, or peeking over a rim, is a smaller thing than one standing on
   // the ice beside it.
-  var BIRD_H = { small: 0.22, medium: 0.28, large: 0.28 };
+  var BIRD_H = { tiny: 0.16, small: 0.22, medium: 0.28, large: 0.28 };   // tiny: inside the card's corner, the shape is the big thing
   var CONTENT_FRAC = 0.764;      // (449 - 58) / 512, from the manifest bounds
   var EDGE = 8;                  // px of breathing room at the viewport edge
 
@@ -465,7 +488,11 @@
       // INSIDE THE CARD, on the glass at its bottom-left: the measurer waits
       // on the sheet he measures, and flies from there to each side.
       var paneH = (global.CardFrame && CardFrame.panel && CardFrame.panel.pane) ? CardFrame.panel.pane.h : 0.85;
-      map['corner'] = { x: ax(anchor.x + anchor.w * 0.13), y: ay(anchor.y + anchor.h * (paneY + paneH)) - 0.012 };
+      // ON THE SNOW, not on the glass line: the card's bottom rim carries a
+      // ledge of snow inside the pane's edge, and his feet belong on that —
+      // 3.5% of the card below the pane's foot. At the pane's foot he hung
+      // in the air over it.
+      map['corner'] = { x: ax(anchor.x + anchor.w * 0.13), y: ay(anchor.y + anchor.h * (paneY + paneH + 0.035)) };
       if (pos === 'peek') clipPage = f.y + ay(rim) * f.h;
     } else {
       map['peek'] = map['top-left'];
@@ -629,6 +656,9 @@
   function say(text, mood, ms) {
     clearInterval(revealTimer); revealTimer = null; revealUnits = null;
     if (!text) { bubble.classList.add('out'); bubble.classList.remove('show'); return; }
+    // A SPEAKER IS SEEN. A jump or a restart can cut an exit short and leave
+    // him at opacity 0 on his mark; the moment he has a line, he is shown.
+    if (present && !entering && global.Swiftee && Swiftee.visible && Swiftee.pos !== 'off') Swiftee.visible(true);
     mood = mood || (/\?|Hmm|What if/.test(text) ? 'think' : /Yay|Great|Nice|Whoa/.test(text) ? 'win' : 'talk');
     bubble.dataset.mood = mood;
     // Only the line is replaced. The frame, the panel, the highlight and the
@@ -785,6 +815,10 @@
     // it sat hard against the side of the screen and read as something that
     // had slid off rather than been placed.
     var GAP = 26, MIN_W = 240, MIN_H = 64;
+    // THE TAIL'S REACH. Its tip lands 42px beyond the border, so the box
+    // keeps this much clear of him on every side and the tip stops just
+    // short of his head — near, never on it.
+    var TAIL_GAP = 48;
 
     // Type size is the stylesheet's job; it only needs to know whether this
     // is a screen with room to breathe.
@@ -813,15 +847,18 @@
       bubble.style.left = '50%';
       bubble.style.marginLeft = -(bubble.offsetWidth / 2) + 'px';
       var birdTop = L.y - 256 * layout(Swiftee.pos, 'large').scale * CONTENT_FRAC;
-      bubble.style.top = Math.max(hudBox.bottom + GAP, birdTop - bubble.offsetHeight - 26) + 'px';
+      bubble.style.top = Math.max(hudBox.bottom + GAP, birdTop - bubble.offsetHeight - TAIL_GAP) + 'px';
       // He stands directly below on these screens, but aim it properly all the
       // same — "below" is only true once he has landed.
       paintSkin();
       return;
     }
 
-    var top = Math.max(GAP, (cardBox ? cardBox.bottom + 10 : GAP));
-    var bottom = vh - GAP - (nextBox ? nextBox.height + 16 : 0);
+    // the bands live inside the FRAME — the letterboxed stage — not the window
+    var FL = f.x + GAP, FR = f.x + f.w - GAP;
+    var top = Math.max(f.y + GAP, (cardBox ? cardBox.bottom + 10 : f.y + GAP));
+    var bottom = f.y + f.h - GAP - (nextBox ? nextBox.height + 16 : 0);
+    void vw; void vh;
 
     // The bands around the lesson, and the bands through it. Each is a place
     // a bubble could live.
@@ -840,24 +877,27 @@
       var bb = Swiftee.bounds();
       if (bb && bb.width) {
         birdBox = {
-          left: bb.left - f.x - 10, right: bb.right - f.x + 10,
-          top: bb.top - f.y - 10, bottom: bb.bottom - f.y + 10
+          left: bb.left - TAIL_GAP, right: bb.right + TAIL_GAP,
+          top: bb.top - TAIL_GAP, bottom: bb.bottom + TAIL_GAP
         };
       }
     }
 
     var slots = [
-      { id: 'left',  x: GAP,                  y: top, w: content.left - GAP * 2,  h: bottom - top },
-      { id: 'right', x: content.right + GAP,  y: top, w: vw - content.right - GAP * 2, h: bottom - top },
-      { id: 'above', x: GAP, y: top, w: vw - GAP * 2, h: content.top - top - GAP },
-      { id: 'below', x: GAP, y: content.bottom + GAP, w: vw - GAP * 2, h: bottom - content.bottom - GAP }
+      { id: 'left',  x: FL,                   y: top, w: content.left - GAP - FL,  h: bottom - top },
+      { id: 'right', x: content.right + GAP,  y: top, w: FR - content.right - GAP, h: bottom - top },
+      { id: 'above', x: FL, y: top, w: FR - FL, h: content.top - top - GAP },
+      { id: 'below', x: FL, y: content.bottom + GAP, w: FR - FL, h: bottom - content.bottom - GAP }
     ];
 
     // Full-width bands between the lesson's own pieces. The sorting screen
     // puts the tray at the top and the bins at the bottom; the strip between
     // them is the most comfortable place on that screen for a line of
     // dialogue, and a single union box cannot see it.
-    var rows = (Stage.contentParts ? Stage.contentParts() : [])
+    // IN THE CORNER OF THE CARD, HIS WORDS GO ON THE GLASS. The slab does not
+    // count as an obstacle then; the shape on it does.
+    var cornered = !!(global.Swiftee && Swiftee.pos === 'corner');
+    var rows = (Stage.contentParts ? Stage.contentParts({ glass: cornered }) : [])
       .map(function (r) { return [r.top, r.bottom]; })
       .sort(function (a, b) { return a[0] - b[0]; });
     var merged = [];
@@ -867,8 +907,8 @@
       else merged.push([r[0], r[1]]);
     });
     for (var i = 0; i + 1 < merged.length; i++) {
-      slots.push({ id: 'gap', x: GAP, y: merged[i][1] + GAP,
-                   w: vw - GAP * 2, h: merged[i + 1][0] - merged[i][1] - GAP * 2 });
+      slots.push({ id: 'gap', x: FL, y: merged[i][1] + GAP,
+                   w: FR - FL, h: merged[i + 1][0] - merged[i][1] - GAP * 2 });
     }
 
     // CARVE SWIFTEE OUT OF THE SLOTS.
@@ -906,8 +946,8 @@
       if (!b || !b.width) return;
       // A wide margin: the bubble bounces in at 103% and carries a shadow,
       // and eight pixels from the HUD read as touching it.
-      blocks.push({ left: b.left - f.x - 28, right: b.right - f.x + 28,
-                    top: b.top - f.y - 28, bottom: b.bottom - f.y + 28 });
+      blocks.push({ left: b.left - 28, right: b.right + 28,
+                    top: b.top - 28, bottom: b.bottom + 28 });
     });
 
     blocks.forEach(function (box) {
@@ -931,13 +971,37 @@
       });
     });
 
-    slots = slots.filter(function (r) { return r.w >= MIN_W && r.h >= MIN_H; });
+    // THE NOOK. Waiting inside the card, bottom-left, the place for his
+    // line is the glass above his head and left of the shape — a comic
+    // panel's own bubble. If that nook can hold a line, it is the only slot.
+    if (cornered && Stage.nook) {
+      var nk = Stage.nook();
+      if (nk && birdBox) {
+        var cs = { id: 'corner',
+                   x: nk.face.left + 8, y: nk.face.top + 8,
+                   w: (nk.poly.left - 16) - (nk.face.left + 8),
+                   h: birdBox.top - (nk.face.top + 8) };
+        // WHATEVER HANGS IN THE NOOK'S COLUMN — a reading tag beside the
+        // shape — caps the nook above it, so the bubble sits over the tag
+        // and its tail still points down to him.
+        var gp = Stage.contentParts ? Stage.contentParts({ glass: true }) : [];
+        var capY = cs.y + cs.h;
+        gp.forEach(function (p) {
+          if (p.right > cs.x + 4 && p.left < cs.x + cs.w - 4 && p.top < capY && p.bottom > cs.y) capY = Math.min(capY, p.top - 10);
+        });
+        cs.h = capY - cs.y;
+        // 200, not MIN_W: the nook beside him on the wide slab is a little
+        // under 240 wide, and his lines there are short by design
+        if (cs.w >= 200 && cs.h >= MIN_H) slots = [cs];
+      }
+    }
+    slots = slots.filter(function (r) { return r.id === 'corner' || (r.w >= MIN_W && r.h >= MIN_H); });
 
     if (!slots.length) {
       // Nowhere is genuinely clear. Sit above the lesson and be as small as
       // possible: covering the top of a panel is better than covering the
       // shape, and better than not speaking at all.
-      slots = [{ id: 'above', x: GAP, y: top, w: vw - GAP * 2, h: Math.max(MIN_H, content.top - top) }];
+      slots = [{ id: 'above', x: FL, y: top, w: FR - FL, h: Math.max(MIN_H, content.top - top) }];
     }
 
     // Prefer the side he is standing on, then the roomiest.
@@ -971,7 +1035,7 @@
     var capFor = function (r) {
       var room = (r.id === 'left' || r.id === 'right')
         ? Math.min(r.w - SAFE, 640)
-        : Math.min(r.w - SAFE, vw * 0.8);
+        : Math.min(r.w - SAFE, f.w * 0.8);
       return room;
     };
 
@@ -1001,8 +1065,9 @@
         : (peeking ? L.x - ww / 2
            : (onLeft ? Math.max(r.x, L.x - ww * 0.35) : Math.min(r.x + r.w - ww, L.x - ww * 0.65)));
       var wy = (r.id === 'left' || r.id === 'right')
-        ? L.y - 256 * L.scale * CONTENT_FRAC - hh - 14
-        : r.y + (r.h - hh) / 2;
+        ? L.y - 256 * L.scale * CONTENT_FRAC - hh - TAIL_GAP
+        : (r.id === 'corner' ? r.y + r.h - hh              // just over his head
+           : r.y + (r.h - hh) / 2);
       return {
         x: Math.max(r.x, Math.min(wx, r.x + r.w - ww)),
         y: Math.max(r.y, Math.min(wy, r.y + r.h - hh))
@@ -1047,7 +1112,7 @@
       var rows = rowsOf(m.h);
       var score = reach(placeIn(r, m.w, m.h), m.w, m.h)
                 + (rows - 1) * 40                          // one row is nicer
-                + (rows > 2 ? 4200 : 0)                    // three is a paragraph
+                + (rows > 2 ? 300 : 0)                     // three rows beside him beats two rows far from him
                 // and four is not a speech bubble at all. Weighted past any
                 // distance on this stage, so a wider slot further from his
                 // head always wins over a narrow one beside it.
@@ -1108,7 +1173,7 @@
     // it? If so, shrink and try again, and failing that put it in the band
     // with the most room. Cheap, and it cannot be fooled by a cause nobody
     // thought of.
-    var parts = Stage.contentParts ? Stage.contentParts() : [];
+    var parts = Stage.contentParts ? Stage.contentParts({ glass: !!(global.Swiftee && Swiftee.pos === 'corner') }) : [];
     var hits = function () {
       var l = parseFloat(bubble.style.left) || 0, t = parseFloat(bubble.style.top) || 0;
       var r = { left: l, right: l + bubble.offsetWidth, top: t, bottom: t + bubble.offsetHeight };
@@ -1158,226 +1223,61 @@
    * end up running along the wrong two sides.
    */
   /* ------------------------------------------------------------------ *
-   * The bubble's outline
+   * The tail
    *
-   * ONE PATH FOR BODY AND HORN. Every previous version drew the body as a
-   * CSS box — border, radius, background — and laid a second SVG over its
-   * bottom edge for the horn. There is no good answer to that seam. Cover
-   * the body's rim with the horn's fill and the outline has a gap where the
-   * rim used to be; leave it and a straight line runs across the horn's base.
-   * Half a dozen passes moved that fault about without removing it, because
-   * it is not a bug in the numbers, it is a bug in having two shapes.
+   * THE TAIL IS ONE SILHOUETTE WITH THE BUBBLE — a 60px SVG whose fill
+   * covers the border across its mouth and whose free edges alone are
+   * stroked (see the CSS). All this has to do is put it on the edge that
+   * faces Swiftee, slide it along that edge to his head, and mirror its
+   * sweep so the tip leans his way, like a comic.
    *
-   * So the outline is walked once, clockwise from the top-left corner, and
-   * the horn is emitted in its place along whichever edge it belongs to.
-   * Filled once, stroked once, no junction.
+   * In the SVG's own frame the mouth spans x 14..46 and the tip is at
+   * (12, 54): eighteen units to the LEFT of the mouth's centre. Rotated for
+   * each edge, that puts the unmirrored tip at these positions along the
+   * edge, and the mirrored one at 60 minus them.
    * ------------------------------------------------------------------ */
+  var TIP = { bottom: 12, top: 48, right: 48, left: 12 };   // unmirrored tip, along the edge
+  var MOUTH_LO = 14, MOUTH_HI = 46, TAIL_SIZE = 60;
 
-  // How far the skin reaches beyond the bubble's own box: the horn's length
-  // plus room for the stroke and the glow.
-  function skinPad(em) { return Math.round(em * 1.5); }
-
-  /**
-   * The outline, as SVG path data.
-   *
-   * `horn` is { edge, at, hw, len, lean } in the bubble's own pixels — `at`
-   * measured along the edge from the box's top-left in reading order, so the
-   * caller never has to think about which way round a given edge is walked.
-   */
-  function outlinePath(w, h, r, pad, horn) {
-    var d = [];
-    r = Math.max(2, Math.min(r, Math.min(w, h) / 2));
-
-    // Each edge as an origin, a direction along it, and an outward normal.
-    // Everything about the horn is then the same four lines of arithmetic
-    // whichever edge it is on.
-    var EDGE = {
-      top:    { o: [0, 0], t: [1, 0],  n: [0, -1], len: w },
-      right:  { o: [w, 0], t: [0, 1],  n: [1, 0],  len: h },
-      bottom: { o: [w, h], t: [-1, 0], n: [0, 1],  len: w },
-      left:   { o: [0, h], t: [0, -1], n: [-1, 0], len: h }
-    };
-
-    var P = function (x, y) { return (x + pad).toFixed(1) + ' ' + (y + pad).toFixed(1); };
-    var at = function (E, u, v) {
-      return [E.o[0] + E.t[0] * u + E.n[0] * v, E.o[1] + E.t[1] * u + E.n[1] * v];
-    };
-    var pt = function (E, u, v) { var p = at(E, u, v); return P(p[0], p[1]); };
-
-    // Where along this edge the horn sits, in the edge's own travel direction.
-    var along = function (name) {
-      if (!horn || horn.edge !== name) return -1;
-      var E = EDGE[name];
-      var u = (name === 'top' || name === 'left') ? horn.at : E.len - horn.at;
-      // never so close to a corner that the horn grows out of the curve
-      return Math.max(r + horn.hw, Math.min(E.len - r - horn.hw, u));
-    };
-
-    var run = function (name) {
-      var E = EDGE[name], c = along(name);
-      if (c < 0) return;
-      var hw = horn.hw, L = horn.len, ln = horn.lean || 0;
-      d.push('L' + pt(E, c - hw, 0));
-      // Leaves the edge square-on, so base and body make a clean corner.
-      // Out to the tip. The second control stays on the side the curve came
-      // from: pulled PAST the tip, as it was, the curve overshoots and comes
-      // back, so the two halves meet in a cusp rather than a point — and a
-      // cusp under a 4px round join renders as a little hook hanging off the
-      // end. That hook was the 'extra part'.
-      d.push('C' + pt(E, c - hw * 0.98, L * 0.5) + ' ' + pt(E, c + ln - hw * 0.3, L * 0.86) + ' ' + pt(E, c + ln, L));
-      // and back up the other side, mirrored, so the tip is a clean point
-      d.push('C' + pt(E, c + ln + hw * 0.3, L * 0.86) + ' ' + pt(E, c + hw * 0.98, L * 0.5) + ' ' + pt(E, c + hw, 0));
-    };
-
-    d.push('M' + P(r, 0));
-    run('top');
-    d.push('L' + P(w - r, 0));
-    d.push('Q' + P(w, 0) + ' ' + P(w, r));
-    run('right');
-    d.push('L' + P(w, h - r));
-    d.push('Q' + P(w, h) + ' ' + P(w - r, h));
-    run('bottom');
-    d.push('L' + P(r, h));
-    d.push('Q' + P(0, h) + ' ' + P(0, h - r));
-    run('left');
-    d.push('L' + P(0, r));
-    d.push('Q' + P(0, 0) + ' ' + P(r, 0));
-    d.push('Z');
-    return d.join('');
-  }
-
-  /**
-   * Measure the bubble, work out where the horn belongs, and redraw the skin.
-   *
-   * The horn goes on whichever edge faces Swiftee and slides to the point on
-   * it nearest his head — it is the part of a speech bubble that says who is
-   * talking, so it is worth aiming rather than parking. The bubble's
-   * transform-origin then follows it, so the bubble springs out of the horn,
-   * which is to say out of him.
-   */
   function paintSkin() {
-    var skin = bubble.querySelector('.bubble-skin');
-    if (!skin) return;
+    var tail = bubble.querySelector('.bubble-tail');
+    if (!tail) return;
     var r = layoutRect(bubble);
     if (!r.width || !r.height) return;
-
-    var em = parseFloat(getComputedStyle(bubble).fontSize) || 20;
-    var pad = skinPad(em);
-    var radius = em * 0.62;
-
     var head = headPoint();
-    var horn = null;
-    if (head) {
-      var dx = (head.x - (r.left + r.width / 2)) / (r.width / 2);
-      var dy = (head.y - (r.top + r.height / 2)) / (r.height / 2);
-      var edge = Math.abs(dy) >= Math.abs(dx)
-        ? (dy > 0 ? 'bottom' : 'top')
-        : (dx > 0 ? 'right' : 'left');
-      var vertical = edge === 'bottom' || edge === 'top';
-      // SIZED OFF THE BOX, NOT OFF THE TYPE.
-      //
-      // At em * 0.52 the horn came out 42px wide and 46px long under a 951px
-      // bubble, and a taper that thin does not read as a speech tail — it
-      // reads as a line drawn next to the character. A tail has to be a
-      // fraction of the shape it grows from: about a quarter of the box's
-      // shorter side across the base, and about half of it long. The em
-      // bounds only stop it collapsing on a tiny box or swamping a narrow one.
-      var shortSide = Math.min(r.width, r.height);
-      var clampTo = function (v, lo, hi) { return Math.max(lo, Math.min(hi, v)); };
-      var hw = clampTo(shortSide * 0.26, em * 0.7, em * 1.4);
-      var len = clampTo(shortSide * 0.5, em * 1.0, em * 2.0);
+    if (!head) { bubble.removeAttribute('data-tail'); return; }
 
-      // IT POINTS AT HIM. IT DOES NOT REACH HIM.
-      //
-      // The horn is aimed at his head, and when the bubble sits close the
-      // tip simply arrived there — across his beak and over his face. A
-      // speech tail indicates the speaker from a distance; one that lands on
-      // him reads as a spike through his head. Capped at rather over half
-      // the clear gap, so there is always visible air between the point and
-      // the bird.
-      var gap = edge === 'bottom' ? head.y - (r.top + r.height)
-              : edge === 'top'    ? r.top - head.y
-              : edge === 'right'  ? head.x - (r.left + r.width)
-              :                     r.left - head.x;
-      // IT HAS TO REACH HIM. 0.58 was a fix for the opposite problem — the
-      // tail reaching THROUGH his head into his face — and it overshot: a
-      // pointer that stops sixty percent of the way across a gap is a
-      // pointer aimed at nothing, which is what 'the box does not touch his
-      // head' has been describing. `gap` is measured to the TOP of his drawn
-      // bounds, so 0.94 lands the tip on his outline and not inside it.
-      if (gap > 0) len = clampTo(Math.min(len, gap * 0.94), em * 0.7, len);
+    // the edge that faces his head: below, above, or beside
+    var edge = head.y > r.top + r.height ? 'bottom'
+             : head.y < r.top ? 'top'
+             : head.x > r.left + r.width ? 'right' : 'left';
+    var vertical = edge === 'bottom' || edge === 'top';
+    var len = vertical ? r.width : r.height;
+    var aim = vertical ? head.x - r.left : head.y - r.top;   // where his head is, along the edge
 
-      // And the tip leans toward his head rather than hanging straight down,
-      // so the tail points at the speaker instead of merely starting near him.
-      var lean = 0;
-      if (vertical) lean = clampTo((head.x - r.left) - (head.x - r.left), -hw, hw);
-      var aimAt = vertical ? (head.x - r.left) : (head.y - r.top);
-      var base = clampTo(aimAt, hw + em, (vertical ? r.width : r.height) - hw - em);
-      // Bounded well inside the base width. The tip stays a clean point at any
-      // lean — its two controls sit either side of it by construction — but a
-      // tail leaning further than its own base reads as bent rather than aimed.
-      lean = clampTo(aimAt - base, -hw * 0.75, hw * 0.75);
+    // the sweep leans toward the bubble's middle: the mouth sits nearer the
+    // centre than the tip does, and the tip points out to him
+    var unflippedLeansLow = TIP[edge] < 30;                  // the unmirrored tip is toward the edge's start
+    var wantLow = aim < len / 2;
+    var flip = unflippedLeansLow !== wantLow;
+    var tipAt = flip ? TAIL_SIZE - TIP[edge] : TIP[edge];
 
-      horn = {
-        edge: edge,
-        at: base,
-        hw: hw,
-        len: len,
-        lean: lean
-      };
-    }
+    // the mouth stays on the straight run of the edge, clear of the corners
+    var radius = parseFloat(getComputedStyle(bubble).borderRadius) || 26;
+    var lo = radius - MOUTH_LO + 2, hi = len - radius - MOUTH_HI - 2;
+    if (hi < lo) { lo = hi = (len - TAIL_SIZE) / 2; }
+    var offset = Math.max(lo, Math.min(hi, aim - tipAt));
 
-    skin.setAttribute('width', r.width + pad * 2);
-    skin.setAttribute('height', r.height + pad * 2);
-    skin.setAttribute('viewBox', '0 0 ' + (r.width + pad * 2) + ' ' + (r.height + pad * 2));
-    skin.style.left = -pad + 'px';
-    skin.style.top = -pad + 'px';
+    bubble.setAttribute('data-tail', edge);
+    if (flip) bubble.setAttribute('data-tail-flip', ''); else bubble.removeAttribute('data-tail-flip');
+    bubble.style.setProperty(vertical ? '--tail-x' : '--tail-y', offset.toFixed(1) + 'px');
 
-    var d = outlinePath(r.width, r.height, radius, pad, horn);
-    var fill = skin.querySelector('.skin-fill');
-    var line = skin.querySelector('.skin-line');
-    var sheen = skin.querySelector('.skin-sheen');
-    if (fill) fill.setAttribute('d', d);
-    if (line) line.setAttribute('d', d);
-    if (sheen) {
-      // the catch-light, inside the top-left corner
-      sheen.setAttribute('cx', pad + radius * 1.1);
-      sheen.setAttribute('cy', pad + em * 0.44);
-      sheen.setAttribute('rx', em * 0.26);
-      sheen.setAttribute('ry', em * 0.1);
-      sheen.setAttribute('transform', 'rotate(-22 ' + (pad + radius * 1.1) + ' ' + (pad + em * 0.44) + ')');
-    }
-
-    // The bubble grows out of the horn.
-    if (horn) {
-      var ox = horn.edge === 'left' ? 0 : horn.edge === 'right' ? r.width : horn.at;
-      var oy = horn.edge === 'top' ? 0 : horn.edge === 'bottom' ? r.height : horn.at;
-      bubble.style.transformOrigin =
-        (ox / r.width * 100).toFixed(1) + '% ' + (oy / r.height * 100).toFixed(1) + '%';
-    }
+    // the bubble springs out of its mouth
+    var mx = vertical ? offset + TAIL_SIZE / 2 : (edge === 'right' ? r.width : 0);
+    var my = vertical ? (edge === 'bottom' ? r.height : 0) : offset + TAIL_SIZE / 2;
+    bubble.style.transformOrigin = (mx / r.width * 100).toFixed(1) + '% ' + (my / r.height * 100).toFixed(1) + '%';
   }
 
-  /* The supplied design glides the box between two lines of one speech —
-     its greeting is two sentences in the same bubble. That was built and then
-     taken out again: no screen in this storyboard says more than one line, so
-     it could never once have run. Between screens the box does not glide
-     either, because the slot itself can move and a straight interpolation
-     between two slots would sweep the bubble across the polygon — which is
-     what the snow wipe is for. */
-
-  /**
-   * The bubble's rectangle in page pixels, ignoring any transform on it.
-   *
-   * getBoundingClientRect() reports the PAINTED box, and the bubble spends
-   * the first half-second of every screen scaled up out of its own horn — so
-   * anything measured from it during the pop is wrong by whatever frame the
-   * animation happened to be on. That was quietly true of the old tail
-   * aiming, which computed the edge from a rect at 86% of the real size.
-   *
-   * offsetWidth, offsetHeight, offsetLeft and offsetTop are all layout, not
-   * paint, and #game is not itself transformed, so this is the box the CSS
-   * actually laid out.
-   */
   function layoutRect(el) {
     var p = el.offsetParent || el.ownerDocument.body;
     var pr = p.getBoundingClientRect();
@@ -1485,8 +1385,9 @@
    * Director handlers
    * ------------------------------------------------------------------ */
 
+  var H = null;   // the live handler table, so one handler can hand off to another
   function handlers() {
-    return {
+    H = {
       stage: function (spec) {
         // A beat that (re)builds a scene names the kind; the scene's full
         // configuration — options, bins, items, compare panels — lives on
@@ -1506,7 +1407,9 @@
         // The stage cannot know — the label and the badge arrive later, in
         // beats — so it is worked out here, where the whole screen is
         // visible, and passed in.
-        if (spec && spec.kind && scr) spec = Object.assign({}, spec, { below: wantsRoomBelow(scr), controls: spec.controls || wantsBand(scr) });
+        // controls is only ever SET, never cleared: a scene that asks for a
+        // control band of its own (the builder's stepper) keeps it
+        if (spec && spec.kind && scr) spec = Object.assign({}, spec, { below: wantsRoomBelow(scr) }, wantsBand(scr) ? { controls: true } : {});
         var wasSolo = soloed();
         Stage.apply(spec);
         // Building or clearing a scene changes whether Swiftee is alone, and
@@ -1581,6 +1484,9 @@
         // and the instruction comes back the moment the line has been read.
         var held = (global.Instruction && Instruction.current) ? Instruction.current() : null;
         if (held) setCard(null);
+        // THE VOICE. If a clip exists for this line it plays now, as the
+        // words begin to arrive; a missing clip is silently nothing.
+        if (global.VO && opts && opts.vo) VO.play(opts.vo);
         var parts = splitLine(text);
         var reading = opts.reading || 1200;
         var words = function (t) { return t.split(/\s+/).length; };
@@ -1629,7 +1535,13 @@
         }
         return Promise.resolve();
       },
-      instruction: function (text) { setCard(text); },
+      instruction: function (text, opts, ctx) {
+        // ON A CARD SCREEN HE SAYS IT. The plank would sit over a card that
+        // has room beside it for him, so the instruction goes through his
+        // bubble, with a line's reading time, and the plank stays down.
+        if (text && buddyOn && speaksAll(current) && H && H.say) return H.say(text, opts || {}, ctx);
+        setCard(text);
+      },
       focus: function (target, opts) {
         Stage.focus(target, opts.style);
         // the card in focus is the one he peeks from: if he is waiting in
@@ -1672,6 +1584,7 @@
       sfx: function (name, opts) { if (global.SFX) SFX.play(name, opts); },
       juice: function (name, target, opts) { if (global.Juice && Juice[name]) Juice[name](Stage.element(target), opts); }
     };
+    return H;
   }
 
   /* ------------------------------------------------------------------ *
@@ -1679,6 +1592,26 @@
    * ------------------------------------------------------------------ */
 
   /** Does any beat put text on the plank before the screen's first input? */
+  /* IS A PLANK UP ON SCREEN i? An instruction at screen level or in any
+     beat, or — on a screen that is not his — a spoken line, which the plank
+     shows instead. Decides whether the card is seated under the plank's
+     band or lifted to the centre (Stage.seat). */
+  function hasPlank(i) {
+    var s = Screens.list[i]; if (!s) return false;
+    if (speaksAll(i)) return false;   // he says the instructions on a card screen
+    if (typeof s.instruction === 'string' && s.instruction) return true;
+    var beats = (s.beats || []);
+    var has = function (b) {
+      if (!b) return false;
+      if (typeof b.instruction === 'string' && b.instruction) return true;
+      if (!wantsBuddy(i) && typeof b.say === 'string' && b.say) return true;
+      if (b.on && Object.keys(b.on).some(function (k) { return (b.on[k] || []).some(has); })) return true;
+      return (b.otherwise || []).some(has);
+    };
+    if (!wantsBuddy(i) && typeof s.say === 'string' && s.say) return true;
+    return beats.some(has);
+  }
+
   function textBeforeInput(s) {
     var beats = s.beats || [];
     for (var i = 0; i < beats.length; i++) {
@@ -1727,7 +1660,7 @@
     // transition on every screen that wipes rather than as a jump.
     // ONLY A PURPOSE PUTS HIM ON SCREEN. Every screen has a position for him;
     // eleven have a reason. The rest get the plank.
-    buddyOn = !!(Screens.wantsBuddy ? Screens.wantsBuddy(s) : (s.swiftee && s.swiftee.purpose));
+    buddyOn = wantsBuddy(i);
 
     // THE PLANK IS NOT BLANK WHILE THE CHILD IS ASKED TO ACT.
     //
@@ -1738,7 +1671,13 @@
     // the screen-level instruction is shown at the start. Screens that do
     // speak or instruct before their input are left exactly as they were,
     // because seeding them would flash the deck's stale instruction first.
-    if (s.instruction && !textBeforeInput(s)) setCard(s.instruction);
+    if (s.instruction && !textBeforeInput(s)) {
+      if (buddyOn && speaksAll(i) && H && H.say) {
+        var ib = (s.beats || []).filter(function (b) { return b && b.instruction === s.instruction; })[0];
+        H.say(s.instruction, { vo: ib && ib.vo }, null);
+      }
+      else setCard(s.instruction);
+    }
     if (!buddyOn && Swiftee.place) {
       // Normally he has already left: the loop plays his exit before a
       // screen that does not need him. This is the jump and the restart.
@@ -1772,6 +1711,10 @@
     }
 
     current = i; setProgress(i);
+    // A carried card rides up when this screen has no plank, and eases back
+    // under the band when it has; a scene built by this screen's beats is
+    // seated as it is built.
+    if (Stage.seat) Stage.seat(!hasPlank(i));
     Stage.onTap(function (kind) { if (s.perTap) fire(s.perTap[kind] || s.perTap.any); react(kind); });
     if (global.Input) Input.mode('locked');
     return director.run(s.beats);
@@ -1866,23 +1809,19 @@
   // Worked out once from the storyboard rather than from runtime state, so
   // it is the same on a replay, the same when a screen is entered out of
   // order, and answerable by a test without playing the game.
-  var wipeTable = null;
   function wipesAt(i) {
-    // A screen may decline the ice: the first question follows the intro
-    // directly, and a whole freeze-and-shatter between "here is a polygon"
-    // and "which of these are polygons" was a wall where a step was wanted.
+    // THE SNOW FALLS BETWEEN LEVELS, NOT BETWEEN SCREENS. A level is a
+    // chapter of the quest (quest.js): Shape scout, Diagonal detective,
+    // Dent discoverer, Pattern pro, Polygon builder. The screens inside one
+    // step from each other with their own small entrances — a card pops, a
+    // pair rises — and a full-screen snowfall between every one of them was
+    // a wall where a step was wanted. Entering a new chapter is the moment
+    // the story turns a page, and that is when the snow comes down.
     var scr = Screens.list[i];
-    if (scr && scr.transition === false) return false;
-    if (!wipeTable) {
-      var last = null;
-      wipeTable = (Screens.list || []).map(function (s, k) {
-        var fam = familyOf(s);
-        var newDoing = !!fam && fam !== last;
-        if (fam) last = fam;
-        return k > 0 && (rebuildsScene(k) || newDoing);
-      });
-    }
-    return !!wipeTable[i];
+    if (!scr || i <= 0) return false;
+    if (scr.transition === false) return false;
+    var chapters = (global.Quest && Quest.chapters) || [];
+    return chapters.some(function (c) { return c.end === i - 1; });
   }
 
   /**
@@ -2148,6 +2087,7 @@
         var mb = built >= 0 ? markFor(built, Swiftee.pos, Swiftee.size) : null;
         Swiftee.place(mb ? mb.pos : 'off', mb ? mb.size : Swiftee.size);
       }
+      if (Stage.seat) Stage.seat(!hasPlank(n));
       if (built >= 0) Stage.apply(Screens.list[built].stage);
       if (global.Swiftee && Swiftee.place) {
         var m = markFor(n, Swiftee.pos, Swiftee.size);

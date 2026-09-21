@@ -1,71 +1,99 @@
 /*!
- * transition.js — the screen freezes over, cracks, and shatters.
+ * transition.js — the snowfall between screens.
  *
- * ONE EVENT, IN ONE MATERIAL. Between two screens the window becomes a sheet
- * of frosted glass: the scene behind it blurs and pales as rime creeps in
- * from the edges, until the whole pane is ice. It holds. Then it is struck —
- * a point, a flash, and cracks run out from it, gathering speed, throwing
- * branches, and joining up into a lattice the way real glass fails: not all
- * at once, and never in straight lines. It holds again, split but whole. Then
- * it lets go: the cells between the cracks separate, tip, and fall out of the
- * frame, inner pieces first, and the next screen is what was behind the glass
- * all along.
+ * A gentle shower of magical snowflakes sweeps the screen to move the story
+ * forward. Flakes appear at the top and fall in three depths — big slow ones
+ * in front, small soft ones behind — swaying, turning and twinkling as they
+ * go. Under them a veil of pale ice thickens until the old screen is hidden;
+ * the game rebuilds the scene behind it; then a soft bloom of light swells
+ * over everything, the veil melts away under a denser flurry, and the new
+ * screen comes up through the falling snow as it clears.
  *
- * The previous version was two effects wearing one name — crystals that flew
- * in laying frost patches, and then a web of thick blue lines — which is
- * what "the two transitions merge" and "the crack does not look real" were
- * both describing. Everything here is glass: the sheet, the cracks in it, the
- * pieces of it.
+ * It is a storybook effect, not weather: no wind, no blizzard, nothing fast.
  *
- *   Transition.cover()    freeze the screen (resolves when it is hidden)
- *   Transition.reveal()   crack, shatter, and clear (resolves when gone)
- *   Transition.wipe(fn)   cover -> fn() -> reveal
+ * HOW THE GAME USES IT (game.js):
+ *   Transition.mount(container)         once, over the whole game
+ *   Transition.cover()  -> Promise      the snow builds until the screen is hidden
+ *   Transition.covered()                is the screen hidden right now?
+ *   Transition.reveal() -> Promise      the veil melts, the snow clears
+ *   Transition.wipe(fn)                 cover, run fn, reveal
+ *   Transition.play(onMidpoint, onComplete)   the same, as two callbacks
  *
- * game.js does the screen change between cover() and reveal(); nothing here
- * knows or cares what changed.
+ * WHERE TO TUNE IT: CONFIG below, or Transition.configure({...}) at runtime.
+ * Every number that matters to the feel is there — duration, count, size
+ * range, fall speed, drift, rotation, glow, peak density — nothing is buried
+ * in the code.
+ *
+ * SOUND HOOKS (all optional, all through SFX if it is loaded):
+ *   sfx.chime    as the first flakes appear
+ *   sfx.whoosh   at the midpoint, as the veil begins to melt
+ *   sfx.sparkle  with the denser flurry at the midpoint
+ *
+ * Every flake is the supplied artwork (assets/ui/snowflake.webp, built from
+ * snowflake-src.png by tools/build-snowflake.js): pale ice arms with a blue
+ * rim and a gem at the heart, drawn at every size and depth.
+ *
+ * Reduced motion: the transition does nothing at all, and the game simply
+ * changes screen. Performance: about two hundred nodes at the peak, all of
+ * them animated with the Web Animations API on transform and opacity only,
+ * all removed when the snow clears.
  */
 (function (global) {
   'use strict';
 
-  /* ---- timeline ------------------------------------------------------ *
-   *
-   *   FREEZE   the glass forms: blur rises, rime closes in from the edges
-   *   HOLD     solid, still. Without this beat the crack arrives before the
-   *            child has registered that the screen froze.
-   *   CRACK    the fracture runs out from the impact, in generations
-   *   SETTLE   split but whole — the pause before ice lets go
-   *   FALL     the pieces separate and drop out of the frame
-   */
-  var FREEZE_MS = 760;
-  var HOLD_MS = 280;
-  var CRACK_MS = 980;
-  var SETTLE_MS = 170;
-  var FALL_MS = 920;
-  var COVER_MS = FREEZE_MS;
-  var REVEAL_MS = HOLD_MS + CRACK_MS + SETTLE_MS + FALL_MS;
+  /* ------------------------------------------------------------------ *
+   * Settings — the feel lives here
+   * ------------------------------------------------------------------ */
+  var CONFIG = {
+    coverMs: 1100,          // from the first flake to the old screen hidden
+    revealMs: 1400,         // from the veil beginning to melt to the last flake gone
+    count: 84,              // flakes over a 1280×720 window; scales with area
+    size: [22, 124],        // px: the smallest back flake .. the biggest front flake
+    fallSpeed: 1,           // 1 = a slow storybook fall; 2 = twice as fast
+    drift: 46,              // px of side-to-side sway
+    rotation: 70,           // degrees a flake turns over its whole fall
+    glow: 0.8,              // 0 = the artwork as is, 1 = a soft bloom round every front flake
+    peakDensity: 1.6,       // the flurry at the midpoint, as a multiple of the base density
+    sparkles: 26,           // tiny twinkles between the flakes
+    flake: 'assets/ui/snowflake.webp',   // the artwork every flake is drawn from
+    sfx: { chime: 'sparkle', whoosh: 'menuWhoosh', sparkle: 'sparkle' }
+  };
 
-  /* The fracture: rays from the impact and rings across them. The cells
-     between are the shards. Nine by four is enough to read as broken glass
-     and few enough to animate on a school tablet. */
-  var RAYS = 9;
-  var RINGS = [0, 0.20, 0.44, 0.76, 1.36];
+  /* the three depths: how big, how slow, how bright */
+  var LAYERS = [
+    { id: 'back',  share: 0.40, size: [0.00, 0.30], fall: [1500, 2300], opacity: 0.55, glow: 0.0, blur: 0.6 },
+    { id: 'mid',   share: 0.38, size: [0.28, 0.62], fall: [2000, 2900], opacity: 0.85, glow: 0.0, blur: 0.0 },
+    { id: 'front', share: 0.22, size: [0.60, 1.00], fall: [2600, 3500], opacity: 1.00, glow: 1.0, blur: 0.0 }
+  ];
 
-  /* The glass, as one string, so the sheet and every shard cut from it are
-     painted from the same source and the break is invisible until it moves.
-     Translucent on purpose: a shard falling across the new screen should let
-     the screen show through it, paler and colder, the way ice does. */
-  var GLASS_PAINT =
-    'linear-gradient(162deg,' +
-      'rgba(240,249,255,.93) 0%,rgba(222,240,253,.90) 38%,' +
-      'rgba(198,228,250,.90) 70%,rgba(176,216,246,.92) 100%)';
+  var host = null, veil = null, bloom = null, layerEls = {}, sparkleLayer = null;
+  var gen = 0;            // a new cover() or clear() retires every pending timer
+  var timers = [];
 
-  var host = null, glass = null, rime = null, lattice = null, field = null;
-
-  /* One source of truth for whether this machine wants motion. juice.js owns
-     it — it watches the media query and exposes a test seam (Juice.disable)
-     that has to turn off the transition too. */
   function reduced() { return !!(global.Juice && Juice.reducedMotion); }
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function later(ms, fn) {
+    var g = gen;
+    var t = setTimeout(function () { if (g === gen) fn(); }, ms);
+    timers.push(t);
+    return t;
+  }
+  function run(el, frames, opts) {
+    if (!el || !el.animate) return Promise.resolve();
+    try { return el.animate(frames, opts).finished.catch(function () {}); }
+    catch (e) { return Promise.resolve(); }
+  }
+  function sfx(name, o) {
+    if (!name || !global.SFX || !SFX.play) return;
+    try { SFX.play(name, o || {}); } catch (e) {}
+  }
+  function weather(on) {
+    if (global.Stage && Stage.flurry) { try { Stage.flurry(on); } catch (e) {} }
+  }
 
+  /* ------------------------------------------------------------------ *
+   * Mounting
+   * ------------------------------------------------------------------ */
   function mount(container) {
     if (!container || !container.ownerDocument) return null;
     if (host && host.parentNode === container) return host;
@@ -74,387 +102,251 @@
     host = doc.createElement('div');
     host.className = 'snow-wipe';
     host.setAttribute('aria-hidden', 'true');
-    // Above the stage, the character and the overlays, but below the start
-    // gate — the loading screen is its own curtain and must stay on top.
     host.style.cssText =
       'position:absolute;inset:0;z-index:8;overflow:hidden;pointer-events:none;' +
       'opacity:0;visibility:hidden;';
 
-    // THE PANE. The scene behind it blurs and pales through it; this is what
-    // makes it glass rather than a curtain. It is inset past the edges so
-    // the sheet has no visible border of its own.
-    glass = doc.createElement('div');
-    glass.style.cssText =
-      'position:absolute;inset:-4%;opacity:0;background:' + GLASS_PAINT + ';' +
-      '-webkit-backdrop-filter:blur(0px);backdrop-filter:blur(0px);';
+    // THE VEIL. Pale ice that thickens under the snow until the old screen is
+    // gone. It is what guarantees the cover: sixty flakes are a shower, not a
+    // wall, and a wall of flakes would be the clutter this must not be.
+    veil = doc.createElement('div');
+    veil.style.cssText =
+      'position:absolute;inset:0;opacity:0;' +
+      'background:radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.55), rgba(255,255,255,0) 70%),' +
+      'linear-gradient(180deg,#e9f7ff 0%,#d4ecff 55%,#eef9ff 100%);';
+    host.appendChild(veil);
 
-    // RIME. Frost is thickest where the glass is coldest — the edges — and
-    // thins toward the middle, and it grows inward. Scaled down from a size
-    // larger than the pane, its inner edge travels toward the centre.
-    rime = doc.createElement('div');
-    rime.style.cssText =
-      'position:absolute;inset:-8%;opacity:0;pointer-events:none;' +
-      'background:radial-gradient(120% 95% at 50% 48%,' +
-        'rgba(255,255,255,0) 0%,rgba(255,255,255,0) 40%,' +
-        'rgba(246,252,255,.55) 66%,rgba(255,255,255,.92) 100%);';
+    // THE BLOOM. A soft light that swells and fades at the midpoint, over
+    // everything: it is the magic of the moment, and it hides the instant
+    // the veil begins to thin.
+    bloom = doc.createElement('div');
+    bloom.style.cssText =
+      'position:absolute;inset:-10%;opacity:0;pointer-events:none;' +
+      'background:radial-gradient(ellipse at 50% 45%, rgba(255,255,255,.95) 0%, rgba(240,250,255,.6) 35%, rgba(240,250,255,0) 70%);';
+    host.appendChild(bloom);
 
-    // THE LATTICE. Fine bright slivers at two angles, very faint, screened
-    // over the pane: the crystalline grain frost has when you look closely.
-    lattice = doc.createElement('div');
-    lattice.style.cssText =
-      'position:absolute;inset:-4%;opacity:0;mix-blend-mode:screen;pointer-events:none;' +
-      'background:' +
-        'repeating-linear-gradient(56deg,rgba(255,255,255,.22) 0 1.5px,rgba(255,255,255,0) 1.5px 23px),' +
-        'repeating-linear-gradient(-61deg,rgba(226,244,255,.20) 0 1.5px,rgba(255,255,255,0) 1.5px 29px);';
+    LAYERS.forEach(function (L) {
+      var el = doc.createElement('div');
+      el.className = 'snow-layer snow-' + L.id;
+      el.style.cssText = 'position:absolute;inset:0;overflow:hidden;' + (L.blur ? 'filter:blur(' + L.blur + 'px);' : '');
+      host.appendChild(el);
+      layerEls[L.id] = el;
+    });
+    sparkleLayer = doc.createElement('div');
+    sparkleLayer.style.cssText = 'position:absolute;inset:0;';
+    host.appendChild(sparkleLayer);
 
-    // Everything transient — sparkles, cracks, shards — goes here and is
-    // cleared as a whole.
-    field = doc.createElement('div');
-    field.style.cssText = 'position:absolute;inset:0;';
-
-    host.appendChild(glass);
-    host.appendChild(rime);
-    host.appendChild(lattice);
-    host.appendChild(field);
     container.appendChild(host);
+    preloadFlake(doc);
     return host;
   }
 
   function clear() {
-    if (field) while (field.firstChild) field.removeChild(field.firstChild);
+    gen++;
+    timers.forEach(function (t) { clearTimeout(t); });
+    timers.length = 0;
+    Object.keys(layerEls).forEach(function (k) { var el = layerEls[k]; while (el.firstChild) el.removeChild(el.firstChild); });
+    if (sparkleLayer) while (sparkleLayer.firstChild) sparkleLayer.removeChild(sparkleLayer.firstChild);
+    if (veil) { try { veil.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {} veil.style.opacity = '0'; veil.style.clipPath = ''; }
+    if (bloom) { try { bloom.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {} bloom.style.opacity = '0'; }
   }
 
-  function weather(on) {
-    if (global.Stage && Stage.flurry) { try { Stage.flurry(on); } catch (e) {} }
+  /* ------------------------------------------------------------------ *
+   * One flake
+   * ------------------------------------------------------------------ */
+
+  /**
+   * THE FLAKE IS THE ARTWORK. One painted snowflake — pale ice arms with a
+   * blue rim and a gem at the heart, supplied for this — drawn at every size
+   * and depth. A few carry a lavender cast for variety; the front ones carry
+   * a soft bloom. The image is decoded once and shared by every <img>.
+   */
+  var flakeReady = null;
+  function preloadFlake(doc) {
+    if (flakeReady || !doc) return;
+    var im = doc.createElement('img'); im.src = CONFIG.flake; flakeReady = im;
   }
-
-  function run(el, frames, opts) {
-    if (!el || !el.animate) return Promise.resolve();
-    try { return el.animate(frames, opts).finished.catch(function () {}); }
-    catch (e) { return Promise.resolve(); }
-  }
-
-  function later(ms, fn) { return setTimeout(fn, ms); }
-
-  /* ---- the freeze ---------------------------------------------------- */
-
-  /** A pinprick of light on the ice. */
-  function sparkle(doc, w, h, delay) {
-    var el = doc.createElement('div');
-    var x = w * (0.08 + Math.random() * 0.84), y = h * (0.08 + Math.random() * 0.84);
-    var s = 6 + Math.random() * 8;
-    el.style.cssText =
-      'position:absolute;left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;' +
-      'width:' + s + 'px;height:' + s + 'px;margin:' + (-s / 2) + 'px;opacity:0;' +
-      'background:radial-gradient(circle,#fff 0%,rgba(255,255,255,.9) 30%,rgba(255,255,255,0) 70%);' +
-      'box-shadow:0 0 ' + (s * 1.4) + 'px rgba(255,255,255,.9);border-radius:50%;';
-    field.appendChild(el);
-    run(el, [
-      { opacity: 0, transform: 'scale(.3)' },
-      { opacity: 1, transform: 'scale(1.2)', offset: 0.5 },
-      { opacity: 0, transform: 'scale(.4)' }
-    ], { duration: 520 + Math.random() * 300, delay: delay, easing: 'ease-in-out', fill: 'forwards' });
+  function flakeIMG(size, glow, lavender) {
+    var f = [];
+    if (glow > 0.02) f.push('drop-shadow(0 0 ' + (size * 0.1 * glow).toFixed(1) + 'px rgba(170,225,255,' + (0.9 * glow).toFixed(2) + '))');
+    if (lavender) f.push('hue-rotate(22deg) saturate(1.15)');
+    return '<img src="' + CONFIG.flake + '" alt="" draggable="false" ' +
+           'style="display:block;width:100%;height:100%;user-select:none;' + (f.length ? 'filter:' + f.join(' ') + ';' : '') + '">';
   }
 
   /**
-   * Freeze the screen. Resolves when the pane is solid — nothing behind it
-   * can be made out — which is when the caller may change the scene.
+   * Drop one flake from the top. Three nested boxes, each with one job the
+   * Web Animations API can run on the compositor: the outer falls, the
+   * middle sways, the inner turns, breathes and twinkles.
    */
+  function drop(L, w, h, delay, scaleK) {
+    var doc = host.ownerDocument, el = layerEls[L.id];
+    var c = CONFIG;
+    var t = rnd(L.size[0], L.size[1]);
+    var size = (c.size[0] + (c.size[1] - c.size[0]) * t) * scaleK;
+    var x = rnd(-size, w + size * 0.2);
+    var fall = rnd(L.fall[0], L.fall[1]) / Math.max(0.2, c.fallSpeed);
+    var sway = rnd(1700, 2900), driftPx = c.drift * rnd(0.5, 1.15) * (Math.random() < 0.5 ? -1 : 1);
+    var turn = c.rotation * rnd(0.5, 1.1) * (Math.random() < 0.5 ? -1 : 1);
+
+    var outer = doc.createElement('div');
+    outer.style.cssText = 'position:absolute;left:' + x.toFixed(0) + 'px;top:' + (-size * 1.4).toFixed(0) + 'px;' +
+                          'width:' + size + 'px;height:' + size + 'px;opacity:0;will-change:transform,opacity;';
+    var mid = doc.createElement('div');
+    // only the outer box is promoted: a hundred flakes with three promoted
+    // boxes each was three hundred compositor layers
+    mid.style.cssText = 'position:absolute;inset:0;';
+    var inner = doc.createElement('div');
+    inner.style.cssText = 'position:absolute;inset:0;';
+    inner.innerHTML = flakeIMG(size, L.glow * c.glow, Math.random() < 0.14);
+    mid.appendChild(inner); outer.appendChild(mid); el.appendChild(outer);
+
+    var peak = L.opacity;
+    // the fall, with a soft arrival and a fade before the ground
+    run(outer, [
+      { transform: 'translate3d(0,0,0)', opacity: 0, offset: 0 },
+      { transform: 'translate3d(0,' + (h * 0.08).toFixed(0) + 'px,0)', opacity: peak, offset: 0.1 },
+      { transform: 'translate3d(0,' + (h * 0.84 + size).toFixed(0) + 'px,0)', opacity: peak, offset: 0.86 },
+      { transform: 'translate3d(0,' + (h + size * 2.8).toFixed(0) + 'px,0)', opacity: 0, offset: 1 }
+    ], { duration: fall, delay: delay, easing: 'cubic-bezier(.3,.12,.55,1)', fill: 'forwards' })
+      .then(function () { if (outer.parentNode) outer.parentNode.removeChild(outer); });
+    // the sway, to and fro for as long as it falls
+    run(mid, [
+      { transform: 'translate3d(' + (-driftPx).toFixed(0) + 'px,0,0)' },
+      { transform: 'translate3d(' + driftPx.toFixed(0) + 'px,0,0)' }
+    ], { duration: sway, delay: delay, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' });
+    // the turn, the breath and the twinkle
+    run(inner, [
+      { transform: 'rotate(0deg) scale(.92)' },
+      { transform: 'rotate(' + (turn * 0.5).toFixed(0) + 'deg) scale(1.06)', offset: 0.5 },
+      { transform: 'rotate(' + turn.toFixed(0) + 'deg) scale(.96)' }
+    ], { duration: fall, delay: delay, easing: 'ease-in-out' });
+    if (Math.random() < 0.5) {
+      var svg = inner.firstChild;
+      run(svg, [{ opacity: 1 }, { opacity: 0.62 }, { opacity: 1 }],
+          { duration: rnd(700, 1300), delay: delay + rnd(0, 600), iterations: Infinity, easing: 'ease-in-out' });
+    }
+  }
+
+  /** A tiny twinkle between the flakes: a soft dot that flares and is gone. */
+  function twinkle(w, h, delay) {
+    var doc = host.ownerDocument;
+    var s = rnd(5, 11), x = rnd(w * 0.04, w * 0.96), y = rnd(h * 0.04, h * 0.9);
+    var el = doc.createElement('div');
+    el.style.cssText =
+      'position:absolute;left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;width:' + s + 'px;height:' + s + 'px;' +
+      'margin:' + (-s / 2) + 'px;opacity:0;border-radius:50%;will-change:transform,opacity;' +
+      'background:radial-gradient(circle,#fff 0%,rgba(255,255,255,.95) 35%,rgba(190,235,255,0) 72%);';
+    sparkleLayer.appendChild(el);
+    run(el, [
+      { opacity: 0, transform: 'scale(.3) rotate(0deg)' },
+      { opacity: 1, transform: 'scale(1.4) rotate(45deg)', offset: 0.35 },
+      { opacity: 0, transform: 'scale(.4) rotate(90deg)' }
+    ], { duration: rnd(600, 1000), delay: delay, easing: 'ease-in-out', fill: 'forwards' })
+      .then(function () { if (el.parentNode) el.parentNode.removeChild(el); });
+  }
+
+  /** The flake count for this window, and the size scale for its height. */
+  function measure() {
+    var w = host.clientWidth || 1280, h = host.clientHeight || 720;
+    var area = Math.max(0.55, Math.min(1.6, (w * h) / (1280 * 720)));
+    var k = Math.max(0.7, Math.min(1.25, h / 720));
+    return { w: w, h: h, count: Math.round(CONFIG.count * area), k: k };
+  }
+
+  /** A shower of n flakes over `spread` ms, ramping denser toward the end. */
+  function shower(n, spread, m, ramp) {
+    var i, L, k;
+    for (i = 0; i < n; i++) {
+      var r = Math.random();
+      var acc = 0;
+      for (k = 0; k < LAYERS.length; k++) { acc += LAYERS[k].share; if (r <= acc) break; }
+      L = LAYERS[Math.min(k, LAYERS.length - 1)];
+      var frac = (i + Math.random()) / n;
+      var delay = spread * (ramp ? Math.pow(frac, 0.65) : frac);
+      drop(L, m.w, m.h, delay, m.k);
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   * The two halves
+   * ------------------------------------------------------------------ */
+
+  /** The snow begins, and thickens until the old screen is hidden. */
   function cover() {
     if (reduced() || !host) return Promise.resolve();
-    var doc = host.ownerDocument;
-    var w = host.clientWidth || 1280, h = host.clientHeight || 720;
     clear();
+    var m = measure(), c = CONFIG;
     host.style.visibility = 'visible';
     host.style.opacity = '1';
     weather(true);
+    sfx(c.sfx.chime, { gain: 0.06 });
 
-    // The pane: blur rises as the frost thickens, so the scene goes soft
-    // before it goes white — glass fogging, not a fade.
-    run(glass, [
-      { opacity: 0, backdropFilter: 'blur(0px) saturate(1)', webkitBackdropFilter: 'blur(0px) saturate(1)' },
-      { opacity: 0.55, backdropFilter: 'blur(3px) saturate(1.05)', webkitBackdropFilter: 'blur(3px) saturate(1.05)', offset: 0.45 },
-      { opacity: 1, backdropFilter: 'blur(7px) saturate(1.1)', webkitBackdropFilter: 'blur(7px) saturate(1.1)' }
-    ], { duration: FREEZE_MS, easing: 'cubic-bezier(.3,.6,.35,1)', fill: 'forwards' });
+    // the flakes appear from the top over most of the cover, denser as it goes
+    shower(m.count, c.coverMs * 0.85, m, true);
+    // and a few twinkles as the veil thickens
+    for (var i = 0; i < Math.round(c.sparkles * 0.5); i++) twinkle(m.w, m.h, c.coverMs * (0.35 + 0.55 * Math.random()));
 
-    // Rime closes in from the edges: it starts larger than the pane, so its
-    // clear centre is the whole screen, and shrinks until only a thin clear
-    // middle is left, then fills.
-    run(rime, [
-      { opacity: 0, transform: 'scale(1.5)' },
-      { opacity: 0.85, transform: 'scale(1.12)', offset: 0.55 },
-      { opacity: 0.95, transform: 'scale(1)' }
-    ], { duration: FREEZE_MS, easing: 'cubic-bezier(.25,.5,.3,1)', fill: 'forwards' });
+    // the veil: nothing, then a haze, then a wall — behind the flakes, and
+    // late, so the snow is seen to bring it
+    run(veil, [
+      { opacity: 0, offset: 0 },
+      { opacity: 0.18, offset: 0.4 },
+      { opacity: 0.7, offset: 0.78 },
+      { opacity: 1, offset: 1 }
+    ], { duration: c.coverMs, easing: 'cubic-bezier(.45,.05,.55,1)', fill: 'forwards' });
 
-    run(lattice, [{ opacity: 0 }, { opacity: 0.6 }],
-        { duration: FREEZE_MS, delay: FREEZE_MS * 0.35, easing: 'ease-out', fill: 'forwards' });
-
-    for (var i = 0; i < 9; i++) sparkle(doc, w, h, FREEZE_MS * 0.4 + Math.random() * FREEZE_MS * 0.6);
-
-    return new Promise(function (done) { later(FREEZE_MS, done); });
+    return new Promise(function (resolve) { later(c.coverMs, resolve); });
   }
 
-  /* ---- the fracture -------------------------------------------------- */
-
-  /**
-   * Where the glass gives way, and into what.
-   *
-   * A radial fracture: rays out from one point, rings across them, and the
-   * cells between are the shards. The rays are jittered so no two wedges are
-   * the same width, the rings are jittered so no two cells are the same
-   * depth, and the outermost ring lies well past the corners so the edge
-   * pieces are big and irregular like the edge of a real break.
-   */
-  function fracture(w, h) {
-    var ix = w * (0.40 + Math.random() * 0.20);
-    var iy = h * (0.34 + Math.random() * 0.20);
-    var R = Math.max(Math.hypot(ix, iy), Math.hypot(w - ix, iy), Math.hypot(ix, h - iy), Math.hypot(w - ix, h - iy));
-    var ang = [];
-    for (var i = 0; i < RAYS; i++) {
-      ang.push((i / RAYS) * Math.PI * 2 + (Math.random() - 0.5) * (Math.PI / RAYS) * 0.9);
-    }
-    // each ray has its own ring radii, so rings are not circles
-    var rad = [];
-    for (var k = 0; k < RAYS; k++) {
-      rad.push(RINGS.map(function (f, j) { return j === 0 ? 0 : R * f * (0.84 + Math.random() * 0.32); }));
-    }
-    var at = function (i, j) {
-      var k = ((i % RAYS) + RAYS) % RAYS;
-      return [ix + Math.cos(ang[k]) * rad[k][j], iy + Math.sin(ang[k]) * rad[k][j]];
-    };
-    var shards = [];
-    for (var j = 0; j < RINGS.length - 1; j++) {
-      for (var q = 0; q < RAYS; q++) {
-        var p = [at(q, j), at(q + 1, j), at(q + 1, j + 1), at(q, j + 1)];
-        var mx = 0, my = 0;
-        p.forEach(function (v) { mx += v[0]; my += v[1]; });
-        mx /= 4; my /= 4;
-        shards.push({ pts: p, ring: j, bearing: Math.atan2(my - iy, mx - ix) });
-      }
-    }
-    return { ix: ix, iy: iy, R: R, ang: ang, rad: rad, at: at, shards: shards };
-  }
-
-  /* A crack wanders: every run is walked in short steps with a sideways kick
-     at each, and the kicks are bigger further from the impact. */
-  function jag(ax, ay, bx, by, amp) {
-    var dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1;
-    var nx = -dy / len, ny = dx / len;
-    var steps = Math.max(3, Math.round(len / 40));
-    var out = [[ax, ay]];
-    for (var t = 1; t < steps; t++) {
-      var u = t / steps;
-      var k = (Math.random() - 0.5) * amp * (0.4 + u);
-      out.push([ax + dx * u + nx * k, ay + dy * u + ny * k]);
-    }
-    out.push([bx, by]);
-    return out;
-  }
-  function poly(pts) {
-    return 'M' + pts.map(function (p, i) { return (i ? 'L' : '') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join('');
-  }
-  function pathLen(pts) {
-    var L = 0;
-    for (var i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-    return L;
-  }
-
-  /**
-   * The cracks, as runs that each know when to start and how long to take.
-   *
-   * Generations: the first three rays leave the impact at once, the next
-   * three a beat later, the rest after that. A branch leaves its parent at
-   * the moment the parent's tip passes the branch point. Ring cracks — the
-   * ones that join rays — are the last to form, and not every gap gets one,
-   * which is what keeps this from being a dartboard.
-   */
-  function plan(f) {
-    var runs = [];
-    var order = [];
-    for (var i = 0; i < RAYS; i++) order.push(i);
-    order.sort(function () { return Math.random() - 0.5; });
-    order.forEach(function (i, n) {
-      var gen = n < 3 ? 0 : (n < 6 ? 1 : 2);
-      var end = f.at(i, RINGS.length - 1);
-      var pts = jag(f.ix, f.iy, end[0], end[1], 30);
-      var L = pathLen(pts);
-      var delay = gen * 130 + Math.random() * 60;
-      var dur = 380 + L * 0.28;
-      runs.push({ pts: pts, delay: delay, dur: dur, w: 1 });
-      // one or two branches, off the middle third, that run a short way and stop
-      var nb = Math.random() < 0.7 ? (Math.random() < 0.4 ? 2 : 1) : 0;
-      for (var b = 0; b < nb; b++) {
-        var t = 0.3 + Math.random() * 0.4;
-        var at = pts[Math.max(1, Math.floor(pts.length * t))];
-        var a = Math.atan2(end[1] - f.iy, end[0] - f.ix) + (Math.random() < 0.5 ? 1 : -1) * (0.45 + Math.random() * 0.5);
-        var reach = f.R * (0.10 + Math.random() * 0.14);
-        var bp = jag(at[0], at[1], at[0] + Math.cos(a) * reach, at[1] + Math.sin(a) * reach, 14);
-        runs.push({ pts: bp, delay: delay + dur * t, dur: 220 + Math.random() * 120, w: 0.7 });
-      }
-    });
-    // ring cracks: most gaps on the inner rings, fewer further out
-    for (var j = 1; j < RINGS.length - 1; j++) {
-      for (var k = 0; k < RAYS; k++) {
-        if (Math.random() > (j === 1 ? 0.85 : j === 2 ? 0.7 : 0.5)) continue;
-        var p = f.at(k, j), q = f.at(k + 1, j);
-        runs.push({ pts: jag(p[0], p[1], q[0], q[1], 12), delay: 460 + j * 110 + Math.random() * 180, dur: 240 + Math.random() * 120, w: 0.8 });
-      }
-    }
-    return runs;
-  }
-
-  /** Draw the planned runs into one SVG, each ready to be revealed along its own length. */
-  function crackLayer(doc, runs, w, h) {
-    var ns = 'http://www.w3.org/2000/svg';
-    var svg = doc.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-    svg.setAttribute('preserveAspectRatio', 'none');
-    svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;';
-    var strokes = [];
-    runs.forEach(function (r) {
-      var d = poly(r.pts), L = pathLen(r.pts);
-      // two strokes per run: a cold shadow under a bright core, which is what
-      // a split in glass looks like — the light catches the new edge
-      [['rgba(52,96,140,.38)', 3.2 * r.w, 'none'], ['rgba(255,255,255,.96)', 1.5 * r.w, 'drop-shadow(0 0 2px rgba(255,255,255,.9))']].forEach(function (s) {
-        var el = doc.createElementNS(ns, 'path');
-        el.setAttribute('d', d);
-        el.setAttribute('fill', 'none');
-        el.setAttribute('stroke', s[0]);
-        el.setAttribute('stroke-width', s[1]);
-        el.setAttribute('stroke-linecap', 'round');
-        el.setAttribute('stroke-linejoin', 'round');
-        el.style.strokeDasharray = L + ' ' + (L + 10);
-        el.style.strokeDashoffset = L;
-        if (s[2] !== 'none') el.style.filter = s[2];
-        svg.appendChild(el);
-        strokes.push({ el: el, L: L, delay: r.delay, dur: r.dur });
-      });
-    });
-    return { svg: svg, strokes: strokes };
-  }
-
-  /** The flash at the point of impact. */
-  function impactFlash(doc, x, y) {
-    var el = doc.createElement('div');
-    el.style.cssText =
-      'position:absolute;left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;width:26px;height:26px;margin:-13px;' +
-      'border-radius:50%;opacity:0;pointer-events:none;' +
-      'background:radial-gradient(circle,#fff 0%,rgba(255,255,255,.95) 35%,rgba(210,236,255,.4) 60%,rgba(255,255,255,0) 72%);' +
-      'box-shadow:0 0 30px 10px rgba(255,255,255,.85),0 0 90px 30px rgba(190,226,255,.5);';
-    field.appendChild(el);
-    run(el, [
-      { opacity: 0, transform: 'scale(.2)' },
-      { opacity: 1, transform: 'scale(1.6)', offset: 0.25 },
-      { opacity: 0, transform: 'scale(2.6)' }
-    ], { duration: 520, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' });
-  }
-
-  /** Tiny slivers thrown from the impact when the sheet lets go. */
-  function splinters(doc, x, y, n) {
-    for (var i = 0; i < n; i++) {
-      var el = doc.createElement('div');
-      var a = Math.random() * Math.PI * 2, d = 120 + Math.random() * 260;
-      var len = 6 + Math.random() * 14;
-      el.style.cssText =
-        'position:absolute;left:' + x.toFixed(0) + 'px;top:' + y.toFixed(0) + 'px;width:' + len + 'px;height:3px;' +
-        'margin:-1.5px 0 0 ' + (-len / 2) + 'px;border-radius:2px;opacity:0;pointer-events:none;' +
-        'background:linear-gradient(90deg,rgba(255,255,255,.2),#fff,rgba(255,255,255,.2));';
-      field.appendChild(el);
-      run(el, [
-        { opacity: 1, transform: 'rotate(' + (a * 57.3).toFixed(0) + 'deg) translate(0,0)' },
-        { opacity: 0, transform: 'rotate(' + (a * 57.3 + 140).toFixed(0) + 'deg) translate(' + d.toFixed(0) + 'px,' + (d * 0.55).toFixed(0) + 'px)' }
-      ], { duration: 620 + Math.random() * 300, delay: Math.random() * 90, easing: 'cubic-bezier(.2,.6,.4,1)', fill: 'forwards' });
-    }
-  }
-
-  /**
-   * Crack the glass and let it fall. Resolves when the last piece is gone
-   * and the layer is hidden and empty.
-   */
+  /** The veil lifts from the top down, a last flurry drifts by, the snow clears. */
   function reveal() {
     if (reduced() || !host) { weather(false); return Promise.resolve(); }
-    var doc = host.ownerDocument;
-    var w = host.clientWidth || 1280, h = host.clientHeight || 720;
-    var f = fracture(w, h);
-    var runs = plan(f);
-    var cracks = crackLayer(doc, runs, w, h);
-    var ox = w * 0.04, oy = h * 0.04;   // the glass box is inset 4% beyond the host
+    var m = measure(), c = CONFIG;
+    var g = gen;
+    sfx(c.sfx.whoosh, { gain: 0.05 });
 
-    // the shards, cut from the same glass, hidden until the fall
-    var shardEls = f.shards.map(function (sh) {
-      var el = doc.createElement('div');
-      var clip = sh.pts.map(function (p) { return (p[0] + ox).toFixed(1) + 'px ' + (p[1] + oy).toFixed(1) + 'px'; }).join(',');
-      var lit = 0.94 + Math.random() * 0.16;
-      el.style.cssText =
-        'position:absolute;inset:-4%;background:' + GLASS_PAINT + ';' +
-        'clip-path:polygon(' + clip + ');-webkit-clip-path:polygon(' + clip + ');' +
-        'filter:brightness(' + lit.toFixed(2) + ');' +
-        'box-shadow:inset 0 0 0 1px rgba(255,255,255,.7);' +
-        'opacity:0;will-change:transform,opacity;pointer-events:none;';
-      field.appendChild(el);
-      return { el: el, sh: sh };
-    });
+    // THE MIDPOINT FLURRY: a little denser for a moment, with its twinkles,
+    // so the change of scene has a flourish
+    shower(Math.round(m.count * Math.max(0, c.peakDensity - 1) + m.count * 0.25), 320, m, false);
+    for (var i = 0; i < Math.round(c.sparkles * 0.6); i++) twinkle(m.w, m.h, rnd(0, 500));
+    later(140, function () { sfx(c.sfx.sparkle, { gain: 0.05 }); });
 
-    return new Promise(function (done) {
-      later(HOLD_MS, function () {
-        /* ---- the strike, and the cracks that run from it ---- */
-        if (global.SFX) SFX.play('crack');
-        impactFlash(doc, f.ix, f.iy);
-        cracks.svg.style.opacity = '1';
-        field.appendChild(cracks.svg);
-        cracks.strokes.forEach(function (s) {
-          run(s.el, [{ strokeDashoffset: s.L }, { strokeDashoffset: 0 }],
-              { duration: s.dur, delay: s.delay, easing: 'cubic-bezier(.25,.8,.35,1)', fill: 'forwards' });
-        });
+    // THE MELT. Not a sheet drawn off the screen: the veil thins everywhere
+    // at once under the flurry, slowly at first, and the new scene comes up
+    // through the falling snow — as the bloom fades from over it.
+    var melt = c.revealMs * 0.78, wait = 140;
+    run(veil, [
+      { opacity: 1, offset: 0 },
+      { opacity: 0.85, offset: 0.25 },
+      { opacity: 0.3, offset: 0.7 },
+      { opacity: 0, offset: 1 }
+    ], { duration: melt, delay: wait, easing: 'cubic-bezier(.5,.1,.35,1)', fill: 'forwards' });
+    run(bloom, [
+      { opacity: 0, transform: 'scale(.7)' },
+      { opacity: 0.9, transform: 'scale(1)', offset: 0.3 },
+      { opacity: 0, transform: 'scale(1.25)' }
+    ], { duration: Math.min(900, c.revealMs * 0.6), easing: 'ease-out', fill: 'forwards' });
 
-        later(CRACK_MS + SETTLE_MS, function () {
-          /* ---- it lets go ---- */
-          if (global.SFX) SFX.play('shatter');
-          splinters(doc, f.ix, f.iy, 22);
-          // the sheet itself is replaced by its pieces
-          glass.style.opacity = '0';
-          run(rime, [{ opacity: 0.95 }, { opacity: 0 }], { duration: 140, fill: 'forwards' });
-          run(lattice, [{ opacity: 0.6 }, { opacity: 0 }], { duration: 140, fill: 'forwards' });
-          run(cracks.svg, [{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' });
+    // the last flakes fade with the whole layer, so none is cut off mid-fall
+    var fadeMs = 380;
+    run(host, [{ opacity: 1 }, { opacity: 0 }],
+        { duration: fadeMs, delay: Math.max(0, c.revealMs - fadeMs), easing: 'ease-in', fill: 'forwards' });
 
-          shardEls.forEach(function (x) {
-            var out = f.R * (0.10 + x.sh.ring * 0.08) * (0.7 + Math.random() * 0.6);
-            var dx = Math.cos(x.sh.bearing) * out;
-            var drop = h * (0.9 + Math.random() * 0.5);
-            var spin = (Math.random() - 0.5) * 70;
-            var tilt = (Math.random() - 0.5) * 40;
-            x.el.style.opacity = '1';
-            // gravity: little movement at first, most of it at the end
-            run(x.el, [
-              { transform: 'translate(0,0) rotate(0deg) rotateX(0deg)', opacity: 1, offset: 0 },
-              { transform: 'translate(' + (dx * 0.3).toFixed(0) + 'px,' + (drop * 0.12).toFixed(0) + 'px) rotate(' + (spin * 0.3).toFixed(0) + 'deg) rotateX(' + (tilt * 0.4).toFixed(0) + 'deg)', opacity: 1, offset: 0.35 },
-              { transform: 'translate(' + dx.toFixed(0) + 'px,' + drop.toFixed(0) + 'px) rotate(' + spin.toFixed(0) + 'deg) rotateX(' + tilt.toFixed(0) + 'deg)', opacity: 0.85, offset: 1 }
-            ], {
-              duration: FALL_MS,
-              delay: x.sh.ring * 85 + Math.random() * 70,
-              easing: 'cubic-bezier(.45,0,.85,.5)',
-              fill: 'forwards'
-            });
-          });
-
-          later(FALL_MS + 330, function () {
-            clear();
-            glass.style.opacity = '0';
-            rime.style.opacity = '0';
-            lattice.style.opacity = '0';
-            host.style.opacity = '0';
-            host.style.visibility = 'hidden';
-            // The gust outlives the glass by a moment: the snow is still heavy
-            // as the new screen appears and settles back over the next beat.
-            later(360, function () { weather(false); });
-            done();
-          });
-        });
+    return new Promise(function (resolve) {
+      later(c.revealMs, function () {
+        if (g !== gen) { resolve(); return; }
+        weather(false);
+        host.style.opacity = '0';
+        host.style.visibility = 'hidden';
+        try { host.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {}
+        clear();
+        resolve();
       });
     });
   }
 
-  /** cover -> do the work -> reveal. The work is never seen, however slow. */
+  /** Cover, do the thing, reveal. */
   function wipe(fn) {
     return cover()
       .then(function () { return fn ? fn() : null; })
@@ -462,8 +354,22 @@
             function (e) { return reveal().then(function () { throw e; }); });
   }
 
-  /** Is the screen currently hidden behind the glass? */
+  /** The same, as callbacks: playSnowTransition(onMidpoint, onComplete). */
+  function play(onMidpoint, onComplete) {
+    return wipe(onMidpoint).then(function (r) { if (onComplete) onComplete(r); return r; });
+  }
+
+  /** Is the screen hidden behind the snow right now? */
   function covered() { return !!host && host.style.visibility === 'visible'; }
+
+  /** Change any setting at runtime: Transition.configure({ count: 90, glow: 0.4 }). */
+  function configure(opts) {
+    Object.keys(opts || {}).forEach(function (k) {
+      if (k === 'sfx') CONFIG.sfx = Object.assign({}, CONFIG.sfx, opts.sfx || {});
+      else if (k in CONFIG) CONFIG[k] = opts[k];
+    });
+    return CONFIG;
+  }
 
   global.Transition = {
     mount: mount,
@@ -471,10 +377,14 @@
     cover: cover,
     reveal: reveal,
     wipe: wipe,
+    play: play,
+    configure: configure,
+    get config() { return CONFIG; },
     get reducedMotion() { return reduced(); },
-    COVER_MS: COVER_MS,
-    REVEAL_MS: REVEAL_MS
+    get COVER_MS() { return CONFIG.coverMs; },
+    get REVEAL_MS() { return CONFIG.revealMs; }
   };
+  global.playSnowTransition = play;
   if (typeof module !== 'undefined' && module.exports) module.exports = global.Transition;
 
 })(typeof window !== 'undefined' ? window : this);
