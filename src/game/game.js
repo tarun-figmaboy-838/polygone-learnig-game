@@ -59,11 +59,11 @@
     // A BURST FROM THE OBJECT, not a shower over the whole screen: the
     // reward belongs to the shape the child just finished measuring, or
     // sorting, or building, and the paper should come from there.
-    if (global.Juice && Juice.confetti) {
-      var near = null;
-      try { near = Stage.element && Stage.element('polygon'); } catch (e) { near = null; }
-      Juice.confetti(near || Stage.svg, { count: big ? 90 : 50 });
-    }
+    // NO CONFETTI HERE. The XP and the badge arrive in the same instant as
+    // the answer that earned them, and that answer has its own burst — from
+    // the card's edge, or the deck's own feedback beat — so a second burst
+    // from the middle of the stage read as the same celebration twice. The
+    // reward is the chime, his cheer and the line of text.
     if (global.SFX) SFX.play(big ? 'levelUp' : 'sparkle');
     // He joins the celebration only if he is on this screen. Off, the
     // confetti, the level-up sound and the reward line carry it; a bird
@@ -149,6 +149,7 @@
   }
 
   function pause(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  var SCENE_ENTER_MS = 520;   // a card's rise or pop (stage.js enter(): 460ms) plus a breath
 
   /**
    * A long line becomes two short ones, split where the sentence already
@@ -157,28 +158,60 @@
    * leaning on the card. A sentence with no break in it stays whole.
    */
   function splitLine(text) {
-    // 32, not 42: beside a pair of cards the band he speaks in is narrow, and
-    // a sentence of forty characters is four rows there — which the layout
-    // refuses, and sends the bubble to the top of the screen, far from him.
-    // Two short bubbles in turn stay at his head.
+    // ONLY BETWEEN WHOLE SENTENCES. "Whoa!" then "One of the diagonals went
+    // outside." are two things he says; "All diagonals inside" then "means
+    // convex polygon." is one thing cut in half, and a child reads the first
+    // half as a bubble that broke. A line with one sentence in it stays
+    // whole, however long, and the bubble grows or steps its type down.
+    //
+    // AND AS MANY BUBBLES AS IT TAKES. This used to cut once and leave the
+    // rest together, so "Hmm… The sides look suspiciously alike. Let's
+    // check!" came out as "Hmm…" and then a bubble with two sentences in it
+    // — and the second of them, the one that says what happens next, went
+    // past in the same breath as the observation. Sentences are packed into
+    // bubbles up to about a line's worth of words, so a short opener rides
+    // with the sentence after it and a closing "Let's check!" gets its own.
     if (!text || text.length <= 32) return [text];
-    var m = /^(.{3,}?[.!?\u2026])\s+(\S.*)$/.exec(text);
-    if (m && m[2].length >= 8) return [m[1], m[2]];
-    var k = text.lastIndexOf(', ');
-    if (k >= 14 && text.length - k >= 12) return [text.slice(0, k + 1), text.slice(k + 2)];
-    // No punctuation to break at: break before the joining word nearest the
-    // middle — "All diagonals inside" then "means convex polygon."
-    var joins = [' means ', ' and ', ' or ', ' so ', ' but ', ' then ', ' because ', ' when ', ' if ', ' to ', ' with '];
-    var best = -1, bestD = Infinity, mid = text.length / 2;
-    joins.forEach(function (j) {
-      var at = -1;
-      while ((at = text.indexOf(j, at + 1)) >= 0) {
-        var d = Math.abs(at - mid);
-        if (d < bestD && at >= 10 && text.length - at - 1 >= 10) { bestD = d; best = at; }
-      }
+    var sentences = [], rest = text, m;
+    while ((m = /^(.{3,}?[.!?\u2026])\s+(\S.*)$/.exec(rest))) { sentences.push(m[1]); rest = m[2]; }
+    sentences.push(rest);
+    if (sentences.length < 2) return [text];
+    var BUDGET = 44;
+    var parts = [];
+    sentences.forEach(function (s0) {
+      var last = parts[parts.length - 1];
+      if (last && (last.length + 1 + s0.length) <= BUDGET) parts[parts.length - 1] = last + ' ' + s0;
+      else parts.push(s0);
     });
-    if (best > 0) return [text.slice(0, best), text.slice(best + 1)];
-    return [text];
+    return parts;
+  }
+
+  /**
+   * SAY A LINE THAT HAS MORE THAN ONE THOUGHT IN IT.
+   *
+   * The director splits a screen's line into bubbles and paces them; a line
+   * said from anywhere else — the finale, a badge — went straight to say()
+   * as one long box. "Honk-tastic! 150 XP and 2 badges. You are a polygon
+   * adventurer!" arrived as a paragraph the child was expected to take in at
+   * a glance. Same split, same pacing, one thought at a time.
+   *
+   * Returns how long the whole thing takes to read, for callers that have to
+   * wait for it.
+   */
+  var longTimers = [];
+  function sayLong(text, mood, reading) {
+    longTimers.forEach(clearTimeout); longTimers = [];
+    var parts = splitLine(text);
+    var words = function (t) { return String(t).split(/\s+/).length; };
+    var total = parts.reduce(function (n, p) { return n + words(p); }, 0) || 1;
+    var shares = parts.map(function (p) { return Math.max(900, (reading || 2600) * words(p) / total); });
+    say(parts[0], mood, shares[0]);
+    var at = 0;
+    for (var i = 1; i < parts.length; i++) {
+      at += shares[i - 1];
+      (function (t, s) { longTimers.push(setTimeout(function () { say(t, mood, s); }, at)); }(parts[i], shares[i]));
+    }
+    return shares.reduce(function (a, b) { return a + b; }, 0);
   }
 
   /**
@@ -303,7 +336,9 @@
   var praiseN = 0, nudgeN = 0, lastFeedbackAt = 0, feedbackScreen = -1, praisedHere = false;
   var cheerUntil = 0;   // the lesson does not move on while he is still saying it
 
-  function react(kind) {
+  // `said` — an optional { t, vo } from the stage: the reason this try
+  // fell short ("Pull it in more!"), spoken in place of the generic nudge.
+  function react(kind, said) {
     if (kind === 'wrong') quest.mistake();
     if (!buddyOn) return;   // the sound and the confetti carry the verdict
     if (!global.Swiftee || !Swiftee.play) return;
@@ -316,7 +351,7 @@
     var line = null, mood = null;
     var pick = null;
     if (kind === 'correct' && !praisedHere) { praisedHere = true; pick = PRAISE[praiseN++ % PRAISE.length]; mood = 'win'; }
-    else if (kind === 'wrong' && now - lastFeedbackAt > 3000) { pick = NUDGE[nudgeN++ % NUDGE.length]; mood = 'hint'; }
+    else if (kind === 'wrong' && now - lastFeedbackAt > 3000) { pick = (said && said.t) ? said : NUDGE[nudgeN++ % NUDGE.length]; mood = 'hint'; }
     if (pick) line = pick.t;
     if (!line) {
       if (present) { try { Swiftee.play(kind === 'wrong' ? 'confused' : 'happy'); } catch (e) {} }
@@ -688,8 +723,13 @@
     // nothing. Splitting first gives every word a box to be measured by, and
     // costs nothing, since reveal needed the same split a moment later.
     var units = unitsOf(line);
+    // The first placement of a new line is a jump cut, not a glide: it has
+    // nowhere to travel from. The refits that follow are glides (see #bubble
+    // .snap in the stylesheet).
+    bubble.classList.add('snap');
     fitLine();
     reveal(line, ms, units);
+    requestAnimationFrame(function () { bubble.classList.remove('snap'); });
 
     // AND AGAIN ONCE THE SCENE HAS STOPPED MOVING.
     //
@@ -770,15 +810,60 @@
   }
 
   /** How many rows the line actually rendered on. */
+  /**
+   * NO EMPTY PAPER BESIDE THE WORDS. A box whose sentence wraps keeps the
+   * whole width it was allowed, so a two-row line sat in a box a third
+   * wider than its longest row. Measure the widest row the words actually
+   * make and close the box down to it; the rows do not re-wrap, because the
+   * box is still as wide as the widest of them.
+   */
+  function snugWidth() {
+    var line = bubble.querySelector('.bubble-line');
+    if (!line) return;
+    var kids = line.childNodes, rows = {}, k, r, key;
+    for (k = 0; k < kids.length; k++) {
+      if (kids[k].nodeType !== 1 || !kids[k].offsetWidth) continue;
+      // layout boxes, for the same reason as rowsOfLine: a word still on its
+      // way in sits seven pixels low, and grouping by a moving top split one
+      // row into two — which closed the box to half a row and poured the
+      // sentence down a column.
+      r = { top: kids[k].offsetTop, left: kids[k].offsetLeft, right: kids[k].offsetLeft + kids[k].offsetWidth };
+      key = Math.round(r.top / 2) * 2;
+      if (!rows[key]) rows[key] = { l: r.left, r: r.right };
+      else { rows[key].l = Math.min(rows[key].l, r.left); rows[key].r = Math.max(rows[key].r, r.right); }
+    }
+    var widest = 0;
+    Object.keys(rows).forEach(function (t) { widest = Math.max(widest, rows[t].r - rows[t].l); });
+    if (!widest) return;
+    var cs = getComputedStyle(bubble);
+    var chrome = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+    var want = Math.ceil(widest + chrome + 3);
+    if (want >= bubble.offsetWidth - 4) return;
+    // CLOSING THE BOX MUST NOT STAND THE SENTENCE ON END.
+    //
+    // This measures the widest row the words have made and closes the box to
+    // it. Measured at the wrong instant — while the line is being swapped,
+    // or in a slot that was already too narrow — the widest row is one word,
+    // and the box locks to a column that the whole sentence then pours down.
+    // Eight rows, in a 147px box, was this. Empty paper beside the words is
+    // a blemish; a sentence standing on end is not readable, so if closing
+    // the box costs more than three rows the box keeps the width it had.
+    var before = bubble.style.maxWidth;
+    bubble.style.maxWidth = want + 'px';
+    if (rowsOfLine() > 3) bubble.style.maxWidth = before;
+  }
+
   function rowsOfLine() {
     var line = bubble.querySelector('.bubble-line');
     if (!line) return 1;
     var kids = line.childNodes, tops = {}, k, r;
     for (k = 0; k < kids.length; k++) {
-      if (!kids[k].getBoundingClientRect) continue;
-      r = kids[k].getBoundingClientRect();
-      if (!r.width) continue;
-      tops[Math.round(r.top / 2) * 2] = 1;
+      if (kids[k].nodeType !== 1) continue;
+      // offsetTop, not a client rect: each word is translated a few pixels
+      // while it arrives, and a client rect includes that travel — so a line
+      // half way through its reveal counted as twice as many rows as it has.
+      if (!kids[k].offsetWidth) continue;
+      tops[Math.round(kids[k].offsetTop / 2) * 2] = 1;
     }
     return Object.keys(tops).length || 1;
   }
@@ -844,6 +929,7 @@
       // and 620px forced most of the thirty-six sentences onto two rows for
       // no benefit. Wide enough now that short and middling lines stay on one.
       bubble.style.maxWidth = Math.min(f.w * 0.86, 1040) + 'px';
+      snugWidth();
       bubble.style.left = '50%';
       bubble.style.marginLeft = -(bubble.offsetWidth / 2) + 'px';
       var birdTop = L.y - 256 * layout(Swiftee.pos, 'large').scale * CONTENT_FRAC;
@@ -985,10 +1071,13 @@
         // shape — caps the nook above it, so the bubble sits over the tag
         // and its tail still points down to him.
         var gp = Stage.contentParts ? Stage.contentParts({ glass: true }) : [];
-        var capY = cs.y + cs.h;
+        var capY = cs.y + cs.h, rightEdge = cs.x + cs.w;
         gp.forEach(function (p) {
-          if (p.right > cs.x + 4 && p.left < cs.x + cs.w - 4 && p.top < capY && p.bottom > cs.y) capY = Math.min(capY, p.top - 10);
+          if (!(p.right > cs.x + 4 && p.left < rightEdge - 4 && p.top < capY && p.bottom > cs.y)) return;
+          if (p.left - 12 - cs.x >= 200) rightEdge = Math.min(rightEdge, p.left - 12);   // step in beside it
+          else capY = Math.min(capY, p.top - 10);                                        // or stop above it
         });
+        cs.w = rightEdge - cs.x;
         cs.h = capY - cs.y;
         // 200, not MIN_W: the nook beside him on the wide slab is a little
         // under 240 wide, and his lines there are short by design
@@ -1059,15 +1148,21 @@
     // Where a bubble of a given size ends up in a given slot. Used twice —
     // once per slot while choosing, and once on the slot that wins — so the
     // thing that is scored is the thing that is placed.
+    var headX = L.x, headY = L.y - 256 * L.scale * CONTENT_FRAC;
     var placeIn = function (r, ww, hh) {
       var wx = (r.id === 'left' || r.id === 'right')
         ? L.x - ww / 2
         : (peeking ? L.x - ww / 2
            : (onLeft ? Math.max(r.x, L.x - ww * 0.35) : Math.min(r.x + r.w - ww, L.x - ww * 0.65)));
+      // IN A BAND, THE EDGE NEAREST HIS HEAD — never the middle of the band.
+      // A tall band above the lesson used to centre the bubble in itself,
+      // which put his words a hundred pixels over his head; the carve-out
+      // already keeps the band TAIL_GAP clear of him, so the band's edge on
+      // his side is exactly where the bubble belongs.
       var wy = (r.id === 'left' || r.id === 'right')
         ? L.y - 256 * L.scale * CONTENT_FRAC - hh - TAIL_GAP
         : (r.id === 'corner' ? r.y + r.h - hh              // just over his head
-           : r.y + (r.h - hh) / 2);
+           : (headY >= r.y + r.h / 2 ? r.y + r.h - hh : r.y));
       return {
         x: Math.max(r.x, Math.min(wx, r.x + r.w - ww)),
         y: Math.max(r.y, Math.min(wy, r.y + r.h - hh))
@@ -1082,7 +1177,6 @@
     var rowsOf = function (hh) { return Math.max(1, Math.round((hh - chrome) / lineH)); };
 
     // The top of his head, which is what the pointer has to reach.
-    var headX = L.x, headY = L.y - 256 * L.scale * CONTENT_FRAC;
     var reach = function (p, ww, hh) {
       var dx = Math.max(p.x - headX, 0, headX - (p.x + ww));
       var dy = Math.max(p.y - headY, 0, headY - (p.y + hh));
@@ -1110,9 +1204,10 @@
       var m = size();
       var fits = m.h <= r.h && m.w <= r.w;
       var rows = rowsOf(m.h);
-      var score = reach(placeIn(r, m.w, m.h), m.w, m.h)
+      var near = reach(placeIn(r, m.w, m.h), m.w, m.h);
+      var score = Math.max(0, near - TAIL_GAP * 2) * 6     // every pixel past the tail's reach costs six
                 + (rows - 1) * 40                          // one row is nicer
-                + (rows > 2 ? 300 : 0)                     // three rows beside him beats two rows far from him
+                + (rows > 2 ? 200 : 0)                     // three rows beside him beats one row far from him
                 // and four is not a speech bubble at all. Weighted past any
                 // distance on this stage, so a wider slot further from his
                 // head always wins over a narrow one beside it.
@@ -1142,6 +1237,8 @@
       }
     }
 
+    snugWidth();
+    var m4 = size(); w = m4.w; h = m4.h;
     var at = placeIn(slot, w, h);
     var x = at.x, y = at.y;
 
@@ -1201,6 +1298,36 @@
       var afterL = parseFloat(bubble.style.left) || 0;
       bubble.style.left = (afterL + (slot.x - afterL > 0 ? slot.x - afterL : 0)) + 'px';
     }
+
+    /* THE LAST GUARD: A COLUMN OFF THE TOP OF THE SCREEN IS NOT A BUBBLE.
+     *
+     * Everything above reasons in slots, and a slot can be shorter than the
+     * box it has to hold — a long line and a shallow band — so the seat
+     * arithmetic and the three narrowing passes can between them produce a
+     * box narrower than the bubble can actually render, a dozen rows tall,
+     * with its first word above the window. The sorting screen did exactly
+     * that: eight rows, 147px wide, top at -135.
+     *
+     * This does not second-guess the choice of slot. It asks two questions of
+     * the finished box — is it readable, and is it on the screen — and fixes
+     * it in the widest band the screen has if it is not.
+     */
+    var fin = { w: bubble.offsetWidth, h: bubble.offsetHeight };
+    if (fin.w < MIN_W - 1 || rowsOf(fin.h) > 3) {
+      var widest2 = null;
+      slots.forEach(function (r) { if (!widest2 || capFor(r) > capFor(widest2)) widest2 = r; });
+      if (widest2) {
+        bubble.style.maxWidth = capFor(widest2) + 'px';
+        snugWidth();
+        fin = { w: bubble.offsetWidth, h: bubble.offsetHeight };
+        var p2 = placeIn(widest2, fin.w, fin.h);
+        bubble.style.left = p2.x + 'px';
+        bubble.style.top = p2.y + 'px';
+      }
+    }
+    var lx = parseFloat(bubble.style.left) || 0, ly = parseFloat(bubble.style.top) || 0;
+    bubble.style.left = Math.max(GAP, Math.min(lx, vw - fin.w - GAP)) + 'px';
+    bubble.style.top = Math.max(GAP, Math.min(ly, vh - fin.h - GAP)) + 'px';
 
     paintSkin();
   }
@@ -1389,6 +1516,15 @@
   function handlers() {
     H = {
       stage: function (spec) {
+        // AFTER THE SNOW. A beat marked afterReveal waits for the veil to
+        // melt before it draws, so what it draws — diagonals arriving one
+        // by one — is seen arriving, not found already there when the snow
+        // clears. On a screen entered without snow it draws at once.
+        if (spec && spec.afterReveal) {
+          var s2 = Object.assign({}, spec); delete s2.afterReveal;
+          if (revealing) return revealing.then(function () { return H.stage(s2); });
+          spec = s2;
+        }
         // A beat that (re)builds a scene names the kind; the scene's full
         // configuration — options, bins, items, compare panels — lives on
         // the screen's `stage`. Merge so the beat stays short and the data
@@ -1426,6 +1562,14 @@
         clearTimeout(settleTimer);
         settleTimer = setTimeout(relayout, 620);
         void wasSolo;
+        // THE SCENE ARRIVES, THEN HE SPEAKS OF IT. A beat that builds a scene
+        // holds the director for the length of the entrance — the card rises,
+        // the shape pops — so the line that follows is about something the
+        // child has already seen, not something arriving under his words.
+        // 'vista' is the empty backdrop — there is nothing arriving to watch,
+        // and holding for it pushed his sleigh half a second later into every
+        // opening, which is long enough for the arrival to miss its cue.
+        if (spec && spec.kind && spec.kind !== 'vista' && !(global.Juice && Juice.reducedMotion)) return pause(SCENE_ENTER_MS);
       },
       swiftee: function handlerSwiftee(state, opts, ctx) {
         // No bird, but still a beat: the screen paces as it did, and only
@@ -1494,9 +1638,17 @@
         var shares = parts.map(function (p) { return Math.max(700, reading * words(p) / total); });
         var spoken = shares.reduce(function (a, b) { return a + b; }, 0);
         say(parts[0], null, shares[0]);
-        if (parts.length > 1) {
-          var partTimer = setTimeout(function () { say(parts[1], null, shares[1]); }, shares[0]);
-          if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(partTimer); });
+        // the rest follow, each when the one before it has been read
+        var partTimers = [];
+        var at = 0;
+        for (var pi = 1; pi < parts.length; pi++) {
+          at += shares[pi - 1];
+          (function (t, share) {
+            partTimers.push(setTimeout(function () { say(t, null, share); }, at));
+          }(parts[pi], shares[pi]));
+        }
+        if (partTimers.length && ctx && ctx.onCancel) {
+          ctx.onCancel(function () { partTimers.forEach(clearTimeout); });
         }
         // The lesson is read, not spoken. Swiftee still rests on the
         // `talking` loop while a line is up — his mouth moving is what makes
@@ -1715,7 +1867,7 @@
     // under the band when it has; a scene built by this screen's beats is
     // seated as it is built.
     if (Stage.seat) Stage.seat(!hasPlank(i));
-    Stage.onTap(function (kind) { if (s.perTap) fire(s.perTap[kind] || s.perTap.any); react(kind); });
+    Stage.onTap(function (kind, said) { if (s.perTap) fire(s.perTap[kind] || s.perTap.any); react(kind, said); });
     if (global.Input) Input.mode('locked');
     return director.run(s.beats);
   }
@@ -1731,13 +1883,17 @@
    * hangs waiting for a scene that is not coming would be far worse than one
    * that clears a moment early.
    */
+  var revealing = null;   // the melt in progress, for beats that wait for it
   function revealWhenReady() {
     if (!global.Transition || !Transition.covered || !Transition.covered()) return;
     var done = false;
     var go = function () {
       if (done) return; done = true;
       director.off('stage', go);
-      Transition.reveal();
+      var p = Transition.reveal();
+      revealing = p;
+      var clear = function () { if (revealing === p) revealing = null; };
+      p.then(clear, clear);
     };
     director.on('stage', go);
     setTimeout(go, 420);
@@ -1888,8 +2044,9 @@
 
   function finish() {
     say(null); setCard(null); showNext(false);
-    say('Honk-tastic! ' + quest.snapshot().xp + ' XP and ' + quest.snapshot().badges.length + ' badges. You are a polygon adventurer!', 'win');
-    if (global.Juice) { Juice.confetti(Stage.svg, { count: 60 }); Juice.confetti(Stage.svg, { count: 40, offsetX: -200 }); }
+    sayLong('Honk-tastic! ' + quest.snapshot().xp + ' XP and ' + quest.snapshot().badges.length + ' badges. You are a polygon adventurer!', 'win', 3400);
+    // one burst, wide, for the finale — two from different points read as a stutter
+    if (global.Juice) Juice.confetti(Stage.svg, { count: 72, spread: 2.6 });
     if (global.SFX) SFX.sequence(['drumroll', 1.2, 'levelUp', 0.3, 'sparkle']);
     // The end of the whole lesson earns the biggest clip in the rig, then
     // settles into `proud`. Everywhere else `celebrate` is the ceiling.
@@ -2033,7 +2190,7 @@
   }
 
   /**
-   * TEMPORARY: the screen picker in the top-left corner.
+   * THE SCREEN PICKER — a review tool, off unless the address asks for it.
    *
    * Reviewing a layout means looking at one screen, not at the thirty-eight
    * in front of it. This lists every screen by number and id and jumps
@@ -2049,6 +2206,20 @@
   function wireJump() {
     var box = $('#jump-sel');
     if (!box || !global.Screens) return;
+    // A CHILD NEVER SEES IT. It is a dropdown listing every screen by number
+    // over the top-left of the lesson, which is a hole in the game: one tap
+    // and they are somewhere they did not choose to be. ?dev=1 turns it on
+    // for a review or a test run and nothing else does.
+    // On this machine it is always there — a review is what it is for — and
+    // on the deployed site it is there only if the address asks for it.
+    var dev = false;
+    try {
+      var loc = global.location || {};
+      var local = /^(localhost|127\.0\.0\.1|\[::1\]|)$/.test(loc.hostname || '') || loc.protocol === 'file:';
+      dev = local || /[?&]dev=1\b/.test(loc.search || '');
+    } catch (e) { dev = false; }
+    if (!dev) { var host = $('#jump'); if (host) host.remove(); return; }
+    var host2 = $('#jump'); if (host2) host2.removeAttribute('hidden');
     Screens.list.forEach(function (s, i) {
       var o = document.createElement('option');
       o.value = i;

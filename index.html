@@ -36,7 +36,15 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; background: #a9d6f4; font-family: var(--sans); color: var(--ink); overflow: hidden; }
 
-  #game { position: fixed; inset: 0; background: linear-gradient(#bfe3fb, #f7fcff); }
+  /* THE BAND ROUND THE STAGE IS SKY, NOT PAPER.
+     The lesson is drawn 16:9 and fitted inside the window without stretching,
+     so on a 16:10 laptop or a 4:3 tablet there is a strip above and below it.
+     That strip used to be a pale grey-blue wash that met the painting at a
+     hard line: the game looked like a picture pasted on a page. These two
+     colours are the top and bottom rows of assets/bg/ice-vista.png (#40b7fd
+     and #acd8fd), so the sky simply carries on past the edge of the stage and
+     the snow does too, and the seam cannot be seen. */
+  #game { position: fixed; inset: 0; background: linear-gradient(#40b7fd 0%, #62c5fd 46%, #acd8fd 100%); }
   /* FULL BLEED. Insetting this by the plank's height did move the lesson
      down, and also letterboxed the painted vista into a box with white bars
      either side of it — the scene is the background of the whole window, not
@@ -120,7 +128,7 @@
     font-size: clamp(20px, 2.3vw, 33px);
     max-width: min(820px, 68vw);
     min-width: 5em;
-    padding: .58em .95em;
+    padding: .5em .78em;
     display: flex; align-items: center; justify-content: center;
     border: var(--bubble-border) solid var(--bubble-edge);
     border-radius: var(--bubble-radius);
@@ -134,8 +142,17 @@
     opacity: 0; pointer-events: none;
     transform: scale(.15);
     transform-origin: 12% 100%;
-    transition: transform 440ms cubic-bezier(.2, .9, .3, 1.45), opacity 200ms ease;
+    /* IT GLIDES, IT DOES NOT JUMP. The line is placed when it is set, and
+       measured again on the next frame and once the scene has stopped moving
+       — the sort tray lands on timers, Swiftee is still walking to his mark —
+       so the box does move after it appears. Moving it in one frame reads as
+       a glitch; 240ms of easing reads as the bubble settling next to him.
+       .snap turns this off for the FIRST placement of each line, so a new
+       line does not slide across the screen from where the last one was. */
+    transition: transform 440ms cubic-bezier(.2, .9, .3, 1.45), opacity 200ms ease,
+                left 240ms cubic-bezier(.3, .8, .3, 1), top 240ms cubic-bezier(.3, .8, .3, 1);
   }
+  #bubble.snap { transition: transform 440ms cubic-bezier(.2, .9, .3, 1.45), opacity 200ms ease; }
   /* the small catch-light that keeps the paper playful */
   #bubble::before {
     content: '';
@@ -210,13 +227,22 @@
      opacity rather than display, so the bubble is laid out at its FINAL size
      from the first frame: it never grows as the words arrive, which means it
      never jitters and never has to be re-placed against the lesson mid-line. */
+  /* EACH WORD RISES INTO PLACE. A fade out of a blur alone is so quiet that
+     the line reads as appearing all at once; a few pixels of travel is what
+     makes it read as speech arriving word by word. translate, never
+     transform — the words carry no other transform and translate composites
+     on its own. The box does not move: every word holds its space from the
+     first frame (visibility is opacity here), so nothing reflows. */
   .bubble-line .w, .bubble-line .dc-term {
-    transition: opacity 260ms cubic-bezier(.2, .7, .3, 1), filter 260ms cubic-bezier(.2, .7, .3, 1);
+    display: inline-block;
+    transition: opacity 260ms cubic-bezier(.2, .7, .3, 1),
+                filter 260ms cubic-bezier(.2, .7, .3, 1),
+                translate 300ms cubic-bezier(.2, .9, .3, 1.35);
   }
-  .bubble-line.revealing .w, .bubble-line.revealing .dc-term { opacity: 0; filter: blur(4px); }
-  .bubble-line .w.in, .bubble-line .dc-term.in { opacity: 1; filter: none; }
+  .bubble-line.revealing .w, .bubble-line.revealing .dc-term { opacity: 0; filter: blur(4px); translate: 0 7px; }
+  .bubble-line .w.in, .bubble-line .dc-term.in { opacity: 1; filter: none; translate: 0 0; }
   @media (prefers-reduced-motion: reduce) {
-    .bubble-line .w, .bubble-line .dc-term { transition: none; }
+    .bubble-line .w, .bubble-line .dc-term { transition: none; translate: 0 0; }
   }
 
   /* ---- dual coding: the term is tinted, and the thing it names lights
@@ -538,6 +564,35 @@
   #loading.ready #start { opacity: 1; pointer-events: auto; }
   #start:active { transform: translateY(4px) scale(.965); filter: drop-shadow(0 4px 8px rgba(12, 64, 102, .5)) brightness(.97); }
   #start:focus-visible { outline: 4px solid #fff; outline-offset: 7px; border-radius: 50%; }
+
+  /* ---- turn the device ------------------------------------------------
+     A 16:9 lesson in a portrait window is a letterbox strip with two thirds
+     of the screen empty: the shape a child taps is a third of the size it
+     should be, and Swiftee stands in the blank below it. Every phone and
+     tablet turns, so the game asks. Pure CSS on the orientation query —
+     nothing to initialise, nothing to get out of step, and it goes away by
+     itself the moment the device is turned. */
+  #rotate {
+    position: fixed; inset: 0; z-index: 120; display: none;
+    place-items: center; text-align: center; padding: 8vw;
+    background: linear-gradient(#40b7fd, #8dcefd 62%, #e8f6ff);
+    font-weight: 900; color: #0c3f7a;
+  }
+  #rotate p { margin: 22px 0 0; font-size: clamp(19px, 5.4vw, 30px); line-height: 1.35; text-shadow: 0 2px 0 rgba(255,255,255,.65); }
+  #rotate .phone {
+    width: clamp(86px, 26vw, 140px); height: clamp(140px, 42vw, 224px);
+    border: 8px solid #0c3f7a; border-radius: 20px; background: rgba(255,255,255,.75);
+    animation: turnPhone 2.4s ease-in-out infinite; transform-origin: 50% 50%;
+  }
+  @keyframes turnPhone {
+    0%, 22% { transform: rotate(0deg); }
+    46%, 78% { transform: rotate(-90deg); }
+    100% { transform: rotate(0deg); }
+  }
+  @media (orientation: portrait) {
+    #rotate { display: grid; }
+  }
+  @media (prefers-reduced-motion: reduce) { #rotate .phone { animation: none; transform: rotate(-90deg); } }
   .start-halo {
     position: absolute; inset: -30%; border-radius: 50%; z-index: -1; pointer-events: none;
     background: radial-gradient(closest-side, rgba(255, 238, 176, .6), rgba(255, 214, 120, .16) 60%, rgba(255, 214, 120, 0) 100%);
@@ -554,6 +609,12 @@
 </style>
 </head>
 <body>
+<div id="rotate" role="alertdialog" aria-label="Please turn your device sideways">
+  <div>
+    <div class="phone" aria-hidden="true"></div>
+    <p>Turn your device sideways<br>to play with Swiftee!</p>
+  </div>
+</div>
 <div id="game">
   <div id="stage"></div>
   <div id="bubble" role="status" aria-live="polite" aria-atomic="true">
@@ -573,12 +634,15 @@
     <button class="mute" type="button" aria-label="Mute" aria-pressed="false">🔊</button>
     <button class="restart" type="button" aria-label="Restart">↻</button>
   </div>
-  <!-- TEMPORARY. A screen picker for reviewing the lesson without playing
-       thirty-nine screens to reach the one in question. It is deliberately
-       easy to delete: this element, the #jump rules in the stylesheet, and
-       the wireJump() call in game.js. Marked data-dev so the test suites can
-       tell a review tool from part of the game. -->
-  <div id="jump" data-dev="1">
+  <!-- A REVIEW TOOL, AND OFF UNLESS IT IS ASKED FOR. A screen picker for
+       looking at one screen without playing the thirty-eight in front of it.
+       It is hidden for everybody who opens the game: game.js builds it only
+       when the address ends in ?dev=1, which is how the test runs reach a
+       screen directly and how a layout gets reviewed. Nothing else reads it,
+       so deleting this element, the #jump rules in the stylesheet and
+       wireJump() in game.js would still change nothing about the lesson.
+       Marked data-dev so the suites can tell a review tool from the game. -->
+  <div id="jump" data-dev="1" hidden>
     <label class="sr-only" for="jump-sel">Jump to screen</label>
     <select id="jump-sel"></select>
   </div>

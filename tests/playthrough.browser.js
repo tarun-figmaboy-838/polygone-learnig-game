@@ -283,11 +283,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const line = document.querySelector('.bubble-line');
     if (!line) return;
     const sample = () => {
-      const kids = [].slice.call(line.childNodes)
-        .filter((n) => n.getBoundingClientRect && n.getBoundingClientRect().width);
+      // LAYOUT BOXES, NOT CLIENT RECTS. Each word rises a few pixels into
+      // place as it arrives, and a client rect includes that travel — so a
+      // line sampled half way through its reveal reported twice the rows it
+      // lays out on. offsetTop is the row the word is actually in.
+      const kids = [].slice.call(line.childNodes).filter((n) => n.nodeType === 1 && n.offsetWidth);
       if (!kids.length) return;
       const tops = {};
-      kids.forEach((n) => { tops[Math.round(n.getBoundingClientRect().top / 2) * 2] = 1; });
+      kids.forEach((n) => { tops[Math.round(n.offsetTop / 2) * 2] = 1; });
       const n = Object.keys(tops).length;
       const s = window.Game.screen;
       window.__rows[s] = Math.max(window.__rows[s] || 0, n);
@@ -675,11 +678,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await shot('05-portrait.png');
   const portrait = await safe(() => page.evaluate(() => {
     const r = window.Swiftee.el.getBoundingClientRect();
+    const turn = document.getElementById('rotate');
+    const ts = turn && getComputedStyle(turn);
+    const tb = turn && turn.getBoundingClientRect();
     return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-             cropped: r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1 };
-  }), { overflow: 0, cropped: false });
+             cropped: r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1,
+             asksToTurn: !!(ts && ts.display !== 'none' && tb.width >= innerWidth - 1 && tb.height >= innerHeight - 1) };
+  }), { overflow: 0, cropped: false, asksToTurn: false });
   t('no horizontal overflow at phone width', portrait.overflow <= 0, JSON.stringify(portrait));
-  t('Swiftee is not cropped at phone width', !portrait.cropped, JSON.stringify(portrait));
+  /* A PORTRAIT PHONE IS ASKED TO TURN, and that is the whole check now.
+     This used to assert that Swiftee was not cropped in a portrait window.
+     He is not cropped there because the lesson does not run there: a 16:9
+     board in a tall window is a letterbox strip with two thirds of the screen
+     empty and a shape a third of the size a finger needs. The game asks for
+     the device to be turned instead (#rotate, index.html), so what matters is
+     that the ask covers the screen — measuring the board behind it is
+     measuring something no child ever sees. */
+  t('a portrait phone is asked to turn', portrait.asksToTurn, JSON.stringify(portrait));
 
   if (!CHECKS_ONLY) {
     t('played to the end and the replay button appeared', finished, 'stopped at screen ' + screen);
