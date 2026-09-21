@@ -83,7 +83,13 @@
     // own. What actually says WHERE is on the stage: focus() pulses the
     // target and Stage.alive() haloes everything touchable. The character
     // says "your turn"; the stage says "here".
-    point:       { rig: 'confident',   loops: 2,  lean: true },
+    // NOT 'confident': that rig's face is a set jaw and a frown — a
+    // determined adult look that reads as cross on a bird talking to a
+    // seven-year-old, and it is the pose he holds for the whole of every
+    // "your turn" screen. 'playful' is the same open, leaning-in energy
+    // with a face that is pleased about it. One loop: 'excited' was tried
+    // and its two loops run fifteen seconds, past the director's ceiling.
+    point:       { rig: 'playful',     loops: 1,  lean: true },
 
     // reactions
     wave:        { rig: 'waving',      loops: 2 },
@@ -508,11 +514,19 @@
       ], { duration: 980, easing: 'ease-out' });
       clip('curious', 1);
     } else {
+      // TWO HOPS IN, wings going: he comes on the way a small bird crosses
+      // snow, not the way a panel slides on. The last hop lands on his mark
+      // with a little settle.
       a = anim([
-        { translate: (from * 360) + 'px 0', opacity: 0 },
-        { translate: '0 0', opacity: 1 }
-      ], { duration: 460, easing: 'cubic-bezier(.2,.9,.3,1.25)' });
-      clip('playful', 1);
+        { translate: (from * 380) + 'px 0', opacity: 0, offset: 0 },
+        { translate: (from * 300) + 'px -54px', opacity: 1, offset: 0.22, easing: 'cubic-bezier(.3,.6,.5,1)' },
+        { translate: (from * 190) + 'px 0', offset: 0.44, easing: 'cubic-bezier(.5,0,.7,.4)' },
+        { translate: (from * 90) + 'px -42px', offset: 0.66, easing: 'cubic-bezier(.3,.6,.5,1)' },
+        { translate: '0 0', offset: 0.9, easing: 'cubic-bezier(.5,0,.7,.4)' },
+        { translate: '0 -6px', offset: 0.95 },
+        { translate: '0 0', offset: 1 }
+      ], { duration: 820, easing: 'linear' });
+      clip('flapping', Infinity);
     }
     return a.finished.then(function () { return stale(g) ? null : rest(); },
                            function () { return stale(g) ? null : rest(); });
@@ -598,6 +612,11 @@
     applyClip();
     airborne = !!L.air;
     if (el.classList) el.classList.toggle('air', airborne);
+    // A BIRD IN THE AIR CASTS NO CONTACT SHADOW. The ellipse under his feet
+    // is what says "standing on the ice"; under a hovering bird it said he
+    // was standing on nothing. It fades with the mark, and comes back the
+    // moment he has ground again.
+    if (shadowEl) shadowEl.style.opacity = airborne ? '0' : '';
   }
 
   /**
@@ -896,11 +915,15 @@
           { translate: '0 ' + (o.rise || 200) + 'px', offset: 1, easing: 'cubic-bezier(.5,0,.8,.4)' }
         ], { duration: 560 });
       } else {
+        // and two hops off, the same way, fading as he goes
         clip('flapping', Infinity);
         a = anim([
-          { transform: 'translateX(0) translateY(0)', opacity: 1 },
-          { transform: 'translateX(' + (to * 400) + 'px) translateY(-40px)', opacity: 0 }
-        ], { duration: 620, easing: 'cubic-bezier(.36,0,.66,-.56)' });
+          { transform: 'translateX(0) translateY(0)', opacity: 1, offset: 0 },
+          { transform: 'translateX(' + (to * 110) + 'px) translateY(-50px)', opacity: 1, offset: 0.3, easing: 'cubic-bezier(.3,.6,.5,1)' },
+          { transform: 'translateX(' + (to * 220) + 'px) translateY(0)', opacity: 1, offset: 0.55, easing: 'cubic-bezier(.5,0,.7,.4)' },
+          { transform: 'translateX(' + (to * 330) + 'px) translateY(-46px)', opacity: 0.6, offset: 0.8, easing: 'cubic-bezier(.3,.6,.5,1)' },
+          { transform: 'translateX(' + (to * 440) + 'px) translateY(0)', opacity: 0, offset: 1 }
+        ], { duration: 760, easing: 'linear' });
       }
       return a.finished.then(function () {
         el.style.opacity = '0';
@@ -1044,7 +1067,7 @@
     shadowEl = document.createElement('div');
     shadowEl.style.cssText =
       'position:absolute;left:50%;top:' + (F.baselineY * 100).toFixed(1) + '%;' +
-      'width:50%;height:8%;transform:translate(-50%,-35%);border-radius:50%;' +
+      'width:50%;height:8%;transform:translate(-50%,-35%);border-radius:50%;transition:opacity 320ms ease;' +
       'background:radial-gradient(closest-side, rgba(24,52,96,.42), rgba(24,52,96,.14) 62%, rgba(24,52,96,0));';
 
     cellEl = document.createElement('div');

@@ -59,14 +59,17 @@
   // A ring round the diagonals of a pentagon is a ring round the pentagon,
   // which points at the wrong noun.
   var TERMS = {
-    polygon:   { color: '#1030c8', tint: '#e3e9ff', target: 'polygon',          mode: 'ring' },
+    polygon:   { color: '#1030c8', tint: '#e3e9ff', target: 'polygon',          mode: 'none' },
     // Amber on cream is the one pairing in this table that does not survive
     // the arithmetic: at #c47800 this read 3.14:1 against its own chip, well
     // under the 4.5:1 floor for body text, and 3.29:1 against the bubble's
     // paper. Darkened to 6.0:1. The hue is what binds the word to the halo on
     // stage, so it stays amber — it only stops being pale.
     vertex:    { color: '#8a5200', tint: '#fff2d6', target: 'polygon.vertices', mode: 'ring' },
-    side:      { color: '#0b7a5e', tint: '#d8f5ec', target: 'polygon.sides',    mode: 'trace' },
+    // 'none': the word "side" used to trace every side of the shape at once,
+    // which lit the whole outline for a moment and said nothing about the
+    // one side being shown. The highlighted segment is the lesson's own mark.
+    side:      { color: '#0b7a5e', tint: '#d8f5ec', target: 'polygon.sides',    mode: 'none' },
     // Same problem, 4.03:1, and it has to stay distinct from vertex as well as
     // legible — so this one goes redder rather than browner. 7.2:1.
     diagonal:  { color: '#8a3d00', tint: '#fff4cc', target: 'polygon.diagonals', mode: 'trace' },
@@ -80,10 +83,10 @@
     // these as convex or concave" was printed in one pair of colours directly
     // above a pair of bins in another — two colour schemes for one idea, on
     // one screen. These are the deep/wash values of the same four concepts.
-    convex:    { color: '#0f6f86', tint: '#e4f8fc', target: 'polygon',          mode: 'ring' },
-    concave:   { color: '#95590a', tint: '#fff3dd', target: 'polygon',          mode: 'ring' },
-    regular:   { color: '#0a6c60', tint: '#e3f8f4', target: 'polygon',          mode: 'ring' },
-    irregular: { color: '#54399e', tint: '#f1ebfe', target: 'polygon',          mode: 'ring' }
+    convex:    { color: '#0f6f86', tint: '#e4f8fc', target: 'polygon',          mode: 'none' },
+    concave:   { color: '#95590a', tint: '#fff3dd', target: 'polygon',          mode: 'none' },
+    regular:   { color: '#0a6c60', tint: '#e3f8f4', target: 'polygon',          mode: 'none' },
+    irregular: { color: '#54399e', tint: '#f1ebfe', target: 'polygon',          mode: 'none' }
   };
 
 

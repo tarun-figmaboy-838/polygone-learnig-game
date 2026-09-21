@@ -72,34 +72,62 @@
   }
   function on(el, ev, fn, opts) { el.addEventListener(ev, fn, opts); cleanup.push(function () { el.removeEventListener(ev, fn, opts); }); }
   /**
+   * A HINT BEFORE THE FIRST TOUCH, AND AGAIN WHEN THE CHILD GOES IDLE.
+   * `build` makes the hint (a pulse, a gesture ghost) and returns its stop
+   * function. The hint is shown at once; the first touch takes it down; if
+   * six seconds then pass with no touch, it is built again — from the
+   * current state of the screen, since `build` reads that when it runs.
+   */
+  var IDLE_HINT_MS = 6000;
+  function hintLoop(build) {
+    if (reduced() || !svg) return;
+    var stop = null, idleT = null, live = true;
+    var hide = function () { if (stop) { try { stop(); } catch (e) {} stop = null; } };
+    var show = function () { if (!live || stop) return; try { stop = build() || null; } catch (e) { stop = null; } };
+    var arm = function () { clearTimeout(idleT); idleT = setTimeout(show, IDLE_HINT_MS); };
+    on(svg, 'pointerdown', function () { hide(); clearTimeout(idleT); });
+    on(svg, 'pointerup', arm);
+    on(svg, 'pointercancel', arm);
+    cleanup.push(function () { live = false; hide(); clearTimeout(idleT); });
+    show();
+  }
+
+  /**
    * THE TAP GHOST. Two ice rings close on the place to tap, again and
    * again, until the child touches the stage. The tapping equivalent of the
    * drag ghost: it shows the gesture, on the first of the things to tap.
    */
-  function tapGhost(x, y) {
+  /**
+   * WHERE TO TAP: THE THING ITSELF BREATHES.
+   *
+   * This drew a ring that grew out of the tap point and faded — a ripple.
+   * On a card it read as a target painted over the picture, and on the
+   * choose-the-polygons grid it was drawn over a CORRECT card, which handed
+   * the child the answer. What is tappable now swells and settles, a little
+   * out of step with its neighbours, so the invitation is the object and
+   * every valid object gets it.
+   *
+   * Animates `scale`, never `transform`: half the furniture here is placed
+   * by a transform attribute and animating that would throw it to the origin.
+   */
+  function pulseHint(els) {
     if (reduced() || !svg) return function () {};
-    var g = mk('g', { 'class': 'tap-ghost', 'pointer-events': 'none' }, layers.fx);
-    var live = true, anims = [];
-    [0, 700].forEach(function (delay) {
-      // a glow ring under a white ring, closing from well outside the target
-      var ring = mk('circle', { cx: x, cy: y, r: 44, fill: 'none', stroke: '#ffffff', 'stroke-width': 4, opacity: 0, style: litGlow(HI.lit) }, g);
-      [ring].forEach(function (c) {
-        if (!c.animate) return;
-        anims.push(c.animate([
-          { r: '48px', opacity: 0, offset: 0 }, { r: '44px', opacity: 0.95, offset: 0.12 },
-          { r: '14px', opacity: 0.95, offset: 0.72 }, { r: '12px', opacity: 0, offset: 1 }
-        ], { duration: 2100, iterations: Infinity, delay: 700 + delay, easing: 'cubic-bezier(.3,.7,.3,1)' }));
-      });
+    var list = (els || []).filter(Boolean);
+    if (!list.length) return function () {};
+    var anims = [];
+    list.slice(0, 10).forEach(function (e, i) {
+      if (!e.animate) return;
+      e.style.transformBox = 'fill-box'; e.style.transformOrigin = 'center';
+      try {
+        anims.push(e.animate([{ scale: '1' }, { scale: '1.075' }, { scale: '1' }],
+          { duration: 1250, iterations: Infinity, delay: 420 + i * 120, easing: 'ease-in-out' }));
+      } catch (x) {}
     });
-    var stop = function () {
-      if (!live) return; live = false;
-      anims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
-      g.remove();
-    };
+    var stop = function () { anims.forEach(function (a) { try { a.cancel(); } catch (e) {} }); anims = []; };
     cleanup.push(stop);
-    on(svg, 'pointerdown', stop);
     return stop;
   }
+
 
   function endInteraction() {
     cleanup.splice(0).forEach(function (f) { f(); });
@@ -173,7 +201,6 @@
       g.remove();
     };
     cleanup.push(stop);
-    on(svg, 'pointerdown', stop);
     return stop;
   }
   /** The visible knob at vertex i (the touch disc over it is st.vertEls[i]). */
@@ -526,8 +553,16 @@
    * vertical tick to nothing. A CSS drop-shadow grows its own region and
    * follows the dashes, so every lit line glows the same way, whole.
    */
+  /**
+   * The lit look: ONE tight shadow, not a haze.
+   *
+   * Two stacked drop-shadows at 3px and 7px put a halo round every stroke
+   * wider than the stroke itself, and on a dashed line — where the halo
+   * closes over the gaps — the whole thing read as out of focus. One shadow
+   * at 2px reads as light coming off the line and leaves the edge sharp.
+   */
   function litGlow(col) {
-    return 'filter: drop-shadow(0 0 3px ' + col + ') drop-shadow(0 0 7px ' + col + ');';
+    return 'filter: drop-shadow(0 0 2px ' + col + ');';
   }
   /** A lit line: an ice core with its own glow. Returns [core, core] — the same element twice, for callers that kept a glow and a core. */
   function litLine(parent, attrs, o) {
@@ -602,8 +637,23 @@
     // Shifted right of centre by 60: he stands on the ice at the left of
     // the pair and instructs from there, and the pair's right edge (882)
     // stays clear of the HUD.
-    left2:  { x: 238, y: 150, w: 306, h: 290, frame: 'compare' },
-    right2: { x: 576, y: 150, w: 306, h: 290, frame: 'compare' }
+    // x 270 / 608: the band between the stage's edge and the left card is
+    // where his line goes, and at 238 it was too narrow for "Compare the
+    // diagonals in both pentagons." in three rows, so the line fell under
+    // the cards. The pair's right edge (914) still clears the stage's own
+    // margin and Next (which starts at y 495, below the pair's 440).
+    // UP, so the tags under them are in the picture. At y 150 the pair's
+    // name tags landed at 470 of a 562 stage — on the snow, level with the
+    // progress bar, reading as a caption printed under a slide rather than
+    // as part of the game.
+    // ACROSS, NOT CENTRED. The pair used to start at x 270, which left a
+    // 218px column on his side of the stage — narrower than a speech bubble
+    // can render — so the placement had nowhere beside him to put a line and
+    // sent every one of them to the band along the top of the screen, six
+    // hundred pixels from the bird saying it. Moved right, the column is 248
+    // and the longest line on these screens sits at his head in three rows.
+    left2:  { x: 300, y: 118, w: 306, h: 290, frame: 'compare' },
+    right2: { x: 638, y: 118, w: 306, h: 290, frame: 'compare' }
   };
 
   /* ------------------------------------------------------------------ *
@@ -872,11 +922,17 @@
       if (st.onlyOutside && !outside) dg.style.display = 'none';
       var pair = litLine(dg, {
         x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-        'stroke-width': hl || d.solid ? 6 : 5, 'stroke-linecap': 'round',
+        'stroke-width': hl || d.solid ? 4 : 3.5, 'stroke-linecap': 'round',
         'stroke-dasharray': d.solid ? null : '14 12'
       }, { bad: hl });
       var line = pair[1];
       if (d.animate && !reduced()) {
+        // ONCE. The flag lives on the diagonal itself, and renderPoly runs
+        // again for anything that touches the shape — a word lighting up, a
+        // corner dressed — so a flag left standing replayed the whole
+        // five-line draw-in every time, which looked like the animation
+        // stuttering back to the start. It is spent as it is used.
+        d.animate = false;
         // drawn in slowly enough to be watched, glow and core together
         var len = Math.hypot(b.x - a.x, b.y - a.y);
         [line].forEach(function (ln) {
@@ -920,10 +976,21 @@
       }
     }
 
+    // THE SIDE IS NOT REMOVED, AND IT IS NOT LIT EITHER.
+    //
+    // Page 11 asks the child to drag the end of the side they have just made
+    // across to a far corner. The line used to travel with the drag, so the
+    // side was spent to buy the diagonal — it is kept now: st.sideMark
+    // records it, and the polygon's own outline draws it, like every other
+    // side. It is deliberately NOT drawn lit: a second white line of the
+    // same weight beside the new one reads as a leftover, or as a second
+    // diagonal, and the one thing this screen has to say is "that new line
+    // is a diagonal". Only the diagonal is lit.
+
     // highlighted segment (side or new diagonal)
     if (st.segment) {
       var sa = v[st.segment[0]], sb = v[st.segment[1]];
-      var seg = litLine(g, { x1: sa.x, y1: sa.y, x2: sb.x, y2: sb.y, 'stroke-width': 7, 'stroke-linecap': 'round' });
+      var seg = litLine(g, { x1: sa.x, y1: sa.y, x2: sb.x, y2: sb.y, 'stroke-width': 5, 'stroke-linecap': 'round' });
       st.segGlow = seg[0]; st.segLine = seg[1];
     }
 
@@ -1172,57 +1239,106 @@
     else begin();
   }
 
+  /**
+   * SIDES OF A LENGTH, ANGLES OF A SIZE — who matches whom.
+   *
+   * Returns a mark number per index: every index of the same measurement
+   * gets the same number, 1 for the largest set of equals, then 2, then 3.
+   * That is how a figure in a textbook is marked, and it is why one tick
+   * across two sides means what it means. Rounded before grouping, or a
+   * pixel of drag would split a set of equals into two.
+   */
+  function marksBy(vals, idxs, q) {
+    var groups = {}, order = [];
+    idxs.forEach(function (i) {
+      var key = String(Math.round(vals[i] / q));
+      if (!groups[key]) { groups[key] = []; order.push(key); }
+      groups[key].push(i);
+    });
+    order.sort(function (a, b) { return groups[b].length - groups[a].length || (+a) - (+b); });
+    var mark = {};
+    order.forEach(function (k, n) { groups[k].forEach(function (i) { mark[i] = Math.min(4, n + 1); }); });
+    return { mark: mark, groups: order.length };
+  }
+
+  /**
+   * THE READINGS ON THE SHAPE.
+   *
+   * A number is for reading a ruler; a mark is for seeing a match. This
+   * draws whichever the moment calls for, and never both at once.
+   *
+   *   measuring the sides   each tap puts that side's length on an ice tag.
+   *                         The equal-side ticks do NOT arrive with them: a
+   *                         tick says "this side matches that one", which is
+   *                         a statement about the whole shape, so they come
+   *                         together once the last side is in.
+   *
+   *   measuring the angles  the centimetre tags come off. Five tags, five
+   *                         arcs and five numbers on one pentagon is a wall
+   *                         of type; from here the ticks carry the sides,
+   *                         which is exactly what a textbook figure does.
+   *
+   *   once they differ      the numbers go altogether. Each set of equal
+   *                         sides takes its own number of ticks and each set
+   *                         of equal angles its own number of arcs, so "these
+   *                         three still match and those two no longer do" is
+   *                         seen at a glance instead of being worked out from
+   *                         ten numbers printed over each other.
+   */
   function drawMeasurements(g) {
     var v = st.verts, n = v.length, L = Poly.sideLengths(v), A = Poly.interiorAngles(v);
     var c = Poly.centroid(v);
-    // EQUAL SIDES CARRY THE SAME MARK, as a geometry book draws them: one
-    // small tick across each side of one length, two across each side of
-    // another, so equality is seen without reading a number. Only the sides
-    // whose length has been revealed take part; a side with no equal gets
-    // no mark.
-    var shown = [], groups = {}, order = [];
-    for (var si = 0; si < n; si++) {
-      if (!(st.measure.sides && (st.measure.sides === 'all' || st.measure.sides.indexOf(si) >= 0))) continue;
-      var key = String(Math.round(L[si] / 30 * 2) / 2);
-      if (!groups[key]) { groups[key] = []; order.push(key); }
-      groups[key].push(si); shown.push(si);
-    }
-    var ticksOf = {}, rank = 0;
-    order.forEach(function (key) { if (groups[key].length >= 2) { rank++; groups[key].forEach(function (si) { ticksOf[si] = Math.min(3, rank); }); } });
+    var has = function (set, i) { return !!set && (set === 'all' || set.indexOf(i) >= 0); };
+    var listOf = function (set) { var o = []; for (var k = 0; k < n; k++) if (has(set, k)) o.push(k); return o; };
+    var sides = listOf(st.measure.sides), angles = listOf(st.measure.angles);
+    var sMark = marksBy(L, sides, 15), aMark = marksBy(A, angles, 3);   // half a centimetre, three degrees
+    var measuringAngles = !!st.measure.angles;
+    var sideText  = !measuringAngles && sMark.groups <= 1;
+    var sideTicks = sides.length === n;
+    var angleText = aMark.groups <= 1;
+
     for (var i = 0; i < n; i++) {
-      if (st.measure.sides && (st.measure.sides === 'all' || st.measure.sides.indexOf(i) >= 0)) {
+      if (has(st.measure.sides, i)) {
         var a = v[i], b = v[(i + 1) % n];
         var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
         var dx = mx - c.x, dy = my - c.y, len = Math.hypot(dx, dy) || 1;
-        // AN ICE TAG, SET OFF BY ITS OWN SIZE. The same plate as the name tag;
-        // its distance from the side is what keeps its near corner off the
-        // stroke — a wide plate beside a steep side needs more room than a
-        // plate under a flat one — so nothing touches and nothing crowds.
-        var ux = dx / len, uy = dy / len, TW = 66, TH = 30;
-        var off = 10 + Math.abs(ux) * (TW / 2) + Math.abs(uy) * (TH / 2);
-        var lx = mx + ux * off, ly = my + uy * off;
-        var t = mk('g', { 'class': 'meas' }, g);
-        mk('rect', { x: lx - TW / 2, y: ly - TH / 2, width: TW, height: TH, rx: 10, fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 2.5 }, t);
-        mk('text', { x: lx, y: ly + 6, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 800, fill: '#0f3f8f', text: (L[i] / 30).toFixed(0) + ' cm' }, t);
-        if (ticksOf[i]) {
+        var ux = dx / len, uy = dy / len;
+        var t = mk('g', { 'class': 'meas', 'data-side': i }, g);
+        if (sideText) {
+          // AN ICE TAG, SET OFF BY ITS OWN SIZE. The same plate as the name
+          // tag; its distance from the side is what keeps its near corner off
+          // the stroke — a wide plate beside a steep side needs more room
+          // than a plate under a flat one — so nothing touches and nothing
+          // crowds.
+          var TW = 66, TH = 30;
+          var off = 10 + Math.abs(ux) * (TW / 2) + Math.abs(uy) * (TH / 2);
+          var lx = mx + ux * off, ly = my + uy * off;
+          mk('rect', { x: lx - TW / 2, y: ly - TH / 2, width: TW, height: TH, rx: 10, fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 2.5 }, t);
+          mk('text', { x: lx, y: ly + 6, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 800, fill: '#0f3f8f', text: (L[i] / 30).toFixed(0) + ' cm' }, t);
+        }
+        if (sideTicks) {
           // the ticks sit across the side at its middle, spaced along it
-          var tdx = (b.x - a.x) / (Math.hypot(b.x - a.x, b.y - a.y) || 1), tdy = (b.y - a.y) / (Math.hypot(b.x - a.x, b.y - a.y) || 1);
-          var tnx = -tdy, tny = tdx, TL = 9, TS = 7, cnt = ticksOf[i];
+          var sl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+          var tdx = (b.x - a.x) / sl, tdy = (b.y - a.y) / sl;
+          var tnx = -tdy, tny = tdx, TL = 9, TS = 7, cnt = sMark.mark[i] || 1;
           for (var k = 0; k < cnt; k++) {
             var o = (k - (cnt - 1) / 2) * TS, cx2 = mx + tdx * o, cy2 = my + tdy * o;
-            litLine(t, { x1: cx2 - tnx * TL, y1: cy2 - tny * TL, x2: cx2 + tnx * TL, y2: cy2 + tny * TL, 'stroke-width': 3.5, 'stroke-linecap': 'round' }, { warm: true });
+            litLine(t, { x1: cx2 - tnx * TL, y1: cy2 - tny * TL, x2: cx2 + tnx * TL, y2: cy2 + tny * TL, 'stroke-width': 3, 'stroke-linecap': 'round' }, { warm: true });
           }
         }
       }
-      if (st.measure.angles && (st.measure.angles === 'all' || st.measure.angles.indexOf(i) >= 0)) {
-        drawArc(g, i, A[i]);
-      }
+      if (has(st.measure.angles, i)) drawArc(g, i, angleText ? A[i] : null, aMark.groups > 1 ? (aMark.mark[i] || 1) : 1);
     }
   }
-
-  function drawArc(g, i, deg) {
+  function drawArc(g, i, deg, rings) {
+    // INTO THE MEASUREMENTS GROUP. This said `ag` — itself, before it
+    // existed — so every arc and every number was parented to undefined and
+    // landed in the ui layer instead, where renderPoly() never clears them.
+    // Dragging a corner stacked a fresh set of five numbers on the old ones
+    // every frame: the "119°93°" smear over a corner of the distort screen.
+    var ag = mk('g', { 'data-angle': i }, g);   // the arc and its number, one thing to pop in
     var v = st.verts, n = v.length, p = v[i], q = v[(i + n - 1) % n], s = v[(i + 1) % n];
-    var a1 = Math.atan2(q.y - p.y, q.x - p.x), a2 = Math.atan2(s.y - p.y, s.x - p.x), r = 26;
+    var a1 = Math.atan2(q.y - p.y, q.x - p.x), a2 = Math.atan2(s.y - p.y, s.x - p.x), r = 30;
     var sweep = ((a2 - a1) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
     // THE ANGLE IS DRAWN THE WAY A GEOMETRY BOOK DRAWS IT: a line, not a
     // fill. A gold arc inside the corner, from one side to the other, and
@@ -1243,7 +1359,18 @@
       var rs = r * 0.7, ux = Math.cos(a1) * rs, uy = Math.sin(a1) * rs, wx = Math.cos(a2) * rs, wy = Math.sin(a2) * rs;
       d = 'M' + (p.x + ux) + ' ' + (p.y + uy) + ' L' + (p.x + ux + wx) + ' ' + (p.y + uy + wy) + ' L' + (p.x + wx) + ' ' + (p.y + wy);
     }
-    var w = mk('path', { d: d, fill: 'none', stroke: HI.line, 'stroke-width': 3.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', style: litGlow(HI.lit) }, g);
+    var w = mk('path', { d: d, fill: 'none', stroke: HI.line, 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', style: litGlow(HI.lit) }, ag);
+    // EQUAL ANGLES, EQUAL ARCS. A second and a third ring nested inside the
+    // first is how a figure says "this corner is not the same size as that
+    // one" without printing a single degree.
+    for (var ri = 1; ri < (rings || 1) && deg == null; ri++) {
+      var rr = r - ri * 7; if (rr < 8) break;
+      var qx1 = p.x + Math.cos(a1) * rr, qy1 = p.y + Math.sin(a1) * rr, qx2 = p.x + Math.cos(a2) * rr, qy2 = p.y + Math.sin(a2) * rr;
+      var dd = inside
+        ? 'M' + qx1 + ' ' + qy1 + ' A' + rr + ' ' + rr + ' 0 ' + large + ' 1 ' + qx2 + ' ' + qy2
+        : 'M' + qx1 + ' ' + qy1 + ' A' + rr + ' ' + rr + ' 0 ' + (1 - large) + ' 0 ' + qx2 + ' ' + qy2;
+      mk('path', { d: dd, fill: 'none', stroke: HI.line, 'stroke-width': 3, 'stroke-linecap': 'round', style: litGlow(HI.lit) }, ag);
+    }
     // THE NUMBER SITS INSIDE THE SHAPE, on the corner's bisector, past the
     // wedge — degrees inside, centimetres outside, and neither on the other.
     if (deg != null) {
@@ -1251,7 +1378,7 @@
       var tx = p.x + bx / bl * (r + 24), ty = p.y + by / bl * (r + 24);
       mk('text', { x: tx, y: ty + 6, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 800, fill: '#f2fdff',
                    stroke: '#123a7a', 'stroke-width': 3.5, 'paint-order': 'stroke', 'stroke-linejoin': 'round',
-                   text: Math.round(deg) + '°' }, g);
+                   text: Math.round(deg) + '°' }, ag);
     }
     return w;
   }
@@ -1299,7 +1426,15 @@
       default: return Poly.regular(5, r, cx, cy);
     }
   }
-  var COLORS = { triangle: '#a97bff', chevron: '#4fd693', pentagon: '#ff7a91', 'l-shape': '#ffc93c', hexagon: '#45bdff', star: '#ff9f5a', octagon: '#4c8fe8', square: '#4fd693', rhombus: '#ff7a91', 'stretched-hexagon': '#ff9f5a', 'irregular-quad': '#45bdff', 'equilateral-concave-hexagon': '#a97bff' };
+  // NO TWO SHAPES ON ONE SCREEN SHARE A COLOUR. The square and the chevron
+  // were both green and the rhombus and pentagon both pink, so a sorting
+  // tray showed pairs that read as one kind before the child had looked at
+  // their corners. Colour never marks the category — the sort is judged
+  // by Poly.classify, and a green shape may land in either bin — it only
+  // tells the cards apart.
+  var COLORS = { triangle: '#a97bff', square: '#2fd6c8', pentagon: '#ff7a91', hexagon: '#45bdff', octagon: '#4c8fe8',
+                 rhombus: '#f06cff', chevron: '#35b06a', 'l-shape': '#ffc93c', star: '#ff9f5a', 'stretched-hexagon': '#6f8cff',
+                 'irregular-quad': '#ffb27a', 'equilateral-concave-hexagon': '#a97bff' };
 
   function drawShape(name, r, cx, cy, parent) {
     var g = mk('g', { 'class': 'shape', 'data-shape': name }, parent);
@@ -1415,7 +1550,7 @@
           });
         }
         if (cfg.dent != null) mk('circle', { cx: P.verts[cfg.dent].x, cy: P.verts[cfg.dent].y, r: 9, fill: HI.fill, stroke: HI.edge, 'stroke-width': 2.5 }, pg);
-        if (cfg.caption) nameTag(layers.ui, pnl.x + pnl.w / 2, pnl.y + pnl.h + 30, cfg.caption);
+        if (cfg.caption) nameTag(layers.ui, pnl.x + pnl.w / 2, pnl.y + pnl.h + 38, cfg.caption, cfg.tone);
         st.compare[s[0]] = { panel: pnl, g: g, pg: pg, verts: P.verts, tone: cfg.tone };
       });
     },
@@ -1691,9 +1826,41 @@
    * formed reads as the same card changing shape rather than as a new
    * question arriving.
    */
+  /**
+   * THE ONES STILL TO COME, stacked behind the card in hand.
+   *
+   * One card alone on the ice says nothing about how long this goes on for;
+   * a child who cannot see the pile does not know whether they are near the
+   * end. Two blanks behind it, fanned left and right and a little smaller,
+   * say "there are more" without saying which shapes — the answer stays in
+   * the card that is turned over. The fan shrinks to one, then to none, so
+   * the last question looks like the last question.
+   */
+  function dealStack() {
+    var sw = st.swipe; if (!sw) return;
+    if (sw.stackG && sw.stackG.parentNode) sw.stackG.parentNode.removeChild(sw.stackG);
+    sw.stackG = null;
+    var left = sw.items.length - sw.i - 1;
+    if (left <= 0) return;
+    var g = mk('g', { 'class': 'swipe-stack', 'pointer-events': 'none' }, layers.ui);
+    sw.stackG = g;
+    // drawn far to near, so the nearest blank is on top of the one behind it
+    for (var k = Math.min(2, left); k >= 1; k--) {
+      // The pile has to stay in the corridor between the two zones: they
+      // run to x 374 and from x 626, and the card is 192 wide at x 500, so a
+      // blank may lean about twenty-five pixels out before its corner is over
+      // a zone the child is meant to be dropping into.
+      var dxk = (k === 1 ? -1 : 1) * (12 + k * 7), scale = 1 - k * 0.06, rot = (k === 1 ? -1 : 1) * (3 + k * 2);
+      var c = mk('g', { opacity: String(0.92 - k * 0.16) }, g);
+      optionCard(c, 96, null);   // a blank card: the pile, not the answers
+      c.setAttribute('transform', 'translate(' + (SWIPE_HOME.x + dxk) + ',' + (SWIPE_HOME.y + 10 * k) + ') rotate(' + rot + ') scale(' + scale.toFixed(3) + ')');
+    }
+  }
+
   function dealCard() {
     var sw = st.swipe;
     if (!sw || sw.i >= sw.items.length) return null;
+    dealStack();
     // WHERE IT CAN GO. Both zones breathe while a card is waiting — the
     // hint is the destination, never the answer — and stop when it lands.
     Object.keys(sw.zones).forEach(function (k) { if (sw.zones[k].classList) sw.zones[k].classList.add('hint'); });
@@ -1713,6 +1880,54 @@
                 { duration: 300, easing: 'cubic-bezier(.22,1,.36,1)' });
     }
     return g;
+  }
+
+  /**
+   * WHY THAT WAS NOT IT — shown on the shape, in one line.
+   *
+   * A wrong swipe used to be a shake and a "not quite", which tells a child
+   * they are wrong and nothing else. The marks the lesson taught two screens
+   * ago are put straight onto the card instead: equal sides take the same
+   * tick, so a regular shape flowers into five identical marks and an
+   * irregular one into a two-and-three. It is on the screen for a second
+   * and a half and then gone — long enough to see, too short to sit through.
+   */
+  function whyShape(card) {
+    if (!card || !card._verts || reduced()) return null;
+    var v = card._verts, n = v.length, L = Poly.sideLengths(v);
+    var idxs = []; for (var i = 0; i < n; i++) idxs.push(i);
+    var m = marksBy(L, idxs, 6);
+    var g = mk('g', { 'class': 'why', 'pointer-events': 'none' }, card);
+    for (var i2 = 0; i2 < n; i2++) {
+      var a = v[i2], b = v[(i2 + 1) % n];
+      var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, sl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      var tdx = (b.x - a.x) / sl, tdy = (b.y - a.y) / sl, tnx = -tdy, tny = tdx;
+      var cnt = m.mark[i2] || 1;
+      for (var k = 0; k < cnt; k++) {
+        var o = (k - (cnt - 1) / 2) * 6, cx = mx + tdx * o, cy = my + tdy * o;
+        litLine(g, { x1: cx - tnx * 7, y1: cy - tny * 7, x2: cx + tnx * 7, y2: cy + tny * 7,
+                     'stroke-width': 3, 'stroke-linecap': 'round' }, { warm: true });
+      }
+    }
+    if (g.animate) g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, fill: 'backwards' });
+    // AND THE CARD COMES FORWARD WHILE IT EXPLAINS. Five small gold ticks on
+    // a card the size of a beer mat is not an explanation a seven-year-old
+    // will look at; the card lifts toward them for as long as the marks are
+    // up, which is the difference between showing and being seen.
+    if (card.animate) {
+      card.style.transformBox = 'fill-box'; card.style.transformOrigin = 'center';
+      try {
+        card.animate([{ scale: '1' }, { scale: '1.14', offset: 0.12 }, { scale: '1.14', offset: 0.82 }, { scale: '1' }],
+                     { duration: 1900, easing: 'cubic-bezier(.3,1.2,.4,1)' });
+      } catch (x) {}
+    }
+    later(1500, function () {
+      if (!g.parentNode) return;
+      var fade = g.animate ? g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' }) : null;
+      var go = function () { if (g.parentNode) g.parentNode.removeChild(g); };
+      if (fade && fade.finished) fade.finished.then(go, go); else go();
+    });
+    return m.groups <= 1;
   }
 
   /** Lean a zone toward the child while they are dragging at it. */
@@ -1988,14 +2203,34 @@
    * the edge by the depth of a lip it did not need.
    */
   /** A NAME TAG under a card: the ice plate the shape's own label uses, sized to its words. */
-  function nameTag(parent, x, y, text) {
+  /**
+   * THE NAME UNDER A CARD, as a thing in the game rather than a caption.
+   *
+   * It was a thin white plate with blue lettering: correct, legible, and
+   * indistinguishable from a label printed under a slide. It is a pill now —
+   * the same one the concept badges wear, in the colour of the word it
+   * carries, sitting on its own shadow with a bright inner rim. A tone
+   * gives it the concept's colours; without one it is warm ice.
+   */
+  function nameTag(parent, x, y, text, tone) {
+    var c = CONCEPT[tone] || null;
     var g = mk('g', { 'class': 'badge' }, parent);
-    var t = mk('text', { x: x, y: y + 8, 'text-anchor': 'middle', 'font-size': 24, 'font-weight': 800, fill: '#0f3f8f', text: text }, g);
-    var w = 0; try { w = t.getComputedTextLength ? t.getComputedTextLength() : 0; } catch (e) { w = 0; }
-    if (!w) w = text.length * 13;
-    var plate = mk('rect', { x: x - w / 2 - 18, y: y - 20, width: w + 36, height: 40, rx: 11, fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 3 }, g);
-    g.insertBefore(plate, t);
-    g._rect = { x: x - w / 2 - 18, y: y - 20, w: w + 36, h: 40 };
+    var H0 = 50;
+    var probe = mk('text', { x: x, y: y + 9, 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 900,
+                             fill: c ? c.ink : '#0b3f7a', text: text }, g);
+    var w = 0; try { w = probe.getComputedTextLength ? probe.getComputedTextLength() : 0; } catch (e) { w = 0; }
+    if (!w) w = text.length * 14;
+    var bw = w + 52, bx = x - bw / 2, by = y - H0 / 2;
+    var r = H0 * 0.44;
+    // the shadow it stands on, the face, and a bright rim inside the edge
+    var shade0 = mk('rect', { x: bx, y: by + 7, width: bw, height: H0, rx: r, fill: c ? c.deep : '#2f7fc4', opacity: 0.32 }, g);
+    var face = mk('rect', { x: bx, y: by, width: bw, height: H0, rx: r,
+                            fill: c ? c.wash : '#f3fcff', stroke: c ? c.deep : HI.edge, 'stroke-width': 4 }, g);
+    var rim = mk('rect', { x: bx + 4, y: by + 4, width: bw - 8, height: H0 - 8, rx: r - 3,
+                           fill: 'none', stroke: '#ffffff', 'stroke-width': 2.5, opacity: 0.8 }, g);
+    g.insertBefore(rim, probe); g.insertBefore(face, rim); g.insertBefore(shade0, face);
+    g._text = probe;
+    g._rect = { x: bx, y: by, w: bw, h: H0 };
     return g;
   }
 
@@ -2706,7 +2941,13 @@
     if (ref === 'polygon.diagonals') return st.diagG ? [st.diagG] : [];
     if (ref.indexOf('polygon.vertex.') === 0) { var i = +ref.split('.')[2]; return knobOf(i) ? [knobOf(i)] : []; }
     if (ref === 'segment.endpoint') return st.segment && knobOf(st.segment[1]) ? [knobOf(st.segment[1])] : [];
-    if (ref === 'diagonal.endpoints') return st.segment && knobOf(st.segment[0]) ? [knobOf(st.segment[0]), knobOf(st.segment[1])] : [];
+    if (ref === 'diagonal.endpoints') {
+      // while it is still the live segment, that; afterwards the last
+      // diagonal drawn — which is what "this diagonal" means on the screen
+      // that names it, and it used to resolve to nothing at all there.
+      var dd = st.segment || ((st.diagonals || []).length ? st.diagonals[st.diagonals.length - 1] : null);
+      return dd && knobOf(dd[0]) ? [knobOf(dd[0]), knobOf(dd[1])] : [];
+    }
     if (ref === 'picked') return st.picked != null && knobOf(st.picked) ? [knobOf(st.picked)] : [];
     if (ref === 'grid') return st.cards || [];
     if (ref.indexOf('compare.') === 0) { var c = st.compare && st.compare[ref.split('.')[1]]; return c ? [c.g, c.pg] : []; }
@@ -2761,6 +3002,7 @@
    * between a child and the vertex they are reaching for.
    */
   function halo(ref, color, mode) {
+    void color;   // the theme decides every colour on the stage; kept for the API
     if (!svg || reduced()) return 0;
     var els = targets(ref).filter(Boolean);
     if (!els.length) return 0;
@@ -2768,6 +3010,7 @@
     // shape. It is the wrong mark for a set of lines: the bounding box of a
     // pentagon's diagonals is the pentagon, so the ring says "the shape"
     // exactly when the word said "the diagonals". Trace the strokes instead.
+    if (mode === 'none') return 0;
     if (mode === 'trace') return trace(els, color);
     var drawn = 0;
     els.slice(0, 12).forEach(function (e, i) {
@@ -2782,38 +3025,11 @@
         drawn++;
         return;
       }
-      var b;
-      try { b = e.getBBox(); } catch (x) { return; }
-      if (!b || (!b.width && !b.height)) return;
-      var pad = Math.max(9, Math.min(22, Math.max(b.width, b.height) * 0.12));
-      // FROST, NOT THE TERM'S INK. The ring used to take the word's colour
-      // — brown for a vertex, green for a side — and sat on the ice like a
-      // rubber band from another game. It is now a ring of frost over a
-      // deep-water under-ring, which reads on the blue shape and on the pale
-      // glass alike, and belongs to this place. (The colour argument is kept
-      // for the API; the theme decides.)
-      void color;
-      var rr = Math.min(28, (Math.min(b.width, b.height) + pad * 2) / 2);
-      var box = { x: b.x - pad, y: b.y - pad, width: b.width + pad * 2, height: b.height + pad * 2, rx: rr, fill: 'none', 'class': 'dc-halo' };
-      var under = mk('rect', Object.assign({}, box, { stroke: HI.edge, 'stroke-width': 8, opacity: 0 }), layers.fx);
-      var ring = mk('rect', Object.assign({}, box, { stroke: '#f2fdff', 'stroke-width': 4, opacity: 0 }), layers.fx);
-      drawn++;
-      if (!ring.animate) { ring.remove(); under.remove(); return; }
-      var frames = [
-        { opacity: 0, strokeWidth: 10 },
-        { opacity: 0.95, strokeWidth: 4, offset: 0.22 },
-        { opacity: 0.95, strokeWidth: 4, offset: 0.66 },
-        { opacity: 0, strokeWidth: 3 }
-      ];
-      var a = ring.animate(frames, { duration: 1500, delay: i * 70, easing: 'ease-out', fill: 'forwards' });
-      under.animate([
-        { opacity: 0, strokeWidth: 14 },
-        { opacity: 0.6, strokeWidth: 8, offset: 0.22 },
-        { opacity: 0.6, strokeWidth: 8, offset: 0.66 },
-        { opacity: 0, strokeWidth: 7 }
-      ], { duration: 1500, delay: i * 70, easing: 'ease-out', fill: 'forwards' });
-      var gone = function () { ring.remove(); under.remove(); };
-      a.finished.then(gone, gone);
+      // NO RING ROUND A SHAPE OR A CARD. A rounded frame used to pop around
+      // the polygon's box when a word for the whole shape was said, and it
+      // read as a second card drawn over the first. A word for the whole
+      // shape leaves the picture as it is; the knobs above are the only
+      // thing that moves for a term.
     });
     return drawn;
   }
@@ -2910,12 +3126,21 @@
   function dragVertex(i, moveFn, upFn, ctx) { return dragVertices([i], moveFn, upFn, ctx); }
 
   /**
-   * HOW DEEP THE DENT IS. The distance of vertex i inside the line between
-   * its two neighbours, as a fraction of that line — positive once it has
-   * crossed toward the shape's middle. A pentagon becomes concave the
-   * instant its vertex crosses that line, and at that instant it looks
-   * like a trapezium with a knob on its top edge; the child has to see a
-   * notch, so the concave activities ask for a depth, not a crossing.
+   * HOW DEEP THE DENT IS — as a fraction of the shape's own radius.
+   *
+   * The distance of vertex i inside the line between its two neighbours,
+   * positive once it has crossed toward the middle. A polygon becomes
+   * concave the instant its vertex crosses that line, and at that instant
+   * it still looks convex with a knob sitting on a flat edge — which is
+   * what a live "Concave" badge over an apparently flat top was reporting.
+   * So the concave activities ask for a depth, not a crossing.
+   *
+   * Measured against the mean radius, NOT against the neighbours' chord.
+   * Against the chord the same-looking notch scores differently on every
+   * shape — a pentagon's vertex sits 0.69 radii inside its neighbours'
+   * chord and a hexagon's only 0.5 — so one threshold was unreachable on
+   * the pentagon and far too easy on the hexagon. A fraction of the radius
+   * is a depth in pixels on the screen, which is the thing being judged.
    */
   function dentDepth(v, i) {
     var n = v.length, a = v[(i + n - 1) % n], b = v[(i + 1) % n], p = v[i];
@@ -2923,8 +3148,16 @@
     var c = Poly.centroid(v);
     var side = (dx * (c.y - a.y) - dy * (c.x - a.x)) >= 0 ? 1 : -1;
     var d = (dx * (p.y - a.y) - dy * (p.x - a.x)) / len;
-    return d * side / len;
+    var R = 0;
+    for (var k = 0; k < n; k++) R += Math.hypot(v[k].x - c.x, v[k].y - c.y);
+    R = (R / n) || 1;
+    return d * side / R;
   }
+  // HOW DEEP BEFORE IT COUNTS. Fifteen percent of the shape's radius — on a
+  // card-sized polygon a notch of about twenty-five pixels, which nobody
+  // can mistake for a straight edge. The answer and the live badge both
+  // wait for it, so the word and the picture always agree.
+  var DENT_MIN = 0.15;
 
   var INTERACT = {
 
@@ -2959,7 +3192,9 @@
       return new Promise(function (resolve) {
         if (global.Input) Input.mode('polygon');
         st.showVerts = true; st.touchVerts = true; renderPoly();
-        if (st.verts && st.verts[0]) tapGhost(st.verts[0].x, st.verts[0].y);
+        // all of them: any corner is a vertex, and breathing one would have
+        // been an answer rather than an invitation
+        hintLoop(function () { return pulseHint((st.knobEls || []).slice()); });
         st.vertEls.forEach(function (c, i) {
           c.style.cursor = 'pointer';
           on(c, 'pointerdown', function (e) {
@@ -2979,10 +3214,13 @@
         // a jump, a restart — the picked vertex and its neighbour stand in.
         if (!st.segment) { var p0 = st.picked == null ? 0 : st.picked; st.segment = [p0, (p0 + 1) % st.n]; renderPoly(); }
         var from = st.segment[0], moving = st.segment[1];
-        var ghostLine = mk('line', { x1: st.verts[from].x, y1: st.verts[from].y, x2: st.verts[moving].x, y2: st.verts[moving].y, stroke: HI.line, 'stroke-width': 7, 'stroke-linecap': 'round', opacity: 0 }, layers.fx);
+        var ghostLine = mk('line', { x1: st.verts[from].x, y1: st.verts[from].y, x2: st.verts[moving].x, y2: st.verts[moving].y, stroke: HI.line, 'stroke-width': 5, 'stroke-linecap': 'round', opacity: 0 }, layers.fx);
         // the gesture: the endpoint slides to a vertex it may be dropped on
-        var gt = Poly.diagonalsFrom(from, st.n).filter(function (j) { return j !== moving; })[0];
-        if (gt != null) gestureGhost(st.verts[moving], st.verts[gt], { r: 11 });
+        hintLoop(function () {
+          if (!st.segment) return null;
+          var gt = Poly.diagonalsFrom(from, st.n).filter(function (j) { return j !== moving; })[0];
+          return gt != null ? gestureGhost(st.verts[moving], st.verts[gt], { r: 11 }) : null;
+        });
         dragVertex(moving, function (p) {
           ghostLine.setAttribute('opacity', 1); ghostLine.setAttribute('x2', p.x); ghostLine.setAttribute('y2', p.y);
           if (st.segLine) st.segLine.setAttribute('opacity', .25);
@@ -2993,7 +3231,9 @@
           var ok = !Poly.isAdjacent(from, j, st.n);
           endInteraction();
           if (ok) {
-            st.segment = [from, j]; st.diagonals = st.diagonals || []; st.diagonals.push(Object.assign([Math.min(from, j), Math.max(from, j)], { solid: true }));
+            // the side stays where it was; the drag has made a second line
+            st.sideMark = [from, moving];
+            st.diagonals = st.diagonals || []; st.diagonals.push(Object.assign([Math.min(from, j), Math.max(from, j)], { solid: true }));
             st.segment = null; st.vcolor = {}; st.vcolor[from] = HI.fill; st.vcolor[j] = HI.fill; renderPoly(); st.lastEl = st.polyG;
             resolve({ result: 'correct', vertex: j });
           } else { st.lastEl = st.vertEls[j]; renderPoly(); resolve({ result: 'wrong', vertex: j }); }
@@ -3012,28 +3252,67 @@
         if (spec.vertex === 'any') { st.showVerts = true; st.touchVerts = true; }
         renderPoly();
         var idxs = spec.vertex === 'any' ? st.verts.map(function (_, i) { return i; }) : [spec.vertex];
-        var start = null, done = false;
+        var start = null, done = false, held = -1, grabAt = null;
         if (spec.live === 'diagonals') st.highlightOutside = true;
         // the gesture: from the vertex, inward toward the middle to make a
         // dent, or out along its own line to stretch the shape
-        var gi = idxs[0], gv = st.verts[gi], gc = Poly.centroid(st.verts);
-        var glen = Math.hypot(gc.x - gv.x, gc.y - gv.y) || 1, gdir = spec.until === 'concave' ? 1 : -0.55;
-        gestureGhost(gv, { x: gv.x + (gc.x - gv.x) / glen * 78 * gdir, y: gv.y + (gc.y - gv.y) / glen * 78 * gdir }, { r: 11 });
+        hintLoop(function () {
+          if (done) return null;
+          var gi = idxs[0], gv = st.verts[gi], gc = Poly.centroid(st.verts);
+          var glen = Math.hypot(gc.x - gv.x, gc.y - gv.y) || 1;
+          // THE GHOST SHOWS THE WHOLE MOVE. A fixed 78px hop was shorter than
+          // the drag the screen accepts — it taught a gesture that fails —
+          // so the dent ghost goes most of the way to the middle, which is
+          // what making a notch actually takes.
+          var to = spec.until === 'concave'
+            ? { x: gv.x + (gc.x - gv.x) * 0.9, y: gv.y + (gc.y - gv.y) * 0.9 }
+            : { x: gv.x - (gc.x - gv.x) / glen * 78 * 0.55, y: gv.y - (gc.y - gv.y) / glen * 78 * 0.55 };
+          return gestureGhost(gv, to, { r: 11 });
+        });
+        // WHAT THE DRAG IS ASKED TO MAKE, judged from the shape as it stands
+        var judge = function (i) {
+          var np = st.verts[i];
+          return spec.until === 'concave' ? (Poly.classify(st.verts).concave && dentDepth(st.verts, i) >= DENT_MIN)
+               : spec.until === 'irregular' ? (!Poly.isRegular(st.verts) && !!start && Math.hypot(np.x - start.x, np.y - start.y) >= (spec.minMove || 0))
+               : false;
+        };
+        // a single named vertex wears its knob from the start; when any may
+        // be taken they all show as handles and the one in hand lights on touch
+        if (spec.vertex !== 'any') {
+          idxs.forEach(function (i) { st.vcolor = st.vcolor || {}; if (!st.vcolor[i]) st.vcolor[i] = HI.fill; });
+          renderPoly();
+        }
         dragVertices(idxs, function (p, i) {
             if (done) return;
-            if (!start) start = { x: st.verts[i].x, y: st.verts[i].y };
+            if (held !== i) {
+              // TAKEN. Where this drag began, for the verdict on release, and
+              // the point in hand lit, so the child sees which one they hold.
+              held = i; grabAt = { x: st.verts[i].x, y: st.verts[i].y };
+              if (!start) start = grabAt;
+              st.vcolor = st.vcolor || {}; st.vcolor[i] = HI.fill;
+              var hk = knobOf(i);
+              if (hk) { hk.setAttribute('fill', HI.fill); hk.setAttribute('stroke', shade(HI.fill, -0.45)); hk.setAttribute('stroke-width', 3); hk.setAttribute('r', 10); }
+            }
             var np = Poly.clampSimple(st.verts, i, p);
             st.verts[i] = np;
             updatePoly();
             if (spec.live === 'badge' && st.liveBadge) {
-              var c = Poly.classify(st.verts);
-              st.liveBadge._text.textContent = c.concave ? 'Concave' : 'Convex';
-              if (st.liveBadge._retint) st.liveBadge._retint(c.concave ? 'concave' : 'convex');
+              // the readout flips when the dent is one a child can SEE — the
+              // same depth the answer is judged by. A shape concave by a hair
+              // that still reads convex must not be called concave.
+              var cc = Poly.classify(st.verts).concave && dentDepth(st.verts, i) >= DENT_MIN;
+              st.liveBadge._text.textContent = cc ? 'Concave' : 'Convex';
+              if (st.liveBadge._retint) st.liveBadge._retint(cc ? 'concave' : 'convex');
             }
-            var reached = spec.until === 'concave' ? (Poly.classify(st.verts).concave && dentDepth(st.verts, i) >= 0.05)
-                        : spec.until === 'irregular' ? (!Poly.isRegular(st.verts) && Math.hypot(np.x - start.x, np.y - start.y) >= (spec.minMove || 0))
-                        : false;
-            if (reached) {
+          }, function (p, i) {
+            // JUDGED ON RELEASE. The vertex stays where the finger let go.
+            // If the shape has become what was asked, that is the answer;
+            // if not, he says so, the knob shakes, and the child tries again
+            // from where they left it. A touch that hardly moved is not a
+            // try and gets no verdict.
+            if (done) return;
+            var from = grabAt || st.verts[i]; held = -1; grabAt = null;
+            if (judge(i)) {
               done = true; st.lastEl = st.polyG; endInteraction();
               // the vertex they moved keeps its knob: the dent IS a vertex
               st.vcolor = {}; st.vcolor[i] = HI.fill;
@@ -3041,8 +3320,15 @@
               // and the one that went outside is the whole picture
               if (spec.live === 'diagonals') st.onlyOutside = true;
               renderPoly(); resolve({ result: 'correct', vertex: i });
+              return;
             }
-          }, function () {}, ctx);
+            var moved = Math.hypot(st.verts[i].x - from.x, st.verts[i].y - from.y);
+            if (moved < 6) return;
+            st.lastEl = knobOf(i) || st.polyG;
+            juice('refuse', knobOf(i) || st.polyG);
+            // a dent too shallow to see gets the reason, not a bare "no"
+            onTap('wrong', spec.until === 'concave' ? { t: 'Pull it in more!', vo: 'fb11' } : null);
+          }, ctx);
       });
     },
 
@@ -3050,6 +3336,11 @@
       return new Promise(function (resolve) {
         if (global.Input) Input.mode('polygon');
         (st.choiceEls || []).forEach(function (b) {
+          // THE HAND COMES BACK FOR A RETRY. endInteraction() strips every
+          // cursor when an answer lands; the retry input arms the same
+          // buttons again, and they must look live again — a child reads a
+          // button with no hand and no change as a button that is finished.
+          b.style.cursor = 'pointer';
           on(b, 'pointerdown', function (e) {
             e.preventDefault(); st.lastEl = b;
             var ok = b.getAttribute('data-label') === spec.correct;
@@ -3057,6 +3348,12 @@
             // a fill on the first child recoloured the three-pixel shadow
             // under the button and left the face it sits on untouched.
             if (ok && b._retint) b._retint('correct');
+            if (!ok && b._retint) {
+              // the wrong one flushes red for a moment and comes back, so
+              // the child sees which they pressed and that it is still there
+              b._retint('wrong');
+              later(650, function () { if (b._retint) b._retint('sun'); });
+            }
             endInteraction(); resolve({ result: ok ? 'correct' : 'wrong', label: b.getAttribute('data-label') });
           });
         });
@@ -3181,6 +3478,10 @@
           } else {
             sfx('wrong');
             juice('refuse', card);
+            // the marks go on the card and he names what they show
+            var same = whyShape(card);
+            onTap('wrong', same === true ? { t: 'Every side matches \u2014 regular!', vo: 'fb12' }
+                         : same === false ? { t: 'These sides are different \u2014 irregular!', vo: 'fb13' } : null);
             var z = sw.zones[answer];
             if (z && !reduced() && z.animate) {
               z.animate([{ translate: '0 0' }, { translate: '-6px 0' }, { translate: '6px 0' }, { translate: '0 0' }],
@@ -3316,9 +3617,12 @@
       return new Promise(function (resolve) {
         if (global.Input) Input.mode('polygon');
         var need = st.cards.filter(function (c) { return c._opt.correct; }).length, got = 0;
-        if (st.cards[0] && st.cards[0].getBBox) {
-          try { var cb = st.cards[0].getBBox(); tapGhost(cb.x + cb.width / 2, cb.y + cb.height / 2); } catch (e) {}
-        }
+        // EVERY card still in play, not the correct ones. The hint used to
+        // pick the first unfound answer and pulse that, which is the whole
+        // exercise given away to anyone who waited six seconds.
+        hintLoop(function () {
+          return pulseHint(st.cards.filter(function (c) { return !c._done; }));
+        });
         st.cards.forEach(function (c) {
           c.style.cursor = 'pointer';
           on(c, 'pointerdown', function (e) {
@@ -3360,10 +3664,16 @@
           });
         };
         hint();
-        if (st.verts && st.verts.length > 1) {
-          var g0 = st.verts[0], g1 = st.verts[1];
-          if (isSides) tapGhost((g0.x + g1.x) / 2, (g0.y + g1.y) / 2); else tapGhost(g0.x, g0.y);
-        }
+        hintLoop(function () {
+          if (!st.verts || st.verts.length < 2) return null;
+          var k = 0; while (k < st.verts.length && seen[k]) k++;
+          if (k >= st.verts.length) return null;
+          var g0 = st.verts[k], g1 = st.verts[(k + 1) % st.verts.length];
+          void g1;
+          // a side has no body to swell — the .edge.hint glow along the line
+          // is its pulse — so only the corners are breathed here
+          return isSides ? null : pulseHint((st.knobEls || []).filter(function (_, q) { return !seen[q]; }));
+        });
         // Delegated: renderPoly() runs after every reveal.
         on(st.polyG, 'pointerdown', function (e) {
           var t = e.target; if (!t || !t.classList || !t.classList.contains(cls)) return;
@@ -3378,6 +3688,9 @@
             if (cancelled) return;
             count++;
             st.measure[isSides ? 'sides' : 'angles'].push(i); renderPoly();
+            // the new reading pops in; the ones already there stay put
+            var fresh = st.measG && st.measG.querySelector(isSides ? '.meas[data-side="' + i + '"]' : '[data-angle="' + i + '"]');
+            if (fresh) enter(fresh, 'pop');
             st.lastEl = isSides ? st.edgeEls[i] : (knobOf(i) || st.vertEls[i]);
             hint();
             onTap('correct'); measuring = false;
@@ -3421,12 +3734,13 @@
         S.items.forEach(armItem);
         // the gesture: a ghost of the first card slides down toward the bins
         // and fades — the move, not the answer — until the child takes one
-        var first = S.items.filter(function (it) { return !it._placed; })[0];
-        if (first && S.bins && S.bins.length) {
+        hintLoop(function () {
+          var first = S.items.filter(function (it) { return !it._placed; })[0];
+          if (!first || !S.bins || !S.bins.length) return null;
           var b0 = S.bins[0]._rect, b1 = S.bins[S.bins.length - 1]._rect;
           var gapX = (b0.x + b0.w + b1.x) / 2, home = first._pos || first._home;
-          gestureGhost(home, { x: gapX, y: b0.y + 40 }, { clone: first, trail: false, duration: 2600 });
-        }
+          return gestureGhost(home, { x: gapX, y: b0.y + 40 }, { clone: first, trail: false, duration: 2600 });
+        });
         if (ctx && ctx.onCancel) ctx.onCancel(endInteraction);
       });
     },
@@ -3455,8 +3769,18 @@
       var from = spec.from === 'picked' ? (st.picked == null ? 0 : st.picked) : spec.from;
       st.picked = from; st.vcolor = {}; st.vcolor[from] = HI.fill; st.showVerts = true; st.touchVerts = true; renderPoly();
       var made = 0, active = false;
-      var rubber = mk('line', { x1: st.verts[from].x, y1: st.verts[from].y, x2: st.verts[from].x, y2: st.verts[from].y, stroke: HI.line, 'stroke-width': 7, 'stroke-linecap': 'round', opacity: 0 }, layers.fx);
+      var rubber = mk('line', { x1: st.verts[from].x, y1: st.verts[from].y, x2: st.verts[from].x, y2: st.verts[from].y, stroke: HI.line, 'stroke-width': 5, 'stroke-linecap': 'round', opacity: 0 }, layers.fx);
       function used(j) { var k = [Math.min(from, j), Math.max(from, j)].join('-'); return (st.diagonals || []).some(function (d) { return d.join('-') === k; }); }
+      // THE MOVE, SHOWN. This screen asks for a gesture the child has made
+      // once, two screens ago, and showed them nothing: a lit corner and a
+      // sentence. A ghost runs from the corner out to a corner it may be
+      // joined to, and goes again until they touch the stage. It gives no
+      // answer away — every non-adjacent corner is a diagonal, and this
+      // screen wants all of them.
+      hintLoop(function () {
+        var t = Poly.diagonalsFrom(from, st.n).filter(function (j) { return !used(j); })[0];
+        return t == null ? null : gestureGhost(st.verts[from], st.verts[t], { r: 11 });
+      });
       // Delegated: the source vertex element is rebuilt after each diagonal.
       on(st.polyG, 'pointerdown', function (e) {
         var t = e.target; if (!t || !t.classList || !t.classList.contains('vertex') || +t.getAttribute('data-i') !== from) return;

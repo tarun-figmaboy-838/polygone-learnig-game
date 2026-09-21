@@ -330,16 +330,22 @@
       instruction: null,
       originalInstruction: 'Draw another diagonal from the same vertex.',
       say: 'Look at the diagonals of this pentagon.',
-      stage: { kind: 'polygon', sides: 5, diagonals: 'all', style: 'dashed', label: { text: 'Diagonal' } },
+      // The diagonals are NOT on the screen-level stage: they arrive by
+      // their own beat, one after another, once the chapter's snow has
+      // cleared — a shape that comes up already starred shows nothing.
+      stage: { kind: 'polygon', sides: 5, label: { text: 'Diagonal' } },
       beats: [
         { instruction: null },
         { stage: { kind: 'polygon', sides: 5, enter: 'morph' } },
-        { wait: 300 },
-        { say: 'Look at the diagonals of this pentagon.', vo: 'p16' },
-        // The five diagonals draw in one after another, not all at once —
-        // a child can count them going in.
-        { stage: { diagonals: 'all', style: 'dashed', animate: 'sequential', each: 220 } },
+        // THE FIVE DRAW IN ONCE, one after another, after the chapter's snow
+        // has melted — a shape that arrives already starred shows nothing.
+        // There were two of these beats for a while, one before the line and
+        // one after it, so the whole star drew itself, paused, and drew
+        // itself again.
+        { stage: { diagonals: 'all', style: 'dashed', animate: 'sequential', each: 420, afterReveal: true } },
         { sfx: 'sparkle' },
+        { wait: 700 },
+        { say: 'Look at the diagonals of this pentagon.', vo: 'p16' },
         { swiftee: 'look', at: 'polygon' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -439,16 +445,19 @@
 
     {
       id: 'all-inside', page: 22,
-      // ABOVE, because that is where the line can go. The pair fills the
-      // middle and the Next button reserves the foot, leaving a 54px band
-      // below — a one-row bubble is 74. Standing at the bottom put him four
-      // hundred pixels from his own speech.
-      swiftee: { pos: 'top-left', size: 'small' },
+      // ON THE ICE AT THE LEFT. The pair begins at x 270, so the ground to
+      // its left is his, and the bubble sits by his head wherever he stands
+      // (game.js placeBubble). Hovering him in the corner read as floating.
+      swiftee: { pos: 'left-low', size: 'medium' },
       say: 'This one has all diagonals inside.',
       beats: [
         { instruction: null },
         { focus: 'compare.left', style: 'dim-others' },
-        { swiftee: 'point', at: 'compare.left' },
+        // He SHOWS this one rather than asking for it: 'point' is the
+        // leaning, winking 'your turn' pose, and a wink under a sentence that
+        // explains a card reads as a joke nobody made. 'look' is the same
+        // lean with his eyes on the card.
+        { swiftee: 'look', at: 'compare.left' },
         { say: 'This one has all diagonals inside.', vo: 'p22' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -478,18 +487,15 @@
 
     {
       id: 'one-outside', page: 24,
-      // ABOVE, because that is where the line can go. The pair fills the
-      // middle and the Next button reserves the foot, leaving a 54px band
-      // below — a one-row bubble is 74. Standing at the bottom put him four
-      // hundred pixels from his own speech.
-      swiftee: { pos: 'top-left', size: 'small' },
+      // On the ice at the left, like the screen before it.
+      swiftee: { pos: 'left-low', size: 'medium' },
       // FLAG: punctuation. Deck line has no full stop.
       say: 'This one has at least one diagonal outside.',
       original: 'This one has at least one diagonal outside',
       beats: [
         { instruction: null },
         { focus: 'compare.right', style: 'dim-others' },
-        { swiftee: 'point', at: 'compare.right' },
+        { swiftee: 'look', at: 'compare.right' },
         { say: 'This one has at least one diagonal outside.', vo: 'p24' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -544,10 +550,12 @@
 
     {
       id: 'sort-convex-concave', page: 27,
-      // IN THE CORRIDOR, which is where his line goes. The tray runs across
-      // the top and the bins across the bottom, so the only band tall enough
-      // for a sentence is the gap between them — and standing above the tray
-      // put him two hundred pixels from his own speech bubble.
+      // IN THE AIR, over the corridor between the tray and the bins. This is
+      // the one place on the sorting screens where flying is right and not a
+      // dodge: there is no floor here — the tray takes the top of the stage
+      // and the bins the bottom — and a bird hovering over the sorting table
+      // saying "can you sort these?" is the scene. He casts no contact
+      // shadow while he is up (swiftee.js), so nothing says he is standing.
       swiftee: { pos: 'top-left', size: 'small' },
       say: 'Can you sort these polygons as convex or concave?',
       stage: {
@@ -584,12 +592,16 @@
       // NOT polygon-top-right: that corner is inside the right-hand slab, so
       // the position cannot avoid the panel it is defined against.
       swiftee: { pos: 'peek', size: 'small', purpose: 'hint'},
-      say: 'Hmm\u2026 The sides look suspiciously alike.',
+      // THE DECK'S LINE, WHOLE. "Let's check!" is the second half of it and
+      // had been cut; without it he notices something and then says nothing
+      // about it, and the screen that follows begins in the middle of a
+      // thought. splitLine sends it to a second bubble.
+      say: 'Hmm\u2026 The sides look suspiciously alike. Let\u2019s check!',
       stage: { kind: 'polygon', sides: 5, room: 'measure' },
       beats: [
         { stage: { kind: 'polygon', sides: 5, room: 'measure', enter: 'pop' } },
         { swiftee: 'inspect' },
-        { say: 'Hmm\u2026 The sides look suspiciously alike.', vo: 'p28' },
+        { say: 'Hmm\u2026 The sides look suspiciously alike. Let\u2019s check!', vo: 'p28' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -623,10 +635,16 @@
       // angles..." while Swiftee is still concluding the SIDES check. The
       // card is held on the sides instruction until the line finishes, then
       // swapped — otherwise the child is told to do two things at once.
-      say: 'Equal sides! Now tap the angles.',
+      // THE DECK'S LINE, WHOLE. It had been squeezed to "Equal sides! Now tap
+      // the angles." — the finding and the next instruction crushed into one
+      // breath, and the question the whole screen exists to ask ("but what
+      // about the angles?") gone with it. The finding is his line; the
+      // instruction follows it on the plank, spoken, once it has been read.
+      say: 'Every side is equal. But what about the angles?',
+      original: 'Equal sides! Now tap the angles.',
       beats: [
         { swiftee: 'nod' },
-        { say: 'Equal sides! Now tap the angles.', vo: 'p30' },
+        { say: 'Every side is equal. But what about the angles?', vo: 'p30' },
         { swiftee: 'think' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -637,6 +655,10 @@
       swiftee: { pos: 'corner', size: 'tiny', purpose: 'celebrate' },
       say: 'The angles match too!',
       beats: [
+        // THE INSTRUCTION BELONGS TO THE SCREEN THAT TAKES IT. It was on the
+        // screen before, which only offers a Next button: the child was told
+        // to tap the angles on a screen where tapping an angle does nothing.
+        { instruction: 'Tap the angles to measure them.', vo: 'p31i' },
         { focus: 'polygon.vertices', style: 'pulse' },
         { swiftee: 'point', at: 'polygon.vertices' },
         // Each tap fills a green arc at that corner (as page 31 shows) and
@@ -961,14 +983,16 @@ function sceneKindAt(i) {
   return kind;
 }
 
-/* HE INSTRUCTS FROM THE ICE. On a screen with one card, or two, there is
-   empty ice at the left for him to stand on — so every line on such a
-   screen, instructions included, is his, and no plank is shown. The plank
-   is for the wide layouts (the option grid, the sorting tray and bins, the
-   swipe zones) where the floor is the lesson's. */
+/* HE INSTRUCTS FROM THE ICE — OR FROM THE AIR OVER IT. On a screen with one
+   card, or two, there is empty ice at the left for him to stand on; on the
+   sorting screens there is no floor at all and he hovers in the corridor
+   between the tray and the bins. Either way he is beside the lesson and
+   looking at it, so every line on such a screen, instructions included, is
+   his and no plank is shown. The plank is for the layouts where he is not
+   there to say it: the option grid and the swipe zones. */
 function speaksAll(i) {
   var kind = sceneKindAt(i);
-  return kind === 'polygon' || kind === 'compare' || kind === 'builder';
+  return kind === 'polygon' || kind === 'compare' || kind === 'builder' || kind === 'sort';
 }
 function wantsBuddyAt(i) {
   return wantsBuddy(SCREENS[i]) || speaksAll(i);
