@@ -14,7 +14,19 @@
  */
 (function (global) {
   'use strict';
-  var BASE = 'assets/vo/', EXT = '.mp3';
+  var BASE = 'assets/vo/';
+  // THE FORMAT THE BROWSER CAN ACTUALLY PLAY. Every clip is written twice —
+  // Vorbis in an .ogg, which Chrome, Firefox and Android take and which is
+  // about half the size, and an .mp3, which Safari and iOS are the only ones
+  // that need. Asking canPlayType once means nobody downloads the format
+  // they cannot use. Unknown answers fall back to mp3, which plays anywhere.
+  var EXT = (function () {
+    try {
+      var a = document.createElement('audio');
+      if (a.canPlayType && a.canPlayType('audio/ogg; codecs=\"vorbis\"')) return '.ogg';
+    } catch (e) {}
+    return '.mp3';
+  }());
   var current = null, known = {};   // known[id] = false once a clip has failed to load
   // THE INDEX. assets/vo/index.json lists the clips that exist; only those
   // are ever requested. Asking the server for a clip that is not there logs

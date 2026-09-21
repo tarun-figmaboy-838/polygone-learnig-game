@@ -380,6 +380,25 @@
    * an HTML overlay, not part of the SVG.
    * ------------------------------------------------------------------ */
 
+  /**
+   * KEEP THE FURNITURE ON THE ICE.
+   *
+   * The HUD, the Next button and the progress bar are pinned to the corners
+   * of the WINDOW by the stylesheet, and the lesson is a 16:9 box fitted
+   * inside it — so on a 4:3 screen Next sat ninety pixels below the bottom
+   * of the painting, on the band, looking like a browser control rather than
+   * part of the game. They are pushed in by however much the fit left over.
+   */
+  function seatFurniture() {
+    var r = stageEl && stageEl.getBoundingClientRect();
+    if (!r || !r.width) return;
+    var s = Math.min(r.width / 1000, r.height / 562);
+    var padX = Math.max(0, Math.round((r.width - 1000 * s) / 2));
+    var padY = Math.max(0, Math.round((r.height - 562 * s) / 2));
+    var g0 = document.getElementById('game');
+    if (g0) { g0.style.setProperty('--band-x', padX + 'px'); g0.style.setProperty('--band-y', padY + 'px'); }
+  }
+
   function frame() {
     // The visible 1000×562 stage box inside the container (meet-fit).
     var r = stageEl.getBoundingClientRect();
@@ -1464,6 +1483,7 @@
    * changes the scene.
    */
   function relayout() {
+    seatFurniture();
     Swiftee.relayout();
     syncPeekRim();
     // placeBubble, not fitLine: the fit was worked out when the line was set
@@ -2044,6 +2064,7 @@
 
   function finish() {
     say(null); setCard(null); showNext(false);
+    if (global.Music) Music.mood('win');   // the tune lifts for the last screen
     sayLong('Honk-tastic! ' + quest.snapshot().xp + ' XP and ' + quest.snapshot().badges.length + ' badges. You are a polygon adventurer!', 'win', 3400);
     // one burst, wide, for the finale — two from different points read as a stutter
     if (global.Juice) Juice.confetti(Stage.svg, { count: 72, spread: 2.6 });
@@ -2177,6 +2198,10 @@
       // was ignored and both landed on the same instant as one thicker pop.
       // The pop already rang on the press; this is the release on top of it.
       if (global.SFX) { SFX.unlock(); SFX.play('sparkle'); }
+      // THE TUNE COMES IN WITH THE GAME, not with the page: audio may only
+      // start on a gesture, and this is the gesture. It is quiet and it is on
+      // the music bus, so the mute button and every duck already reach it.
+      if (global.Music) Music.start();
       if (global.TitleFx) { TitleFx.pressUp(); TitleFx.press(); }
       // A beat before the curtain, so the burst is something the child sees
       // rather than something the transition eats.

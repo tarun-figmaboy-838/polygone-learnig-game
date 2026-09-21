@@ -67,7 +67,7 @@ a short pause between the sentences.
 | 44 | 35 | build-concave | `p35c` | say | Now drag a vertex inward to make it a concave pentagon. | friendly, clear |
 | 45 | 35 | build-done | `p35d` | say | Nice! You built a concave and irregular pentagon. *(two bubbles)* | a cheer, delighted |
 
-## Feedback lines (13)
+## Feedback lines (15)
 
 Spoken after the child acts: one praise the first time a screen is answered
 right, a nudge on a wrong answer (never more often than every three seconds).
@@ -86,8 +86,10 @@ Short and bright; the nudges are kind, never disappointed.
 | `fb09` | Almost! Have another go. | kind, hopeful |
 | `fb10` | Not that one. | soft, no judgement |
 | `fb11` | Pull it in more! | encouraging — the dent was too shallow to see; keep going |
-| `fb12` | Every side matches — regular! | explaining, bright; said over the ticks appearing on the card |
-| `fb13` | These sides are different — irregular! | explaining, bright; said over the ticks appearing on the card |
+| `fb12` | Every side AND every angle matches — regular! | explaining, bright; said over the marks appearing on the card |
+| `fb13` | Look — the sides are different lengths. | explaining, bright; said over the ticks appearing on the card |
+| `fb14` | Equal sides, but look at the corners! | explaining, bright; said over the arcs appearing on the card |
+| `fb15` | Drop it on a corner! | helpful, not corrective — the line was let go in open space |
 
 ## Adding clips
 

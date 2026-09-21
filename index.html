@@ -34,7 +34,18 @@
     --tail-h: 18px;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; height: 100%; background: #a9d6f4; font-family: var(--sans); color: var(--ink); overflow: hidden; }
+  html, body {
+    margin: 0; height: 100%; background: #a9d6f4; font-family: var(--sans);
+    color: var(--ink); overflow: hidden;
+    /* NOTHING HERE IS A DOCUMENT. A child dragging a finger across the ice
+       was selecting text, and a tap that landed on a text node left Chrome's
+       blinking caret standing on the snow — a black bar beside Swiftee that
+       belongs to a word processor. The stage already refused selection; the
+       page did not, and the caret is painted by whatever has focus, so both
+       have to be said here. Buttons keep their own focus ring (:focus-visible),
+       which is a ring, not a caret. */
+    user-select: none; -webkit-user-select: none; caret-color: transparent;
+  }
 
   /* THE BAND ROUND THE STAGE IS SKY, NOT PAPER.
      The lesson is drawn 16:9 and fitted inside the window without stretching,
@@ -50,7 +61,21 @@
      either side of it — the scene is the background of the whole window, not
      a panel inside it. The plank floats over the top band instead, and the
      lesson's own boxes start below it; see PANELS in stage.js. */
-  #stage { position: absolute; inset: 0; }
+  /* THE PAINTING FILLS THE WINDOW. The lesson is drawn 16:9 and fitted, so
+     on any other shape of screen there is a strip above and below it — and
+     that strip was flat colour, which turned the game into a picture pasted
+     on a page: a small scene with the buttons hanging off it over plain
+     blue. This is the same backdrop, scaled to COVER whatever shape the
+     window is and thrown out of focus, so the band is the same place seen
+     softly rather than an edge. It is behind everything and never moves. */
+  #backdrop {
+    position: absolute; inset: -4%;
+    background: url("assets/bg/ice-vista.png") center/cover no-repeat, #7fc9fb;
+    filter: blur(26px) saturate(1.05) brightness(1.02);
+    transform: scale(1.06);
+    pointer-events: none; z-index: 0;
+  }
+  #stage { position: absolute; inset: 0; z-index: 1; }
 
   /* Swiftee is an HTML/SVG overlay positioned by game.js */
   .swiftee { z-index: 3; }
@@ -459,7 +484,10 @@
 
 
   /* ---- HUD ---- */
-  #hud { position: absolute; z-index: 6; right: 14px; top: 12px; display: flex; gap: 10px; align-items: center; }
+  /* --band-x / --band-y are the letterbox strips the 16:9 fit leaves over
+     (game.js seatFurniture). Adding them keeps the corner furniture on the
+     painted ice instead of out on the band. */
+  #hud { position: absolute; z-index: 6; right: calc(14px + var(--band-x, 0px)); top: calc(12px + var(--band-y, 0px)); display: flex; gap: 10px; align-items: center; }
   #hud button {
     font: inherit; font-weight: 800; color: var(--ink); background: #fff;
     border: var(--ink-w) solid var(--ink); border-radius: 999px; width: 46px; height: 46px;
@@ -480,7 +508,7 @@
      only while the game is genuinely waiting, and it nudges itself every few
      seconds so a child who has finished reading knows where to look. */
   #next {
-    position: absolute; z-index: 6; right: 22px; bottom: 26px;
+    position: absolute; z-index: 6; right: calc(22px + var(--band-x, 0px)); bottom: calc(26px + var(--band-y, 0px));
     font: inherit; font-weight: 800; font-size: clamp(17px, 2vw, 23px); color: #fff;
     /* THE SAME PILL AS EVERY OTHER BUTTON: the kit's orange, its round
        caps at true proportion and the middle stretched to the word. */
@@ -498,8 +526,8 @@
     80% { transform: translateX(5px); }
     90% { transform: translateX(1px); }
   }
-  @media (max-width: 760px) { #next { right: 14px; bottom: 18px; height: 50px; line-height: 50px; border-width: 0 28px; } }
-  #progress-track { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255,255,255,.35); }
+  @media (max-width: 760px) { #next { right: calc(14px + var(--band-x, 0px)); bottom: calc(18px + var(--band-y, 0px)); height: 50px; line-height: 50px; border-width: 0 28px; } }
+  #progress-track { position: absolute; z-index: 5; left: var(--band-x, 0px); right: var(--band-x, 0px); bottom: var(--band-y, 0px); height: 6px; background: rgba(255,255,255,.35); }
   #progress { height: 100%; width: 0; background: #f2b544;   /* the plank's warmth, not another blue */ transition: width 400ms ease; }
 
   /* ---- title screen ----------------------------------------------------
@@ -616,6 +644,7 @@
   </div>
 </div>
 <div id="game">
+  <div id="backdrop" aria-hidden="true"></div>
   <div id="stage"></div>
   <div id="bubble" role="status" aria-live="polite" aria-atomic="true">
     <svg class="bubble-tail" viewBox="0 0 60 60" aria-hidden="true"><g>
@@ -670,6 +699,8 @@
 <!-- Load order is the dependency order: each module reads the ones above it. -->
 <script src="src/audio/sfx.js"></script>
 <script src="src/audio/vo.js"></script>
+<!-- the tune under the lesson: synthesised on the music bus, no files -->
+<script src="src/audio/music.js"></script>
 <script src="src/fx/juice.js"></script>
 <script src="src/fx/snowflake.js"></script>
 <script src="src/fx/titlefx.js"></script>
