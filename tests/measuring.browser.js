@@ -45,7 +45,9 @@ const path = require('node:path');
     await page.waitForSelector('.swiftee-measuring');
     assert.equal(await page.locator('.meas').count(), 0, 'length is hidden during measuring');
     await page.clock.runFor(650);
-    await page.screenshot({ path: 'measuring-preview.png' });
+    // into the gitignored screenshot folder, not the repo root
+    fs.mkdirSync('artifacts', { recursive: true });
+    await page.screenshot({ path: 'artifacts/measuring-preview.png' });
     await page.clock.resume();
     // Rapid taps, including a duplicate, must queue each side exactly once.
     for (const i of [0, 0, 1, 3, 4]) await page.locator('.edge').nth(i).dispatchEvent('pointerdown');

@@ -260,8 +260,6 @@
 
   function clear(w, h) { ctx.clearRect(0, 0, w, h); }
 
-  var easeOut = function (t) { return 1 - Math.pow(1 - t, 3); };
-  var easeIn = function (t) { return t * t * t; };
   var clamp01 = function (t) { return t < 0 ? 0 : t > 1 ? 1 : t; };
 
   /** Cubic Hermite interpolation with velocities expressed per millisecond. */

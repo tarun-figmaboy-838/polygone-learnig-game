@@ -96,7 +96,7 @@ by a gate that fails the build, not by looking at it once.
 | ✅ | Runs over `file://` as well as over a server |
 | ✅ | No runtime errors and no missing assets across a full playthrough |
 | ✅ | Dead code and duplicates removed; nothing in `src/` is unreachable |
-| ✅ | One source of truth for reduced motion — `Juice.disable()` now stops the transition and the title screen too |
+| ✅ | One source of truth for reduced motion — `Juice.reducedMotion` is read by the transition, the title screen and the sleigh intro |
 | ✅ | **Nothing leaks across a full lesson**: node count and live animation count are asserted at the end of every browser run |
 | ✅ | The browser suite tells a broken reference apart from a full machine: a 404 fails, an allocation failure or a cancelled fetch is reported as what it is |
 

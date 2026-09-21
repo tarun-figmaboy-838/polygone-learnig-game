@@ -10,7 +10,7 @@
  *                                  sits in — the sorting tray, the swipe
  *                                  card, the icons stacked in a bin, the four
  *                                  in the choose-the-polygons grid.
- *   PANEL   assets/ui/bigcardn.png  the slab a single shape is DISPLAYED on,
+ *   PANEL   assets/ui/panel-card.png  the slab a single shape is DISPLAYED on,
  *                                  where there is nothing to tap or drag.
  *
  * Which card a thing gets is the affordance. A child should be able to tell
@@ -56,7 +56,7 @@ const CARDS = [
   // the same kit, so the two halves of the answer are two cards.
   { key: 'convexBin',  src: 'assets/ui/cardskit.png', cell: { cols: 3, rows: 2, i: 3 }, out: 'assets/ui/bin-convex.webp',  cap: 640 },
   { key: 'concaveBin', src: 'assets/ui/cardskit.png', cell: { cols: 3, rows: 2, i: 5 }, out: 'assets/ui/bin-concave.webp', cap: 640 },
-  { key: 'panel',     src: 'assets/ui/bigcardn.png', out: 'assets/ui/bigcard.webp',   cap: 1024 },
+  { key: 'panel',     src: 'assets/ui/panel-card.png', out: 'assets/ui/panel.webp',   cap: 1024 },
   // The two drop zones of the swipe practice. Their titles are drawn INTO the
   // artwork, so the game must not print a label over them — and the pane each
   // one reports is the shelf its catch is stacked on.
@@ -70,6 +70,9 @@ const CARDS = [
   // The card a shape is COMPARED on: two of these side by side, lighter
   // and plainer than the display slab, so the pair reads as a pair.
   { key: 'compare',   src: 'assets/ui/compare-card.png', out: 'assets/ui/compare.webp', cap: 640 },
+  // The wide slab for the measuring screens: he waits inside its bottom-left
+  // corner, small, and the shape has the whole width to be big in.
+  { key: 'measure',   src: 'assets/ui/measure-card.png', out: 'assets/ui/measure.webp', cap: 1024 },
   { key: 'regular',   src: 'assets/ui/reg.png',  out: 'assets/ui/zone-regular.webp',   cap: 640 },
   { key: 'irregular', src: 'assets/ui/irre.png', out: 'assets/ui/zone-irregular.webp', cap: 640 }
 ];

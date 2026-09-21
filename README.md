@@ -38,24 +38,29 @@ src/
   audio/
     sfx.js                 fourteen cues, synthesised; no audio files
   fx/
-    juice.js               pops, wobbles, confetti, the shower
+    juice.js               pops, wobbles, confetti
     sleigh-intro.js        the arrival: three sprite sheets, one animation
-    snowflake.js           the shape of a crystal — shared by all three below
+    snowflake.js           the shape of a crystal — the ambient snow and the title
     titlefx.js             the title screen's weather and its sparkle
-    transition.js          the fairy-snow wipe between screens
+    transition.js          the snowfall between levels (chapters), from the flake art
 
 assets/
   bg/ice-vista.png         the painted backdrop
   ui/banner.webp           the title art
   ui/play.webp             the play button, cut off its white square
+  ui/*.webp                the card, button and flake kits, cut by the tools
+                           below from the supplied *.png beside them
   swiftee/                 the character sprite sheets + the manifest
-  source/                  the supplied PNGs the two webps came from;
-                           not deployed, kept so they can be re-cut
 
 tools/
   build-swiftee-frames.js  manifest -> src/character/swiftee-frames.js
   build-sleigh-frames.js   measures the three intro sheets from their alpha
                            -> src/character/sleigh-frames.js
+  build-card.js            the card kit (panel, measure, option, bins, zones,
+                           compare, plank) -> src/game/card-frame.js
+  build-buttons.js         the pill and coin kit -> src/game/button-frame.js
+  build-measuring.js       the measuring walk sheet -> measuring-frames.js
+  build-snowflake.js       the transition flake -> assets/ui/snowflake.webp
   list-sprites.js          which sheets the game actually plays
   export-used-sprites.js   copies those sheets into swiftee-in-use/,
                            one folder per state, for re-costuming
