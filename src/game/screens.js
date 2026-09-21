@@ -476,11 +476,16 @@
       stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex' } },
       beats: [
         { swiftee: 'explain' },
+        // THE NAME APPEARS, THEN HE SAYS IT. The badge under the card is the
+        // picture of the word he is about to speak, and it arrived two beats
+        // later — so the child heard "that is a convex polygon" with nothing
+        // new on the screen, and the label turned up after the sentence had
+        // gone. The scene arrives, then he speaks of it, as everywhere else.
+        { stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex', enter: 'pop' } } },
+        { sfx: 'correct' },
         { say: 'That\u2019s a convex polygon.', vo: 'p23' },
         // then the rule, on the plank, once his line has been read
         { instruction: 'All diagonals inside means convex polygon.', vo: 'p23i' },
-        { stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex', enter: 'pop' } } },
-        { sfx: 'correct' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -515,11 +520,16 @@
       stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'concave' } },
       beats: [
         { swiftee: 'explain' },
+        // THE NAME APPEARS, THEN HE SAYS IT. The badge under the card is the
+        // picture of the word he is about to speak, and it arrived two beats
+        // later — so the child heard "that is a convex polygon" with nothing
+        // new on the screen, and the label turned up after the sentence had
+        // gone. The scene arrives, then he speaks of it, as everywhere else.
+        { stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'concave', enter: 'pop' } } },
+        { sfx: 'correct' },
         { say: 'So it is a concave polygon.', vo: 'p25' },
         // then the rule, on the plank, once his line has been read
         { instruction: 'At least one diagonal outside means concave polygon.', vo: 'p25i' },
-        { stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'concave', enter: 'pop' } } },
-        { sfx: 'correct' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -991,6 +1001,13 @@ function sceneKindAt(i) {
    his and no plank is shown. The plank is for the layouts where he is not
    there to say it: the option grid and the swipe zones. */
 function speaksAll(i) {
+  // NOT WHEN HE IS NOT THERE. Page 26 sends him off the screen so the child
+  // has the whole shape to drag, and the rule still handed him the line: a
+  // speech bubble with no speaker, placed against the last mark he stood on,
+  // which on that screen is eight hundred pixels from the words. The plank
+  // carries the line on a screen he has left.
+  var s = SCREENS[i];
+  if (s && s.swiftee && s.swiftee.pos === 'off') return false;
   var kind = sceneKindAt(i);
   return kind === 'polygon' || kind === 'compare' || kind === 'builder' || kind === 'sort';
 }

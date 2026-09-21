@@ -230,7 +230,6 @@
     cueTerm: cueTerm,
     termsIn: termsIn,
     taught: function () { return Object.keys(seen); },
-    reset: function () { seen = {}; },
     TERMS: TERMS
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.DualCode;

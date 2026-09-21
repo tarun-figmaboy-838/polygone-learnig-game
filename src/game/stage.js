@@ -652,8 +652,14 @@
     // sent every one of them to the band along the top of the screen, six
     // hundred pixels from the bird saying it. Moved right, the column is 248
     // and the longest line on these screens sits at his head in three rows.
-    left2:  { x: 300, y: 118, w: 306, h: 290, frame: 'compare' },
-    right2: { x: 638, y: 118, w: 306, h: 290, frame: 'compare' }
+    // 278 OF COLUMN, NOT 248. The longest line on these screens — "At least
+    // one diagonal outside means concave polygon." — is four rows in a 248px
+    // box and three in a 278px one, and four rows is the width at which the
+    // placement gives up on standing beside him and puts the words in the
+    // band along the top of the screen instead. Thirty pixels of column is
+    // the difference between his line being his and being a caption.
+    left2:  { x: 330, y: 118, w: 290, h: 290, frame: 'compare' },
+    right2: { x: 652, y: 118, w: 290, h: 290, frame: 'compare' }
   };
 
   /* ------------------------------------------------------------------ *
@@ -1894,40 +1900,75 @@
    */
   function whyShape(card) {
     if (!card || !card._verts || reduced()) return null;
-    var v = card._verts, n = v.length, L = Poly.sideLengths(v);
+    var v = card._verts, n = v.length;
+    var L = Poly.sideLengths(v), A2 = Poly.interiorAngles(v);
     var idxs = []; for (var i = 0; i < n; i++) idxs.push(i);
-    var m = marksBy(L, idxs, 6);
+    var sideM = marksBy(L, idxs, 6), angM = marksBy(A2, idxs, 4);
+    // WHAT MAKES THIS SHAPE WHAT IT IS — the same test the answer is judged
+    // by, not a guess from the sides alone. A rhombus has four equal sides
+    // and is irregular, and an explanation that only counted sides told the
+    // child it was regular: the opposite of the truth, in the one moment
+    // they were listening.
+    var verdict = Poly.isRegular(v) ? 'regular' : (sideM.groups > 1 ? 'sides' : 'angles');
     var g = mk('g', { 'class': 'why', 'pointer-events': 'none' }, card);
+
+    // the sides, marked in groups of equals
     for (var i2 = 0; i2 < n; i2++) {
       var a = v[i2], b = v[(i2 + 1) % n];
       var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, sl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
       var tdx = (b.x - a.x) / sl, tdy = (b.y - a.y) / sl, tnx = -tdy, tny = tdx;
-      var cnt = m.mark[i2] || 1;
+      var cnt = sideM.mark[i2] || 1;
       for (var k = 0; k < cnt; k++) {
         var o = (k - (cnt - 1) / 2) * 6, cx = mx + tdx * o, cy = my + tdy * o;
         litLine(g, { x1: cx - tnx * 7, y1: cy - tny * 7, x2: cx + tnx * 7, y2: cy + tny * 7,
                      'stroke-width': 3, 'stroke-linecap': 'round' }, { warm: true });
       }
     }
+
+    // AND THE CORNERS, when the corners are the reason. Equal angles take
+    // the same number of arcs, so "the sides all match but these two corners
+    // do not" is a thing the child can see rather than a thing they are told.
+    if (verdict !== 'sides') {
+      for (var j = 0; j < n; j++) {
+        var p = v[j], q = v[(j + n - 1) % n], r2 = v[(j + 1) % n];
+        var a1 = Math.atan2(q.y - p.y, q.x - p.x), a2 = Math.atan2(r2.y - p.y, r2.x - p.x);
+        var sweep = ((a2 - a1) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        var large = sweep > Math.PI ? 1 : 0;
+        var mid = a1 + sweep / 2;
+        var inside = Poly.contains(v, { x: p.x + Math.cos(mid) * 6, y: p.y + Math.sin(mid) * 6 });
+        var rings = angM.groups > 1 ? (angM.mark[j] || 1) : 1;
+        for (var ri = 0; ri < rings; ri++) {
+          var rr = 15 - ri * 4; if (rr < 5) break;
+          var x1 = p.x + Math.cos(a1) * rr, y1 = p.y + Math.sin(a1) * rr;
+          var x2 = p.x + Math.cos(a2) * rr, y2 = p.y + Math.sin(a2) * rr;
+          var d2 = inside
+            ? 'M' + x1 + ' ' + y1 + ' A' + rr + ' ' + rr + ' 0 ' + large + ' 1 ' + x2 + ' ' + y2
+            : 'M' + x1 + ' ' + y1 + ' A' + rr + ' ' + rr + ' 0 ' + (1 - large) + ' 0 ' + x2 + ' ' + y2;
+          mk('path', { d: d2, fill: 'none', stroke: '#ffffff', 'stroke-width': 2.4, 'stroke-linecap': 'round',
+                       style: litGlow('#ffe27a') }, g);
+        }
+      }
+    }
+
     if (g.animate) g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, fill: 'backwards' });
-    // AND THE CARD COMES FORWARD WHILE IT EXPLAINS. Five small gold ticks on
-    // a card the size of a beer mat is not an explanation a seven-year-old
+    // AND THE CARD COMES FORWARD WHILE IT EXPLAINS. Small gold ticks on a
+    // card the size of a beer mat are not an explanation a seven-year-old
     // will look at; the card lifts toward them for as long as the marks are
     // up, which is the difference between showing and being seen.
     if (card.animate) {
       card.style.transformBox = 'fill-box'; card.style.transformOrigin = 'center';
       try {
         card.animate([{ scale: '1' }, { scale: '1.14', offset: 0.12 }, { scale: '1.14', offset: 0.82 }, { scale: '1' }],
-                     { duration: 1900, easing: 'cubic-bezier(.3,1.2,.4,1)' });
+                     { duration: 2100, easing: 'cubic-bezier(.3,1.2,.4,1)' });
       } catch (x) {}
     }
-    later(1500, function () {
+    later(1700, function () {
       if (!g.parentNode) return;
       var fade = g.animate ? g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' }) : null;
       var go = function () { if (g.parentNode) g.parentNode.removeChild(g); };
       if (fade && fade.finished) fade.finished.then(go, go); else go();
     });
-    return m.groups <= 1;
+    return verdict;
   }
 
   /** Lean a zone toward the child while they are dragging at it. */
@@ -2775,6 +2816,36 @@
         // card stays above the foot of the stage
         if (y <= pfc.y + pfc.h) y = Math.max(pfc.y + 40, Math.min(pfc.y + pfc.h - 32, y));
         else y = Math.min(y, BOTTOM - 14);
+
+        /* AND NEVER ON THE SHAPE ITSELF.
+         *
+         * The tag is pushed out from the middle of the side it names, and
+         * then pulled back inside the glass — and on a card the shape nearly
+         * fills, those two pull against each other and the word ends up
+         * lying across the very outline it is pointing at, with its string
+         * crossing the shape. A tag on top of the thing it names is worse
+         * than a tag further away, so if the plate still covers the shape it
+         * is walked outwards along the same line until it is clear, and it
+         * is allowed onto the rim to get there. */
+        if (st.verts && st.verts.length) {
+          var tw = (String(l.text).length * 15) + 36, th = 40;
+          var bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+          st.verts.forEach(function (p) {
+            if (p.x < bx0) bx0 = p.x; if (p.x > bx1) bx1 = p.x;
+            if (p.y < by0) by0 = p.y; if (p.y > by1) by1 = p.y;
+          });
+          var ox = (m.x - st.cx), oy = (m.y - st.cy);
+          var ol = Math.sqrt(ox * ox + oy * oy) || 1;
+          ox /= ol; oy /= ol;
+          var hits = function (px, py) {
+            return px - tw / 2 < bx1 + 6 && px + tw / 2 > bx0 - 6 &&
+                   py - 27 < by1 + 6 && py + 13 > by0 - 6;
+          };
+          for (var guard = 0; guard < 14 && hits(x, y); guard++) { x += ox * 14; y += oy * 14; }
+          // on the stage, whatever happened: the rim is fair game, the edge is not
+          x = Math.max(tw / 2 + 12, Math.min(W - tw / 2 - 12, x));
+          y = Math.max(46, Math.min(BOTTOM - 14, y));
+        }
       }
       var g = mk('g', { 'class': 'label' }, layers.ui);
       // THE WORD ON A PLATE. Ink straight on the glass sat on the rim and the
@@ -3097,7 +3168,28 @@
   function nearestVertex(p, exclude) {
     var best = -1, bd = Infinity;
     st.verts.forEach(function (v, i) { if (i === exclude) return; var d = Math.hypot(v.x - p.x, v.y - p.y); if (d < bd) { bd = d; best = i; } });
-    return bd < 60 ? best : -1;
+    // 76, not 60: a seven-year-old's finger covers the corner it is aiming
+    // at, and the difference between "nearly there" and "nothing happened"
+    // was sixteen pixels on a shape whose corners are a hundred apart.
+    return bd < 76 ? best : -1;
+  }
+
+  /**
+   * THE LINE LANDED ON NOTHING — say so, and show where it may go.
+   *
+   * Letting go in the middle of the shape used to do nothing at all: the
+   * ghost vanished, the line went home and the child was told neither that
+   * they had missed nor what they were aiming at. Silence is the one answer
+   * a lesson may never give. The corners that would have taken the line
+   * breathe for a moment, and he says where it goes.
+   */
+  function missedCorner(targets, said) {
+    var els = (targets || []).map(function (i) { return knobOf(i); }).filter(Boolean);
+    els.forEach(function (e) { e.setAttribute('opacity', 1); });
+    var stop = pulseHint(els);
+    later(1800, stop);
+    juice('refuse', st.polyG);
+    onTap('wrong', said || { t: 'Drop it on a corner!', vo: 'fb15' });
   }
 
   /**
@@ -3227,7 +3319,12 @@
         }, function (p) {
           ghostLine.remove();
           var j = nearestVertex(p, from);
-          if (j < 0) { if (st.segLine) st.segLine.setAttribute('opacity', 1); return; }   // dropped in space: no verdict, keep waiting
+          if (j < 0) {
+            // dropped in space: not a wrong answer, but not nothing either
+            if (st.segLine) st.segLine.setAttribute('opacity', 1);
+            missedCorner(Poly.diagonalsFrom(from, st.n));
+            return;
+          }
           var ok = !Poly.isAdjacent(from, j, st.n);
           endInteraction();
           if (ok) {
@@ -3479,9 +3576,11 @@
             sfx('wrong');
             juice('refuse', card);
             // the marks go on the card and he names what they show
-            var same = whyShape(card);
-            onTap('wrong', same === true ? { t: 'Every side matches \u2014 regular!', vo: 'fb12' }
-                         : same === false ? { t: 'These sides are different \u2014 irregular!', vo: 'fb13' } : null);
+            var why = whyShape(card);
+            onTap('wrong',
+              why === 'regular' ? { t: 'Every side AND every angle matches \u2014 regular!', vo: 'fb12' } :
+              why === 'sides'   ? { t: 'Look \u2014 the sides are different lengths.', vo: 'fb13' } :
+              why === 'angles'  ? { t: 'Equal sides, but look at the corners!', vo: 'fb14' } : null);
             var z = sw.zones[answer];
             if (z && !reduced() && z.animate) {
               z.animate([{ translate: '0 0' }, { translate: '-6px 0' }, { translate: '6px 0' }, { translate: '0 0' }],
@@ -3790,7 +3889,11 @@
       on(svg, 'pointermove', function (e) { if (!active) return; var p = pt(e); rubber.setAttribute('x2', p.x); rubber.setAttribute('y2', p.y); });
       on(svg, 'pointerup', function (e) {
         if (!active) return; active = false; rubber.setAttribute('opacity', 0);
-        var j = nearestVertex(pt(e), from); if (j < 0) return;
+        var j = nearestVertex(pt(e), from);
+        if (j < 0) {
+          missedCorner(Poly.diagonalsFrom(from, st.n).filter(function (k) { return !used(k); }));
+          return;
+        }
         var ok = !Poly.isAdjacent(from, j, st.n) && !used(j);
         st.lastEl = knobOf(j) || st.vertEls[j];
         if (ok) {

@@ -14,14 +14,13 @@
  * exactly as much as the plank actually needs — one line or three, phone or
  * desktop — rather than by a number typed in a stylesheet.
  *
- *   Instruction.set('compare')            by screen id
  *   Instruction.show('Tap the vertex.')   by text
  *   Instruction.show(null)                clear it
  *
- * THE TEXT LIVES WHERE IT ALWAYS DID. Every screen in screens.js already
- * carries its own instruction, so this reads that rather than asking for the
- * same thirty-nine strings to be typed again somewhere else. set() is keyed by
- * screen id, which is the name the deck already uses.
+ * THE TEXT LIVES WHERE IT ALWAYS DID: every screen in screens.js carries its
+ * own instruction and every caller has it in hand, so this takes a sentence
+ * and nothing else. There was a second way in — a lookup keyed by screen id,
+ * built from the whole deck at runtime — and nothing ever called it.
  *
  * Highlighting is DualCode's: the lesson's key terms are already tinted chips
  * everywhere else, and a second highlight style for the same words on the same
@@ -31,29 +30,6 @@
   'use strict';
 
   var el = null, textEl = null, current = null, swapTimer = null, ro = null;
-
-  /** Screen id -> its instruction, built from the deck itself. */
-  function data() {
-    var out = {};
-    var list = (global.Screens && Screens.list) || [];
-    list.forEach(function (s) {
-      var found = null;
-      var scan = function (beats) {
-        (beats || []).forEach(function (b) {
-          if (!b) return;
-          if (typeof b.instruction === 'string' && !found) found = b.instruction;
-          if (b.on) Object.keys(b.on).forEach(function (k) { scan(b.on[k]); });
-          if (b.otherwise) scan(b.otherwise);
-        });
-      };
-      if (typeof s.instruction === 'string') found = s.instruction;
-      scan(s.beats);
-      if (found) out[s.id] = { text: found };
-    });
-    return out;
-  }
-
-  var table = null;
 
   /**
    * ONE LINE, ALWAYS.
@@ -151,25 +127,19 @@
     }
   }
 
-  function set(key) {
-    if (!table) table = data();
-    var row = table[key];
-    show(row ? row.text : null);
-    return !!row;
-  }
-
+  /* THE PLANK TAKES A SENTENCE, NOT A KEY. There was a second way in — a
+     lookup table built from the whole deck at runtime, a set(screenId) that
+     read it, a refresh() that threw it away and a global setInstruction —
+     and the game never used any of it: every caller has the sentence in its
+     hand and says show(it). A second entrance to one room is a thing to keep
+     in step for nothing. */
   global.Instruction = {
     show: show,
-    set: set,
     /** The sentence on the plank right now, or null. */
     current: function () { return current; },
     get text() { return current; },
-    get el() { return mount(); },
-    /* for a deck that is rebuilt at runtime */
-    refresh: function () { table = null; }
+    get el() { return mount(); }
   };
-  /* The name the brief asked for, so a screen can say what it wants. */
-  global.setInstruction = set;
 
   if (typeof module !== 'undefined' && module.exports) module.exports = global.Instruction;
 })(typeof window !== 'undefined' ? window : this);
