@@ -1589,16 +1589,19 @@
       reset(); st.kind = 'swipe-sort';
       st.swipe = { zones: {}, items: (spec.items || []).slice(), i: 0, spec: spec, card: null };
 
-      // The card is 192 across and lives in the middle. Zones at 168 left the
-      // gap either side of it at exactly nothing — the card's edge and the
-      // zone's edge touching, which reads as an overlap and gives a child
-      // dragging it nowhere to start from. Pushed out to leave a real corridor.
-      // BIG ENOUGH TO BE A PLACE. These are not labels, they are the two
-      // halves of the answer and they hold everything the child has sorted so
-      // far, so they get real size and a real shelf inside them.
-      var ZW = 316, ZH = 340, ZY = TOP;
-      [{ id: 'regular', x: 58 },
-       { id: 'irregular', x: W - 58 - ZW }].forEach(function (z) {
+      /* THE TWO BINS ARE THE ANSWER; THE SHAPE IS THE QUESTION.
+       *
+       * They were 316 wide against a 192 card, so two thirds of the screen
+       * was taken by the places to put the shape and the shape itself was the
+       * smallest thing on it — a child looking for what to decide had to look
+       * past the decision to find it. The bins are destinations: they need to
+       * be big enough to read, to hit, and to hold a pile, and no bigger. The
+       * corridor they leave is the stage now, and the card in it is where the
+       * eye goes first.
+       */
+      var ZW = 232, ZH = 268, ZY = TOP + 26;
+      [{ id: 'regular', x: 38 },
+       { id: 'irregular', x: W - 38 - ZW }].forEach(function (z) {
         var def = (spec.zones || []).filter(function (d) { return d.id === z.id; })[0] || { id: z.id, label: z.id };
         var c = CONCEPT[z.id] || CONCEPT.regular;
         var tone = [c.wash, c.face, c.ink];
@@ -1760,7 +1763,12 @@
    * Swipe classification
    * ------------------------------------------------------------------ */
 
-  var SWIPE_HOME = { x: W / 2, y: 276 };   // level with the middle of the zones
+  /* THE CARD IN HAND. 96 was half of a 192 card that had to fit a 252
+     corridor; the corridor is 460 now, so the card is 304 across and the
+     shape inside it is nearly three times the area it was. Kept in one place
+     because the pile behind it is drawn from the same number. */
+  var SWIPE_HALF = 152;
+  var SWIPE_HOME = { x: W / 2, y: 300 };   // level with the middle of the zones
 
   /**
    * Put a sorted shape on a zone's shelf.
@@ -1856,13 +1864,13 @@
     sw.stackG = g;
     // drawn far to near, so the nearest blank is on top of the one behind it
     for (var k = Math.min(2, left); k >= 1; k--) {
-      // The pile has to stay in the corridor between the two zones: they
-      // run to x 374 and from x 626, and the card is 192 wide at x 500, so a
-      // blank may lean about twenty-five pixels out before its corner is over
-      // a zone the child is meant to be dropping into.
+      // The pile has to stay in the corridor between the two zones: they run
+      // to x 270 and from x 730, and the card is 304 wide at x 500, so a
+      // blank may lean about seventy pixels out before its corner is over a
+      // zone the child is meant to be dropping into.
       var dxk = (k === 1 ? -1 : 1) * (12 + k * 7), scale = 1 - k * 0.06, rot = (k === 1 ? -1 : 1) * (3 + k * 2);
       var c = mk('g', { opacity: String(0.92 - k * 0.16) }, g);
-      optionCard(c, 96, null);   // a blank card: the pile, not the answers
+      optionCard(c, SWIPE_HALF, null);   // a blank card: the pile, not the answers
       c.setAttribute('transform', 'translate(' + (SWIPE_HOME.x + dxk) + ',' + (SWIPE_HOME.y + 10 * k) + ') rotate(' + rot + ') scale(' + scale.toFixed(3) + ')');
     }
   }
@@ -1876,12 +1884,14 @@
     Object.keys(sw.zones).forEach(function (k) { if (sw.zones[k].classList) sw.zones[k].classList.add('hint'); });
     var name = sw.items[sw.i];
     var g = mk('g', { 'class': 'swipe-card', 'data-shape': name }, layers.ui);
-    var card = optionCard(g, 96, name);
+    var card = optionCard(g, SWIPE_HALF, name);
     g.setAttribute('transform', 'translate(' + SWIPE_HOME.x + ',' + SWIPE_HOME.y + ')');
     g._name = name;
     // The radius the card actually drew at, not a number typed beside it:
     // these vertices are what Poly.isRegular judges the swipe against.
     g._verts = shapeVerts(name, card._pane.r, card._pane.cx, card._pane.cy);
+    // the ticks and arcs the answer is read off, on the card from the start
+    if (!reduced()) shapeMarks(g, { all: true, cls: 'units' });
     g.style.cursor = 'grab';
     g.style.touchAction = 'pan-y';
     sw.card = g;
@@ -1902,8 +1912,31 @@
    * irregular one into a two-and-three. It is on the screen for a second
    * and a half and then gone — long enough to see, too short to sit through.
    */
-  function whyShape(card) {
-    if (!card || !card._verts || reduced()) return null;
+  /**
+   * THE MARKS THEMSELVES, drawn onto a card and left there.
+   *
+   * These were only ever shown to explain a wrong answer, for a second and a
+   * half. But they are not an explanation — they are the EVIDENCE, and a
+   * child asked "regular or irregular?" with no marks on the shape is being
+   * asked to judge by eye whether five sides are the same length, which is
+   * exactly the thing the ticks were invented to save them from. Equal sides
+   * take the same tick and equal corners the same arc, so the answer is
+   * something to read off the shape rather than something to guess.
+   *
+   * `all` draws the corners as well as the sides. The explanation only shows
+   * corners when the corners are the reason; the question shows both, because
+   * a child comparing has to see that the sides DO match before "but look at
+   * the corners" means anything.
+   */
+  function verdictOf(v) {
+    var ix = []; for (var q = 0; q < v.length; q++) ix.push(q);
+    if (Poly.isRegular(v)) return 'regular';
+    return marksBy(Poly.sideLengths(v), ix, 6).groups > 1 ? 'sides' : 'angles';
+  }
+
+  function shapeMarks(card, o) {
+    o = o || {};
+    if (!card || !card._verts) return null;
     var v = card._verts, n = v.length;
     var L = Poly.sideLengths(v), A2 = Poly.interiorAngles(v);
     var idxs = []; for (var i = 0; i < n; i++) idxs.push(i);
@@ -1914,7 +1947,7 @@
     // child it was regular: the opposite of the truth, in the one moment
     // they were listening.
     var verdict = Poly.isRegular(v) ? 'regular' : (sideM.groups > 1 ? 'sides' : 'angles');
-    var g = mk('g', { 'class': 'why', 'pointer-events': 'none' }, card);
+    var g = mk('g', { 'class': o.cls || 'why', 'pointer-events': 'none' }, card);
 
     // the sides, marked in groups of equals
     for (var i2 = 0; i2 < n; i2++) {
@@ -1932,7 +1965,7 @@
     // AND THE CORNERS, when the corners are the reason. Equal angles take
     // the same number of arcs, so "the sides all match but these two corners
     // do not" is a thing the child can see rather than a thing they are told.
-    if (verdict !== 'sides') {
+    if (o.all || verdict !== 'sides') {
       for (var j = 0; j < n; j++) {
         var p = v[j], q = v[(j + n - 1) % n], r2 = v[(j + 1) % n];
         var a1 = Math.atan2(q.y - p.y, q.x - p.x), a2 = Math.atan2(r2.y - p.y, r2.x - p.x);
@@ -1955,10 +1988,26 @@
     }
 
     if (g.animate) g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, fill: 'backwards' });
-    // AND THE CARD COMES FORWARD WHILE IT EXPLAINS. Small gold ticks on a
-    // card the size of a beer mat are not an explanation a seven-year-old
-    // will look at; the card lifts toward them for as long as the marks are
-    // up, which is the difference between showing and being seen.
+    return { g: g, verdict: verdict };
+  }
+
+  /**
+   * WHY THAT WAS NOT IT.
+   *
+   * The marks are already on the card — they are what the question is asked
+   * with — so this no longer draws a second set over the top of them. It
+   * brings the card forward and names what is there, which is the part a
+   * wrong answer actually needs: small gold ticks on a card are not an
+   * explanation a seven-year-old will look at until something asks them to.
+   */
+  function whyShape(card) {
+    if (!card || !card._verts || reduced()) return null;
+    var already = !!(card.querySelector && card.querySelector('.units'));
+    // the marks are already there: read the verdict, do not draw a second set
+    var verdict = already ? verdictOf(card._verts) : null;
+    var r = already ? null : shapeMarks(card);
+    if (!already && !r) return null;
+    if (r) verdict = r.verdict;
     if (card.animate) {
       card.style.transformBox = 'fill-box'; card.style.transformOrigin = 'center';
       try {
@@ -1966,12 +2015,15 @@
                      { duration: 2100, easing: 'cubic-bezier(.3,1.2,.4,1)' });
       } catch (x) {}
     }
-    later(1700, function () {
-      if (!g.parentNode) return;
-      var fade = g.animate ? g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' }) : null;
-      var go = function () { if (g.parentNode) g.parentNode.removeChild(g); };
-      if (fade && fade.finished) fade.finished.then(go, go); else go();
-    });
+    if (!already && r) {
+      var g = r.g;
+      later(1700, function () {
+        if (!g.parentNode) return;
+        var fade = g.animate ? g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' }) : null;
+        var go = function () { if (g.parentNode) g.parentNode.removeChild(g); };
+        if (fade && fade.finished) fade.finished.then(go, go); else go();
+      });
+    }
     return verdict;
   }
 
