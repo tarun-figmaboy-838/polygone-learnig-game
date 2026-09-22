@@ -3083,6 +3083,27 @@
     // exactly when the word said "the diagonals". Trace the strokes instead.
     if (mode === 'none') return 0;
     if (mode === 'trace') return trace(els, color);
+    /* 'pop': THE THING ITSELF ANSWERS THE WORD.
+     *
+     * reveal() lets the words of a line arrive one at a time and fires this
+     * on the word that names something — so this is the one moment in the
+     * game where a cue can be exactly in time with the voice. A ring drawn
+     * round the shape was refused, and rightly: it is a second object. The
+     * shape swells a little and settles instead, on the syllable, which is
+     * the same signal with nothing added to the picture. */
+    if (mode === 'pop') {
+      var popped = 0;
+      els.slice(0, 10).forEach(function (e, i) {
+        if (!e.animate) return;
+        e.style.transformBox = 'fill-box'; e.style.transformOrigin = 'center';
+        try {
+          e.animate([{ scale: '1' }, { scale: e.classList && e.classList.contains('knob') ? '1.55' : '1.05' }, { scale: '1' }],
+                    { duration: 460, delay: i * 55, easing: 'cubic-bezier(.3,1.3,.4,1)' });
+          popped++;
+        } catch (x) {}
+      });
+      return popped;
+    }
     var drawn = 0;
     els.slice(0, 12).forEach(function (e, i) {
       // A KNOB SWELLS, IT IS NOT RINGED: a ring round a corner read as a

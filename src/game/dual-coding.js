@@ -58,14 +58,20 @@
   // thing with an area, 'trace' re-draws a set of lines in the term's colour.
   // A ring round the diagonals of a pentagon is a ring round the pentagon,
   // which points at the wrong noun.
+  //
+  // 'pop' IS THE ONE THAT IS IN TIME. The words of a line arrive one at a
+  // time, and the word that names a thing fires its cue as it lands — so the
+  // shape swells on "polygon", the corners swell on "vertex", the badge and
+  // the shape answer to "convex". Nothing is drawn that was not already
+  // there; the picture simply moves when the word does.
   var TERMS = {
-    polygon:   { color: '#1030c8', tint: '#e3e9ff', target: 'polygon',          mode: 'none' },
+    polygon:   { color: '#1030c8', tint: '#e3e9ff', target: 'polygon',          mode: 'pop' },
     // Amber on cream is the one pairing in this table that does not survive
     // the arithmetic: at #c47800 this read 3.14:1 against its own chip, well
     // under the 4.5:1 floor for body text, and 3.29:1 against the bubble's
     // paper. Darkened to 6.0:1. The hue is what binds the word to the halo on
     // stage, so it stays amber — it only stops being pale.
-    vertex:    { color: '#8a5200', tint: '#fff2d6', target: 'polygon.vertices', mode: 'ring' },
+    vertex:    { color: '#8a5200', tint: '#fff2d6', target: 'polygon.vertices', mode: 'pop' },
     // 'none': the word "side" used to trace every side of the shape at once,
     // which lit the whole outline for a moment and said nothing about the
     // one side being shown. The highlighted segment is the lesson's own mark.
@@ -73,7 +79,7 @@
     // Same problem, 4.03:1, and it has to stay distinct from vertex as well as
     // legible — so this one goes redder rather than browner. 7.2:1.
     diagonal:  { color: '#8a3d00', tint: '#fff4cc', target: 'polygon.diagonals', mode: 'trace' },
-    angle:     { color: '#1d7a2e', tint: '#ddf6e1', target: 'polygon.vertices', mode: 'ring' },
+    angle:     { color: '#1d7a2e', tint: '#ddf6e1', target: 'polygon.vertices', mode: 'pop' },
     // THE FOUR CATEGORY WORDS TAKE THE CATEGORY PALETTE.
     //
     // These are the same four concepts the bins, the drop zones, the badges
@@ -83,10 +89,10 @@
     // these as convex or concave" was printed in one pair of colours directly
     // above a pair of bins in another — two colour schemes for one idea, on
     // one screen. These are the deep/wash values of the same four concepts.
-    convex:    { color: '#0f6f86', tint: '#e4f8fc', target: 'polygon',          mode: 'none' },
-    concave:   { color: '#95590a', tint: '#fff3dd', target: 'polygon',          mode: 'none' },
-    regular:   { color: '#0a6c60', tint: '#e3f8f4', target: 'polygon',          mode: 'none' },
-    irregular: { color: '#54399e', tint: '#f1ebfe', target: 'polygon',          mode: 'none' }
+    convex:    { color: '#0f6f86', tint: '#e4f8fc', target: 'polygon',          mode: 'pop' },
+    concave:   { color: '#95590a', tint: '#fff3dd', target: 'polygon',          mode: 'pop' },
+    regular:   { color: '#0a6c60', tint: '#e3f8f4', target: 'polygon',          mode: 'pop' },
+    irregular: { color: '#54399e', tint: '#f1ebfe', target: 'polygon',          mode: 'pop' }
   };
 
 

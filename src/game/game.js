@@ -1690,10 +1690,32 @@
         // words begin to arrive; a missing clip is silently nothing.
         if (global.VO && opts && opts.vo) VO.play(opts.vo);
         var parts = splitLine(text);
-        var reading = opts.reading || 1200;
         var words = function (t) { return t.split(/\s+/).length; };
         var total = parts.reduce(function (n, p) { return n + words(p); }, 0) || 1;
-        var shares = parts.map(function (p) { return Math.max(700, reading * words(p) / total); });
+
+        /* THE VOICE SETS THE PACE, NOT A COUNT OF LETTERS.
+         *
+         * A line of two or three sentences is shown as two or three bubbles in
+         * turn, and the whole line is ONE recording. The turns were timed by
+         * counting words — an estimate that is wrong by a second on a slow
+         * reading — so the second bubble arrived while the voice was still on
+         * the first sentence, or waited after it had finished. With the clip's
+         * real length in hand (assets/vo/index.json, written by
+         * tools/build-vo-index.js) the bubbles are spread across exactly that
+         * length, in proportion to their words: the sentence on the screen is
+         * the sentence being spoken.
+         *
+         * No clip, or a length nobody measured: the director's own reading
+         * time, as before. A little tail is left after the voice so the last
+         * bubble is not snatched away on the final syllable.
+         */
+        var clipSecs = (global.VO && VO.seconds && opts && opts.vo) ? VO.seconds(opts.vo) : 0;
+        var reading = clipSecs ? Math.round(clipSecs * 1000) + 280 : (opts.reading || 1200);
+        var shares = parts.map(function (p) {
+          var share = reading * words(p) / total;
+          // a clip's own share may be short; only a guessed one needs a floor
+          return clipSecs ? Math.max(420, share) : Math.max(700, share);
+        });
         var spoken = shares.reduce(function (a, b) { return a + b; }, 0);
         say(parts[0], null, shares[0]);
         // the rest follow, each when the one before it has been read

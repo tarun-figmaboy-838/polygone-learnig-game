@@ -55,7 +55,7 @@
      colours are the top and bottom rows of assets/bg/ice-vista.png (#40b7fd
      and #acd8fd), so the sky simply carries on past the edge of the stage and
      the snow does too, and the seam cannot be seen. */
-  #game { position: fixed; inset: 0; background: linear-gradient(#40b7fd 0%, #62c5fd 46%, #acd8fd 100%); }
+  #game { position: fixed; inset: 0; background: #5fbdfa; }   /* under the backdrop; never seen unless an image fails */
   /* FULL BLEED. Insetting this by the plank's height did move the lesson
      down, and also letterboxed the painted vista into a box with white bars
      either side of it — the scene is the background of the whole window, not
@@ -69,13 +69,31 @@
      window is and thrown out of focus, so the band is the same place seen
      softly rather than an edge. It is behind everything and never moves. */
   #backdrop {
-    position: absolute; inset: -4%;
-    background: url("assets/bg/ice-vista.png") center/cover no-repeat, #7fc9fb;
-    filter: blur(26px) saturate(1.05) brightness(1.02);
-    transform: scale(1.06);
+    /* FAR ENOUGH OUT THAT THE BLUR'S OWN EDGE IS OFF THE SCREEN. A blurred
+       box samples nothing beyond itself, so its outer thirty pixels fade to
+       transparent and the page shows through — which on a window wider than
+       16:9 was a pale sheet down both sides, exactly what this element was
+       added to remove. Inset ten percent and scaled again, the fade happens
+       outside the viewport and the painting reaches every edge. */
+    position: absolute; inset: -10%;
+    background: url("assets/bg/ice-vista.png") center/cover no-repeat, #5fbdfa;
+    filter: blur(34px) saturate(1.22) brightness(.98);
+    transform: scale(1.55);
     pointer-events: none; z-index: 0;
   }
   #stage { position: absolute; inset: 0; z-index: 1; }
+  /* THE SCENE SITS ON ITS OWN BACKDROP. Where the window is not 16:9 the
+     crisp picture meets the blurred one along a straight line, and a straight
+     line between two versions of the same painting reads as a seam. A soft
+     shadow cast from the edge of the board onto the band turns it into what
+     it is: the scene lying on top of itself, out of focus. The band's size is
+     --band-x / --band-y, measured by game.js seatFurniture(). */
+  #game::after {
+    content: ''; position: absolute; pointer-events: none; z-index: 2;
+    left: var(--band-x, 0px); right: var(--band-x, 0px);
+    top: var(--band-y, 0px); bottom: var(--band-y, 0px);
+    box-shadow: 0 0 44px 12px rgba(16, 62, 110, .20);
+  }
 
   /* Swiftee is an HTML/SVG overlay positioned by game.js */
   .swiftee { z-index: 3; }

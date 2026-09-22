@@ -33,7 +33,7 @@
   // a 404 in the console for every line — noise a child never hears but a
   // test gate counts as an error. tools/build-vo-index.js writes the index
   // from the folder; until it is fetched, or if it is missing, nothing plays.
-  var index = null;
+  var index = null, secs = {};
   function loadIndex() {
     if (index || typeof fetch !== 'function') return;
     index = {};
@@ -42,6 +42,7 @@
     // clips themselves stay immutable; only this one file is revalidated.
     fetch(BASE + 'index.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       (j && j.clips || []).forEach(function (id) { index[id] = true; });
+      secs = (j && j.seconds) || {};
     }).catch(function () {});
   }
   loadIndex();
@@ -78,6 +79,11 @@
     });
   }
 
-  global.VO = { play: play, stop: stop, preload: preload, get playing() { return current; } };
+  /** How long a clip runs, in seconds, or 0 if it is not known yet.
+      The game paces a line's bubbles by this so the words keep step with the
+      voice instead of with a count of their own letters. */
+  function seconds(id) { return (id && secs[id]) || 0; }
+
+  global.VO = { play: play, stop: stop, preload: preload, seconds: seconds, get playing() { return current; } };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.VO;
 })(typeof window !== 'undefined' ? window : this);
