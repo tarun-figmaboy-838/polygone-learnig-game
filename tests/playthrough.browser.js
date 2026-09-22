@@ -143,7 +143,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // fires for the right verdict, not that a headless box makes a noise.
     window.SFX.play = (n) => { if (n === 'correct') window.__cues.correct++; if (n === 'wrong') window.__cues.wrong++; return true; };
     window.SFX.sequence = () => 0;
-    window.Game.director.configure({ sayMinMs: 120, msPerWord: 8, feedbackSettleMs: 40, beatCeilingMs: 6000 });
+    window.Game.director.configure({ sayMinMs: 120, msPerWord: 8, feedbackSettleMs: 40, beatCeilingMs: 6000, readablePauseMs: 60 });
     window.Game.director.on('start', () => window.__seen.add(window.Game.screen));
     // SWIFTEE IS ON SCREEN ONLY WHERE HE HAS A PURPOSE. Sampled a beat after
     // each screen opens, against whichever screen is up at that moment; the
@@ -660,8 +660,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     !overlap, overlap ? 'screen ' + (overlap.screen + 1) + ' ' + overlap.id + ': ' + overlap.hits.join(', ') : '');
 
   const bg = await safe(() => page.evaluate(() => {
-    const img = document.querySelector('image.vista');
-    return { src: img && (img.getAttribute('href') || img.getAttribute('xlink:href')),
+    // The painting is one full-window layer now (#backdrop), not an image
+    // fitted inside the board — two copies at two scales met along a visible
+    // seam. The weather is still drawn in board coordinates.
+    const back = document.getElementById('backdrop');
+    const css = back ? getComputedStyle(back).backgroundImage : '';
+    return { src: /ice-vista/.test(css) ? css : null,
              flakes: document.querySelectorAll('.weather .flake').length,
              gust: document.querySelectorAll('.weather .gust .flake').length,
              dots: document.querySelectorAll('.weather circle:not([fill^="url"])').length,

@@ -266,6 +266,12 @@
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
     svg.setAttribute('class', 'stage');
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    // OVERFLOW VISIBLE, SO THE PAINTING CAN LEAVE THE BOX. The lesson is a
+    // 1000x562 board fitted inside the window, and on any other shape of
+    // screen that leaves a strip the board does not reach. Letting the
+    // background layer paint past the viewBox — and only the background
+    // layer draws out there — means the sky and the snow run to the edge of
+    // the glass instead of stopping at a line.
     svg.style.cssText = 'display:block;width:100%;height:100%;touch-action:none;user-select:none';
     container.appendChild(svg);
     ['bg', 'panel', 'poly', 'ui', 'fx'].forEach(function (n) {
@@ -326,6 +332,7 @@
     var d = mk('defs', {}, layers.bg);
     d.innerHTML =
       '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3fb3f6"/><stop offset=".55" stop-color="#a8dcfb"/><stop offset="1" stop-color="#eef8ff"/></linearGradient>' +
+      '<linearGradient id="bleed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#40b7fd"/><stop offset="1" stop-color="#acd8fd"/></linearGradient>' +
       '<linearGradient id="snowlit" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
       '<radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>' +
       '<radialGradient id="vignette" cx=".5" cy=".45" r=".75"><stop offset=".6" stop-color="#0a2a4a" stop-opacity="0"/><stop offset="1" stop-color="#0a2a4a" stop-opacity=".16"/></radialGradient>' +
@@ -333,23 +340,21 @@
       '<linearGradient id="panelFace" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".93"/><stop offset=".55" stop-color="#f2fbff" stop-opacity=".88"/><stop offset="1" stop-color="#d9eefb" stop-opacity=".9"/></linearGradient>' +
       '<linearGradient id="panelSheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".85"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>';
 
-    mk('rect', { width: W, height: H, fill: 'url(#sky)' }, layers.bg);
-
-    var img = mk('image', {
-      x: 0, y: 0, width: W, height: H,
-      preserveAspectRatio: 'xMidYMid slice',
-      'class': 'vista'
-    }, layers.bg);
-    // href for SVG 2, xlink:href for the engines that still want it.
-    img.setAttribute('href', VISTA_SRC);
-    img.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', VISTA_SRC);
-
+    /* THE PAINTING IS ONE LAYER, AND IT IS NOT THIS ONE.
+     *
+     * The backdrop used to be drawn twice: once here, fitted to the 1000x562
+     * board, and once behind the whole window so the strip either side of the
+     * board was not bare. Two copies of one picture at two scales meet along
+     * a line, and that line is exactly what "the background is not fitting"
+     * was — a seam between two versions of the same mountains.
+     *
+     * The window-wide copy (#backdrop in index.html, the same trick the title
+     * screen uses) is now the only one. On a 16:9 screen it lands pixel for
+     * pixel where this one did; on any other shape it simply continues past
+     * the board instead of stopping at it. The weather still belongs here,
+     * because it is drawn in board coordinates like everything else.
+     */
     ambientLife();
-
-
-    // A soft vignette ties the panels and Swiftee to the painting instead of
-    // letting them float on top of it.
-    mk('rect', { width: W, height: H, fill: 'url(#vignette)', 'pointer-events': 'none' }, layers.bg);
   }
 
   function keep(a) { if (a && a.cancel) ambient.push(a); return a; }

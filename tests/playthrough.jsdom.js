@@ -134,7 +134,7 @@ async function act(spec){
   w.Game.director.on('input',({spec})=>asked.push({screen:w.Game.screen,type:spec.type}));
   w.Game.director.on('start',()=>screensSeen.add(w.Game.screen));
   // Real pacing is 1.1s+ per line; the test only needs ordering, not the wait.
-  w.Game.director.configure({ sayMinMs: 60, msPerWord: 4, feedbackSettleMs: 20 });
+  w.Game.director.configure({ sayMinMs: 60, msPerWord: 4, feedbackSettleMs: 20, readablePauseMs: 40 });
   d.getElementById('loading').classList.add('ready'); d.getElementById('start').click();
 
   // react to every input request the director makes

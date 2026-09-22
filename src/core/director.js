@@ -65,6 +65,10 @@
     // roughly the pace a child needs to read along, plus a settle.
     msPerWord: 280,
     sayMinMs: 900,
+    // the breath between the last word of an instruction and the moment the
+    // child may touch anything; a harness turns it down so a full run is not
+    // paced for reading
+    readablePauseMs: 400,
     sayMaxMs: 9000,
     // Absolute ceiling on any single non-input beat. If an animation's
     // promise never resolves, this is what saves the game.
@@ -176,6 +180,7 @@
       var started = Date.now();
 
       emit('say', { text: text, vo: beat.vo });
+      lastWasSpeech = true;
       var voDone = guard(call('say', [text, { vo: beat.vo, reading: reading }, ctx]), token, cfg.beatCeilingMs);
 
       // Reading-time floor runs in parallel with VO; we wait for both, but a
@@ -198,6 +203,7 @@
 
     function beatInstruction(beat, token) {
       emit('instruction', { text: beat.instruction });
+      if (beat.instruction) lastWasSpeech = true;
       return guard(call('instruction', [beat.instruction, beat, ctxFor(token)]), token, cfg.beatCeilingMs);
     }
 
@@ -236,7 +242,30 @@
      * waits as long as the child does. Cancellation (screen change) is the
      * only way out other than the learner acting.
      */
+    /* A BREATH BEFORE THE CHILD MAY TOUCH ANYTHING.
+     *
+     * The sentence finishes and the input arms in the same tick, so a child
+     * who is still reading the last word is already being judged — and a
+     * finger already moving lands on a target that was not there a moment
+     * ago. Four hundred milliseconds after speech, and only after speech:
+     * an input that follows an animation or another input arms at once, as
+     * it always did. Cancellable like every other wait.
+     */
+    var lastWasSpeech = false;
+
     function beatInput(beat, token) {
+      // The event fires when the input is LIVE, not when its beat begins:
+      // anything listening for it (the harness, an idle hint) would otherwise
+      // act on a target that is still four hundred milliseconds away.
+      var settle = lastWasSpeech ? sleep(cfg.readablePauseMs, token) : Promise.resolve();
+      lastWasSpeech = false;
+      return settle.then(function (r) {
+        if (r === CANCELLED || token.cancelled) return CANCELLED;
+        return armInput(beat, token);
+      });
+    }
+
+    function armInput(beat, token) {
       emit('input', { spec: beat.input });
       return new Promise(function (resolve) {
         if (token.cancelled) return resolve(CANCELLED);

@@ -722,7 +722,14 @@
 
   function say(text, mood, ms) {
     clearInterval(revealTimer); revealTimer = null; revealUnits = null;
-    if (!text) { bubble.classList.add('out'); bubble.classList.remove('show'); return; }
+    if (!text) {
+      // THE VOICE GOES WITH THE WORDS. A clip left running when its bubble
+      // came down carried on into the next screen, which is what "the voice
+      // plays at random" was: not a wrong clip, the right clip outliving the
+      // line it belongs to.
+      if (global.VO && VO.stop) VO.stop();
+      bubble.classList.add('out'); bubble.classList.remove('show'); return;
+    }
     // A SPEAKER IS SEEN. A jump or a restart can cut an exit short and leave
     // him at opacity 0 on his mark; the moment he has a line, he is shown.
     if (present && !entering && global.Swiftee && Swiftee.visible && Swiftee.pos !== 'off') Swiftee.visible(true);
@@ -1760,13 +1767,26 @@
         if (ctx && ctx.onCancel) ctx.onCancel(function () { if (held && !(instruction && instruction.classList.contains('show'))) setCard(held); });
         if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(bubbleTimer); });
         if (ctx && ctx.onCancel) ctx.onCancel(stop);
-        if (parts.length > 1) {
-          return new Promise(function (res) {
-            var t = setTimeout(res, spoken);
-            if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(t); res(); });
-          });
-        }
-        return Promise.resolve();
+        /* THE BEAT ENDS WHEN THE VOICE DOES, not when a sum says it should.
+         *
+         * The paced sum is the clip's measured length shared out between the
+         * bubbles, which is right to within a frame — but only if the clip
+         * starts when it is asked to. A slow decode or a throttled tab makes
+         * it late, and then the next beat begins over the end of the
+         * sentence. Waiting on the audio itself removes the estimate from
+         * the critical path; the timings above still pace the BUBBLES.
+         *
+         * Nothing here can hang: VO.finished() resolves on ended, on error,
+         * on stop and on its own length, and the director's beat ceiling sits
+         * above all of it. With no clip it resolves at once and the sum is
+         * the pacing, exactly as before.
+         */
+        var paced = new Promise(function (res) {
+          var t = setTimeout(res, parts.length > 1 ? spoken : 0);
+          if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(t); res(); });
+        });
+        var heard = (global.VO && VO.finished) ? VO.finished() : Promise.resolve();
+        return Promise.all([paced, heard]);
       },
       instruction: function (text, opts, ctx) {
         // ON A CARD SCREEN HE SAYS IT. The plank would sit over a card that

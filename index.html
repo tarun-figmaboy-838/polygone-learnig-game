@@ -69,31 +69,20 @@
      window is and thrown out of focus, so the band is the same place seen
      softly rather than an edge. It is behind everything and never moves. */
   #backdrop {
-    /* FAR ENOUGH OUT THAT THE BLUR'S OWN EDGE IS OFF THE SCREEN. A blurred
-       box samples nothing beyond itself, so its outer thirty pixels fade to
-       transparent and the page shows through — which on a window wider than
-       16:9 was a pale sheet down both sides, exactly what this element was
-       added to remove. Inset ten percent and scaled again, the fade happens
-       outside the viewport and the painting reaches every edge. */
-    position: absolute; inset: -10%;
-    background: url("assets/bg/ice-vista.png") center/cover no-repeat, #5fbdfa;
-    filter: blur(34px) saturate(1.22) brightness(.98);
-    transform: scale(1.55);
+    /* THE SAME TRICK THE TITLE SCREEN USES. The lesson is a 16:9 board fitted
+       inside the window, so on any other shape there is a strip it does not
+       reach; this is the same painting behind it, scaled to COVER the window
+       exactly as the title art does, so the strip is more of the scene rather
+       than a band. Sharp, not blurred: the board's own copy is drawn at
+       almost the same scale, so the two line up and the join disappears. */
+    position: absolute; inset: 0;
+    background: url("assets/bg/ice-vista.png") center center / cover no-repeat, #5fbdfa;
     pointer-events: none; z-index: 0;
   }
   #stage { position: absolute; inset: 0; z-index: 1; }
-  /* THE SCENE SITS ON ITS OWN BACKDROP. Where the window is not 16:9 the
-     crisp picture meets the blurred one along a straight line, and a straight
-     line between two versions of the same painting reads as a seam. A soft
-     shadow cast from the edge of the board onto the band turns it into what
-     it is: the scene lying on top of itself, out of focus. The band's size is
-     --band-x / --band-y, measured by game.js seatFurniture(). */
-  #game::after {
-    content: ''; position: absolute; pointer-events: none; z-index: 2;
-    left: var(--band-x, 0px); right: var(--band-x, 0px);
-    top: var(--band-y, 0px); bottom: var(--band-y, 0px);
-    box-shadow: 0 0 44px 12px rgba(16, 62, 110, .20);
-  }
+  /* No shadow at the edge of the board any more: the background now runs
+     past it in the painting own colours (stage.js drawVista bleeds), so a
+     shadow there would draw the very line it was added to hide. */
 
   /* Swiftee is an HTML/SVG overlay positioned by game.js */
   .swiftee { z-index: 3; }

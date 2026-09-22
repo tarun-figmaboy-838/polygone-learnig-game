@@ -59,10 +59,49 @@
 
   function muted() { return !!(global.SFX && SFX.isMuted && SFX.isMuted()); }
 
+  /* WAITING FOR THE VOICE.
+   *
+   * The lesson used to wait a computed number of milliseconds and hope the
+   * clip fitted inside it. It usually did; when it did not — a slow decode, a
+   * throttled tab, a clip a little longer than the estimate — the next thing
+   * began over the end of the sentence. finished() is the real answer: it
+   * settles when the clip ends, when it fails, or when something stops it,
+   * and settles immediately when there is nothing playing. It can never be
+   * the thing that hangs the game: the director's beat ceiling is above it,
+   * and every path here resolves.
+   */
+  var settle = null;                 // resolves the promise finished() handed out
+
+  function done() {
+    var f = settle; settle = null;
+    if (f) { try { f(); } catch (e) {} }
+  }
+
+  function finished() {
+    // ONLY A CLIP THAT IS ACTUALLY RUNNING IS WORTH WAITING FOR. A clip that
+    // never started — no Audio in this environment, a play() the browser
+    // refused, a file that is not there — must not hold the lesson up for
+    // its nominal length. That is the difference between a wait and a hang.
+    if (!current || current.paused || !(current.duration > 0)) return Promise.resolve();
+    if (!settle) {
+      var hold = current;
+      var p = new Promise(function (resolve) { settle = resolve; });
+      // belt and braces: if no event ever arrives, the clip's own length ends
+      // the wait a second late rather than never
+      var len = (hold.duration && isFinite(hold.duration)) ? hold.duration * 1000 : 6000;
+      var guard = setTimeout(done, len + 1200);
+      p.then(function () { clearTimeout(guard); });
+      waiting = p;
+    }
+    return waiting;
+  }
+  var waiting = null;
+
   function stop() {
-    if (!current) return;
+    if (!current) { done(); return; }
     try { current.pause(); current.currentTime = 0; } catch (e) {}
     current = null;
+    done();                          // anything waiting on it is released now
   }
 
   /** Play the clip for a line. Returns the Audio element, or null. */
@@ -74,11 +113,19 @@
     try { a = new Audio(BASE + id + EXT); } catch (e) { return null; }
     a.preload = 'auto';
     a.volume = 0.95;
-    a.addEventListener('error', function () { known[id] = false; if (current === a) current = null; });
-    a.addEventListener('ended', function () { if (current === a) current = null; });
+    a.addEventListener('error', function () {
+      known[id] = false;
+      if (global.console) console.warn('[VO] missing or failed: ' + BASE + id + EXT);
+      if (current === a) { current = null; done(); }
+    });
+    a.addEventListener('ended', function () { if (current === a) { current = null; done(); } });
     current = a;
     var p = a.play();
-    if (p && p.catch) p.catch(function () { if (current === a) current = null; });
+    if (p && p.catch) p.catch(function () {
+      // refused (autoplay policy) or failed: release anything waiting on it
+      if (global.console) console.warn('[VO] could not play ' + id);
+      if (current === a) { current = null; done(); }
+    });
     return a;
   }
 
@@ -96,6 +143,7 @@
       voice instead of with a count of their own letters. */
   function seconds(id) { return (id && secs[id]) || 0; }
 
-  global.VO = { play: play, stop: stop, preload: preload, seconds: seconds, get playing() { return current; } };
+  global.VO = { play: play, stop: stop, finished: finished, preload: preload, seconds: seconds,
+                get playing() { return current; } };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.VO;
 })(typeof window !== 'undefined' ? window : this);
