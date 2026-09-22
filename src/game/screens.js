@@ -147,7 +147,10 @@
         { swiftee: 'point', at: 'polygon' },
         { focus: 'polygon.vertices', style: 'pulse' },
         { input: { type: 'vertex-pick', accept: 'any' } },
-        { feedback: [{ sfx: 'select' }, { juice: 'pop', target: 'vertex' }] }
+        // HE ANSWERS A RIGHT ANSWER. Six screens judged the child and then
+        // said nothing with their face: the sound played, the shape moved,
+        // and the friend who asked for it stood there.
+        { feedback: [{ sfx: 'select' }, { juice: 'pop', target: 'vertex' }, { swiftee: 'nod' }] }
       ]
     },
 
@@ -403,7 +406,7 @@
         // when the vertex crosses a pixel line. The drag is clamped with
         // Poly.clampSimple so it cannot become a bowtie.
         { input: { type: 'drag-vertex', vertex: 0, until: 'concave', clamp: 'simple', live: 'diagonals' } },
-        { feedback: [{ sfx: 'boing' }, { juice: 'wobble', target: 'polygon' }] }
+        { feedback: [{ sfx: 'boing' }, { juice: 'wobble', target: 'polygon' }, { swiftee: 'celebrate' }] }
       ]
     },
 
@@ -633,7 +636,7 @@
         // Poly.sideLengths on the live geometry. Completes when all five
         // have been tapped; there is no wrong tap on this screen.
         { input: { type: 'tap-each', targets: 'sides', reveal: 'length', count: 5 } },
-        { feedback: [{ sfx: 'correct' }] }
+        { feedback: [{ sfx: 'correct' }, { swiftee: 'proud' }] }
       ],
       perTap: { correct: [{ sfx: 'tick' }, { juice: 'pop', target: 'side' }] }
     },
@@ -699,7 +702,7 @@
         // Completes once the shape is no longer regular by measurement,
         // with a minimum displacement so a nudge does not end the screen.
         { input: { type: 'drag-vertex', vertex: 0, until: 'irregular', minMove: 24, clamp: 'simple', live: 'measurements' } },
-        { feedback: [{ sfx: 'slideWhistle' }, { juice: 'wobble', target: 'polygon' }] }
+        { feedback: [{ sfx: 'slideWhistle' }, { juice: 'wobble', target: 'polygon' }, { swiftee: 'surprised' }] }
       ]
     },
 
@@ -827,7 +830,7 @@
         { focus: 'builder.stepper', style: 'pulse' },
         // The polygon morphs live as the stepper changes. Completes at 5.
         { input: { type: 'stepper', target: 5 } },
-        { feedback: [{ sfx: 'correct' }, { juice: 'pop', target: 'polygon' }] }
+        { feedback: [{ sfx: 'correct' }, { juice: 'pop', target: 'polygon' }, { swiftee: 'excited' }] }
       ],
       perTap: { any: [{ sfx: 'select' }, { juice: 'pop', target: 'polygon', scale: 0.08 }] }
     },
@@ -854,7 +857,7 @@
         { focus: 'polygon.vertex.0', style: 'pulse' },
         { swiftee: 'point', at: 'polygon.vertex.0' },
         { input: { type: 'drag-vertex', vertex: 'any', until: 'concave', clamp: 'simple' } },
-        { feedback: [{ sfx: 'boing' }, { juice: 'wobble', target: 'polygon' }] }
+        { feedback: [{ sfx: 'boing' }, { juice: 'wobble', target: 'polygon' }, { swiftee: 'celebrate' }] }
       ]
     },
 

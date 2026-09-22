@@ -37,7 +37,10 @@
   function loadIndex() {
     if (index || typeof fetch !== 'function') return;
     index = {};
-    fetch(BASE + 'index.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    // no-cache, not no-store: the list changes when clips are added, and a
+    // browser that read it when it was empty must not keep that answer. The
+    // clips themselves stay immutable; only this one file is revalidated.
+    fetch(BASE + 'index.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       (j && j.clips || []).forEach(function (id) { index[id] = true; });
     }).catch(function () {});
   }

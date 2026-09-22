@@ -198,6 +198,19 @@
    * Returns how long the whole thing takes to read, for callers that have to
    * wait for it.
    */
+  /**
+   * EVERY LINE STILL WAITING TO BE SAID.
+   *
+   * A line of two or three thoughts is one bubble now and the next in a
+   * moment, and those moments are timers. When the screen changed, the
+   * timers did not: the second half of page 34's sentence arrived over page
+   * 35, measured against a bird who had already walked to his new mark, four
+   * hundred pixels away. Every pending part is held here and dropped the
+   * instant a screen starts.
+   */
+  var lineTimers = [];
+  function clearLineTimers() { lineTimers.splice(0).forEach(clearTimeout); }
+
   var longTimers = [];
   function sayLong(text, mood, reading) {
     longTimers.forEach(clearTimeout); longTimers = [];
@@ -209,7 +222,7 @@
     var at = 0;
     for (var i = 1; i < parts.length; i++) {
       at += shares[i - 1];
-      (function (t, s) { longTimers.push(setTimeout(function () { say(t, mood, s); }, at)); }(parts[i], shares[i]));
+      (function (t, s) { var h = setTimeout(function () { say(t, mood, s); }, at); longTimers.push(h); lineTimers.push(h); }(parts[i], shares[i]));
     }
     return shares.reduce(function (a, b) { return a + b; }, 0);
   }
@@ -979,7 +992,7 @@
     // fifth of the screen further away than it needs to go.
     var birdBox = null;
     if (global.Swiftee && Swiftee.bounds) {
-      var bb = Swiftee.bounds();
+      var bb = birdRect();
       if (bb && bb.width) {
         birdBox = {
           left: bb.left - TAIL_GAP, right: bb.right + TAIL_GAP,
@@ -1441,9 +1454,34 @@
    * the top fifth of it. Pointing at his centre puts the tail at his chest,
    * which looks like the sledge is talking.
    */
+  /**
+   * HIS BOX — the one he is walking to, if he is walking.
+   *
+   * Swiftee.bounds() is where the sprite is painted this frame. A line is set
+   * the instant the screen opens, and on the screens that move him he is
+   * still crossing the ice at that instant: the bubble was placed against the
+   * mark he had LEFT, which is how a sentence ended up four hundred pixels
+   * from the bird on the builder and the measuring screens, jumping to his
+   * head half a second later when the settle pass ran.
+   *
+   * While he is travelling, his mark is the truth: the same layout the walk
+   * is heading for, drawn at the size he will be. Once he is standing, the
+   * painted box is the truth again, because that is what the child sees.
+   */
+  function birdRect() {
+    if (!global.Swiftee) return null;
+    var painted = Swiftee.bounds ? Swiftee.bounds() : null;
+    var moving = !Swiftee.arrived || Swiftee.state === 'move' || Swiftee.state === 'enter';
+    if (!moving && painted && painted.width) return painted;
+    var L = layout(Swiftee.pos, Swiftee.size || 'medium');
+    if (!L) return painted && painted.width ? painted : null;
+    // the drawn bird, not the sprite cell: the same fraction seat() uses
+    var h = 256 * L.scale * CONTENT_FRAC, w = h * 0.86;
+    return { left: L.x - w / 2, right: L.x + w / 2, top: L.y - h, bottom: L.y, width: w, height: h };
+  }
+
   function headPoint() {
-    if (!global.Swiftee || !Swiftee.bounds) return null;
-    var b = Swiftee.bounds();
+    var b = birdRect();
     if (!b || !b.width) return null;
     return { x: b.left + b.width / 2, y: b.top + b.height * 0.18 };
   }
@@ -1664,7 +1702,8 @@
         for (var pi = 1; pi < parts.length; pi++) {
           at += shares[pi - 1];
           (function (t, share) {
-            partTimers.push(setTimeout(function () { say(t, null, share); }, at));
+            var h = setTimeout(function () { say(t, null, share); }, at);
+            partTimers.push(h); lineTimers.push(h);
           }(parts[pi], shares[pi]));
         }
         if (partTimers.length && ctx && ctx.onCancel) {
@@ -1796,6 +1835,9 @@
 
   function runScreen(i) {
     var s = Screens.list[i];
+    // whatever the screen before was still going to say, it is not saying it
+    clearLineTimers();
+    clearTimeout(bubbleTimer);
     say(null);
     // THE CARD IS CLEARED, NOT INHERITED.
     //
@@ -2020,6 +2062,15 @@
    * it under snow would waste it.
    */
   function changeScreen(i, first) {
+    // THE LAST LINE GOES BEFORE THE NEXT SCREEN BEGINS, not once it has been
+    // built. runScreen clears it, and runScreen runs AFTER the snow has
+    // covered the stage and after he has walked to his new mark — so for a
+    // second the sentence from the screen before was still on the ice, with
+    // nobody standing under it. It goes now, at the first instant the lesson
+    // decides to move on.
+    clearLineTimers();
+    clearTimeout(bubbleTimer);
+    say(null);
     if (first || !global.Transition || !wipesAt(i)) {
       var r = runScreen(i);
       revealWhenReady();
@@ -2047,6 +2098,10 @@
       // ...and before a screen where he pops from behind a card, or comes
       // out from inside one: those marks are not walked to. He goes off, the
       // ice cracks, and his first line brings him up behind the new card.
+      // AND THE LINE GOES BEFORE HE DOES. leave() walks him off over most of
+      // a second, and the sentence he had just said stayed on the ice while he
+      // went — four hundred pixels from a bird who was no longer there.
+      clearLineTimers(); clearTimeout(bubbleTimer); say(null);
       if (i > start && present && (!wantsBuddy(i) || switchesHiding)) { await leave(); if (gen !== playGen) return; }
       var r = await changeScreen(i, i === start);
       if (gen !== playGen) return;                 // a restart took over while this waited
@@ -2263,6 +2318,7 @@
       director.abort();
       playing = false;
       showNext(false);
+      clearLineTimers(); clearTimeout(bubbleTimer); say(null);
 
       // Some screens never build a stage — they add a question to whatever
       // the screen before them put up. Played in order that is exactly
