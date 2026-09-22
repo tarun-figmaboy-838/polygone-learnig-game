@@ -670,7 +670,20 @@
       // His feet are 42% of his height below the card's TOP, so head and
       // shoulders stand above the rim whatever the card's height; the rim
       // copy hides the rest and the cut hides the feet.
-      map['peek'] = { x: ax(anchor.x + anchor.w * 0.24), y: ay(anchor.y) + (0.47 * birdH) / f.h };   // in from the corner cap
+      /* IN FROM THE CORNER CAP — BUT NOT OFF THE WINDOW.
+       *
+       * The anchor is whichever card he is hiding behind, so his mark moves
+       * with it, and a card that moves or narrows takes him with it. Making
+       * the sorting bins smaller slid the Regular bin twenty units left and
+       * he went with it, straight off the left edge: half a bird, cut by the
+       * window rather than by the rim he is supposed to be behind. That is
+       * the "why is Swiftee cropped" report.
+       *
+       * The cap is his own drawn width — 0.46 of his drawn height, from the
+       * manifest's opaque bounds — so it holds whatever any card does. */
+      var peekHalfW = birdH * 0.46;
+      var peekX = Math.max(anchor.x + anchor.w * 0.24, (peekHalfW / f.w) * 1000 + 14);
+      map['peek'] = { x: ax(peekX), y: ay(anchor.y) + (0.47 * birdH) / f.h };
       // INSIDE THE CARD, on the glass at its bottom-left: the measurer waits
       // on the sheet he measures, and flies from there to each side.
       var paneH = (global.CardFrame && CardFrame.panel && CardFrame.panel.pane) ? CardFrame.panel.pane.h : 0.85;

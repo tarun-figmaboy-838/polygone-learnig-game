@@ -1868,10 +1868,15 @@
       // to x 270 and from x 730, and the card is 304 wide at x 500, so a
       // blank may lean about seventy pixels out before its corner is over a
       // zone the child is meant to be dropping into.
-      var dxk = (k === 1 ? -1 : 1) * (12 + k * 7), scale = 1 - k * 0.06, rot = (k === 1 ? -1 : 1) * (3 + k * 2);
+      // The lean and the drop are a fraction of the card, not a number of
+      // pixels: at 96 they read as a pile, and at 152 the same numbers put a
+      // second frame a few pixels off the first, which reads as a misprint
+      // rather than as cards behind cards.
+      var pileK = SWIPE_HALF / 96;
+      var dxk = (k === 1 ? -1 : 1) * (12 + k * 7) * pileK, scale = 1 - k * 0.075, rot = (k === 1 ? -1 : 1) * (3 + k * 2);
       var c = mk('g', { opacity: String(0.92 - k * 0.16) }, g);
       optionCard(c, SWIPE_HALF, null);   // a blank card: the pile, not the answers
-      c.setAttribute('transform', 'translate(' + (SWIPE_HOME.x + dxk) + ',' + (SWIPE_HOME.y + 10 * k) + ') rotate(' + rot + ') scale(' + scale.toFixed(3) + ')');
+      c.setAttribute('transform', 'translate(' + (SWIPE_HOME.x + dxk) + ',' + (SWIPE_HOME.y + 10 * k * pileK) + ') rotate(' + rot + ') scale(' + scale.toFixed(3) + ')');
     }
   }
 
@@ -1891,7 +1896,7 @@
     // these vertices are what Poly.isRegular judges the swipe against.
     g._verts = shapeVerts(name, card._pane.r, card._pane.cx, card._pane.cy);
     // the ticks and arcs the answer is read off, on the card from the start
-    if (!reduced()) shapeMarks(g, { all: true, cls: 'units' });
+    if (!reduced()) shapeMarks(g, { numbers: true, cls: 'units' });
     g.style.cursor = 'grab';
     g.style.touchAction = 'pan-y';
     sw.card = g;
@@ -1948,9 +1953,76 @@
     // they were listening.
     var verdict = Poly.isRegular(v) ? 'regular' : (sideM.groups > 1 ? 'sides' : 'angles');
     var g = mk('g', { 'class': o.cls || 'why', 'pointer-events': 'none' }, card);
+    var drawnNumbers = false;
 
-    // the sides, marked in groups of equals
-    for (var i2 = 0; i2 < n; i2++) {
+    /* THE MEASUREMENTS THEMSELVES, in centimetres and degrees.
+     *
+     * A tick says "this side matches that one" and leaves the child to take
+     * it on trust. A number says how long it is, and five of the same number
+     * round a pentagon is the definition of regular written on the shape.
+     *
+     * WHY THE MEASURING SCREENS DO NOT DO THIS, and why this can. Those print
+     * a number only while every side is in one group, because a rounded
+     * number lies: 114 units and 120 units are different sides and both come
+     * out "4 cm", so the figure would say equal about a shape that is not.
+     * That is a reason to round carefully, not a reason not to measure — so
+     * the rounding is checked here. If any two sides the shape says are
+     * DIFFERENT would print the same, every side gains a decimal place until
+     * they do not. The numbers never claim an equality the shape does not
+     * have.
+     */
+    if (o.numbers) {
+      var cen = Poly.centroid(v);
+      var UNIT = 30;                                   // the scale the measuring screens read in
+      // how many decimals it takes before unequal sides look unequal
+      var places = function (vals, marks, unit, cap) {
+        for (var d = 0; d <= cap; d++) {
+          var ok = true;
+          for (var p1 = 0; p1 < vals.length && ok; p1++) {
+            for (var p2 = p1 + 1; p2 < vals.length; p2++) {
+              if (marks[p1] === marks[p2]) continue;   // the shape says these two match
+              if ((vals[p1] / unit).toFixed(d) === (vals[p2] / unit).toFixed(d)) { ok = false; break; }
+            }
+          }
+          if (ok) return d;
+        }
+        return cap;
+      };
+      var sd = places(L, sideM.mark, UNIT, 2);
+
+      for (var si = 0; si < n; si++) {
+        var sa = v[si], sb = v[(si + 1) % n];
+        var smx = (sa.x + sb.x) / 2, smy = (sa.y + sb.y) / 2;
+        var sdx = smx - cen.x, sdy = smy - cen.y, sdl = Math.hypot(sdx, sdy) || 1;
+        var sux = sdx / sdl, suy = sdy / sdl;
+        var TW = (sd ? 62 : 52), TH = 24;
+        // set off by its own size, so a wide plate beside a steep side gets
+        // the room a plate under a flat one does not need
+        var soff = 8 + Math.abs(sux) * (TW / 2) + Math.abs(suy) * (TH / 2);
+        var slx = smx + sux * soff, sly = smy + suy * soff;
+        mk('rect', { x: slx - TW / 2, y: sly - TH / 2, width: TW, height: TH, rx: 9,
+                     fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 2.5 }, g);
+        mk('text', { x: slx, y: sly + 5, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 800,
+                     fill: '#0f3f8f', text: (L[si] / UNIT).toFixed(sd) + ' cm' }, g);
+      }
+      /* NO DEGREES. Ten labels on one card is a wall of type, and a number of
+       * degrees is not a thing a seven-year-old reads \u2014 they have met
+       * centimetres and they have not met angles measured.
+       *
+       * THE CORNERS STILL HAVE TO SAY SOMETHING, though, and this is the one
+       * place it cannot be dropped: a rhombus has four sides of the same
+       * length and is IRREGULAR, and so does a star. Sides alone would print
+       * "4 cm" four times under a shape whose answer is irregular \u2014 the
+       * figure would be telling the child the opposite of the truth in the
+       * one moment they are looking at it. So the corners keep the arcs
+       * below: equal angles take the same number, unequal ones do not, which
+       * is the same fact without a number on it. */
+      drawnNumbers = true;
+    }
+
+    // the sides, marked in groups of equals \u2014 unless they are already
+    // carrying their measurement
+    if (!drawnNumbers) for (var i2 = 0; i2 < n; i2++) {
       var a = v[i2], b = v[(i2 + 1) % n];
       var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, sl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
       var tdx = (b.x - a.x) / sl, tdy = (b.y - a.y) / sl, tnx = -tdy, tny = tdx;
@@ -1965,7 +2037,7 @@
     // AND THE CORNERS, when the corners are the reason. Equal angles take
     // the same number of arcs, so "the sides all match but these two corners
     // do not" is a thing the child can see rather than a thing they are told.
-    if (o.all || verdict !== 'sides') {
+    if (o.all || o.numbers || verdict !== 'sides') {
       for (var j = 0; j < n; j++) {
         var p = v[j], q = v[(j + n - 1) % n], r2 = v[(j + 1) % n];
         var a1 = Math.atan2(q.y - p.y, q.x - p.x), a2 = Math.atan2(r2.y - p.y, r2.x - p.x);
