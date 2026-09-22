@@ -34,8 +34,18 @@
   // test gate counts as an error. tools/build-vo-index.js writes the index
   // from the folder; until it is fetched, or if it is missing, nothing plays.
   var index = null, secs = {};
+  /* OPENED STRAIGHT OFF THE DISK, THERE IS NO LIST TO READ. A file:// page
+     may not fetch a sibling file — Chrome blocks it as a cross-origin read —
+     so the index never arrives, nothing is ever allowed, and the game plays
+     in silence for anyone who double-clicks index.html. The list exists to
+     keep a 404 out of the console on a server; off the disk there is no
+     server and no gate: the clip is asked for, and if it is not there the
+     error handler forgets it exactly as it always did. */
+  var offDisk = (function () {
+    try { return (global.location && global.location.protocol) === 'file:'; } catch (e) { return false; }
+  }());
   function loadIndex() {
-    if (index || typeof fetch !== 'function') return;
+    if (index || offDisk || typeof fetch !== 'function') return;
     index = {};
     // no-cache, not no-store: the list changes when clips are added, and a
     // browser that read it when it was empty must not keep that answer. The
@@ -57,7 +67,8 @@
 
   /** Play the clip for a line. Returns the Audio element, or null. */
   function play(id) {
-    if (!id || typeof Audio === 'undefined' || known[id] === false || muted() || !index || !index[id]) return null;
+    if (!id || typeof Audio === 'undefined' || known[id] === false || muted()) return null;
+    if (!offDisk && (!index || !index[id])) return null;
     stop();
     var a;
     try { a = new Audio(BASE + id + EXT); } catch (e) { return null; }
@@ -74,7 +85,8 @@
   /** Warm the clips a screen is about to need. */
   function preload(ids) {
     (ids || []).forEach(function (id) {
-      if (!id || known[id] != null || !index || !index[id]) return;
+      if (!id || known[id] != null) return;
+      if (!offDisk && (!index || !index[id])) return;
       try { var a = new Audio(BASE + id + EXT); a.preload = 'auto'; known[id] = true; a.addEventListener('error', function () { known[id] = false; }); } catch (e) {}
     });
   }
