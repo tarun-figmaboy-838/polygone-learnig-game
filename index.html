@@ -211,6 +211,13 @@
      past two rows in the space it has. Two sizes are a decision. */
   #bubble.tight .dialogue-inner { font-size: clamp(17px, 1.95vw, 27px); }
   #bubble.tight.solo .dialogue-inner { font-size: clamp(22px, 2.6vw, 38px); }
+  /* A SECOND STEP, for the crowded scenes only. The first one is enough
+     almost everywhere; where the shape, the plank and the bird between them
+     leave a column, one step down still wrapped to four rows — a paragraph
+     in a speech bubble. This is the floor, and fitLine only reaches it when
+     three rows have already been exceeded. */
+  #bubble.tighter .dialogue-inner { font-size: clamp(15px, 1.62vw, 22px); }
+  #bubble.tighter.solo .dialogue-inner { font-size: clamp(19px, 2.2vw, 31px); }
 
   /* ONE BUBBLE, ONE LOOK. Praise, hints and questions all come in the same
      teal-and-cream bubble; a bubble that changed colour with its mood read

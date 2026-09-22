@@ -49,6 +49,24 @@
    * plays. `hold: true` means stay in the loop until something else is
    * asked for — right for a thinking pose that has to last a whole line of
    * narration, wrong for a cheer.
+   *
+   * `cut: true` means DO NOT PAY OFF THE OUTGOING STOP CLIP FIRST.
+   *
+   * The full triad is right for a change of subject and wrong for an answer.
+   * A child taps, the sound fires in that same frame — and the face did not
+   * begin to change for another seven hundred milliseconds, because the rule
+   * was "always play the outgoing stop before the incoming start": 350ms of
+   * `listening_stop`, then 350ms of `happy_start`, and only then a happy
+   * bird. Add the up-to-400ms grace period for a sheet that had not been
+   * fetched and the reaction landed over a second after the tap, which at
+   * seven years old is not a reaction at all — it is a delayed announcement,
+   * and it is why the animation does not feel connected to the touch.
+   *
+   * So the states that ANSWER THE CHILD abandon the stop they owe and cut
+   * straight to their own start. The stop clip exists to unwind a pose
+   * politely; nobody misses it under a cheer. Narrative transitions — a
+   * change of pose between lines, where there is time and no tap to answer —
+   * keep the full triad exactly as before.
    * ------------------------------------------------------------------ */
 
   var STATES = {
@@ -92,30 +110,30 @@
     point:       { rig: 'playful',     loops: 1,  lean: true },
 
     // reactions
-    wave:        { rig: 'waving',      loops: 2 },
+    wave:        { rig: 'waving',      loops: 2, cut: true },
     // `confident` is the closer match for a nod, but its loop is a 4.4s
     // pingpong — far too long for a beat that just means "yes, go on".
-    nod:         { rig: 'happy',       loops: 1, mood: 'glad' },
+    nod:         { rig: 'happy',       loops: 1, mood: 'glad', cut: true },
     // The director awaits this one, so it gates every correct answer. One
     // loop is 3.4s end to end; two made the reward outstay its welcome.
-    celebrate:   { rig: 'celebrating', loops: 1, mood: 'glad' },
+    celebrate:   { rig: 'celebrating', loops: 1, mood: 'glad', cut: true },
     // A SMALL, LEGIBLE SET. Hearts for encouragement, a wiped brow for
     // stepping back, a puzzle for being stuck: each read as a character
     // from another story. He is glad, curious, confident, surprised or
     // puzzled — the faces a child meets while learning a shape — and no
     // more. A reaction does not colour the next line: 'confused' and
     // 'surprised' are moments, and he talks normally after them.
-    encourage:   { rig: 'happy',       loops: 1, mood: 'glad' },
-    confused:    { rig: 'confused',    loops: 1 },
-    surprised:   { rig: 'surprised',   loops: 1 },
+    encourage:   { rig: 'happy',       loops: 1, mood: 'glad', cut: true },
+    confused:    { rig: 'confused',    loops: 1, cut: true },
+    surprised:   { rig: 'surprised',   loops: 1, cut: true },
     mischief:    { rig: 'playful',     loops: 2 },
     'step-back': { rig: 'proud',       loops: 1, shift: -34 },
 
     // moments the game reaches outside screens.js
-    proud:       { rig: 'proud',       loops: 2, mood: 'glad' },
-    excited:     { rig: 'excited',     loops: 1, mood: 'glad' },
+    proud:       { rig: 'proud',       loops: 2, mood: 'glad', cut: true },
+    excited:     { rig: 'excited',     loops: 1, mood: 'glad', cut: true },
     stuck:       { rig: 'thinking',    loops: 2 },
-    happy:       { rig: 'happy',       loops: 1, mood: 'glad' },
+    happy:       { rig: 'happy',       loops: 1, mood: 'glad', cut: true },
     daydream:    { rig: 'curious',     hold: true },   // a look around, not a doze: the child is thinking, not gone
     // IN THE AIR: wings going, for as long as he is on a mark with no
     // ground under it (layout gives those marks `air`). The bob is CSS
@@ -151,7 +169,20 @@
    * Everything else is fetched the first time it is asked for, which costs
    * one 400ms grace period per expression, once per session.
    */
-  var PRELOAD = ['blinking', 'wave_start', 'waving', 'wave_stop', 'talk_start', 'talking', 'talk_stop', 'flapping'];
+  var PRELOAD = ['listening_start', 'listening', 'listening_stop',
+                 'wave_start', 'waving', 'wave_stop',
+                 'talk_start', 'talking', 'talk_stop', 'flapping'];
+
+  /* THE SHEETS AN ANSWER NEEDS, warmed while the child is still deciding.
+   *
+   * These are the only clips a tap can reach, and fetching one costs the
+   * reaction up to 400ms of grace period on top of everything else. There is
+   * no reason to pay it after the tap: an input beat is dead air on the
+   * character's side — he is resting in a pinned loop — so that is when the
+   * reaction sheets are fetched. By the time the child commits, they are
+   * decoded. warm() is called from game.js as each input arms. */
+  var REACTIONS = ['happy_start', 'happy', 'happy_stop',
+                   'confused_start', 'confused', 'confused_stop'];
 
   /**
    * How many sheet pages may stay decoded at once.
@@ -168,7 +199,15 @@
    * are the two that would otherwise be evicted and reloaded constantly.
    */
   var SHEET_BUDGET = 10;
-  var PINNED = { blinking: 1, talking: 1, talk_start: 1, talk_stop: 1, flapping: 1 };
+  /* THE RESTING LOOP WAS NOT THE ONE BEING PINNED.
+   *
+   * `blinking` is pinned here and warmed above, and nothing plays it: the
+   * state table's `idle` points at `listening`, and has since the "wings not
+   * moving" fix. So the one loop he spends most of the lesson in held no slot
+   * at all — it was evicted by the forty-odd other clips competing for ten,
+   * and every return to rest paid a fetch and a grace period, over and over,
+   * while a pinned slot sat on a sheet that is never drawn. */
+  var PINNED = { listening: 1, talking: 1, talk_start: 1, talk_stop: 1, flapping: 1 };
 
   var IDLE_DAYDREAM_MS = 30000;
   var IDLE_SLEEP_MS = 75000;
@@ -423,10 +462,13 @@
   function fresh() { return ++gen; }
   function stale(g) { return g !== gen; }
 
-  /** Pay off the outgoing state's `stop` clip before anything new begins. */
-  function closeCurrent(g) {
+  /** Pay off the outgoing state's `stop` clip before anything new begins —
+      unless the incoming state is answering a child, in which case the debt
+      is written off and the reaction starts in this frame. See `cut` above. */
+  function closeCurrent(g, cut) {
     var owed = rigLoop; rigLoop = null;
     if (!owed) return Promise.resolve();
+    if (cut) return Promise.resolve();
     var t = triad(owed);
     if (!t.stop) return Promise.resolve();             // sleeping/driving leave by their own clip
     return clip(t.stop, 1).then(function () { return stale(g) ? 'stale' : null; });
@@ -442,7 +484,7 @@
     var t = triad(def.rig);
     var repeats = def.hold ? Infinity : (def.loops == null ? 1 : def.loops);
 
-    return closeCurrent(g).then(function () {
+    return closeCurrent(g, def.cut).then(function () {
       if (stale(g)) return { cancelled: true };
       return t.start ? clip(t.start, 1) : null;
     }).then(function () {
@@ -759,11 +801,76 @@
     ], { duration: HOP_MS, easing: 'cubic-bezier(.3,.85,.4,1)' });
 
     return a.finished.then(function () {
-      if (global.Juice) Juice.squash(el, { amount: 0.2 });
+      bounce('land');
       if (global.SFX) SFX.play('pop');
       if (stale(g)) return;
       return rest();
     });
+  }
+
+  /**
+   * WHAT HIS BODY DOES, on top of what his face does.
+   *
+   * The rig carries the expression and nothing else: 'happy' changes a face
+   * inside a cell that does not move, so a right answer read as a picture
+   * being swapped rather than as a bird being pleased. Weight is what makes a
+   * character feel alive — a cheer lifts off the ground, a "no" is a shake of
+   * the head — and none of it was there.
+   *
+   * It goes through anim(), which matters for three reasons the element's own
+   * style could not give: the keyframes composite ADD, so a hop lands on top
+   * of his resting transform instead of throwing his mark away; the clip that
+   * keeps him behind a card rides along pinned to the rim, so he can bounce
+   * while peeking without the cut sliding across his eyes; and reduced motion
+   * turns it off with everything else.
+   *
+   * It is deliberately a short vocabulary. Three moves, none longer than half
+   * a second, nothing that moves him off his mark — a mascot that lurches
+   * around after every tap is noise, and noise is what a child stops reading.
+   */
+  var BODY = {
+    // up, and a stretch on the way — the whole body saying yes
+    cheer: { ms: 460, easing: 'cubic-bezier(.3,1.5,.5,1)', frames: [
+      { transform: 'translate(0,0) scale(1,1)' },
+      { transform: 'translate(0,-6px) scale(.94,1.09)', offset: 0.22 },
+      { transform: 'translate(0,-26px) scale(1.03,1.02)', offset: 0.52 },
+      { transform: 'translate(0,0) scale(1.12,.9)', offset: 0.82 },
+      { transform: 'translate(0,0) scale(1,1)' }
+    ] },
+    // a head-shake, not a wobble: small, level, and over quickly
+    no: { ms: 380, easing: 'ease-in-out', frames: [
+      { transform: 'translate(0,0) rotate(0deg)' },
+      { transform: 'translate(-7px,0) rotate(-3deg)', offset: 0.25 },
+      { transform: 'translate(7px,0) rotate(3deg)', offset: 0.55 },
+      { transform: 'translate(-4px,0) rotate(-1.5deg)', offset: 0.8 },
+      { transform: 'translate(0,0) rotate(0deg)' }
+    ] },
+    // the smallest thing that reads as 'I saw that': a dip and back,
+    // fired on the press so the touch itself gets an answer
+    notice: { ms: 210, easing: 'cubic-bezier(.3,1.2,.5,1)', frames: [
+      { transform: 'translate(0,0) scale(1,1)' },
+      { transform: 'translate(0,-8px) scale(.98,1.03)', offset: 0.45 },
+      { transform: 'translate(0,0) scale(1,1)' }
+    ] },
+    // the weight arriving — what a landing owes the ground
+    land: { ms: 300, easing: 'cubic-bezier(.2,.9,.3,1)', frames: [
+      { transform: 'scale(1,1)' },
+      { transform: 'scale(1.16,.84)', offset: 0.3 },
+      { transform: 'scale(.96,1.05)', offset: 0.65 },
+      { transform: 'scale(1,1)' }
+    ] }
+  };
+  function bounce(kind) {
+    var b = BODY[kind];
+    if (!b || !el) return Promise.resolve();
+    // NOT Juice.squash(). That effect sets transform-origin to the centre of
+    // the box, and his origin is the baseline the sprite sheet registers
+    // every frame against — one call moved him 22px down the screen for the
+    // rest of the session, which is why it was deleted. The call here was
+    // left behind, so every landing threw a TypeError inside the promise
+    // chain and never reached rest(): he touched down and stayed on the
+    // airborne loop.
+    return anim(b.frames, { duration: b.ms, easing: b.easing }).finished || Promise.resolve();
   }
 
   var HOP_MS = 620;      // the hop in land()
@@ -1171,6 +1278,14 @@
 
     /** Hop down onto the spot. See land() above; the cart intro drives it. */
     land: land,
+
+    /** A beat of body language: 'cheer', 'no' or 'land'. See BODY. */
+    bounce: bounce,
+
+    /** Fetch and decode the sheets a clip needs, ahead of needing them.
+        No-op for a clip already held. `Swiftee.warm()` with no argument
+        warms the reaction set — what a tap can reach. */
+    warm: function (names) { preload(names || REACTIONS); },
 
     /** Hard reset to the rig's 3-frame neutral pose. */
     reset: function () { fresh(); rigLoop = null; stateName = 'idle'; return clip('reset', 1).then(rest); },

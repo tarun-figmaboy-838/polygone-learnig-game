@@ -12,7 +12,7 @@
  * child has to guess the mapping, and guessing the mapping is the cognitive
  * work that dual coding is supposed to remove.
  *
- * So this module adds three bindings, and not one new word of copy — the
+ * So this module adds two bindings, and not one new word of copy — the
  * brief forbids inventing instructional text, and every term below is
  * already spoken in the deck:
  *
@@ -29,17 +29,12 @@
  *                      picture must coincide in space and time, or the
  *                      learner pays a search cost that cancels the benefit.
  *
- *   3. GESTURE GLYPH   The instruction card is words only: "Drag the vertex
-                      inward".
- *                      beside the words, so the action is coded twice too.
- *
  * Everything here is additive and fails soft. If Stage is not mounted, if
  * the term is not on screen, if animation is off — the words still show and
  * the lesson is unchanged.
  *
  *   DualCode.markup(text)        -> HTML for the bubble, terms chipped
- *   DualCode.cue(text)           -> halo whatever those terms name, on stage
- *   DualCode.taught()            -> the terms encountered so far
+ *   DualCode.cueTerm(term)       -> halo one term as its word is revealed
  */
 (function (global) {
   'use strict';
@@ -122,8 +117,6 @@
   var LOOKUP = {};
   FORMS.forEach(function (f) { LOOKUP[f[0]] = f[1]; });
 
-  var seen = {};                 // terms encountered so far, in order
-
   /* ------------------------------------------------------------------ *
    * Verbal channel — the bubble
    * ------------------------------------------------------------------ */
@@ -185,58 +178,20 @@
     return out;
   }
 
-  /** Which terms a line mentions, de-duplicated, in order of appearance. */
-  function termsIn(text) {
-    var found = [], m;
-    RE.lastIndex = 0;
-    while ((m = RE.exec(text || '')) !== null) {
-      var term = LOOKUP[m[1].toLowerCase()];
-      if (term && found.indexOf(term) < 0) found.push(term);
-    }
-    return found;
-  }
-
   /* ------------------------------------------------------------------ *
    * Pictorial channel — the stage
    * ------------------------------------------------------------------ */
 
-  /**
-   * Halo whatever the terms name, in the terms' own colours, now. The word
-   * lights up amber in the bubble and the vertices light up amber on the
-   * stage in the same beat: that co-occurrence is the binding the learner
-   * actually encodes.
-   *
-   * Staggered when a line names more than one term, because two halos at
-   * once is two things to look at and the sentence only says one at a time.
-   */
-  function cue(text) {
-    if (!global.Stage || !Stage.halo) return [];
-    var terms = termsIn(text);
-    terms.forEach(function (term, i) {
-      var def = TERMS[term];
-      seen[term] = true;
-      setTimeout(function () {
-        try { Stage.halo(def.target, def.color, def.mode); } catch (e) {}
-      }, i * 520);
-    });
-    return terms;
-  }
-
   function cueTerm(term) {
     var def = TERMS[term];
     if (!def || !global.Stage || !Stage.halo) return false;
-    seen[term] = true;
     try { Stage.halo(def.target, def.color, def.mode); } catch (e) {}
     return true;
   }
 
   global.DualCode = {
     markup: markup,
-    cue: cue,
-    cueTerm: cueTerm,
-    termsIn: termsIn,
-    taught: function () { return Object.keys(seen); },
-    TERMS: TERMS
+    cueTerm: cueTerm
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.DualCode;
 

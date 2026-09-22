@@ -2250,13 +2250,21 @@
    */
   /** A NAME TAG under a card: the ice plate the shape's own label uses, sized to its words. */
   /**
-   * THE NAME UNDER A CARD, as a thing in the game rather than a caption.
+   * AND IT WENT BACK TO BEING A BUTTON.
    *
-   * It was a thin white plate with blue lettering: correct, legible, and
-   * indistinguishable from a label printed under a slide. It is a pill now —
-   * the same one the concept badges wear, in the colour of the word it
-   * carries, sitting on its own shadow with a bright inner rim. A tone
-   * gives it the concept's colours; without one it is warm ice.
+   * Everything above was written, and then the tag was given a drop shadow
+   * and a bright white rim inside its edge — the two marks that say "this
+   * lifts off the page and can be pressed". A shadow is depth and depth is
+   * an invitation; the inner rim is the gloss every real button here wears.
+   * "Regular pentagon" and "Irregular pentagon" sat under the two shapes
+   * looking exactly like the pair of answer buttons the child had been
+   * tapping all lesson, and they are not answers — they are the names of
+   * what is above them.
+   *
+   * So: flat. The concept's wash, one thin rim in the concept's deep, the
+   * concept's ink, and nothing underneath it. It sits ON the ice rather than
+   * over it, which is what a caption does. A tone gives it the concept's
+   * colours; without one it is warm ice.
    */
   function nameTag(parent, x, y, text, tone) {
     var c = CONCEPT[tone] || null;
@@ -2268,13 +2276,10 @@
     if (!w) w = text.length * 14;
     var bw = w + 52, bx = x - bw / 2, by = y - H0 / 2;
     var r = H0 * 0.44;
-    // the shadow it stands on, the face, and a bright rim inside the edge
-    var shade0 = mk('rect', { x: bx, y: by + 7, width: bw, height: H0, rx: r, fill: c ? c.deep : '#2f7fc4', opacity: 0.32 }, g);
+    // one face, one rim, no shadow and no gloss
     var face = mk('rect', { x: bx, y: by, width: bw, height: H0, rx: r,
-                            fill: c ? c.wash : '#f3fcff', stroke: c ? c.deep : HI.edge, 'stroke-width': 4 }, g);
-    var rim = mk('rect', { x: bx + 4, y: by + 4, width: bw - 8, height: H0 - 8, rx: r - 3,
-                           fill: 'none', stroke: '#ffffff', 'stroke-width': 2.5, opacity: 0.8 }, g);
-    g.insertBefore(rim, probe); g.insertBefore(face, rim); g.insertBefore(shade0, face);
+                            fill: c ? c.wash : '#f3fcff', stroke: c ? c.deep : HI.edge, 'stroke-width': 3 }, g);
+    g.insertBefore(face, probe);
     g._text = probe;
     g._rect = { x: bx, y: by, w: bw, h: H0 };
     return g;
@@ -4080,12 +4085,9 @@
    * percentage, which is what stops a long line of dialogue from growing
    * across the shape the child is being asked to look at.
    *
-   * The `panel` layer is deliberately excluded. A panel is a translucent card
-   * with 60px of padding around a much smaller shape; counting it made the
-   * box about a third larger than anything the child actually looks at, and
-   * on the builder screen that left literally nowhere for a sentence to go.
-   * Overlapping a panel's empty margin is fine. Overlapping the polygon is
-   * not, and that is what this measures.
+   * The panel layer is included because it is visible lesson furniture. The
+   * bubble may use gaps between individual pieces via contentParts(), but it
+   * must not cover the slab that visually groups those pieces.
    */
   function contentBox() {
     if (!svg || !st.kind) return null;
@@ -4198,14 +4200,14 @@
     /** A plank-free screen lifts a lone card to the centre; a plank seats it under the band. Animated. */
     seat: function (free) { plankFree = !!free; applySeat(true); },
     get seatY() { return seatY; },
-    ambient: ambientPlay, flurry: flurry, alive: alive,
+    flurry: flurry, alive: alive,
     /* How many delayed callbacks from a finished scene have been refused.
        A test reads this: a suppression mechanism that never suppresses
        anything looks exactly like one that was never wired up. */
     get staleSuppressed() { return staleSuppressed; },
     get pendingTimers() { return sceneTimers.length; },
     get svg() { return svg; }, get state() { return st; },
-    shapeVerts: shapeVerts, PANELS: PANELS, HORIZON: HORIZON
+    shapeVerts: shapeVerts
   };
   global.Stage = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

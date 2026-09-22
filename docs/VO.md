@@ -35,7 +35,7 @@ a short pause between the sentences.
 | 13 | 14 | another-diagonal | `p14i` | instruction | Draw another diagonal from the same vertex. | an instruction: plain, steady, every word clear |
 | 14 | 14 | another-diagonal | `p14` | say | Can you draw another diagonal from here? | friendly, clear |
 | 15 | 15 | hexagon-your-turn | `p15i` | instruction | Draw all the diagonals from this vertex. | an instruction: plain, steady, every word clear |
-| 16 | 15 | hexagon-your-turn | `p15` | say | Your turn! Draw all the diagonals from this vertex. *(two bubbles)* | kind and upbeat |
+| 16 | 15 | hexagon-your-turn | `p15` | say | Your turn! | kind and upbeat |
 | 17 | 16 | look-diagonals | `p16` | say | Look at the diagonals of this pentagon. | friendly, clear |
 | 18 | 17 | inside-or-outside | `p17i` | instruction | Are the diagonals inside or outside? | an instruction: plain, steady, every word clear |
 | 19 | 17 | inside-or-outside | `p17` | say | Are they inside or outside? | friendly, clear |
@@ -53,9 +53,9 @@ a short pause between the sentences.
 | 31 | 25 | concave | `p25i` | instruction | At least one diagonal outside means concave polygon. | an instruction: plain, steady, every word clear |
 | 32 | 26 | make-concave | `p26i` | instruction | Drag any vertex to make this polygon concave. | an instruction: plain, steady, every word clear |
 | 33 | 27 | sort-convex-concave | `p27` | say | Can you sort these polygons as convex or concave? | friendly, clear |
-| 34 | 28 | suspicious | `p28` | say | Hmm… The sides look suspiciously alike. Let’s check! *(two bubbles)* | peering closely, curious |
+| 34 | 28 | suspicious | `p28` | say | The sides look suspiciously alike. | peering closely, curious |
 | 35 | 29 | measure-sides | `p29` | say | Tap a side. I’ll measure it! | showing how: bright, helpful |
-| 36 | 30 | sides-equal | `p30` | say | Every side is equal. But what about the angles? *(two bubbles)* | agreeing, then wondering |
+| 36 | 30 | sides-equal | `p30` | say | Equal sides. Now tap the angles. *(two bubbles)* | agreeing, then directing |
 | 36a | 31 | measure-angles | `p31i` | instruction | Tap the angles to measure them. | showing how: bright, helpful |
 | 37 | 31 | measure-angles | `p31` | say | The angles match too! | a cheer, delighted |
 | 38 | 32 | distort | `p32a` | say | Help me stretch this corner! Watch the sides and angles! *(two bubbles)* | showing how: bright, helpful |

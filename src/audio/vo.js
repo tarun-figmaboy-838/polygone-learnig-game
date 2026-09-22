@@ -28,12 +28,14 @@
     return '.mp3';
   }());
   var current = null, known = {};   // known[id] = false once a clip has failed to load
+  var liveId = null;                // the id of the clip `current` is playing
   // THE INDEX. assets/vo/index.json lists the clips that exist; only those
   // are ever requested. Asking the server for a clip that is not there logs
   // a 404 in the console for every line — noise a child never hears but a
   // test gate counts as an error. tools/build-vo-index.js writes the index
   // from the folder; until it is fetched, or if it is missing, nothing plays.
-  var index = null, secs = {};
+  var index = null, secs = {}, revs = {}, wordMs = {};
+  var indexWait = null, indexSettled = false;
   /* OPENED STRAIGHT OFF THE DISK, THERE IS NO LIST TO READ. A file:// page
      may not fetch a sibling file — Chrome blocks it as a cross-origin read —
      so the index never arrives, nothing is ever allowed, and the game plays
@@ -45,17 +47,39 @@
     try { return (global.location && global.location.protocol) === 'file:'; } catch (e) { return false; }
   }());
   function loadIndex() {
-    if (index || offDisk || typeof fetch !== 'function') return;
+    if (indexWait || indexSettled) return indexWait;
+    if (offDisk || typeof fetch !== 'function') {
+      indexSettled = true;
+      return Promise.resolve();
+    }
     index = {};
     // no-cache, not no-store: the list changes when clips are added, and a
     // browser that read it when it was empty must not keep that answer. The
     // clips themselves stay immutable; only this one file is revalidated.
-    fetch(BASE + 'index.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+    indexWait = fetch(BASE + 'index.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
       (j && j.clips || []).forEach(function (id) { index[id] = true; });
       secs = (j && j.seconds) || {};
-    }).catch(function () {});
+      revs = (j && j.rev) || {};
+      wordMs = (j && j.words) || {};
+    }).catch(function () {}).then(function () { indexSettled = true; });
+    return indexWait;
   }
   loadIndex();
+
+  function ready() { return indexSettled ? Promise.resolve() : (indexWait || loadIndex()); }
+
+  /* WHERE A CLIP LIVES, revision and all.
+   *
+   * The clips are served immutable for a year (vercel.json), which is right
+   * until one is re-cut — and re-cutting replaces the words inside a file
+   * that keeps its name, so a returning child would hear the old line until
+   * the cache aged out. The index carries a hash of each clip's bytes and is
+   * itself revalidated, so asking for it by revision makes a corrected clip
+   * arrive on the next load and leaves every unchanged clip in the cache. */
+  function url(id) {
+    var v = revs[id];
+    return BASE + id + EXT + (v ? '?v=' + v : '');
+  }
 
   function muted() { return !!(global.SFX && SFX.isMuted && SFX.isMuted()); }
 
@@ -71,33 +95,87 @@
    * and every path here resolves.
    */
   var settle = null;                 // resolves the promise finished() handed out
+  var waiting = null;
+  var guard = null;
 
   function done() {
     var f = settle; settle = null;
+    if (guard) { clearTimeout(guard); guard = null; }
     if (f) { try { f(); } catch (e) {} }
   }
 
+  /* HOW MUCH OF THE CLIP IS STILL TO COME, in milliseconds.
+   *
+   * `duration` is NaN until the browser has read the file's metadata, and it
+   * has not read it in the tick play() was called in. Anything that asks the
+   * ELEMENT how long a clip is, in the moment that clip starts, is asking a
+   * question the element cannot answer yet.
+   *
+   * The index has the answer instead: tools/build-vo-index.js measures every
+   * clip at build time and writes its length into assets/vo/index.json, so
+   * the length is known before the file is even requested. The element's own
+   * figure is preferred once it arrives, because that one is certainly right.
+   */
+  function leftMs(a, id) {
+    var len = (a && isFinite(a.duration) && a.duration > 0) ? a.duration * 1000
+            : (secs[id] ? secs[id] * 1000 : 0);
+    if (!len) return 12000;                        // nothing measured it: the ceiling
+    var at = (a && isFinite(a.currentTime)) ? a.currentTime * 1000 : 0;
+    return Math.max(0, len - at);
+  }
+
   function finished() {
-    // ONLY A CLIP THAT IS ACTUALLY RUNNING IS WORTH WAITING FOR. A clip that
-    // never started — no Audio in this environment, a play() the browser
-    // refused, a file that is not there — must not hold the lesson up for
-    // its nominal length. That is the difference between a wait and a hang.
-    if (!current || current.paused || !(current.duration > 0)) return Promise.resolve();
-    if (!settle) {
-      var hold = current;
-      var p = new Promise(function (resolve) { settle = resolve; });
-      // belt and braces: if no event ever arrives, the clip's own length ends
-      // the wait a second late rather than never
-      var len = (hold.duration && isFinite(hold.duration)) ? hold.duration * 1000 : 6000;
-      var guard = setTimeout(done, len + 1200);
-      p.then(function () { clearTimeout(guard); });
-      waiting = p;
+    // NOTHING PLAYING, NOTHING TO WAIT FOR. A clip that never started — no
+    // Audio in this environment, a play() the browser refused, a file that is
+    // not there — has already cleared `current` through its own error path,
+    // so this settles at once rather than holding the lesson up for the
+    // length of a clip nobody is hearing.
+    //
+    // WHAT IT MUST NOT DO IS ASK `duration`.
+    //
+    // It used to: `!(current.duration > 0)` was read as "nothing is running".
+    // duration is NaN for the first few hundred milliseconds of every clip's
+    // life, so that test was true for EVERY line, every time, and the wait
+    // resolved immediately in all of them. The beat then ended on the
+    // director's word count — 3.2s for a sentence the voice takes 9.6s to
+    // read — and the next line's clip called stop() on this one mid-word.
+    // Twenty-five of the thirty-six recorded lines were cut off that way,
+    // some by eight seconds. That is the whole of "the voice is not in step
+    // and plays at random": not a wrong clip, the right clip truncated.
+    if (!current) return Promise.resolve();
+    if (settle) return waiting;
+    var hold = current, id = liveId;
+    waiting = new Promise(function (resolve) { settle = resolve; });
+    // `ended` is the normal way out of this wait. The guard is the promise
+    // that it ends even if no event ever arrives, and it can only ever be
+    // late, never early.
+    guard = setTimeout(done, leftMs(hold, id) + 1500);
+    // A clip the index never measured is held by the ceiling above; the
+    // moment the browser knows the real length, re-time the guard to it.
+    if (!(hold.duration > 0) && hold.addEventListener) {
+      var retimed = false;
+      hold.addEventListener('loadedmetadata', function () {
+        if (retimed || current !== hold || !settle) return;
+        retimed = true;
+        clearTimeout(guard);
+        guard = setTimeout(done, leftMs(hold, id) + 1500);
+      });
     }
     return waiting;
   }
-  var waiting = null;
+
+  /** Where the voice has got to in the clip, in ms, or null if none is playing.
+      The bubbles and the words are stepped against this rather than against a
+      timer of their own, so a slow decode carries the text with the voice
+      instead of leaving it behind. */
+  function at() {
+    if (!current) return null;
+    var t = current.currentTime;
+    return (typeof t === 'number' && isFinite(t)) ? t * 1000 : null;
+  }
 
   function stop() {
+    liveId = null;
     if (!current) { done(); return; }
     try { current.pause(); current.currentTime = 0; } catch (e) {}
     current = null;
@@ -110,21 +188,22 @@
     if (!offDisk && (!index || !index[id])) return null;
     stop();
     var a;
-    try { a = new Audio(BASE + id + EXT); } catch (e) { return null; }
+    try { a = new Audio(url(id)); } catch (e) { return null; }
     a.preload = 'auto';
     a.volume = 0.95;
     a.addEventListener('error', function () {
       known[id] = false;
-      if (global.console) console.warn('[VO] missing or failed: ' + BASE + id + EXT);
-      if (current === a) { current = null; done(); }
+      if (global.console) console.warn('[VO] missing or failed: ' + url(id));
+      if (current === a) { current = null; liveId = null; done(); }
     });
-    a.addEventListener('ended', function () { if (current === a) { current = null; done(); } });
+    a.addEventListener('ended', function () { if (current === a) { current = null; liveId = null; done(); } });
     current = a;
+    liveId = id;
     var p = a.play();
     if (p && p.catch) p.catch(function () {
       // refused (autoplay policy) or failed: release anything waiting on it
       if (global.console) console.warn('[VO] could not play ' + id);
-      if (current === a) { current = null; done(); }
+      if (current === a) { current = null; liveId = null; done(); }
     });
     return a;
   }
@@ -134,7 +213,7 @@
     (ids || []).forEach(function (id) {
       if (!id || known[id] != null) return;
       if (!offDisk && (!index || !index[id])) return;
-      try { var a = new Audio(BASE + id + EXT); a.preload = 'auto'; known[id] = true; a.addEventListener('error', function () { known[id] = false; }); } catch (e) {}
+      try { var a = new Audio(url(id)); a.preload = 'auto'; known[id] = true; a.addEventListener('error', function () { known[id] = false; }); } catch (e) {}
     });
   }
 
@@ -143,7 +222,16 @@
       voice instead of with a count of their own letters. */
   function seconds(id) { return (id && secs[id]) || 0; }
 
-  global.VO = { play: play, stop: stop, finished: finished, preload: preload, seconds: seconds,
-                get playing() { return current; } };
+  /** Start of each spoken word, in milliseconds from the clip start. */
+  function words(id) { return (id && wordMs[id]) || null; }
+
+  global.VO = { play: play, stop: stop, finished: finished, preload: preload, seconds: seconds, words: words, at: at,
+                ready: ready,
+                get isReady() { return indexSettled; },
+                get playing() { return current; },
+                /* Which clip is on air. The bubbles check this before they
+                   trust at(): a line must never be paced by another line's
+                   voice. */
+                get id() { return liveId; } };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.VO;
 })(typeof window !== 'undefined' ? window : this);

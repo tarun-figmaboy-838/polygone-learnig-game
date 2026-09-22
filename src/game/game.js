@@ -211,6 +211,90 @@
   var lineTimers = [];
   function clearLineTimers() { lineTimers.splice(0).forEach(clearTimeout); }
 
+  /* THE INSTRUCTION THE BUBBLE BORROWED THE SPACE FROM.
+   *
+   * His bubble and the plank want the same band across the top, so a spoken
+   * line puts the plank away and gives it back when the line is done. Giving
+   * it back was hung on the say handler's own bubbleTimer — and `bubbleTimer`
+   * is ONE variable shared with the timer react() sets for a cheer. A child
+   * who answers while the line is still up (the input arms about a second
+   * before that timer is due) makes react() clearTimeout it, and the plank is
+   * never given back: the screen's only instruction is blank from then on,
+   * over a live input.
+   *
+   * Two responsibilities were riding on one timer. Taking the bubble DOWN can
+   * stay shared — whoever owns the bubble owns that. Giving the plank back is
+   * now owned by the bubble going away, whatever took it away, so no timer
+   * can lose it. */
+  var heldCard = null, restoringCard = false;
+  function restoreHeldCard() {
+    if (heldCard == null || restoringCard) return;
+    var t = heldCard; heldCard = null;
+    restoringCard = true;
+    try { setCard(t); } finally { restoringCard = false; }
+  }
+
+  /* A LINE ON THE PLANK IS STILL A LINE HE SAYS.
+   *
+   * Two paths put words on the plank instead of in his bubble: a screen he is
+   * not on, and an instruction beat on a screen where he does not speak the
+   * instructions. Both showed the words and returned — so the clip for that
+   * line was never asked for. Every `*i` id in docs/VO.md is written, listed
+   * and unreachable that way, and there are ten of them: a third of the
+   * lesson's narration, which the deck believes is voiced, silent.
+   *
+   * The plank is a different SPEAKER, not a different rule. The clip plays,
+   * and the beat lasts as long as the voice does — the same contract the
+   * bubble has. With no clip on disk VO.play returns null and this resolves
+   * at once, so a line that has no recording is paced exactly as before.
+   */
+  function plankVoice(opts, ctx) {
+    var id = (global.VO && opts && opts.vo) ? opts.vo : null;
+    if (id && VO.ready && !VO.isReady) {
+      return VO.ready().then(function () {
+        if (ctx && ctx.signal && ctx.signal.cancelled) return;
+        return plankVoice(opts, ctx);
+      });
+    }
+    var started = id ? VO.play(id) : null;
+    if (!started) return Promise.resolve();
+    if (ctx && ctx.onCancel) ctx.onCancel(function () { if (VO.id === id) VO.stop(); });
+    return VO.finished ? VO.finished() : Promise.resolve();
+  }
+
+  /* A CANCELLABLE HANDLE FOR A LINE SAID OUTSIDE THE BEATS.
+   *
+   * The screen-level instruction below is not a beat: it is spoken while the
+   * screen is being built, so the director has no token for it and it was
+   * handed `null` as its context. Everything a line registers for
+   * cancellation — the timers between its bubbles, the mouth loop, the clip
+   * still playing — was therefore registered with nobody, and the only reason
+   * it did not outlive its screen is that runScreen clears the same globals by
+   * hand afterwards. The clip was not one of them, so the voice did carry on
+   * into the next screen. This is the token the next screen cancels. */
+  var screenLine = null;
+  function screenCtx() {
+    var sig = { cancelled: false }, fns = [];
+    screenLine = { sig: sig, fns: fns };
+    return {
+      signal: sig,
+      onCancel: function (fn) {
+        if (sig.cancelled) { try { fn(); } catch (e) {} return; }
+        fns.push(fn);
+      }
+    };
+  }
+  function cancelScreenLine() {
+    // The plank a line borrowed the space from belongs to that line. If the
+    // line is over, so is the borrow: the screen arriving decides its own
+    // card, and restoring the old one first would flash it.
+    heldCard = null;
+    var s = screenLine; screenLine = null;
+    if (!s) return;
+    s.sig.cancelled = true;
+    s.fns.splice(0).forEach(function (f) { try { f(); } catch (e) {} });
+  }
+
   var longTimers = [];
   function sayLong(text, mood, reading) {
     longTimers.forEach(clearTimeout); longTimers = [];
@@ -375,6 +459,10 @@
     var wasUp = present;
     var speak = function () {
       try { Swiftee.play(kind === 'wrong' ? 'confused' : 'happy'); } catch (e) {}
+      // AND HIS WHOLE BODY, in the same frame as the face and the sound. The
+      // expression alone is a picture changing; the hop is the bird being
+      // pleased about it, and that is the difference a child reads.
+      try { if (Swiftee.bounce) Swiftee.bounce(kind === 'wrong' ? 'no' : 'cheer'); } catch (e) {}
       if (global.VO && pick) VO.play(pick.vo);
       say(line, mood, 900);
       clearTimeout(bubbleTimer);
@@ -695,7 +783,7 @@
     return out;
   }
 
-  function reveal(line, ms, units) {
+  function reveal(line, ms, units, clock, cues) {
     clearInterval(revealTimer); revealTimer = null;
     // Split already, if the caller did it. unitsOf mutates the line — running
     // it twice would wrap every word span in another word span.
@@ -708,19 +796,48 @@
     line.classList.add('revealing');
     revealUnits = units;
 
-    // Finish comfortably inside the reading time, so the line is whole and
-    // still for most of the beat rather than only just done when it ends.
-    var step = Math.max(45, Math.min(120, (ms || 1400) * 0.55 / units.length));
+    /* THE WORDS KEEP STEP WITH THE VOICE.
+     *
+     * They used to run on a timer of their own, capped at 120ms apart — so a
+     * sentence the voice reads in eleven seconds had all nine of its words on
+     * screen inside a second, and the child sat watching a finished line
+     * being read aloud to them. Nothing about the text followed the audio.
+     *
+     * Speech runs nearer 300ms a word, and the clip's real length is known
+     * before it is even requested (assets/vo/index.json), so the words are
+     * spread across the part they belong to — and stepped against the VOICE's
+     * own clock, not against a count of intervals. A slow decode or a
+     * throttled tab now carries the words with it instead of leaving them
+     * behind, and the ceiling is gone, because the pace is the speaker's.
+     *
+     * No clip: the wall clock and the reading time, as before, minus that
+     * ceiling — so the words still fill the line rather than being finished
+     * in the first fifth of it.
+     */
+    var span = Math.max(240, (ms || 1400) - 160);   // a breath left at the end
+    var per = span / units.length;
+    var t0 = Date.now();
     var i = 0;
-    revealTimer = setInterval(function () {
-      if (i >= units.length) { clearInterval(revealTimer); revealTimer = null; revealUnits = null; return; }
-      var u = units[i++];
+    var show = function (u) {
       u.el.classList.add('in');
       if (u.term && global.DualCode) DualCode.cueTerm(u.term);
-    }, step);
+    };
+    show(units[i++]);                               // the first word lands with the bubble
+    if (i >= units.length) { revealUnits = null; return; }
+    revealTimer = setInterval(function () {
+      // Where the speaker is. The clock returns null the moment this line's
+      // clip is no longer the one playing, and then the wall clock takes over
+      // rather than the words stopping dead.
+      var t = clock ? clock() : null;
+      if (t == null) t = Date.now() - t0;
+      // Every word whose moment has passed, so a late tick catches up in one
+      // go instead of dribbling the rest out one interval at a time.
+      while (i < units.length && t >= (cues && cues[i] != null ? cues[i] : i * per)) show(units[i++]);
+      if (i >= units.length) { clearInterval(revealTimer); revealTimer = null; revealUnits = null; }
+    }, Math.max(16, Math.min(70, per / 2)));
   }
 
-  function say(text, mood, ms) {
+  function say(text, mood, ms, clock, cues) {
     clearInterval(revealTimer); revealTimer = null; revealUnits = null;
     if (!text) {
       // THE VOICE GOES WITH THE WORDS. A clip left running when its bubble
@@ -728,7 +845,10 @@
       // plays at random" was: not a wrong clip, the right clip outliving the
       // line it belongs to.
       if (global.VO && VO.stop) VO.stop();
-      bubble.classList.add('out'); bubble.classList.remove('show'); return;
+      bubble.classList.add('out'); bubble.classList.remove('show');
+      // and the plank it stood aside for comes back. See heldCard.
+      restoreHeldCard();
+      return;
     }
     // A SPEAKER IS SEEN. A jump or a restart can cut an exit short and leave
     // him at opacity 0 on his mark; the moment he has a line, he is shown.
@@ -767,7 +887,7 @@
     // .snap in the stylesheet).
     bubble.classList.add('snap');
     fitLine();
-    reveal(line, ms, units);
+    reveal(line, ms, units, clock, cues);
     requestAnimationFrame(function () { bubble.classList.remove('snap'); });
 
     // AND AGAIN ONCE THE SCENE HAS STOPPED MOVING.
@@ -835,6 +955,7 @@
     var inner = bubble.querySelector('.dialogue-inner');
     if (inner) inner.style.fontSize = '';    // nothing is sized from JS any more
     bubble.classList.remove('tight');
+    bubble.classList.remove('tighter');
     placeBubble();
 
     // Step down ONCE if the sentence still runs past two rows in the space it
@@ -843,6 +964,19 @@
     // paragraph, and that is the only thing worth spending a size change on.
     if (rowsOfLine() > 2) {
       bubble.classList.add('tight');
+      placeBubble();
+    }
+    // AND ONE MORE, ONLY IF IT IS STILL A PARAGRAPH.
+    //
+    // One step down is enough on thirty-eight screens. On the crowded ones —
+    // where the card, the plank and the bird between them leave the bubble a
+    // column — it was not, and the line came out on four rows, which is the
+    // exact thing this function exists to prevent. Reaching for a second size
+    // costs a re-place on the handful of lines that need it and nothing at
+    // all on the rest, because this only runs once three rows have already
+    // been passed.
+    if (rowsOfLine() > 3) {
+      bubble.classList.add('tighter');
       placeBubble();
     }
     paintSkin();
@@ -1327,7 +1461,18 @@
     for (var attempt = 0; attempt < 3 && hits(); attempt++) {
       var cur = { width: bubble.offsetWidth, height: bubble.offsetHeight };
       var narrower = Math.max(MIN_W, cur.width * 0.78);
+      var wasWide = bubble.style.maxWidth;
       bubble.style.maxWidth = narrower + 'px';
+      // AND NOT PAST THREE ROWS, for the same reason the box is not closed
+      // past three rows a few hundred lines above. Each pass here takes away
+      // a fifth of the width, and three of them take away more than half, so
+      // a sentence that started on two rows can finish on four — a paragraph
+      // in a speech bubble, which is the thing the fit exists to prevent. It
+      // was invisible because it needs both a line long enough to wrap and a
+      // scene crowded enough to move the bubble, and a line only got measured
+      // if it stayed up long enough to be seen. Moving the bubble off the
+      // shape is worth some width; it is not worth the sentence.
+      if (rowsOfLine() > 3) { bubble.style.maxWidth = wasWide; break; }
       var now = { width: bubble.offsetWidth, height: bubble.offsetHeight };
       // Re-seat it in the slot at the new size.
       bubble.style.left = Math.max(slot.x, Math.min(parseFloat(bubble.style.left),
@@ -1352,7 +1497,16 @@
      * it in the widest band the screen has if it is not.
      */
     var fin = { w: bubble.offsetWidth, h: bubble.offsetHeight };
-    if (fin.w < MIN_W - 1 || rowsOf(fin.h) > 3) {
+    // ASK THE WORDS, NOT THE BOX.
+    //
+    // rowsOf() divides the finished height by a line height, which is the
+    // third time this file has been caught counting a block instead of what
+    // is in it. The box carries padding, a frame and a tail, so the estimate
+    // rounds down: a four-row line in a tall-enough box came back as three
+    // and this guard — the one whose whole job is to rescue a line that has
+    // been squeezed into a column — did not fire. rowsOfLine() reads the row
+    // each word actually laid out on, and it is already what the fit uses.
+    if (fin.w < MIN_W - 1 || Math.max(rowsOf(fin.h), rowsOfLine()) > 3) {
       var widest2 = null;
       slots.forEach(function (r) { if (!widest2 || capFor(r) > capFor(widest2)) widest2 = r; });
       if (widest2) {
@@ -1667,13 +1821,24 @@
         return p;
       },
       say: function handlerSay(text, opts, ctx) {
+        // The index is fetched asynchronously. Without this gate the first
+        // line can reach play() while the list is still empty and become the
+        // only line on a run that is silently skipped.
+        if (global.VO && opts && opts.vo && VO.ready && !VO.isReady) {
+          return VO.ready().then(function () {
+            if (ctx && ctx.signal && ctx.signal.cancelled) return;
+            return handlerSay(text, opts, ctx);
+          });
+        }
         if (!buddyOn) {
           // THE SAME WORDS, ON THE PLANK. The line is still read for its
           // reading time, so the screen's pacing is what it was; it is only
           // the speaker that has changed. An instruction beat after it
           // replaces it, exactly as it replaced the bubble.
+          // AND IT IS STILL SPOKEN. The words moving to the plank was never a
+          // reason for the voice to stop — see plankVoice.
           if (global.Instruction) Instruction.show(text || null);
-          return Promise.resolve();
+          return plankVoice(opts, ctx);
         }
         if (!present) {
           // He comes in, then says it. The line still gets its whole reading
@@ -1692,13 +1857,33 @@
         // band fought for it; his bubble and the instruction now take turns,
         // and the instruction comes back the moment the line has been read.
         var held = (global.Instruction && Instruction.current) ? Instruction.current() : null;
-        if (held) setCard(null);
+        if (held) { heldCard = held; setCard(null); }
         // THE VOICE. If a clip exists for this line it plays now, as the
         // words begin to arrive; a missing clip is silently nothing.
-        if (global.VO && opts && opts.vo) VO.play(opts.vo);
+        var voId = (global.VO && opts && opts.vo) ? opts.vo : null;
+        if (voId && !VO.play(voId)) voId = null;    // no clip: the wall clock paces it
+        /* THE SPEAKER'S CLOCK, offset to the bubble that is up.
+         *
+         * One recording carries the whole line; a line of two sentences is
+         * two bubbles in turn. `offset` is where this bubble's sentence
+         * starts inside the clip, so the words in it are stepped from the
+         * voice's position less that offset. It returns null — meaning "use
+         * the wall clock" — whenever this line's clip is not the one on air,
+         * so a bubble can never be paced by another line's voice. */
+        var clockFor = function (offset) {
+          if (!voId) return null;
+          return function () {
+            if (!global.VO || !VO.at || VO.id !== voId) return null;
+            var at = VO.at();
+            return at == null ? null : Math.max(0, at - offset);
+          };
+        };
         var parts = splitLine(text);
         var words = function (t) { return t.split(/\s+/).length; };
-        var total = parts.reduce(function (n, p) { return n + words(p); }, 0) || 1;
+        var counts = parts.map(words);
+        var total = counts.reduce(function (n, count) { return n + count; }, 0) || 1;
+        var recorded = (global.VO && VO.words && voId) ? VO.words(voId) : null;
+        if (!recorded || recorded.length !== total) recorded = null;
 
         /* THE VOICE SETS THE PACE, NOT A COUNT OF LETTERS.
          *
@@ -1716,24 +1901,61 @@
          * time, as before. A little tail is left after the voice so the last
          * bubble is not snatched away on the final syllable.
          */
-        var clipSecs = (global.VO && VO.seconds && opts && opts.vo) ? VO.seconds(opts.vo) : 0;
+        var t0Line = Date.now();
+        var clipSecs = (global.VO && VO.seconds && voId) ? VO.seconds(voId) : 0;
         var reading = clipSecs ? Math.round(clipSecs * 1000) + 280 : (opts.reading || 1200);
-        var shares = parts.map(function (p) {
-          var share = reading * words(p) / total;
-          // a clip's own share may be short; only a guessed one needs a floor
-          return clipSecs ? Math.max(420, share) : Math.max(700, share);
+        var wordAt = 0;
+        var offsets = parts.map(function (p, partIndex) {
+          var offset = recorded ? recorded[wordAt] : reading * wordAt / total;
+          wordAt += counts[partIndex];
+          return offset;
+        });
+        var shares = parts.map(function (p, partIndex) {
+          var share = recorded
+            ? ((partIndex + 1 < parts.length ? offsets[partIndex + 1] : reading) - offsets[partIndex])
+            : reading * counts[partIndex] / total;
+          // A clip's own share may be short; only a guessed one needs a floor,
+          // and never a floor above the reading time it is a share of — that
+          // inflated every multi-part line in a harness that turns the
+          // reading time down.
+          return clipSecs ? Math.max(420, share) : Math.max(Math.min(700, reading), share);
         });
         var spoken = shares.reduce(function (a, b) { return a + b; }, 0);
-        say(parts[0], null, shares[0]);
-        // the rest follow, each when the one before it has been read
+        var cuesFor = function (partIndex) {
+          if (!recorded) return null;
+          var first = 0;
+          for (var ci = 0; ci < partIndex; ci++) first += counts[ci];
+          return recorded.slice(first, first + counts[partIndex]).map(function (t) { return t - offsets[partIndex]; });
+        };
+        say(parts[0], null, shares[0], clockFor(offsets[0]), cuesFor(0));
+        // the rest follow, each when the voice reaches it
         var partTimers = [];
-        var at = 0;
         for (var pi = 1; pi < parts.length; pi++) {
-          at += shares[pi - 1];
-          (function (t, share) {
-            var h = setTimeout(function () { say(t, null, share); }, at);
+          var at = offsets[pi];
+          /* ANCHORED TO THE VOICE, NOT TO A SUM.
+           *
+           * The share is the clip's measured length split by word count,
+           * which is close but not exact — a recording pauses where a word
+           * count does not — and a clip that starts late is late for every
+           * sentence after the first. So when the timer comes round, ask the
+           * voice where it is: if it has not reached this sentence yet, come
+           * back when it has. It can only ever wait longer, never cut in
+           * early, and the deadline stops it waiting on a clip that stalled. */
+          (function (t, share, when, partIndex) {
+            var deadline = t0Line + when + 2000;
+            var fire = function () {
+              var clock = clockFor(0);
+              var pos = clock ? clock() : null;
+              if (pos != null && pos < when - 90 && Date.now() < deadline) {
+                var again = setTimeout(fire, Math.min(320, when - pos));
+                partTimers.push(again); lineTimers.push(again);
+                return;
+              }
+              say(t, null, share, clockFor(when), cuesFor(partIndex));
+            };
+            var h = setTimeout(fire, when);
             partTimers.push(h); lineTimers.push(h);
-          }(parts[pi], shares[pi]));
+          }(parts[pi], shares[pi], at, pi));
         }
         if (partTimers.length && ctx && ctx.onCancel) {
           ctx.onCancel(function () { partTimers.forEach(clearTimeout); });
@@ -1761,10 +1983,10 @@
         // without one would be left saying nothing at all, so those keep it.
         clearTimeout(bubbleTimer);
         bubbleTimer = setTimeout(function () {
-          if (held) { say(null); setCard(held); return; }
+          if (held) { say(null); return; }        // say(null) gives the plank back
           if (instruction && instruction.classList.contains('show')) say(null);
         }, spoken + 1100);
-        if (ctx && ctx.onCancel) ctx.onCancel(function () { if (held && !(instruction && instruction.classList.contains('show'))) setCard(held); });
+        if (ctx && ctx.onCancel) ctx.onCancel(function () { if (!(instruction && instruction.classList.contains('show'))) restoreHeldCard(); });
         if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(bubbleTimer); });
         if (ctx && ctx.onCancel) ctx.onCancel(stop);
         /* THE BEAT ENDS WHEN THE VOICE DOES, not when a sum says it should.
@@ -1781,8 +2003,13 @@
          * above all of it. With no clip it resolves at once and the sum is
          * the pacing, exactly as before.
          */
+        // A ONE-SENTENCE LINE IS STILL A LINE THAT TAKES TIME TO SAY. This
+        // used to resolve at once unless the line had been split, which left
+        // every single-sentence screen paced by the director's word count
+        // alone — and that count is short of the recording on twenty-five of
+        // the thirty-six lines that have one.
         var paced = new Promise(function (res) {
-          var t = setTimeout(res, parts.length > 1 ? spoken : 0);
+          var t = setTimeout(res, spoken);
           if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(t); res(); });
         });
         var heard = (global.VO && VO.finished) ? VO.finished() : Promise.resolve();
@@ -1794,6 +2021,10 @@
         // bubble, with a line's reading time, and the plank stays down.
         if (text && buddyOn && speaksAll(current) && H && H.say) return H.say(text, opts || {}, ctx);
         setCard(text);
+        // The plank says it; the voice still says it too, and the beat holds
+        // until it has. An instruction beat had no wait of its own at all, so
+        // without this the next thing began over the first syllable.
+        return plankVoice(opts, ctx);
       },
       focus: function (target, opts) {
         Stage.focus(target, opts.style);
@@ -1813,6 +2044,13 @@
         // had already become draggable — which is the worst possible moment
         // to split a seven-year-old's attention.
         revealAll();
+
+        // THE REACTION'S SHEETS, FETCHED WHILE THEY ARE STILL DECIDING.
+        // An input beat is dead air on his side — he is resting in a pinned
+        // loop — and a tap can only reach two expressions. Warming them now
+        // means the answer does not spend up to 400ms of its own grace
+        // period waiting for a sheet to arrive.
+        if (global.Swiftee && Swiftee.warm) Swiftee.warm();
 
         var waiting = spec.type === 'tap-anywhere';
         showNext(waiting);
@@ -1878,6 +2116,7 @@
   function runScreen(i) {
     var s = Screens.list[i];
     // whatever the screen before was still going to say, it is not saying it
+    cancelScreenLine();
     clearLineTimers();
     clearTimeout(bubbleTimer);
     say(null);
@@ -1928,11 +2167,12 @@
     // speak or instruct before their input are left exactly as they were,
     // because seeding them would flash the deck's stale instruction first.
     if (s.instruction && !textBeforeInput(s)) {
-      if (buddyOn && speaksAll(i) && H && H.say) {
-        var ib = (s.beats || []).filter(function (b) { return b && b.instruction === s.instruction; })[0];
-        H.say(s.instruction, { vo: ib && ib.vo }, null);
-      }
-      else setCard(s.instruction);
+      var ib = (s.beats || []).filter(function (b) { return b && b.instruction === s.instruction; })[0];
+      if (buddyOn && speaksAll(i) && H && H.say) H.say(s.instruction, { vo: ib && ib.vo }, screenCtx());
+      // The plank gets the words AND the clip: this is the only thing telling
+      // the child what to do on these screens, so it is the last place that
+      // should be the silent one.
+      else { setCard(s.instruction); plankVoice({ vo: ib && ib.vo }, screenCtx()); }
     }
     if (!buddyOn && Swiftee.place) {
       // Normally he has already left: the loop plays his exit before a
@@ -2143,7 +2383,7 @@
       // AND THE LINE GOES BEFORE HE DOES. leave() walks him off over most of
       // a second, and the sentence he had just said stayed on the ice while he
       // went — four hundred pixels from a bird who was no longer there.
-      clearLineTimers(); clearTimeout(bubbleTimer); say(null);
+      cancelScreenLine(); clearLineTimers(); clearTimeout(bubbleTimer); say(null);
       if (i > start && present && (!wantsBuddy(i) || switchesHiding)) { await leave(); if (gen !== playGen) return; }
       var r = await changeScreen(i, i === start);
       if (gen !== playGen) return;                 // a restart took over while this waited
@@ -2210,6 +2450,32 @@
       Input.on('tap', function () {
         if (revealAll()) return;
         director.skip();
+      });
+
+      /* HE NOTICES THE FINGER, not just the verdict.
+       *
+       * Everything he does was tied to being right or wrong, so between the
+       * touch and the judgement — which on a drag is the whole of the
+       * interaction — he stood perfectly still while the child worked. The
+       * game was watching; he was not. A small bob on the press is the
+       * anticipation the cheer after it resolves, and the pair read as one
+       * movement rather than two.
+       *
+       * KEPT SMALL AND RARE ON PURPOSE. Eight pixels, a fifth of a second,
+       * never twice inside four hundred milliseconds and never while he is
+       * already doing something — a drag fires pointerdown the moment it
+       * starts, and a mascot that flinches at every touch is the mess this
+       * is meant to avoid.
+       */
+      var lastNoticed = 0;
+      Input.on('down', function () {
+        var t = Date.now();
+        if (t - lastNoticed < 400) return;
+        if (!buddyOn || !present || entering) return;
+        if (!global.Swiftee || !Swiftee.bounce) return;
+        if (Date.now() < cheerUntil) return;       // he is already saying something
+        lastNoticed = t;
+        try { Swiftee.bounce('notice'); } catch (e) {}
       });
     }
     if (global.SFX) SFX.key('C pentatonic');
@@ -2360,7 +2626,7 @@
       director.abort();
       playing = false;
       showNext(false);
-      clearLineTimers(); clearTimeout(bubbleTimer); say(null);
+      cancelScreenLine(); clearLineTimers(); clearTimeout(bubbleTimer); say(null);
 
       // Some screens never build a stage — they add a question to whatever
       // the screen before them put up. Played in order that is exactly

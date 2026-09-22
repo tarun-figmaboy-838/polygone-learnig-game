@@ -21,7 +21,11 @@
     "test:qa": "node tests/qa.browser.js",
     "build:sleigh": "node tools/build-sleigh-frames.js",
     "build:vo": "node tools/build-vo-index.js",
-    "split:vo": "node tools/split-vo.js"
+    "split:vo": "node tools/split-vo.js",
+    "vo:lines": "node tools/vo-lines.js",
+    "vo:check": "node tools/vo-check.js",
+    "vo:encode": "node tools/encode-vo.js",
+    "vo:refine": "node tools/split-vo.js --refine"
   },
   "devDependencies": {
     "jsdom": "^24.0.0",

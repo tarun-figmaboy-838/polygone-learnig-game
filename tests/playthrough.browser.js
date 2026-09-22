@@ -283,6 +283,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const line = document.querySelector('.bubble-line');
     if (!line) return;
     const sample = () => {
+      // ONLY A BUBBLE THAT IS UP. This counted the rows of the line element
+      // whether or not the bubble was on screen, and the bubble keeps its
+      // last line while it fades out — measured mid-teardown, at whatever
+      // width the fit had left it, against whichever screen happened to be
+      // current 900ms later. The check is "does a child see a paragraph", and
+      // a bubble nobody can see is not one they read.
+      const bub = document.querySelector('#bubble');
+      if (!bub || !bub.classList.contains('show')) return;
+      if (parseFloat(getComputedStyle(bub).opacity) < 0.05) return;
       // LAYOUT BOXES, NOT CLIENT RECTS. Each word rises a few pixels into
       // place as it arrives, and a client rect includes that travel — so a
       // line sampled half way through its reveal reported twice the rows it

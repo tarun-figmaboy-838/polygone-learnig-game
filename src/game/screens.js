@@ -294,7 +294,7 @@
       id: 'hexagon-your-turn', page: 15,
       swiftee: { pos: 'left-low', size: 'medium' },
       instruction: 'Draw all the diagonals from this vertex.',
-      say: 'Your turn! Draw all the diagonals from this vertex.',
+      say: 'Your turn!',
       // FLAG: two problems on this page.
       //  (1) Sequence: the lesson is on a pentagon on pages 5–14 and 16–20,
       //      and this page cuts to a hexagon for one screen, then back. It
@@ -312,7 +312,7 @@
         { wait: 400 },
         { instruction: 'Draw all the diagonals from this vertex.', vo: 'p15i' },
         { swiftee: 'encourage' },
-        { say: 'Your turn! Draw all the diagonals from this vertex.', vo: 'p15' },
+        { say: 'Your turn!', vo: 'p15' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
         { swiftee: 'step-back' },
         // Three diagonals from one hexagon vertex (n - 3). Each correct one
@@ -605,16 +605,14 @@
       // NOT polygon-top-right: that corner is inside the right-hand slab, so
       // the position cannot avoid the panel it is defined against.
       swiftee: { pos: 'peek', size: 'small', purpose: 'hint'},
-      // THE DECK'S LINE, WHOLE. "Let's check!" is the second half of it and
-      // had been cut; without it he notices something and then says nothing
-      // about it, and the screen that follows begins in the middle of a
-      // thought. splitLine sends it to a second bubble.
-      say: 'Hmm\u2026 The sides look suspiciously alike. Let\u2019s check!',
+      // This wording follows the recorded master exactly. Extra copy here
+      // makes the bubble reveal words that Swiftee never says.
+      say: 'The sides look suspiciously alike.',
       stage: { kind: 'polygon', sides: 5, room: 'measure' },
       beats: [
         { stage: { kind: 'polygon', sides: 5, room: 'measure', enter: 'pop' } },
         { swiftee: 'inspect' },
-        { say: 'Hmm\u2026 The sides look suspiciously alike. Let\u2019s check!', vo: 'p28' },
+        { say: 'The sides look suspiciously alike.', vo: 'p28' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -648,16 +646,13 @@
       // angles..." while Swiftee is still concluding the SIDES check. The
       // card is held on the sides instruction until the line finishes, then
       // swapped — otherwise the child is told to do two things at once.
-      // THE DECK'S LINE, WHOLE. It had been squeezed to "Equal sides! Now tap
-      // the angles." — the finding and the next instruction crushed into one
-      // breath, and the question the whole screen exists to ask ("but what
-      // about the angles?") gone with it. The finding is his line; the
-      // instruction follows it on the plank, spoken, once it has been read.
-      say: 'Every side is equal. But what about the angles?',
+      // This wording follows the recorded master exactly. The more expansive
+      // deck copy cannot be highlighted word-for-word against this take.
+      say: 'Equal sides. Now tap the angles.',
       original: 'Equal sides! Now tap the angles.',
       beats: [
         { swiftee: 'nod' },
-        { say: 'Every side is equal. But what about the angles?', vo: 'p30' },
+        { say: 'Equal sides. Now tap the angles.', vo: 'p30' },
         { swiftee: 'think' },
         { input: { type: 'tap-anywhere' } }
       ]
