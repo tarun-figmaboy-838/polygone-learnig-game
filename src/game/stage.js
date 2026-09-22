@@ -16,7 +16,6 @@
   var W = 1000, H = 562;
 
   /** The painted backdrop. 16:9, which is exactly the viewBox's aspect. */
-  var VISTA_SRC = 'assets/bg/ice-vista.png';
 
   var svg, layers = {}, st = {};
 
@@ -2212,7 +2211,6 @@
      and tangerine come first because two options is by far the commonest
      row, and a yellow button beside an orange one is unmistakably a pair of
      buttons. */
-  var NEUTRAL = ['sun', 'tangerine', 'sky', 'plum'];
 
   /* [face, lip, ink] — ink optional, white when absent. */
   var PILL_TONES = {
@@ -2838,7 +2836,7 @@
          * is walked outwards along the same line until it is clear, and it
          * is allowed onto the rim to get there. */
         if (st.verts && st.verts.length) {
-          var tw = (String(l.text).length * 15) + 36, th = 40;
+          var tw = (String(l.text).length * 15) + 36;
           var bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
           st.verts.forEach(function (p) {
             if (p.x < bx0) bx0 = p.x; if (p.x > bx1) bx1 = p.x;
@@ -2851,8 +2849,51 @@
             return px - tw / 2 < bx1 + 6 && px + tw / 2 > bx0 - 6 &&
                    py - 27 < by1 + 6 && py + 13 > by0 - 6;
           };
-          for (var guard = 0; guard < 14 && hits(x, y); guard++) { x += ox * 14; y += oy * 14; }
-          // on the stage, whatever happened: the rim is fair game, the edge is not
+
+          /* OFF THE SHAPE, AND OFF THE FRAME.
+           *
+           * This walked the tag outwards until it cleared the shape and then
+           * clamped it to the STAGE — which threw away the clamp to the glass
+           * a few lines above and let it finish on the card's rim, across a
+           * moulded corner and its snow cap. Two clamps pulling opposite ways,
+           * and the last one won.
+           *
+           * The rim is not fair game: it is the most decorated part of the
+           * picture, and a white plate lying over a corner reads as a mistake
+           * whatever it is pointing at. So the search is two-dimensional now —
+           * out along the line from the middle of the side, and sideways
+           * along the rim from there — and it takes the first place that is
+           * both clear of the shape and wholly on the glass. If the card is
+           * too full for any such place to exist, the tag stays on the glass
+           * and overlaps the shape, because a tag over the thing it names is
+           * still the lesser of the two. */
+          var glassX0 = pfc.x + tw / 2 + 14, glassX1 = pfc.x + pfc.w - tw / 2 - 14;
+          var glassY0 = pfc.y + 44, glassY1 = pfc.y + pfc.h - 18;
+          var onGlass = function (px, py) {
+            return px >= glassX0 - 0.5 && px <= glassX1 + 0.5 && py >= glassY0 - 0.5 && py <= glassY1 + 0.5;
+          };
+          var px0 = -oy, py0 = ox;                     // along the rim, not away from it
+          var best = null;
+          if (glassX1 >= glassX0 && glassY1 >= glassY0) {
+            for (var step = 0; step <= 12 && !best; step++) {
+              for (var side = 0; side < 7 && !best; side++) {
+                var sgn = side % 2 ? -1 : 1, slide = Math.ceil(side / 2) * 26 * sgn;
+                var tx = x + ox * step * 14 + px0 * slide;
+                var ty = y + oy * step * 14 + py0 * slide;
+                if (onGlass(tx, ty) && !hits(tx, ty)) best = { x: tx, y: ty };
+              }
+            }
+          }
+          if (best) { x = best.x; y = best.y; }
+          else {
+            // nowhere clear: stay on the glass rather than climb onto the frame
+            for (var g2 = 0; g2 < 14 && hits(x, y); g2++) { x += ox * 14; y += oy * 14; }
+            if (glassX1 >= glassX0) x = Math.max(glassX0, Math.min(glassX1, x));
+            else x = pfc.x + pfc.w / 2;
+            if (glassY1 >= glassY0) y = Math.max(glassY0, Math.min(glassY1, y));
+            else y = pfc.y + pfc.h / 2;
+          }
+          // and never off the stage, whatever the card did
           x = Math.max(tw / 2 + 12, Math.min(W - tw / 2 - 12, x));
           y = Math.max(46, Math.min(BOTTOM - 14, y));
         }

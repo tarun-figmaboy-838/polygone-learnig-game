@@ -188,7 +188,19 @@
     if (!offDisk && (!index || !index[id])) return null;
     stop();
     var a;
-    try { a = new Audio(url(id)); } catch (e) { return null; }
+    // THE ONE THAT WAS WARMED, if a screen asked for it ahead of time. Its
+    // bytes are already here, so it starts in this frame instead of a
+    // network round trip later. Taken out of `warm` because it is no longer
+    // waiting to be used — and if it is asked for again the browser's cache
+    // answers, which is the whole point of giving the file a revision.
+    if (warm[id]) {
+      a = warm[id];
+      delete warm[id];
+      var wi = warmOrder.indexOf(id); if (wi >= 0) warmOrder.splice(wi, 1);
+      try { a.currentTime = 0; } catch (e) {}
+    } else {
+      try { a = new Audio(url(id)); } catch (e) { return null; }
+    }
     a.preload = 'auto';
     a.volume = 0.95;
     a.addEventListener('error', function () {
@@ -208,12 +220,38 @@
     return a;
   }
 
-  /** Warm the clips a screen is about to need. */
+  /* WARM THE CLIPS A SCREEN IS ABOUT TO NEED.
+   *
+   * Nothing called this, so every clip was fetched at the instant it was
+   * wanted. Over a real connection that is most of a second between the
+   * bubble appearing and a sound coming out of it — and now that the words
+   * are stepped against the voice's own clock, the line does not race ahead
+   * to fill the gap: it shows its first word and stops dead until the audio
+   * arrives. Measured at 700ms of added latency, every one of the thirty-odd
+   * spoken screens sat on one word for three quarters of a second.
+   *
+   * THE ELEMENT HAS TO BE KEPT. This built an Audio, set preload and dropped
+   * it on the floor; an element nothing references can be collected before
+   * the fetch finishes, which makes the warming a coin toss. They are held
+   * until played — at which point the fetch is done and the browser's own
+   * cache has it, so the reference is no longer what is keeping it warm.
+   * `warm` is small by construction: a screen asks for its own clips and the
+   * next screen's, so it holds a handful at a time.
+   */
+  var warm = {}, warmOrder = [];
+  var WARM_MAX = 8;
   function preload(ids) {
     (ids || []).forEach(function (id) {
-      if (!id || known[id] != null) return;
+      if (!id || warm[id] || known[id] === false) return;
       if (!offDisk && (!index || !index[id])) return;
-      try { var a = new Audio(url(id)); a.preload = 'auto'; known[id] = true; a.addEventListener('error', function () { known[id] = false; }); } catch (e) {}
+      try {
+        var a = new Audio(url(id));
+        a.preload = 'auto';
+        a.addEventListener('error', function () { known[id] = false; delete warm[id]; });
+        warm[id] = a;
+        warmOrder.push(id);
+        while (warmOrder.length > WARM_MAX) { var old = warmOrder.shift(); if (old !== id) delete warm[old]; }
+      } catch (e) {}
     });
   }
 

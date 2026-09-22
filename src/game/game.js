@@ -455,7 +455,12 @@
       return;
     }
     lastFeedbackAt = now;
-    cheerUntil = now + (kind === 'wrong' ? 2100 : 1900) + (present ? 0 : 420);
+    // AND FOR AS LONG AS THE RECORDING RUNS. These were flat numbers chosen
+    // when nothing was spoken here; a clip longer than them let the lesson
+    // move on over the end of his own answer.
+    var cheerSecs = (global.VO && VO.seconds && pick && pick.vo) ? VO.seconds(pick.vo) : 0;
+    cheerUntil = now + Math.max(kind === 'wrong' ? 2100 : 1900, Math.round(cheerSecs * 1000) + 700)
+                     + (present ? 0 : 420);
     var wasUp = present;
     var speak = function () {
       try { Swiftee.play(kind === 'wrong' ? 'confused' : 'happy'); } catch (e) {}
@@ -463,14 +468,40 @@
       // expression alone is a picture changing; the hop is the bird being
       // pleased about it, and that is the difference a child reads.
       try { if (Swiftee.bounce) Swiftee.bounce(kind === 'wrong' ? 'no' : 'cheer'); } catch (e) {}
-      if (global.VO && pick) VO.play(pick.vo);
-      say(line, mood, 900);
+      /* WHAT HE SAYS BACK IS SPOKEN TOO, so it keeps step like every other line.
+       *
+       * The narration was put on the voice's clock and this was not. A cheer
+       * played its clip and revealed its words on a timer of its own, held for
+       * a flat 900ms whatever the recording actually ran to — so the shortest,
+       * brightest lines in the game, the ones a child hears after every single
+       * answer, were the only ones whose words did not match the voice, and a
+       * clip longer than the hold was cut off by its own bubble coming down.
+       *
+       * Same two arguments the narration uses: where the voice is now, and
+       * when each word is spoken in the recording. With no clip for the line
+       * both are null and this is exactly what it was.
+       */
+      var vid = (global.VO && pick && pick.vo) ? pick.vo : null;
+      if (vid && !VO.play(vid)) vid = null;
+      var clock = vid ? function () {
+        if (!global.VO || !VO.at || VO.id !== vid) return null;
+        return VO.at();
+      } : null;
+      var cues = null, hold = 900;
+      if (vid) {
+        var rec = VO.words ? VO.words(vid) : null;
+        if (rec && rec.length === String(line).trim().split(/\s+/).length) cues = rec;
+        var len = VO.seconds ? VO.seconds(vid) : 0;
+        if (len) hold = Math.round(len * 1000) + 200;
+      }
+      say(line, mood, hold, clock, cues);
       clearTimeout(bubbleTimer);
       bubbleTimer = setTimeout(function () {
         say(null);
         // he only came up to say it
         if (!wasUp && present && Swiftee.pos === 'peek') leave();
-      }, kind === 'wrong' ? 1900 : 1600);
+        // and the lesson does not move on over the end of it
+      }, Math.max(kind === 'wrong' ? 1900 : 1600, hold + 500));
     };
     if (present) speak(); else entrance(true).then(speak);
   }
@@ -2113,8 +2144,51 @@
     return false;   // no input at all, or one with nothing said before it
   }
 
+  /* EVERY CLIP A SCREEN CAN ASK FOR, including the ones inside a branch: a
+     wrong answer's nudge is as much this screen's voice as its narration. */
+  function voIdsOf(i) {
+    var s = Screens.list[i];
+    if (!s) return [];
+    var out = [];
+    (function walk(beats) {
+      (beats || []).forEach(function (b) {
+        if (!b || typeof b !== 'object') return;
+        if (b.vo) out.push(b.vo);
+        if (b.on) Object.keys(b.on).forEach(function (k) { walk(b.on[k]); });
+        if (b.otherwise) walk(b.otherwise);
+        if (b.feedback) walk(b.feedback);
+        if (b.parallel) walk(b.parallel);
+      });
+    }(s.beats));
+    return out;
+  }
+
+  /* WARM THIS SCREEN'S VOICE, AND THE NEXT SCREEN'S.
+   *
+   * A clip fetched at the moment it is wanted costs a network round trip, and
+   * the words are stepped against the voice now — so instead of racing ahead
+   * to fill the gap, the line puts up its first word and waits. Over a
+   * connection with 700ms of latency that was three quarters of a second of a
+   * frozen bubble on every spoken screen. Asking one screen early costs
+   * nothing: the child is still reading this one. */
+  var warmedCues = false;
+  function warmVoice(i) {
+    if (!(global.VO && VO.preload)) return;
+    var ids = voIdsOf(i).concat(voIdsOf(i + 1));
+    // WHAT HE SAYS BACK TOO. The cheers and the nudges are not in the deck —
+    // they are picked when the child answers — so nothing would ever ask for
+    // them early, and the first "Nice!" of the lesson is the one that pays
+    // for the whole round trip.
+    if (!warmedCues) {
+      warmedCues = true;
+      ids = ids.concat(PRAISE.concat(NUDGE).map(function (p) { return p.vo; }));
+    }
+    try { VO.preload(ids); } catch (e) {}
+  }
+
   function runScreen(i) {
     var s = Screens.list[i];
+    warmVoice(i);
     // whatever the screen before was still going to say, it is not saying it
     cancelScreenLine();
     clearLineTimers();
@@ -2267,44 +2341,6 @@
    * lesson in weather.
    * ------------------------------------------------------------------ */
 
-  var FAMILY = {
-    'tap-anywhere':  null,      // reading on, not doing
-    'choice':        'choose',
-    'multi-select':  'choose',
-    'vertex-pick':   'pick',
-    'tap-each':      'pick',
-    'drag-endpoint': 'drag',
-    'drag-vertex':   'drag',
-    'draw-diagonal': 'draw',
-    'draw-diagonals':'draw',
-    'sort':          'sort',
-    'stepper':       'build'
-  };
-
-  function inputTypes(s) {
-    var out = [];
-    ((s && s.beats) || []).forEach(function (b) {
-      if (!b) return;
-      if (b.input && b.input.type) out.push(b.input.type);
-      if (b.parallel) b.parallel.forEach(function (p) {
-        if (p && p.input && p.input.type) out.push(p.input.type);
-      });
-    });
-    if (s && s.input && s.input.type) out.push(s.input.type);
-    return out;
-  }
-
-  /** The first real interaction a screen asks for, as a family, or null. */
-  function familyOf(s) {
-    var t = inputTypes(s), i, f;
-    for (i = 0; i < t.length; i++) { f = FAMILY[t[i]]; if (f) return f; }
-    return null;
-  }
-
-  function rebuildsScene(i) {
-    var s = Screens.list[i];
-    return !!(s && (s.beats || []).some(function (b) { return b && b.stage && b.stage.kind; }));
-  }
 
   // Worked out once from the storyboard rather than from runtime state, so
   // it is the same on a replay, the same when a screen is entered out of

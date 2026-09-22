@@ -874,7 +874,6 @@
   }
 
   var HOP_MS = 620;      // the hop in land()
-  var FLIGHT_MS = 2200;  // off-stage to touchdown
 
   var MOVES = {
 
