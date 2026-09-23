@@ -116,10 +116,23 @@ t('every line in the VO script has an id', Screens.voScript().every((l) => !!l.v
 
 const p13 = Screens.byId['define-diagonal'];
 t('page 13 exists', !!p13);
-t('the definition of a diagonal says VERTICES, not sides',
-  /vertices/i.test(p13.say) && !/non-adjacent sides/i.test(p13.say), p13.say);
-t('the original wording is kept beside the correction, not discarded',
-  typeof p13.original === 'string' && /sides/i.test(p13.original), p13.original);
+/* THE DEFINITION LINE, AND WHY THIS GATE CHANGED SIDES.
+ *
+ * This used to assert the opposite: that the line says VERTICES, because a
+ * diagonal joins two non-adjacent vertices and this screen draws one doing
+ * exactly that. The author has since supplied "sides" twice in writing, with
+ * "do not modify my dialogue wording", so the deck says sides and this guards
+ * the supplied wording instead of the mathematics.
+ *
+ * The gate is kept rather than deleted so the line cannot drift again without
+ * somebody choosing to, and the objection is kept in screens.js beside the
+ * line itself. "vertices" remains the correct word. */
+t('the definition line carries the supplied wording, not a silent correction',
+  /non-adjacent sides/i.test(p13.say), p13.say);
+t('the definition line is split where the script splits it',
+  (p13.beats.filter((b) => b && b.parts)[0] || {}).parts + '' ===
+  ['A line segment joining', 'two non-adjacent sides', 'is a diagonal.'] + '',
+  (p13.beats.filter((b) => b && b.parts)[0] || {}).parts);
 
 const p15 = Screens.byId['hexagon-your-turn'];
 t('page 15 exists', !!p15);

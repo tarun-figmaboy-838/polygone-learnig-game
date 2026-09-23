@@ -193,6 +193,14 @@
     background: #fff; transform: rotate(-22deg); pointer-events: none;
   }
   #bubble.show { opacity: 1; pointer-events: auto; cursor: pointer; transform: none; }
+  /* KEPT UP, BUT OUT OF THE WAY. An instruction stays on screen while it is
+     being obeyed, and the bubble is above the stage and takes pointer events
+     — so the words a child is reading were also a lid over the thing they
+     were being told to touch. Once the interaction is live the box stops
+     taking taps entirely: still there, still readable, no longer a control.
+     Tapping to finish the reveal is done BEFORE this, while the line is
+     still arriving, which is the only moment that gesture means anything. */
+  #bubble.show.passive { pointer-events: none; cursor: default; }
   /* going away is quicker than arriving, and does not overshoot */
   #bubble.out { transition: transform 260ms ease-in, opacity 220ms ease 40ms; }
 
@@ -281,12 +289,12 @@
   .bubble-line .w, .bubble-line .dc-term {
     display: inline-block;
     transform-origin: 50% 80%;
-    transition: opacity 200ms cubic-bezier(.2, .7, .3, 1),
-                filter 200ms cubic-bezier(.2, .7, .3, 1),
-                scale 340ms cubic-bezier(.34, 1.56, .64, 1),
-                translate 340ms cubic-bezier(.34, 1.56, .64, 1);
+    transition: opacity 220ms ease-out,
+                filter 180ms ease-out,
+                scale 260ms cubic-bezier(.22, 1.2, .36, 1),
+                translate 260ms cubic-bezier(.22, 1.2, .36, 1);
   }
-  .bubble-line.revealing .w, .bubble-line.revealing .dc-term { opacity: 0; filter: blur(3px); scale: .7; translate: 0 5px; }
+  .bubble-line.revealing .w, .bubble-line.revealing .dc-term { opacity: 0; filter: blur(1px); scale: .94; translate: 0 6px; }
   .bubble-line .w.in, .bubble-line .dc-term.in { opacity: 1; filter: none; scale: 1; translate: 0 0; }
   @media (prefers-reduced-motion: reduce) {
     .bubble-line .w, .bubble-line .dc-term { transition: none; scale: 1; translate: 0 0; }
@@ -730,6 +738,7 @@
 <script src="src/core/input.js"></script>
 <script src="src/core/polygon-math.js"></script>
 <script src="src/core/director.js"></script>
+<script src="src/game/dialogue-timing.js"></script>
 <script src="src/game/screens.js"></script>
 <!-- generated from assets/swiftee/swiftee.manifest.json by tools/build-swiftee-frames.js -->
 <script src="src/character/swiftee-frames.js"></script>

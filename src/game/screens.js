@@ -78,7 +78,7 @@
       say: 'Polygons are closed shapes made from straight lines.',
       beats: [
         { swiftee: 'explain' },
-        { say: 'Polygons are closed shapes made from straight lines.', vo: 'p03' },
+        { say: 'Polygons are closed shapes made from straight lines.', parts: ['Polygons are closed shapes', 'made from straight lines.'], vo: 'p03' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -204,12 +204,12 @@
     {
       id: 'what-if', page: 10,
       swiftee: { pos: 'left-low', size: 'medium' },
-      say: 'What if we connect it to a different vertex.',
+      say: 'What if we connect it to a different vertex?',
       stage: { highlight: { vertex: 'adjacent', color: 'red' } },
       beats: [
         { stage: { highlight: { vertex: 'adjacent', color: 'red', enter: 'pop' } } },
         { swiftee: 'think' },
-        { say: 'What if we connect it to a different vertex.', vo: 'p10' },
+        { say: 'What if we connect it to a different vertex?', parts: ['What if we connect it', 'to a different vertex?'], vo: 'p10' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -251,16 +251,25 @@
       id: 'define-diagonal', page: 13,
       swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
       instruction: 'Drag the line segment to a different vertex.',
-      // FLAG: content error. The deck says "two non-adjacent SIDES". A
-      // diagonal joins two non-adjacent VERTICES. The deck's own picture
-      // shows a vertex-to-vertex segment, and "sides" would teach a wrong
-      // definition in the one line that defines the term.
-      say: 'A line segment joining two non-adjacent vertices is a diagonal.',
-      original: 'A line segment joining two non-adjacent sides is a diagonal.',
+      // THE SUPPLIED WORDING, AND A STANDING OBJECTION TO IT.
+      //
+      // A diagonal joins two non-adjacent VERTICES. It does not join sides —
+      // the segment this very screen draws runs corner to corner, and the
+      // child is watching it do so while the sentence says otherwise. This
+      // was corrected to "vertices" once and the author has since supplied
+      // "sides" twice, in writing, with "do not modify my dialogue wording".
+      // So it says sides.
+      //
+      // It is left here rather than quietly fixed again because it is the one
+      // line in the lesson that DEFINES the term, and a wrong definition is
+      // the most expensive kind of error in a teaching script: everything
+      // after it is built on it. If this is ever revisited, "vertices" is the
+      // correct word and screens.test.js is where the decision is recorded.
+      say: 'A line segment joining two non-adjacent sides is a diagonal.',
       beats: [
         { swiftee: 'explain' },
         { focus: 'diagonal.endpoints', style: 'pulse' },
-        { say: 'A line segment joining two non-adjacent vertices is a diagonal.', vo: 'p13' },
+        { say: 'A line segment joining two non-adjacent sides is a diagonal.', parts: ['A line segment joining', 'two non-adjacent sides', 'is a diagonal.'], vo: 'p13' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -280,7 +289,7 @@
       stage: { ghost: { from: 'picked', to: 'remaining-diagonal', style: 'dashed' } },
       beats: [
         { instruction: 'Draw another diagonal from the same vertex.', vo: 'p14i' },
-        { say: 'Can you draw another diagonal from here?', vo: 'p14' },
+        { say: 'Can you draw another diagonal from here?', parts: ['Can you draw another diagonal', 'from here?'], vo: 'p14' },
         { stage: { ghost: { from: 'picked', to: 'remaining-diagonal', style: 'dashed', enter: 'fade' } } },
         { swiftee: 'point', at: 'picked' },
         { input: { type: 'draw-diagonal', from: 'picked', accept: 'non-adjacent-unused' } },
@@ -294,7 +303,7 @@
       id: 'hexagon-your-turn', page: 15,
       swiftee: { pos: 'left-low', size: 'medium' },
       instruction: 'Draw all the diagonals from this vertex.',
-      say: 'Your turn!',
+      say: 'Your turn! Draw all the diagonals from this vertex. Draw all the diagonals from this vertex.',
       // FLAG: two problems on this page.
       //  (1) Sequence: the lesson is on a pentagon on pages 5–14 and 16–20,
       //      and this page cuts to a hexagon for one screen, then back. It
@@ -312,7 +321,7 @@
         { wait: 400 },
         { instruction: 'Draw all the diagonals from this vertex.', vo: 'p15i' },
         { swiftee: 'encourage' },
-        { say: 'Your turn!', vo: 'p15' },
+        { say: 'Your turn! Draw all the diagonals from this vertex. Draw all the diagonals from this vertex.', parts: ['Your turn!', 'Draw all the diagonals', 'from this vertex.'], vo: 'p15' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
         { swiftee: 'step-back' },
         // Three diagonals from one hexagon vertex (n - 3). Each correct one
@@ -348,7 +357,7 @@
         { stage: { diagonals: 'all', style: 'dashed', animate: 'sequential', each: 420, afterReveal: true } },
         { sfx: 'sparkle' },
         { wait: 700 },
-        { say: 'Look at the diagonals of this pentagon.', vo: 'p16' },
+        { say: 'Look at the diagonals of this pentagon.', parts: ['Look at the diagonals', 'of this pentagon.'], vo: 'p16' },
         { swiftee: 'look', at: 'polygon' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -420,7 +429,7 @@
         { swiftee: 'surprised' },
         { stage: { highlight: { diagonal: 'outside', color: 'red', style: 'dashed', enter: 'flash' } } },
         { sfx: 'honk' },
-        { say: 'Whoa! One of the diagonals went outside.', vo: 'p20' },
+        { say: 'Whoa! One of the diagonals went outside.', parts: ['Whoa! One of the diagonals', 'went outside.'], vo: 'p20' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -504,7 +513,7 @@
         { instruction: null },
         { focus: 'compare.right', style: 'dim-others' },
         { swiftee: 'look', at: 'compare.right' },
-        { say: 'This one has at least one diagonal outside.', vo: 'p24' },
+        { say: 'This one has at least one diagonal outside.', parts: ['This one has at least', 'one diagonal outside.'], vo: 'p24' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -607,12 +616,12 @@
       swiftee: { pos: 'peek', size: 'small', purpose: 'hint'},
       // This wording follows the recorded master exactly. Extra copy here
       // makes the bubble reveal words that Swiftee never says.
-      say: 'The sides look suspiciously alike.',
+      say: 'Hmm… Hmm\u2026 The sides look suspiciously alike. Let\u2019s check! Let’s check!',
       stage: { kind: 'polygon', sides: 5, room: 'measure' },
       beats: [
         { stage: { kind: 'polygon', sides: 5, room: 'measure', enter: 'pop' } },
         { swiftee: 'inspect' },
-        { say: 'The sides look suspiciously alike.', vo: 'p28' },
+        { say: 'Hmm… Hmm\u2026 The sides look suspiciously alike. Let\u2019s check! Let’s check!', parts: ['Hmm\u2026 The sides look', 'suspiciously alike.', 'Let\u2019s check!'], vo: 'p28' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -648,11 +657,11 @@
       // swapped — otherwise the child is told to do two things at once.
       // This wording follows the recorded master exactly. The more expansive
       // deck copy cannot be highlighted word-for-word against this take.
-      say: 'Equal sides. Now tap the angles.',
+      say: 'Every side is equal. But what about the angles?',
       original: 'Equal sides! Now tap the angles.',
       beats: [
         { swiftee: 'nod' },
-        { say: 'Equal sides. Now tap the angles.', vo: 'p30' },
+        { say: 'Every side is equal. But what about the angles?', parts: ['Every side is equal.', 'But what about the angles?'], vo: 'p30' },
         { swiftee: 'think' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -685,13 +694,13 @@
       // he waits in its corner, small, and the readings have the width of the
       // slab to change in. Beside one card they crowded the shape.
       swiftee: { pos: 'corner', size: 'tiny', purpose: 'demo' },
-      say: 'Help me stretch this corner! Watch the sides and angles!',
+      say: 'Help me stretch this corner. Let’s see what happens to the sides and angles.',
       // Built again under the wipe: he is back on the ground at the left,
       // so the card goes back to the right.
       stage: { kind: 'polygon', sides: 5, room: 'measure', highlight: { vertex: 0, color: 'yellow' }, measurements: 'live' },
       beats: [
         { stage: { kind: 'polygon' } },
-        { say: 'Help me stretch this corner! Watch the sides and angles!', vo: 'p32a' },
+        { say: 'Help me stretch this corner. Let’s see what happens to the sides and angles.', parts: ['Help me stretch this corner.', 'Let\u2019s see what happens', 'to the sides and angles.'], vo: 'p32a' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
         { swiftee: 'point', at: 'polygon.vertex.0' },
         // Completes once the shape is no longer regular by measurement,
@@ -704,12 +713,12 @@
     {
       id: 'stayed-changed', page: 32, panel: 2,
       swiftee: { pos: 'corner', size: 'tiny', purpose: 'ask' },
-      say: 'Still a pentagon! Are they still equal?',
+      say: 'It’s still a pentagon. But are the sides and angles still equal?',
       stage: { choices: ['Still equal', 'Not equal'] },
       beats: [
         { instruction: null },
         { swiftee: 'think' },
-        { say: 'Still a pentagon! Are they still equal?', vo: 'p32b' },
+        { say: 'It’s still a pentagon. But are the sides and angles still equal?', parts: ['It\u2019s still a pentagon.', 'But are the sides', 'and angles still equal?'], vo: 'p32b' },
         { stage: { choices: ['Still equal', 'Not equal'], enter: 'rise' } },
         { input: { type: 'choice', correct: 'Not equal' } },
         { branch: true,
@@ -728,7 +737,7 @@
       // ABOVE. The pair fills the middle and its checks fill the foot, so
       // the band above them is the only place a sentence fits.
       swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
-      say: 'All sides AND all angles equal means regular. Otherwise, it\u2019s irregular.',
+      say: 'All sides AND all angles same: regular. Otherwise, it\u2019s irregular.',
       stage: {
         kind: 'compare',
         left:  { sides: 5, caption: 'Regular pentagon',   tone: 'regular' },
@@ -739,7 +748,7 @@
         { sfx: 'menuWhoosh' },
         { wait: 300 },
         { swiftee: 'explain' },
-        { say: 'All sides AND all angles equal means regular. Otherwise, it\u2019s irregular.', vo: 'p32c' },
+        { say: 'All sides AND all angles same: regular. Otherwise, it\u2019s irregular.', parts: ['All sides AND all angles same:', 'regular.', 'Otherwise, it\u2019s irregular.'], vo: 'p32c' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -816,11 +825,11 @@
       // ONE SIDE TO BEGIN. A line, then a corner, then the third side closes
       // a triangle, and on to five: the child builds the idea of a polygon
       // side by side, rather than being handed a triangle to grow.
-      say: 'Let\u2019s build a pentagon! Add the sides one at a time.',
+      say: 'Let\u2019s start by making a pentagon. Adjust the number of sides.',
       stage: { kind: 'builder', sides: 1, stepper: { min: 1, max: 8, label: 'Number of sides' } },
       beats: [
         { stage: { kind: 'builder', sides: 1, enter: 'pop' } },
-        { say: 'Let\u2019s build a pentagon! Add the sides one at a time.', vo: 'p35a' },
+        { say: 'Let\u2019s start by making a pentagon. Adjust the number of sides.', parts: ['Let\u2019s start by making a pentagon.', 'Adjust the number of sides.'], vo: 'p35a' },
         { swiftee: 'point', at: 'builder' },
         { focus: 'builder.stepper', style: 'pulse' },
         // The polygon morphs live as the stepper changes. Completes at 5.
@@ -848,7 +857,7 @@
       stage: { highlight: { vertex: 0, color: 'orange' }, stepper: 'locked' },
       beats: [
         { stage: { stepper: 'locked', highlight: { vertex: 0, color: 'orange' } } },
-        { say: 'Now drag a vertex inward to make it a concave pentagon.', vo: 'p35c' },
+        { say: 'Now drag a vertex inward to make it a concave pentagon.', parts: ['Now drag a vertex inward', 'to make it a concave pentagon.'], vo: 'p35c' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
         { swiftee: 'point', at: 'polygon.vertex.0' },
         { input: { type: 'drag-vertex', vertex: 'any', until: 'concave', clamp: 'simple' } },
@@ -868,7 +877,7 @@
         // learner's actual shape, so the checklist can never lie.
         { sfx: 'sparkle' },
         { swiftee: 'celebrate' },
-        { say: 'Nice! You built a concave and irregular pentagon.', vo: 'p35d' },
+        { say: 'Nice! You built a concave and irregular pentagon.', parts: ['Nice! You built a concave', 'and irregular pentagon.'], vo: 'p35d' },
         { feedback: [{ juice: 'confetti', target: 'stage' }, { sfx: 'levelUp' }] },
         { input: { type: 'tap-anywhere' } }
       ]

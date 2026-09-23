@@ -934,6 +934,7 @@
       line.textContent = text;
     }
     bubble.classList.remove('out');
+    bubble.classList.remove('passive');   // a new line is tappable again while it arrives
     bubble.classList.add('show');
     // SPLIT INTO WORDS FIRST, then measure, then reveal.
     //
@@ -1975,12 +1976,55 @@
             return at == null ? null : Math.max(0, at - offset);
           };
         };
-        var parts = splitLine(text);
+        /* THE DECK'S OWN FRAGMENTS COME FIRST.
+         *
+         * splitLine() cuts a line into bubbles by sentence and a width
+         * budget, which is a good guess and only ever a guess. Where the
+         * script says where the breaks go — "A line segment joining" /
+         * "two non-adjacent sides" / "is a diagonal." — that is not a
+         * sentence split and no rule would find it: it is the writer deciding
+         * which three pieces of the idea land separately, and the second one
+         * is the piece the whole lesson turns on. A beat carrying `parts` is
+         * obeyed exactly; one that does not is split as it always was. */
+        var parts = (opts && opts.parts && opts.parts.length) ? opts.parts.slice() : splitLine(text);
         var words = function (t) { return t.split(/\s+/).length; };
         var counts = parts.map(words);
         var total = counts.reduce(function (n, count) { return n + count; }, 0) || 1;
         var recorded = (global.VO && VO.words && voId) ? VO.words(voId) : null;
         if (!recorded || recorded.length !== total) recorded = null;
+
+        /* AND WITH NO RECORDING, THE LINE PACES ITSELF.
+         *
+         * The other branch of this is the clip's own word timestamps, which
+         * is the right answer whenever there is a clip. Without one the words
+         * were spread evenly across the reading time — every word the same
+         * distance from the last, a metronome — so the pause after "Hmm…"
+         * was the same length as the gap inside "suspiciously".
+         *
+         * dialogue-timing.js answers in exactly the shape the recording does:
+         * one offset per word. So it goes in the same variable and everything
+         * below — the bubble offsets, the shares, the per-bubble cues, the
+         * length of the beat — works on it unchanged, because the voice
+         * already taught all of it to work on this.
+         *
+         * The fragments of one sentence are joined by a short gap rather than
+         * a reading pause: "Polygons are closed shapes" and "made from
+         * straight lines." are one breath shown in two bubbles. */
+        var timed = null;
+        // The pace is the director's: everything else in the game is timed off
+        // msPerWord, so a suite that turns it down still runs fast and the
+        // shape of the timing is the same either way.
+        var pace = Timing ? Timing.scaleOf(ctx && ctx.cfg ? ctx.cfg.msPerWord : null) : 1;
+        if (!recorded && global.Timing) {
+          timed = [];
+          var runAt = 0;
+          parts.forEach(function (p) {
+            Timing.cues(p, pace).forEach(function (t) { timed.push(runAt + t); });
+            runAt += Timing.speakMs(p, pace) + Timing.FRAGMENT_GAP * pace;
+          });
+          if (timed.length !== total) timed = null;
+        }
+        if (timed) recorded = timed;
 
         /* THE VOICE SETS THE PACE, NOT A COUNT OF LETTERS.
          *
@@ -2000,7 +2044,9 @@
          */
         var t0Line = Date.now();
         var clipSecs = (global.VO && VO.seconds && voId) ? VO.seconds(voId) : 0;
-        var reading = clipSecs ? Math.round(clipSecs * 1000) + 280 : (opts.reading || 1200);
+        var reading = clipSecs ? Math.round(clipSecs * 1000) + 280
+                    : (timed ? timed[timed.length - 1] + Timing.readingPause(parts[parts.length - 1], pace)
+                             : (opts.reading || 1200));
         var wordAt = 0;
         var offsets = parts.map(function (p, partIndex) {
           var offset = recorded ? recorded[wordAt] : reading * wordAt / total;
@@ -2015,7 +2061,8 @@
           // and never a floor above the reading time it is a share of — that
           // inflated every multi-part line in a harness that turns the
           // reading time down.
-          return clipSecs ? Math.max(420, share) : Math.max(Math.min(700, reading), share);
+          return (clipSecs || timed) ? Math.max(320, share)
+                                     : Math.max(Math.min(700, reading), share);
         });
         var spoken = shares.reduce(function (a, b) { return a + b; }, 0);
         var cuesFor = function (partIndex) {
@@ -2078,11 +2125,23 @@
         // NOT when it is the only thing telling them what to do. Screens that
         // carry an instruction card can lose the bubble safely; screens
         // without one would be left saying nothing at all, so those keep it.
+        /* AND IT STAYS UP WHILE IT IS STILL BEING OBEYED.
+         *
+         * A narration line can come down once it has been read — it has
+         * nothing left to tell anyone. A line that asked for something has
+         * everything left to tell them, right up until they have done it, and
+         * taking it away on a timer is how a child ends up looking at a live
+         * polygon with no idea what they were asked. The screen knows which
+         * it is: if it is going to hand over control, the words wait for the
+         * child rather than the other way round, and the next line or the
+         * next screen is what replaces them. */
         clearTimeout(bubbleTimer);
-        bubbleTimer = setTimeout(function () {
-          if (held) { say(null); return; }        // say(null) gives the plank back
-          if (instruction && instruction.classList.contains('show')) say(null);
-        }, spoken + 1100);
+        if (!screenAwaitsAction(current)) {
+          bubbleTimer = setTimeout(function () {
+            if (held) { say(null); return; }      // say(null) gives the plank back
+            if (instruction && instruction.classList.contains('show')) say(null);
+          }, spoken + 1100);
+        }
         if (ctx && ctx.onCancel) ctx.onCancel(function () { if (!(instruction && instruction.classList.contains('show'))) restoreHeldCard(); });
         if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(bubbleTimer); });
         if (ctx && ctx.onCancel) ctx.onCancel(stop);
@@ -2141,6 +2200,18 @@
         // had already become draggable — which is the worst possible moment
         // to split a seven-year-old's attention.
         revealAll();
+
+        /* THE LINE STAYS, AND STOPS BEING A LID.
+         *
+         * Two things have to happen the moment control is handed over. The
+         * bubble stops taking pointer events, because it sits above the
+         * stage and a kept instruction was a transparent lid over the very
+         * control it was describing — the choice row on page 33 could not be
+         * clicked at all. And it is placed again: it was seated against a
+         * stage that did not yet have the answer buttons on it, since the
+         * beat that builds them runs after the line. */
+        bubble.classList.add('passive');
+        placeBubble();
 
         // THE REACTION'S SHEETS, FETCHED WHILE THEY ARE STILL DECIDING.
         // An input beat is dead air on his side — he is resting in a pinned
@@ -2250,6 +2321,22 @@
       ids = ids.concat(PRAISE.concat(NUDGE).map(function (p) { return p.vo; }));
     }
     try { VO.preload(ids); } catch (e) {}
+  }
+
+  /* DOES THIS SCREEN HAND OVER CONTROL? A tap to read on does not count —
+     that is the child saying "next", not doing the thing they were asked. */
+  function screenAwaitsAction(i) {
+    var s = Screens.list[i];
+    if (!s) return false;
+    var found = false;
+    (function walk(bs) {
+      (bs || []).forEach(function (b) {
+        if (!b || typeof b !== 'object' || found) return;
+        if (b.input && b.input.type && b.input.type !== 'tap-anywhere') { found = true; return; }
+        if (b.parallel) walk(b.parallel);
+      });
+    }(s.beats));
+    return found;
   }
 
   function runScreen(i) {
