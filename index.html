@@ -266,22 +266,30 @@
      opacity rather than display, so the bubble is laid out at its FINAL size
      from the first frame: it never grows as the words arrive, which means it
      never jitters and never has to be re-placed against the lesson mid-line. */
-  /* EACH WORD RISES INTO PLACE. A fade out of a blur alone is so quiet that
-     the line reads as appearing all at once; a few pixels of travel is what
-     makes it read as speech arriving word by word. translate, never
-     transform — the words carry no other transform and translate composites
-     on its own. The box does not move: every word holds its space from the
-     first frame (visibility is opacity here), so nothing reflows. */
+  /* EACH WORD POPS INTO PLACE.
+     A fade out of a blur alone is so quiet that the line reads as appearing
+     all at once. With no voice under it the words ARE the delivery, so each
+     one arrives with a small overshoot — up from 70%, past 100%, and settle —
+     which is the beat a spoken word has and a fade does not.
+
+     scale and translate, never transform: the words carry no other transform
+     and these two composite on their own, so nothing here can throw away a
+     position something else set. The box does not move — every word holds its
+     space from the first frame (visibility is opacity here) — so a line pops
+     in without one reflow, and the bubble never has to be re-placed against
+     the lesson mid-sentence. */
   .bubble-line .w, .bubble-line .dc-term {
     display: inline-block;
-    transition: opacity 260ms cubic-bezier(.2, .7, .3, 1),
-                filter 260ms cubic-bezier(.2, .7, .3, 1),
-                translate 300ms cubic-bezier(.2, .9, .3, 1.35);
+    transform-origin: 50% 80%;
+    transition: opacity 200ms cubic-bezier(.2, .7, .3, 1),
+                filter 200ms cubic-bezier(.2, .7, .3, 1),
+                scale 340ms cubic-bezier(.34, 1.56, .64, 1),
+                translate 340ms cubic-bezier(.34, 1.56, .64, 1);
   }
-  .bubble-line.revealing .w, .bubble-line.revealing .dc-term { opacity: 0; filter: blur(4px); translate: 0 7px; }
-  .bubble-line .w.in, .bubble-line .dc-term.in { opacity: 1; filter: none; translate: 0 0; }
+  .bubble-line.revealing .w, .bubble-line.revealing .dc-term { opacity: 0; filter: blur(3px); scale: .7; translate: 0 5px; }
+  .bubble-line .w.in, .bubble-line .dc-term.in { opacity: 1; filter: none; scale: 1; translate: 0 0; }
   @media (prefers-reduced-motion: reduce) {
-    .bubble-line .w, .bubble-line .dc-term { transition: none; translate: 0 0; }
+    .bubble-line .w, .bubble-line .dc-term { transition: none; scale: 1; translate: 0 0; }
   }
 
   /* ---- dual coding: the term is tinted, and the thing it names lights
