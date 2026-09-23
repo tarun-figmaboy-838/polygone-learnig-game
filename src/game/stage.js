@@ -1295,6 +1295,32 @@
    *                         seen at a glance instead of being worked out from
    *                         ten numbers printed over each other.
    */
+  /* HOW MANY DECIMALS BEFORE UNEQUAL SIDES LOOK UNEQUAL.
+   *
+   * A rounded number lies: 114 units and 120 units are different sides and
+   * both come out "4 cm", so a figure printing whole centimetres would claim
+   * an equality the shape does not have. That is why the measuring screens
+   * stop printing numbers the moment the sides differ — but the stretching
+   * screen is ABOUT the sides differing, and a child told to watch the sides
+   * change needs to see them change. So instead of dropping the numbers, find
+   * the shortest rounding that still tells them apart: if any two sides the
+   * shape says are different would print the same, everything gains a decimal
+   * place until they do not. `marks` is the grouping the ticks use, so the
+   * numbers and the ticks can never disagree. */
+  function decimalsFor(vals, marks, unit, cap) {
+    for (var d = 0; d <= cap; d++) {
+      var ok = true;
+      for (var i = 0; i < vals.length && ok; i++) {
+        for (var j = i + 1; j < vals.length; j++) {
+          if (marks[i] === marks[j]) continue;           // the shape says these two match
+          if ((vals[i] / unit).toFixed(d) === (vals[j] / unit).toFixed(d)) { ok = false; break; }
+        }
+      }
+      if (ok) return d;
+    }
+    return cap;
+  }
+
   function drawMeasurements(g) {
     var v = st.verts, n = v.length, L = Poly.sideLengths(v), A = Poly.interiorAngles(v);
     var c = Poly.centroid(v);
@@ -1303,9 +1329,23 @@
     var sides = listOf(st.measure.sides), angles = listOf(st.measure.angles);
     var sMark = marksBy(L, sides, 15), aMark = marksBy(A, angles, 3);   // half a centimetre, three degrees
     var measuringAngles = !!st.measure.angles;
-    var sideText  = !measuringAngles && sMark.groups <= 1;
-    var sideTicks = sides.length === n;
-    var angleText = aMark.groups <= 1;
+    /* THE STRETCHING SCREEN KEEPS ITS NUMBERS.
+     *
+     * "Watch the sides and angles!" and then the numbers vanish the instant
+     * the child does: sideText was false whenever angles were being measured,
+     * and the degrees dropped out as soon as two corners differed — so the
+     * one screen whose whole point is watching a measurement change was the
+     * one that stopped showing measurements the moment it started changing.
+     *
+     * With `units` the sides print throughout, rounded to whatever it takes
+     * to keep unequal sides looking unequal (decimalsFor), and the corners go
+     * back to arcs. Centimetres a seven-year-old has met; degrees they have
+     * not, and ten numbers on one shape is a wall of type either way. */
+    var units = !!st.measure.units;
+    var sideText  = units || (!measuringAngles && sMark.groups <= 1);
+    var sideTicks = !units && sides.length === n;
+    var angleText = !units && aMark.groups <= 1;
+    var sideDec = units ? decimalsFor(L, sMark.mark, 30, 2) : 0;
 
     for (var i = 0; i < n; i++) {
       if (has(st.measure.sides, i)) {
@@ -1320,11 +1360,19 @@
           // the stroke — a wide plate beside a steep side needs more room
           // than a plate under a flat one — so nothing touches and nothing
           // crowds.
-          var TW = 66, TH = 30;
+          var TW = sideDec ? 74 : 66, TH = 30;
           var off = 10 + Math.abs(ux) * (TW / 2) + Math.abs(uy) * (TH / 2);
           var lx = mx + ux * off, ly = my + uy * off;
+          // AND NOT OFF THE GLASS. A stretched corner carries its tag with
+          // it, and a tag beside a side pushed to the edge of the card hung
+          // over the rim. The plate stays wholly on the ice it belongs to.
+          if (st.panel) {
+            var gf = panelFace(st.panel);
+            lx = Math.max(gf.x + TW / 2 + 4, Math.min(gf.x + gf.w - TW / 2 - 4, lx));
+            ly = Math.max(gf.y + TH / 2 + 4, Math.min(gf.y + gf.h - TH / 2 - 4, ly));
+          }
           mk('rect', { x: lx - TW / 2, y: ly - TH / 2, width: TW, height: TH, rx: 10, fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 2.5 }, t);
-          mk('text', { x: lx, y: ly + 6, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 800, fill: '#0f3f8f', text: (L[i] / 30).toFixed(0) + ' cm' }, t);
+          mk('text', { x: lx, y: ly + 6, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 800, fill: '#0f3f8f', text: (L[i] / 30).toFixed(sideDec) + ' cm' }, t);
         }
         if (sideTicks) {
           // the ticks sit across the side at its middle, spaced along it
@@ -1337,9 +1385,17 @@
           }
         }
       }
-      if (has(st.measure.angles, i)) drawArc(g, i, angleText ? A[i] : null, aMark.groups > 1 ? (aMark.mark[i] || 1) : 1);
+      if (has(st.measure.angles, i)) drawArc(g, i, angleText ? A[i] : null, (units || aMark.groups > 1) ? (aMark.mark[i] || 1) : 1);
     }
   }
+  /** Hold a point inside the card's glass, with room for a vertex knob. */
+  function clampToCard(p) {
+    if (!st.panel) return p;
+    var f = panelFace(st.panel), m = 20;
+    return { x: Math.max(f.x + m, Math.min(f.x + f.w - m, p.x)),
+             y: Math.max(f.y + m, Math.min(f.y + f.h - m, p.y)) };
+  }
+
   function drawArc(g, i, deg, rings) {
     // INTO THE MEASUREMENTS GROUP. This said `ag` — itself, before it
     // existed — so every arc and every number was parented to undefined and
@@ -1896,7 +1952,8 @@
     // these vertices are what Poly.isRegular judges the swipe against.
     g._verts = shapeVerts(name, card._pane.r, card._pane.cx, card._pane.cy);
     // the ticks and arcs the answer is read off, on the card from the start
-    if (!reduced()) shapeMarks(g, { numbers: true, cls: 'units' });
+    if (!reduced()) shapeMarks(g, { numbers: true, cls: 'units', pane: card._pane,
+                                    ink: shade(COLORS[name] || '#5b95ee', -0.42) });
     g.style.cursor = 'grab';
     g.style.touchAction = 'pan-y';
     sw.card = g;
@@ -1975,35 +2032,58 @@
       var cen = Poly.centroid(v);
       var UNIT = 30;                                   // the scale the measuring screens read in
       // how many decimals it takes before unequal sides look unequal
-      var places = function (vals, marks, unit, cap) {
-        for (var d = 0; d <= cap; d++) {
-          var ok = true;
-          for (var p1 = 0; p1 < vals.length && ok; p1++) {
-            for (var p2 = p1 + 1; p2 < vals.length; p2++) {
-              if (marks[p1] === marks[p2]) continue;   // the shape says these two match
-              if ((vals[p1] / unit).toFixed(d) === (vals[p2] / unit).toFixed(d)) { ok = false; break; }
-            }
-          }
-          if (ok) return d;
-        }
-        return cap;
-      };
-      var sd = places(L, sideM.mark, UNIT, 2);
+      var sd = decimalsFor(L, sideM.mark, UNIT, 2);
 
+      /* A DIMENSION LINE, THE WAY A DRAWING MEASURES A THING.
+       *
+       * Five white pills round a pentagon are five more objects on the card,
+       * and they are the wrong kind of object: a plate is a label stuck ON
+       * the picture, and what is wanted is the picture SAYING how long its
+       * own side is. So each side gets what a technical drawing gives it — a
+       * thin line held just off the side, running exactly its length, capped
+       * at both ends by a short tick, with the figure sitting in a gap in the
+       * middle of it. It reads as part of the drawing because it IS the
+       * drawing: it measures from corner to corner, so the length it claims
+       * is the length you can see.
+       *
+       * Drawn in the shape's own ink — the darker step of its fill that the
+       * outline already uses — for the same reason the outline is: a pink
+       * pentagon measured in pink belongs to itself, and one measured in
+       * navy is a diagram someone put on top of it.
+       */
+      var ink = o.ink || '#0f3f8f';
       for (var si = 0; si < n; si++) {
         var sa = v[si], sb = v[(si + 1) % n];
+        var slen = Math.hypot(sb.x - sa.x, sb.y - sa.y) || 1;
+        var stx = (sb.x - sa.x) / slen, sty = (sb.y - sa.y) / slen;   // along the side
         var smx = (sa.x + sb.x) / 2, smy = (sa.y + sb.y) / 2;
         var sdx = smx - cen.x, sdy = smy - cen.y, sdl = Math.hypot(sdx, sdy) || 1;
-        var sux = sdx / sdl, suy = sdy / sdl;
-        var TW = (sd ? 62 : 52), TH = 24;
-        // set off by its own size, so a wide plate beside a steep side gets
-        // the room a plate under a flat one does not need
-        var soff = 8 + Math.abs(sux) * (TW / 2) + Math.abs(suy) * (TH / 2);
-        var slx = smx + sux * soff, sly = smy + suy * soff;
-        mk('rect', { x: slx - TW / 2, y: sly - TH / 2, width: TW, height: TH, rx: 9,
-                     fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 2.5 }, g);
-        mk('text', { x: slx, y: sly + 5, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 800,
-                     fill: '#0f3f8f', text: (L[si] / UNIT).toFixed(sd) + ' cm' }, g);
+        var sux = sdx / sdl, suy = sdy / sdl;                          // out of the shape
+        var OFF = 15;                                                  // how far off the side it floats
+        var text = (L[si] / UNIT).toFixed(sd) + ' cm';
+        var half = (text.length * 4.2) + 5;                            // the gap the figure needs
+        var run = Math.max(0, slen / 2 - half - 3);                    // each arm of the line
+        var ox = sux * OFF, oy = suy * OFF;
+        var lmx = smx + ox, lmy = smy + oy;
+        var arm = function (from, to) {
+          mk('line', { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: ink,
+                       'stroke-width': 2, 'stroke-linecap': 'round', opacity: 0.85 }, g);
+        };
+        if (run > 2) {
+          arm({ x: lmx - stx * (slen / 2), y: lmy - sty * (slen / 2) },
+              { x: lmx - stx * (half + 3), y: lmy - sty * (half + 3) });
+          arm({ x: lmx + stx * (half + 3), y: lmy + sty * (half + 3) },
+              { x: lmx + stx * (slen / 2), y: lmy + sty * (slen / 2) });
+        }
+        // the end ticks, square across the line, so it measures corner to corner
+        [-1, 1].forEach(function (e) {
+          var ex = lmx + stx * (slen / 2) * e, ey = lmy + sty * (slen / 2) * e;
+          mk('line', { x1: ex - sux * 5, y1: ey - suy * 5, x2: ex + sux * 5, y2: ey + suy * 5,
+                       stroke: ink, 'stroke-width': 2, 'stroke-linecap': 'round', opacity: 0.85 }, g);
+        });
+        mk('text', { x: lmx, y: lmy + 5, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 800,
+                     fill: ink, stroke: '#ffffff', 'stroke-width': 3, 'paint-order': 'stroke',
+                     'stroke-linejoin': 'round', text: text }, g);
       }
       /* NO DEGREES. Ten labels on one card is a wall of type, and a number of
        * degrees is not a thing a seven-year-old reads \u2014 they have met
@@ -2045,16 +2125,57 @@
         var large = sweep > Math.PI ? 1 : 0;
         var mid = a1 + sweep / 2;
         var inside = Poly.contains(v, { x: p.x + Math.cos(mid) * 6, y: p.y + Math.sin(mid) * 6 });
-        var rings = angM.groups > 1 ? (angM.mark[j] || 1) : 1;
-        for (var ri = 0; ri < rings; ri++) {
-          var rr = 15 - ri * 4; if (rr < 5) break;
-          var x1 = p.x + Math.cos(a1) * rr, y1 = p.y + Math.sin(a1) * rr;
-          var x2 = p.x + Math.cos(a2) * rr, y2 = p.y + Math.sin(a2) * rr;
-          var d2 = inside
-            ? 'M' + x1 + ' ' + y1 + ' A' + rr + ' ' + rr + ' 0 ' + large + ' 1 ' + x2 + ' ' + y2
-            : 'M' + x1 + ' ' + y1 + ' A' + rr + ' ' + rr + ' 0 ' + (1 - large) + ' 0 ' + x2 + ' ' + y2;
-          mk('path', { d: d2, fill: 'none', stroke: '#ffffff', 'stroke-width': 2.4, 'stroke-linecap': 'round',
-                       style: litGlow('#ffe27a') }, g);
+        /* A SMALL FILLED WEDGE WITH ITS NUMBER ON IT.
+         *
+         * The open arc was drawn big so that several of them could be nested
+         * to say "these corners match" — but the sides carry a measurement
+         * now, so the corner does not have to say it in rings: it can simply
+         * say how many degrees it is. One small wedge, filled, is a quieter
+         * mark than a stack of thin arcs and it leaves the shape's face
+         * clear, which is what keeps ten marks on one pentagon from reading
+         * as clutter.
+         *
+         * The number goes just outside the wedge on the corner's bisector,
+         * pointing into the shape, so it never sits on a side or on a tick.
+         */
+        var rr = 13;
+        var x1 = p.x + Math.cos(a1) * rr, y1 = p.y + Math.sin(a1) * rr;
+        var x2 = p.x + Math.cos(a2) * rr, y2 = p.y + Math.sin(a2) * rr;
+        var sweepFlag = inside ? large : (1 - large), dir = inside ? 1 : 0;
+        var arcD = 'A' + rr + ' ' + rr + ' 0 ' + sweepFlag + ' ' + dir + ' ' + x2 + ' ' + y2;
+        /* THE CORNER MARK BELONGS TO THE SHAPE, so it is drawn in the shape's
+         * own ink. A saturated gold wedge glowing on a pink pentagon is a
+         * sticker: it is the brightest thing in the picture, it is a colour
+         * the shape does not contain, and the eye reads it as something
+         * placed on top rather than as part of what is being measured. The
+         * same darker step of the fill that the outline uses, washed back, is
+         * a corner of the shape that has been marked. */
+        var aink = o.ink || '#0f3f8f';
+        mk('path', { d: 'M' + p.x + ' ' + p.y + ' L' + x1 + ' ' + y1 + ' ' + arcD + ' Z',
+                     fill: aink, 'fill-opacity': 0.22, stroke: aink, 'stroke-opacity': 0.85,
+                     'stroke-width': 2, 'stroke-linejoin': 'round' }, g);
+        if (o.degrees !== false) {
+          /* THE NUMBER SITS ON THE SHAPE'S FACE, NOT ON ITS EDGE.
+           *
+           * Pushed just past the wedge, it landed in the corner itself —
+           * where two sides, the outline and a gold wedge already are. Five
+           * numbers each crowding the busiest point of the drawing is what
+           * turned ten marks into a mess rather than a measurement. A third
+           * of the way in toward the middle puts every number on open colour,
+           * clear of the outline and clear of its own wedge, and the middle
+           * of a polygon is empty by definition. */
+          var dtx = p.x + (cen.x - p.x) * 0.30;
+          var dty = p.y + (cen.y - p.y) * 0.30;
+          // but never so far in that two corners' numbers meet in the middle
+          var pull = Math.hypot(dtx - p.x, dty - p.y);
+          if (pull < rr + 14) {
+            var kk = (rr + 14) / (pull || 1);
+            dtx = p.x + (dtx - p.x) * kk; dty = p.y + (dty - p.y) * kk;
+          }
+          mk('text', { x: dtx, y: dty + 4, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 800,
+                       fill: o.ink || '#0f3f8f', stroke: '#ffffff', 'stroke-width': 2.8,
+                       'paint-order': 'stroke', 'stroke-linejoin': 'round',
+                       text: Math.round(A2[j]) + '°' }, g);
         }
       }
     }
@@ -2241,7 +2362,7 @@
       }
     };
 
-    g._pane = { cx: cx, cy: cy, r: r };
+    g._pane = { cx: cx, cy: cy, r: r, w: paneW, h: paneH };
     return g;
   }
 
@@ -3155,7 +3276,9 @@
       liftAboveChoices();
     },
     stepper: function (s) { if (s === 'locked' && st.stepMinus) { st.stepMinus.style.opacity = .35; st.stepPlus.style.opacity = .35; st.stepLocked = true; } },
-    measurements: function (m) { if (m === 'live') { st.measure = { sides: 'all', angles: 'all' }; renderPoly(); } }
+    measurements: function (m) {
+      if (m === 'live') { st.measure = { sides: 'all', angles: 'all', units: true }; renderPoly(); }
+    }
   };
 
   function apply(spec) {
@@ -3586,7 +3709,14 @@
               var hk = knobOf(i);
               if (hk) { hk.setAttribute('fill', HI.fill); hk.setAttribute('stroke', shade(HI.fill, -0.45)); hk.setAttribute('stroke-width', 3); hk.setAttribute('r', 10); }
             }
-            var np = Poly.clampSimple(st.verts, i, p);
+            /* AND IT STAYS ON THE CARD.
+             *
+             * clampSimple only stops the outline crossing itself; nothing
+             * stopped the corner leaving the ice altogether, so a child could
+             * drag a vertex out onto the snow and the shape they were being
+             * taught about was half off the thing it was drawn on. The glass
+             * is the boundary, with room left for the knob and its ring. */
+            var np = Poly.clampSimple(st.verts, i, clampToCard(p));
             st.verts[i] = np;
             updatePoly();
             if (spec.live === 'badge' && st.liveBadge) {
@@ -4354,10 +4484,27 @@
         var k = st.compareFocus && st.compare[st.compareFocus] ? st.compareFocus : 'left';
         if (st.compare[k] && st.compare[k].panel) return st.compare[k].panel;
       }
-      if (st.swipe && st.swipe.zones && st.swipe.zones.regular && st.swipe.zones.regular._rect) {
-        // the swipe practice: he comes up behind the Regular zone's rim,
-        // left of the plank, and drops back before the cards are dealt
-        return Object.assign({ frame: 'regular' }, st.swipe.zones.regular._rect);
+      if (st.swipe) {
+        /* HE COMES UP BEHIND THE CARD IN HAND, not behind a bin.
+         *
+         * He used to peek over the Regular zone, off at the left edge, and
+         * ask "where does this polygon belong?" from the far side of the
+         * screen from the polygon. Behind the card he is asking ABOUT the
+         * thing he is standing behind, and the question, the shape and the
+         * face asking it are one group in the middle instead of three things
+         * spread across the width. He drops back before the child drags.
+         *
+         * The frame is the card's own, so the rim copy drawn over him
+         * (syncPeekRim in game.js) is the same ice he is behind. */
+        var ch = SWIPE_HALF * ((global.CardFrame && CardFrame.option)
+                               ? CardFrame.option.h / CardFrame.option.w : 1);
+        // `at` is where along the card's width his head comes up. A bin is
+        // peeked over near its corner cap; a card the whole screen is about
+        // is peeked over in the MIDDLE, so he and the shape and the question
+        // line up as one column instead of leaning off to one side.
+        return { frame: 'option', at: 0.5,
+                 x: SWIPE_HOME.x - SWIPE_HALF, y: SWIPE_HOME.y - ch,
+                 w: SWIPE_HALF * 2, h: ch * 2 };
       }
       return null;
     },

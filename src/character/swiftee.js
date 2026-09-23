@@ -131,6 +131,21 @@
 
     // moments the game reaches outside screens.js
     proud:       { rig: 'proud',       loops: 2, mood: 'glad', cut: true },
+    /* MORE THAN ONE FACE FOR THE SAME FEELING.
+     *
+     * Twenty-six expressions were drawn and fifteen were ever played; a child
+     * who answers eight questions right met the identical face eight times,
+     * which is the difference between a character and an icon. These are the
+     * ones worth having and short enough to be a reaction — nothing here runs
+     * past two and a half seconds, which is what ruled 'excited' and 'love'
+     * out as answers however charming they are.
+     *
+     * 'peeping' is the one that matters most: it is the rig drawn for a head
+     * coming up over something, and he does that on every card screen while
+     * wearing the calm attentive face of 'listening'. */
+    peek:        { rig: 'peeping',     hold: true },
+    puzzled:     { rig: 'puzzleing',   loops: 1, cut: true },
+    relieved:    { rig: 'relieved',    loops: 1, cut: true },
     excited:     { rig: 'excited',     loops: 1, mood: 'glad', cut: true },
     stuck:       { rig: 'thinking',    loops: 2 },
     happy:       { rig: 'happy',       loops: 1, mood: 'glad', cut: true },
@@ -507,6 +522,8 @@
   function restingState() {
     if (speaking) return mood || 'explain';            // narrating -> the mood, else the talking loop
     if (airborne) return 'hover';                      // nothing to stand on: he flies
+    // HIS CHIN IS ON A CARD: that is a peep, and there is a rig for it
+    if (pos === 'peek') return 'peek';
     if (idleLevel === 2) return 'sleep';
     if (idleLevel === 1) return 'daydream';
     return 'idle';

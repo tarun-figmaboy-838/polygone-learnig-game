@@ -431,6 +431,16 @@
     { t: 'Almost! Have another go.', vo: 'fb09' }, { t: 'Not that one.', vo: 'fb10' }
   ];
   var praiseN = 0, nudgeN = 0, lastFeedbackAt = 0, feedbackScreen = -1, praisedHere = false;
+  /* THE FACE HE ANSWERS WITH, ROTATED.
+   *
+   * One face for right and one for wrong meant a child who gets eight
+   * questions right meets the identical expression eight times. The words
+   * already rotate — PRAISE and NUDGE above — and the face was the one part
+   * of the answer that never varied. Kept short: each of these is about two
+   * seconds end to end, so the reaction is over before the next line starts. */
+  var GLAD = ['happy', 'proud', 'nod'];
+  var SORRY = ['confused', 'puzzled'];
+  var gladN = 0, sorryN = 0;
   var cheerUntil = 0;   // the lesson does not move on while he is still saying it
 
   // `said` — an optional { t, vo } from the stage: the reason this try
@@ -451,7 +461,12 @@
     else if (kind === 'wrong' && now - lastFeedbackAt > 3000) { pick = (said && said.t) ? said : NUDGE[nudgeN++ % NUDGE.length]; mood = 'hint'; }
     if (pick) line = pick.t;
     if (!line) {
-      if (present) { try { Swiftee.play(kind === 'wrong' ? 'confused' : 'happy'); } catch (e) {} }
+      if (present) {
+        try {
+          Swiftee.play(kind === 'wrong' ? SORRY[sorryN++ % SORRY.length] : GLAD[gladN++ % GLAD.length]);
+          if (Swiftee.bounce) Swiftee.bounce(kind === 'wrong' ? 'no' : 'cheer');
+        } catch (e) {}
+      }
       return;
     }
     lastFeedbackAt = now;
@@ -463,7 +478,9 @@
                      + (present ? 0 : 420);
     var wasUp = present;
     var speak = function () {
-      try { Swiftee.play(kind === 'wrong' ? 'confused' : 'happy'); } catch (e) {}
+      try {
+        Swiftee.play(kind === 'wrong' ? SORRY[sorryN++ % SORRY.length] : GLAD[gladN++ % GLAD.length]);
+      } catch (e) {}
       // AND HIS WHOLE BODY, in the same frame as the face and the sound. The
       // expression alone is a picture changing; the hop is the bird being
       // pleased about it, and that is the difference a child reads.
@@ -682,7 +699,8 @@
        * The cap is his own drawn width — 0.46 of his drawn height, from the
        * manifest's opaque bounds — so it holds whatever any card does. */
       var peekHalfW = birdH * 0.46;
-      var peekX = Math.max(anchor.x + anchor.w * 0.24, (peekHalfW / f.w) * 1000 + 14);
+      var peekAt = anchor.at == null ? 0.24 : anchor.at;      // corner cap, or wherever the card asks
+      var peekX = Math.max(anchor.x + anchor.w * peekAt, (peekHalfW / f.w) * 1000 + 14);
       map['peek'] = { x: ax(peekX), y: ay(anchor.y) + (0.47 * birdH) / f.h };
       // INSIDE THE CARD, on the glass at its bottom-left: the measurer waits
       // on the sheet he measures, and flies from there to each side.
@@ -1155,6 +1173,41 @@
       // same — "below" is only true once he has landed.
       paintSkin();
       return;
+    }
+
+    /* A HEAD COMING UP OVER A CARD WEARS ITS BUBBLE ON TOP OF IT.
+     *
+     * The slot search below is built for a bird STANDING beside the lesson:
+     * it looks for the widest free band and puts the words there, which is
+     * right when he is off to one side and wrong when he is in the middle of
+     * the screen with his chin on a card. It put the question out to his
+     * right, half over the card he was peeking from, pointing back at a head
+     * it had just stepped around.
+     *
+     * Above the head is the one place that is always his: he is against the
+     * card's top rim, so the band between that rim and the HUD is empty by
+     * construction. Centred on him, and only taken when the bubble actually
+     * fits between the two — otherwise the search below runs exactly as it
+     * did, which is what every standing mark still uses.
+     */
+    if (Swiftee.pos === 'peek' && present && !entering) {
+      var headBox = Swiftee.bounds && Swiftee.bounds();
+      if (headBox) {
+        var roomTop = hudBox.bottom + GAP;
+        var wantW = Math.min(f.w * 0.62, 760);
+        bubble.style.maxWidth = wantW + 'px';
+        snugWidth();
+        var bw2 = bubble.offsetWidth, bh2 = bubble.offsetHeight;
+        var top2 = headBox.top - TAIL_GAP - bh2;
+        if (top2 >= roomTop) {
+          var left2 = (headBox.left + headBox.right) / 2 - bw2 / 2;
+          left2 = Math.max(GAP, Math.min(vw - bw2 - GAP, left2));
+          bubble.style.left = left2 + 'px';
+          bubble.style.top = top2 + 'px';
+          paintSkin();
+          return;
+        }
+      }
     }
 
     // the bands live inside the FRAME — the letterboxed stage — not the window
