@@ -206,6 +206,21 @@ S.forEach((s) => {
 t('no wrong path ever contains words — the deck has no wrong-answer copy and the build must not invent any',
   verbalWrong.length === 0, [...new Set(verbalWrong)]);
 
+/* A REMINDER AFTER A MISS is the one place a wrong answer is followed by
+   words, and they may not be new words: it must be a line the lesson has
+   already said on an earlier screen, in that line's own recording. */
+{
+  const bad = [];
+  S.forEach((s, i) => {
+    if (!s.remind) return;
+    const earlier = S.slice(0, i).some((p) => allBeats(p).some((b) => b.say === s.remind.say && b.vo === s.remind.vo));
+    if (!earlier) bad.push(s.id);
+  });
+  t('a reminder repeats a line already taught, in its own voice — never new copy', bad.length === 0, bad);
+  t('the first question reminds the child what a polygon is',
+    !!Screens.byId['which-polygons'].remind && /closed shapes made from straight lines/.test(Screens.byId['which-polygons'].remind.say));
+}
+
 t('every wrong path still reacts — Swiftee, a cue, or an effect',
   S.every((s) => {
     const w = wrongBeats(s).concat((s.perTap && s.perTap.wrong) || []);

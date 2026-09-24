@@ -193,6 +193,11 @@
       // options simply appear on his right and he asks about them.
       swiftee: { pos: 'left', size: 'large', purpose: 'ask' },
       say: 'Which of these are polygons?',
+      // A MISS IS ANSWERED WITH THE DEFINITION. After "Try again!" he reminds
+      // the child what a polygon is — the line from the screen before, in its
+      // own voice, not new words — and the question comes back (game.js
+      // sayReminder). The user asked for it on this screen.
+      remind: { say: 'Polygons are closed shapes made from straight lines.', vo: 'p03' },
       stage: {
         kind: 'choice-grid',
         options: [

@@ -660,6 +660,10 @@
       say(line, mood, hold, clock, cues);
       clearTimeout(bubbleTimer);
       bubbleTimer = setTimeout(function () {
+        // A REMINDER FIRST, where the screen has one: after "Try again!" on
+        // the first question, what a polygon is — then the question.
+        var rem = kind === 'wrong' ? (Screens.list[current] || {}).remind : null;
+        if (rem && rem.say && inputLive && present) { sayReminder(rem, wasUp); return; }
         // THE INSTRUCTION COMES BACK. A nudge after a wrong answer, a cheer
         // for one right card of two: the child is still working, and the
         // words they are working to return in place — not a blank bubble,
@@ -672,6 +676,31 @@
       }, Math.max(kind === 'wrong' ? 1900 : 1600, hold + 500));
     };
     if (present) speak(); else entrance(true).then(speak);
+  }
+
+  /* THE REMINDER AFTER A MISS (screens.js `remind`). The lesson's own line,
+     played in its own recording when there is one and otherwise revealed at
+     the reading pace every line uses, held long enough to be read — and then
+     the question the child is working on comes back. A new tap cuts it short
+     like any other line: the tap's own answer replaces it. */
+  function sayReminder(rem, wasUp) {
+    var text = rem.say;
+    var vid = (global.VO && rem.vo && VO.play && VO.play(rem.vo)) ? rem.vo : null;
+    var clock = vid ? function () { return (global.VO && VO.id === vid && VO.at) ? VO.at() : null; } : null;
+    var cues = null;
+    if (vid && VO.words) { var rec = VO.words(vid); if (rec && rec.length === String(text).trim().split(/\s+/).length) cues = rec; }
+    if (!cues && global.Timing && Timing.cues) cues = Timing.cues(text, 1);
+    var len = vid && VO.seconds ? VO.seconds(vid) : 0;
+    var lastWord = cues && cues.length ? cues[cues.length - 1] : 1500;
+    var hold = len ? Math.round(len * 1000) + 400
+                   : lastWord + (global.Timing && Timing.readingPause ? Timing.readingPause(text) : 2000);
+    say(text, 'hint', hold, clock, cues);
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(function () {
+      if (showStanding()) return;
+      say(null);
+      if (!wasUp && present && Swiftee.pos === 'peek') leave();
+    }, hold + 300);
   }
 
   /* ------------------------------------------------------------------ *
