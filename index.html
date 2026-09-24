@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
 <!-- the backdrop is the first thing on screen; fetch it alongside the scripts -->
-<link rel="preload" as="image" href="assets/ui/banner.webp">
+<link rel="preload" as="image" href="assets/ui/banner.webp?v=0f187566">
 <link rel="preload" as="image" href="assets/bg/ice-vista.png">
 <link rel="preload" as="image" href="assets/swiftee/swiftee-measuring.png">
 <style>
@@ -229,6 +229,13 @@
     background: #fff; transform: rotate(-22deg); pointer-events: none;
   }
   #bubble.show { opacity: 1; pointer-events: auto; cursor: pointer; transform: none; }
+  /* WHILE HE IS OUT ON THE MEASURING WALK his words step aside (game.js
+     tailWhenHome), and spring back when he is home — a line that is his,
+     not a label left standing. */
+  #bubble.show.away { opacity: 0; transform: scale(.94); transition: opacity 200ms ease, transform 200ms ease; }
+  #bubble.show.back { animation: bubbleBack 460ms cubic-bezier(.3,1.5,.5,1); }
+  @keyframes bubbleBack { 0% { opacity: 0; transform: scale(.9); } 60% { opacity: 1; transform: scale(1.03); } 100% { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { #bubble.show.back { animation: none; } #bubble.show.away { transition: none; } }
   /* KEPT UP, BUT OUT OF THE WAY. An instruction stays on screen while it is
      being obeyed, and the bubble is above the stage and takes pointer events
      — so the words a child is reading were also a lid over the thing they
@@ -570,7 +577,7 @@
        never cut and stretched; cut at 150 the cap edge ran down the plank
        as a seam. The cap border keeps the cap in proportion. */
     border-width: clamp(26px, 3.4vw, 62px) clamp(46px, 5.2vw, 96px) clamp(18px, 2.4vw, 44px);
-    border-image-source: url("assets/ui/plank.webp");
+    border-image-source: url("assets/ui/plank.webp?v=ef53d389");
     border-image-slice: 120 270 90 270 fill;
     border-image-repeat: stretch;
 
@@ -585,6 +592,21 @@
     transition: opacity 200ms ease;
   }
   #instruction.show { opacity: 1; }
+  /* NO SEAMS. A nine-slice border-image is drawn as separate pieces, each
+     antialiased on its own, and on a screen scaled 125% or 150% the joins
+     fall between device pixels: faint lines ran down the plank and the Next
+     and Back buttons. The same art is laid a second time, one pixel larger
+     all round, behind the words: its joins fall one pixel away from the
+     first's, so wherever one layer has a hairline the other is solid. */
+  #instruction { isolation: isolate; }
+  #instruction::before {
+    content: ''; position: absolute; z-index: -1; pointer-events: none;
+    top: calc(-1 * clamp(26px, 3.4vw, 62px) - 1px); bottom: calc(-1 * clamp(18px, 2.4vw, 44px) - 1px);
+    left: calc(-1 * clamp(46px, 5.2vw, 96px) - 1px); right: calc(-1 * clamp(46px, 5.2vw, 96px) - 1px);
+    border-style: solid;
+    border-width: clamp(26px, 3.4vw, 62px) clamp(46px, 5.2vw, 96px) clamp(18px, 2.4vw, 44px);
+    border-image: url("assets/ui/plank.webp?v=ef53d389") 120 270 90 270 fill stretch;
+  }
   /* The words cross-fade; the plank itself never moves, because the lesson
      below is positioned from its height. */
   #instruction .instruction-text {
@@ -625,7 +647,7 @@
     width: auto; height: 50px; display: none; align-items: center; gap: 6px;
     padding: 0 2px; font-size: 18px; color: #6a3200; text-shadow: 0 1px 0 rgba(255, 244, 200, .7);
     background: none; border: 0 solid transparent; border-width: 0 28px; border-radius: 0;
-    border-image: url("assets/ui/btn-uiPrimary.webp") 0 82 0 82 fill stretch;
+    border-image: url("assets/ui/btn-uiPrimary.webp?v=d8ec3af2") 0 82 0 82 fill stretch;
     box-shadow: none; filter: drop-shadow(0 3px 0 rgba(140, 80, 0, .35));
   }
   #hud .replay.show { display: inline-flex; }
@@ -650,7 +672,7 @@
        without ovalling the ends. 83 is this button's own cap in its own
        pixels; 34px is that cap drawn at this height. */
     background: none; border: 0 solid transparent; border-width: 0 34px;
-    border-image: url("assets/ui/btn-uiNav.webp") 0 83 0 83 fill stretch;
+    border-image: url("assets/ui/btn-uiNav.webp?v=dbbb52c5") 0 83 0 83 fill stretch;
     height: 60px; line-height: 60px; padding: 0 6px 0 10px; cursor: pointer; display: none; align-items: center; gap: 8px;
     filter: drop-shadow(0 4px 0 rgba(10, 60, 120, .35)); text-shadow: 0 2px 0 rgba(12, 70, 140, .55);
     transition: transform 90ms, filter 90ms, opacity 160ms;
@@ -669,13 +691,27 @@
     position: absolute; z-index: 6; left: calc(22px + var(--band-x, 0px)); bottom: calc(26px + var(--band-y, 0px));
     font: inherit; font-weight: 800; font-size: clamp(17px, 2vw, 23px); color: #fff;
     background: none; border: 0 solid transparent; border-width: 0 34px;
-    border-image: url("assets/ui/btn-uiNav.webp") 0 83 0 83 fill stretch;
+    border-image: url("assets/ui/btn-uiNav.webp?v=dbbb52c5") 0 83 0 83 fill stretch;
     height: 60px; line-height: 60px; padding: 0 10px 0 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
     filter: drop-shadow(0 4px 0 rgba(10, 60, 120, .35)); text-shadow: 0 2px 0 rgba(12, 70, 140, .55);
     visibility: hidden; opacity: 0; pointer-events: none;
     transition: transform 90ms, filter 90ms, opacity 180ms ease, visibility 0s linear 180ms;
   }
   #back.show { visibility: visible; opacity: 1; pointer-events: auto; transition: transform 90ms, filter 90ms, opacity 180ms ease, visibility 0s; }
+  /* NO SEAMS (as the plank): the same pill once more behind the label, one
+     pixel wider each side, so the joins of one layer fall on the solid
+     pixels of the other at any display scaling. */
+  #next, #back, #hud .replay { isolation: isolate; }
+  #next::before, #back::before, #hud .replay::before {
+    content: ''; position: absolute; z-index: -1; pointer-events: none;
+    top: 0; bottom: 0; left: -35px; right: -35px;
+    border-style: solid; border-width: 0 34px; border-image: inherit;
+  }
+  #hud .replay { position: relative; }
+  #hud .replay::before { left: -29px; right: -29px; border-width: 0 28px; }
+  @media (max-width: 760px) {
+    #next::before, #back::before { left: -29px; right: -29px; border-width: 0 28px; }
+  }
   #back:active { transform: translateY(4px); filter: drop-shadow(0 0 0 rgba(10, 60, 120, 0)) brightness(.94); }
   #back .chev { font-size: 1.1em; line-height: 1; }
   @media (max-width: 760px) { #back { left: calc(14px + var(--band-x, 0px)); bottom: calc(18px + var(--band-y, 0px)); height: 50px; line-height: 50px; border-width: 0 28px; } }

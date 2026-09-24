@@ -7,7 +7,7 @@
 (function (global) {
   'use strict';
   var A = {
-    "src": "assets/ui/hand.webp",
+    "src": "assets/ui/hand.webp?v=53c5fa4e",
     "w": 200,
     "h": 240,
     "tip": {

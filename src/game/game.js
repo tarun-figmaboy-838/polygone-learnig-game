@@ -336,10 +336,10 @@
   var rimEl = null;
   function syncPeekRim() {
     var want = global.Swiftee && Swiftee.pos === 'peek' && (present || entering || leaving) &&
-               global.Stage && Stage.peekAnchor && Stage.peekAnchor() &&
+               global.Stage && Stage.peekAnchor && Stage.peekAnchor({ home: true }) &&
                global.CardFrame && CardFrame.panel && Stage.svg && Stage.svg.getScreenCTM;
-    if (!want) { if (rimEl) rimEl.style.display = 'none'; return; }
-    var a = Stage.peekAnchor(), m = Stage.svg.getScreenCTM();
+    if (!want) { if (rimEl) rimEl.style.display = 'none'; rimFollow(false); return; }
+    var a = Stage.peekAnchor({ home: true }), m = Stage.svg.getScreenCTM();
     if (!m) { if (rimEl) rimEl.style.display = 'none'; return; }
     if (!rimEl) {
       rimEl = document.createElement('img');
@@ -367,6 +367,36 @@
     var to = ((paneY + 0.004) * 100).toFixed(2), gone = ((paneY + 0.04) * 100).toFixed(2);
     var mask = 'linear-gradient(to bottom, #000 0%, #000 ' + to + '%, transparent ' + gone + '%)';
     rimEl.style.webkitMaskImage = mask; rimEl.style.maskImage = mask;
+    rimFollow(true);
+  }
+
+  /* THE RIM RIDES WITH THE CARD. The copy of the card's top edge laid over
+     him was placed where the card RESTS, and stayed there when the child
+     took hold of the card: for the half second he took to duck, a strip of
+     rim hung in the air over the ice where the card had been — "I see card
+     crop layer when user swipe". It follows the card now, every frame it is
+     up: the same slide, tilt and scale the card has, about the card's own
+     middle. */
+  var rimRaf = 0;
+  function rimFollow(on) {
+    if (!on) { if (rimRaf) { (global.cancelAnimationFrame || clearTimeout)(rimRaf); rimRaf = 0; } if (rimEl) rimEl.style.transform = ''; return; }
+    if (rimRaf || !global.requestAnimationFrame) return;
+    var step = function () {
+      rimRaf = 0;
+      if (!rimEl || rimEl.style.display === 'none') return;
+      var off = global.Stage && Stage.swipeCardOffset ? Stage.swipeCardOffset() : null;
+      var m = Stage.svg && Stage.svg.getScreenCTM ? Stage.svg.getScreenCTM() : null;
+      if (off && m) {
+        rimEl.style.transformOrigin = '50% 50%';
+        rimEl.style.transform = 'translate(' + (off.dx * m.a).toFixed(1) + 'px,' + (off.dy * m.d).toFixed(1) + 'px) rotate(' + off.rot.toFixed(2) + 'deg)' +
+                                (Math.abs(off.scale - 1) > 1e-3 ? ' scale(' + off.scale.toFixed(4) + ')' : '');
+      } else if (!off) {
+        // the card is gone (caught by a zone): nothing left to be behind
+        rimEl.style.display = 'none'; rimEl.style.transform = ''; return;
+      }
+      rimRaf = global.requestAnimationFrame(step);
+    };
+    rimRaf = global.requestAnimationFrame(step);
   }
 
   /** Which wing he uses: behind the card when he is peeking over it, the left edge otherwise. */
@@ -771,6 +801,10 @@
       // sorting screens put their tray and bins where the floor would be —
       // so he flies here: a hover, wings going, bobbing (swiftee.js 'air').
       'top-left':           { x: 0.075, y: 0.30, air: true },
+      // Standing in the middle of the stage, between two things either side of
+      // it: the swipe practice's finale, where the card he peeked from has
+      // gone and he jumps up into the empty middle between the two piles.
+      'middle':             { x: 0.50, y: 0.80 },
       'centre':             { x: 0.50, y: 0.93 },
       'off':                { x: -0.3, y: 0.9 }
     };
@@ -2444,6 +2478,15 @@
           });
         }
 
+        // AN ENTRANCE CAN SAY WHERE TO (\`to\`): he is placed on that mark and
+        // comes in there, rather than on the mark the screen started with
+        if (state === 'enter' && opts && opts.to && Swiftee.place) {
+          // the words he was saying belong to the task that is over (the
+          // swipe's "Where does this polygon belong?" after the last card)
+          standing = null; say(null);
+          Swiftee.place(opts.to, opts.size || Swiftee.size);
+          syncPeekRim();
+        }
         var p = Swiftee.play(state, o, ctx);
         if (state === 'enter') {
           // THIS IS THE ENTRANCE. Anything that asks for him before it is
@@ -3240,14 +3283,20 @@
     clearInterval(tailWatch);
     var since = Date.now(), away = false;
     var repaint = function () { if (bubble && bubble.classList.contains('show')) paintSkin(); };
+    /* AND THE WORDS STEP ASIDE WITH IT. A tail-less box left standing while
+       he walked read as a static label, not as him talking ("why dialogue
+       box look static?"). While the walk has him, his line softly fades
+       back; when he is home again it springs back in, pointing at him. */
     tailWatch = setInterval(function () {
       var out = !!(global.Swiftee && Swiftee.locked === 'measuring');
-      // the walk takes its lock a moment after the tap: hide the tail then
-      if (out && !away) { away = true; repaint(); }
+      // the walk takes its lock a moment after the tap: step aside then
+      if (out && !away) { away = true; bubble.classList.remove('back'); bubble.classList.add('away'); repaint(); }
       if (out && Date.now() - since < 20000) return;
       // not gone yet (the walk has not started) — keep waiting, briefly
       if (!away && Date.now() - since < 1500) return;
       clearInterval(tailWatch); tailWatch = null;
+      bubble.classList.remove('away');
+      if (away) { void bubble.offsetWidth; bubble.classList.add('back'); setTimeout(function () { bubble.classList.remove('back'); }, 520); }
       repaint();
     }, 120);
   }

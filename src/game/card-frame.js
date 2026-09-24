@@ -16,7 +16,7 @@
   'use strict';
   var F = {
     "option": {
-      "src": "assets/ui/card.webp",
+      "src": "assets/ui/card.webp?v=bcc5169a",
       "w": 469,
       "h": 445,
       "pane": {
@@ -27,7 +27,7 @@
       }
     },
     "convexBin": {
-      "src": "assets/ui/bin-convex.webp",
+      "src": "assets/ui/bin-convex.webp?v=3da12bf1",
       "w": 470,
       "h": 442,
       "pane": {
@@ -38,7 +38,7 @@
       }
     },
     "concaveBin": {
-      "src": "assets/ui/bin-concave.webp",
+      "src": "assets/ui/bin-concave.webp?v=182f77d5",
       "w": 468,
       "h": 442,
       "pane": {
@@ -49,7 +49,7 @@
       }
     },
     "panel": {
-      "src": "assets/ui/panel.webp",
+      "src": "assets/ui/panel.webp?v=0e45767f",
       "w": 1024,
       "h": 984,
       "pane": {
@@ -60,7 +60,7 @@
       }
     },
     "plank": {
-      "src": "assets/ui/plank.webp",
+      "src": "assets/ui/plank.webp?v=ef53d389",
       "w": 1400,
       "h": 353,
       "pane": {
@@ -71,7 +71,7 @@
       }
     },
     "compare": {
-      "src": "assets/ui/compare.webp",
+      "src": "assets/ui/compare.webp?v=7cc66c2b",
       "w": 640,
       "h": 542,
       "pane": {
@@ -82,7 +82,7 @@
       }
     },
     "measure": {
-      "src": "assets/ui/measure.webp",
+      "src": "assets/ui/measure.webp?v=6f507de8",
       "w": 1024,
       "h": 572,
       "pane": {
@@ -93,7 +93,7 @@
       }
     },
     "regular": {
-      "src": "assets/ui/zone-regular.webp",
+      "src": "assets/ui/zone-regular.webp?v=5cd0058e",
       "w": 640,
       "h": 611,
       "pane": {
@@ -104,7 +104,7 @@
       }
     },
     "irregular": {
-      "src": "assets/ui/zone-irregular.webp",
+      "src": "assets/ui/zone-irregular.webp?v=e11f2045",
       "w": 640,
       "h": 612,
       "pane": {

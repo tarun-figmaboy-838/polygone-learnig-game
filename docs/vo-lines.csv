@@ -1,4 +1,4 @@
-order,id,file,kind,screen,screen_id,text,bubbles,when,delivery
+order,id,file,kind,screen,screen_id,text,breaths,when,delivery
 1,p01,assets/vo/p01.mp3,say,1,intro-hi,"Hi! I am Swiftee.","","screen 1","arriving, friendly"
 2,p02,assets/vo/p02.mp3,say,2,intro-remember,"Remember we learned about polygons before.","","screen 2","wondering aloud, a little slower"
 3,p03,assets/vo/p03.mp3,say,3,intro-define,"Polygons are closed shapes made from straight lines.","Polygons are closed shapes / made from straight lines.","screen 3","explaining, warm and clear"
@@ -6,9 +6,9 @@ order,id,file,kind,screen,screen_id,text,bubbles,when,delivery
 5,p05,assets/vo/p05.mp3,say,5,lets-play,"Let’s play with this one.","","screen 5","playful, inviting"
 6,p06,assets/vo/p06.mp3,say,6,pick-vertex,"Select any vertex.","","screen 6","explaining, warm and clear"
 7,p07i,assets/vo/p07i.mp3,instruction,7,connect,"Connect it to another vertex.","","screen 7, the instruction","an instruction: plain, steady, every word clear"
-8,p12,assets/vo/p12.mp3,say,7,connect,"Yay! You made a diagonal!","","screen 7, after the right answer","a cheer, delighted"
-9,p09,assets/vo/p09.mp3,say,7,connect,"This is a side of the polygon.","","screen 7","explaining, warm and clear"
-10,p10i,assets/vo/p10i.mp3,instruction,7,connect,"Connect it to a different vertex.","","screen 7, the instruction","an instruction: plain, steady, every word clear"
+8,p09,assets/vo/p09.mp3,say,7,connect,"This is a side of the polygon.","","screen 7","explaining, warm and clear"
+9,p10i,assets/vo/p10i.mp3,instruction,7,connect,"Connect it to a different vertex.","","screen 7, the instruction","an instruction: plain, steady, every word clear"
+10,p12,assets/vo/p12.mp3,say,7,connect,"Yay! You made a diagonal!","","screen 7, after the right answer","a cheer, delighted"
 11,p13,assets/vo/p13.mp3,say,8,define-diagonal,"A line segment joining two non-adjacent sides is a diagonal.","A line segment joining / two non-adjacent sides / is a diagonal.","screen 8","explaining, warm and clear"
 12,p14i,assets/vo/p14i.mp3,instruction,9,another-diagonal,"Draw another diagonal from the same vertex.","","screen 9, the instruction","an instruction: plain, steady, every word clear"
 13,p14b,assets/vo/p14b.mp3,say,9,another-diagonal,"All diagonals are still inside.","","screen 9, after the right answer","explaining, warm and clear"

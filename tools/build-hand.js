@@ -13,7 +13,7 @@
  *   node tools/build-hand.js
  */
 'use strict';
-const fs = require('node:fs'), path = require('node:path'), http = require('node:http');
+const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), crypto = require('node:crypto');
 const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '..');
 const SRC = 'assets/source/image copy.png', OUT = 'assets/ui/hand.webp', ART = 'src/game/hand-art.js', HEIGHT = 240;
@@ -55,7 +55,7 @@ function serve() { const srv = http.createServer((q, r) => { const f = path.join
  */
 (function (global) {
   'use strict';
-  var A = ${JSON.stringify({ src: OUT, w: out.w, h: out.h, tip: out.tip }, null, 2).replace(/\n/g, '\n  ')};
+  var A = ${JSON.stringify({ src: OUT + '?v=' + crypto.createHash('md5').update(buf).digest('hex').slice(0, 8), w: out.w, h: out.h, tip: out.tip }, null, 2).replace(/\n/g, '\n  ')};
   global.HandArt = A;
   if (typeof module !== 'undefined' && module.exports) module.exports = A;
 })(typeof window !== 'undefined' ? window : this);

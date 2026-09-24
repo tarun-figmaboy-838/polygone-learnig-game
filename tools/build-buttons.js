@@ -44,6 +44,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');   // a content hash on every src, so a rebuilt button is never an old cached one
 const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '..');
@@ -381,7 +382,7 @@ const CUT = function (opts) {
     console.log('  ' + b.tone.padEnd(10) + b.role.padEnd(11) + b.w + 'x' + b.h +
                 '  cap ' + b.cap + '  ' + (bytes.length / 1024).toFixed(0) + ' KB' +
                 (b.edge > (b.w + b.h) * 0.02 ? '   A NEIGHBOUR IS IN THIS CUT (' + b.edge + ' px)' : ''));
-    frames[b.tone] = { src: file, w: b.w, h: b.h, cap: b.cap, glyph: b.glyph || undefined };
+    frames[b.tone] = { src: file + '?v=' + crypto.createHash('md5').update(bytes).digest('hex').slice(0, 8), w: b.w, h: b.h, cap: b.cap, glyph: b.glyph || undefined };
   });
   if (dirty) {
     console.error('\n  ' + dirty + ' button(s) carry a foreign colour on the border — the cut is ' +

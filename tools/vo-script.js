@@ -87,11 +87,11 @@ md += 'Save each clip as `assets/vo/<id>.mp3`, then run `npm run build:vo`: the 
 md += 'A clip that is not there yet is silent, so they can be added a few at a time.\n\n';
 md += '**Voice:** Swiftee, a small, warm, playful teal bird talking to a seven-year-old. Clear, unhurried and smiling, never shouty. Lines end with a smile, not a drop.\n\n';
 md += '**Files:** mono MP3, 44.1 kHz, 128 kbps or better, about −16 LUFS, no more than 0.2 s of silence at either end. Aim for about 0.4 s per word plus 0.4 s.\n\n';
-md += '**Bubbles:** where a line shows as two or three bubbles in turn, record it as ONE clip read naturally, with a short breath where each bubble ends (the `/` marks).\n\n';
+md += '**Breaths:** record every line as ONE clip, read naturally, with a short breath at each `/` in the Breaths column. On screen each sentence is one bubble; the breaths are where the words pause inside it.\n\n';
 const lesson = rows.filter((r) => r.kind !== 'feedback');
 const fb = rows.filter((r) => r.kind === 'feedback');
 md += '## Lesson lines (' + lesson.length + '), in timeline order\n\n';
-md += '| # | Screen | Screen id | File | Type | Line | Bubbles | When | Delivery | Recorded |\n';
+md += '| # | Screen | Screen id | File | Type | Line | Breaths | When | Delivery | Recorded |\n';
 md += '|---|--------|-----------|------|------|------|---------|------|----------|----------|\n';
 lesson.forEach((r, k) => {
   const c = ctx.get(r.id) || {};
@@ -108,7 +108,7 @@ md += '\n## Not recorded\n\nThe finale line, "Honk-tastic! <XP> XP and <badges> 
 fs.mkdirSync(path.join(ROOT, 'docs'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'docs', 'VO.md'), md);
 const q = (s) => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
-const csv = ['order,id,file,kind,screen,screen_id,text,bubbles,when,delivery'].concat(rows.map((r, k) => {
+const csv = ['order,id,file,kind,screen,screen_id,text,breaths,when,delivery'].concat(rows.map((r, k) => {
   const c = ctx.get(r.id) || {};
   return [k + 1, r.id, 'assets/vo/' + r.id + '.mp3', r.kind, c.screen || '', c.id || '', q(r.text), q(c.parts ? c.parts.join(' / ') : ''), q(when(r, r.kind === 'feedback' ? null : c)), q(delivery(r))].join(',');
 })).join('\n') + '\n';

@@ -122,7 +122,10 @@
   // 2.5s of stillness before the first, single hint (the polish pass: 2.5–3s;
   // the diagonal pass: about 2s), the move shown 7s after that, and then no
   // oftener than every 12s — a child thinking is not pulsed at.
-  var HINT_PULSE_MS = 2500, HINT_DEMO_MS = 7000, HINT_AGAIN_MS = 12000;
+  // (the demo 4.5s after the first pulse, not 7s: a move a child has never
+  // made is shown while they are still looking for it, not after they have
+  // given up — the user: "add hand hint... only for user idle")
+  var HINT_PULSE_MS = 2500, HINT_DEMO_MS = 4500, HINT_AGAIN_MS = 12000;
   function hintLadder(opts) {
     if (reduced() || !svg) return;
     var pulse = opts.pulse || null, demo = opts.demo || opts.pulse || null;
@@ -195,12 +198,16 @@
       try {
         if (e.tagName === 'line' || e.tagName === 'path') {
           anims.push(e.animate([{ strokeOpacity: 0.45 }, { strokeOpacity: 1 }, { strokeOpacity: 0.45 }],
-            { duration: 900, iterations: times, delay: i * 110, easing: 'ease-in-out' }));
+            { duration: o.pop ? 600 : 900, iterations: times, delay: i * (o.pop ? 80 : 110), easing: 'ease-in-out' }));
           return;
         }
         e.style.transformBox = 'fill-box'; e.style.transformOrigin = 'center';
-        anims.push(e.animate([{ scale: '1' }, { scale: peak }, { scale: '1' }],
-          { duration: 900, iterations: times, delay: i * 110, easing: 'ease-in-out' }));
+        // o.pop: one quick springy "here!" — up, a touch past, and settle
+        anims.push(o.pop
+          ? e.animate([{ scale: '1' }, { scale: '1.22', offset: 0.35 }, { scale: '0.96', offset: 0.7 }, { scale: '1' }],
+                      { duration: 480, delay: i * 80, easing: 'ease-out' })
+          : e.animate([{ scale: '1' }, { scale: peak }, { scale: '1' }],
+                      { duration: 900, iterations: times, delay: i * 110, easing: 'ease-in-out' }));
       } catch (x) {}
     });
     var stop = function () { anims.forEach(function (a) { try { a.cancel(); } catch (e) {} }); anims = []; };
@@ -2159,6 +2166,13 @@
          * pane. The shelf for what the child has caught begins under it. */
         var Z = global.CardFrame && CardFrame[z.id];
         var TITLE_H = 46, titleBottom = 0;
+        /* THE WHOLE ZONE TAKES A TAP. The artwork is not hit-testable (its
+           transparent corners must not catch taps meant for the card), so a
+           tap anywhere on the glass found nothing under it and did nothing —
+           only the title strip answered. The tap is the swipe's accessible
+           twin; it has to work wherever a child would press. */
+        mk('rect', { x: z.x + 6, y: ZY + 6, width: ZW - 12, height: ZH - 12, rx: 24,
+                     fill: '#000', 'fill-opacity': 0, 'class': 'zone-hit' }, g);
         if (Z) {
           var im = mk('image', {
             x: z.x, y: ZY, width: ZW, height: ZH,
@@ -3276,9 +3290,15 @@
       im.setAttribute('href', B.src);
       pieces.push(im);
     };
-    put(x, cap, 0, B.cap);                                   // left cap
-    put(x + cap, w - cap * 2, B.cap, B.w - B.cap * 2);        // the stretch
-    put(x + w - cap, cap, B.w - B.cap, B.cap);                // right cap
+    /* NO SEAM BETWEEN THE PIECES. Three pieces meeting edge to edge meet at
+       a fraction of a pixel, and each is antialiased on its own, so a
+       hairline of whatever is behind showed down both joins. The stretch is
+       drawn first and a little wider, tucked under both caps; the caps are
+       drawn over it, and there is no join left to see through. */
+    var tuck = Math.min(2, Math.max(0, w / 2 - cap));
+    put(x + cap - tuck, w - cap * 2 + tuck * 2, B.cap, B.w - B.cap * 2);   // the stretch, under the caps
+    put(x, cap, 0, B.cap);                                                // left cap
+    put(x + w - cap, cap, B.w - B.cap, B.cap);                            // right cap
     return {
       href: function (nb) {
         pieces.forEach(function (im) {
@@ -4624,15 +4644,18 @@
         setConnect('SELECT_VERTEX');
         // all of them: any corner is a vertex, and breathing one would have
         // been an answer rather than an invitation
+        // every corner is right, so the hand may tap one: the lowest on the
+        // right, where the glove lies outside the shape rather than over it.
+        // ON THE FIRST IDLE HINT, not the last: tapping is the move, and a
+        // child who has not tapped yet is shown it.
+        var pickHand = function (strong) {
+          var v = st.verts || [], best = null;
+          v.forEach(function (p) { if (!best || p.x + p.y > best.x + best.y) best = p; });
+          return both(pulseHint((st.knobEls || []).slice(), strong ? { strong: true } : null), tapHand(best));
+        };
         hintLadder({
-          pulse: function () { return pulseHint((st.knobEls || []).slice()); },
-          // every corner is right, so the hand may tap one: the lowest on the
-          // right, where the glove lies outside the shape rather than over it
-          demo: function () {
-            var v = st.verts || [], best = null;
-            v.forEach(function (p) { if (!best || p.x + p.y > best.x + best.y) best = p; });
-            return both(pulseHint((st.knobEls || []).slice(), { strong: true }), tapHand(best));
-          }
+          pulse: function () { return pickHand(false); },
+          demo: function () { return pickHand(true); }
         });
         st.vertEls.forEach(function (c, i) {
           c.style.cursor = 'pointer';
@@ -5072,7 +5095,17 @@
           on(sw.card, 'lostpointercapture', onCancel);
         }
         hintLadder({
-          pulse: function () { return sw.card ? pulseHint([sw.card]) : null; },
+          /* THE DESTINATIONS BREATHE, NOT THE CARD. He is peeking from behind
+             the card, hidden by a copy of its rim laid over him; pulsing the
+             card scaled it out from under that copy (off-centre, eighteen
+             pixels at 1900 wide), and the copy became a flat band of ice
+             across his face. The card holds still while he is behind it; the
+             two zones it can go to pulse instead — "put it there", which is
+             the hint anyway. */
+          pulse: function () {
+            var zs = Object.keys(sw.zones || {}).map(function (k) { return sw.zones[k]; }).filter(Boolean);
+            return zs.length ? pulseHint(zs) : null;
+          },
           demo: runDemo
         });
 
@@ -5159,9 +5192,11 @@
           return isSides ? (st.sideDotEls || []).filter(function (d, q) { return d && !seen[q]; })
                          : (st.knobEls || []).filter(function (_, q) { return !seen[q]; });
         };
+        // every one of them is to be measured: the hand taps the next — from
+        // the first idle hint, because "tap the sides" is a move no screen
+        // before has asked for
         hintLadder({
-          pulse: function () { return pulseHint(todo()); },
-          // every one of them is to be measured: the hand taps the next
+          pulse: function () { var t = todo(); return both(pulseHint(t), tapHand(centreOf(t[0]))); },
           demo: function () { var t = todo(); return both(pulseHint(t, { strong: true }), tapHand(centreOf(t[0]))); }
         });
         // Delegated: renderPoly() runs after every reveal.
@@ -5277,7 +5312,7 @@
           if (n === spec.target) { endInteraction(); resolve({ result: 'correct' }); }
         }
         hintLadder({
-          pulse: function () { return pulseHint([st.n < spec.target ? st.stepPlus : st.stepMinus]); },
+          pulse: function () { var b = st.n < spec.target ? st.stepPlus : st.stepMinus; return both(pulseHint([b]), tapHand(centreOf(b))); },
           demo: function () { var b = st.n < spec.target ? st.stepPlus : st.stepMinus; return both(pulseHint([b], { strong: true }), tapHand(centreOf(b))); }
         });
         syncStepper();
@@ -5695,6 +5730,21 @@
     });
   }
 
+  /** What an interaction wants touched, for the pop that hands it over. */
+  function armTargets(spec) {
+    var t = spec.type, ks = (st.knobEls || []).filter(Boolean);
+    if (t === 'vertex-pick') return ks;
+    if (t === 'draw-diagonal' || t === 'draw-diagonals') return st.picked != null && knobOf(st.picked) ? [knobOf(st.picked)] : [];
+    if (t === 'drag-vertex') return spec.vertex === 'any' || spec.vertex == null ? ks : (knobOf(spec.vertex) ? [knobOf(spec.vertex)] : []);
+    if (t === 'tap-each') return spec.targets === 'sides' ? (st.sideDotEls || []).filter(Boolean) : ks;
+    if (t === 'choice') return (st.choiceEls || []).slice();
+    if (t === 'multi-select') return (st.cards || []).slice();
+    if (t === 'sort') return st.sort && st.sort.items ? st.sort.items.filter(function (it) { return !it._placed; }).slice(0, 1) : [];
+    if (t === 'swipe') return st.swipe && st.swipe.zones ? Object.keys(st.swipe.zones).map(function (k) { return st.swipe.zones[k]; }) : [];
+    if (t === 'stepper') return st.stepPlus ? [st.n < (spec.target || 0) ? st.stepPlus : st.stepMinus].filter(Boolean) : [];
+    return [];
+  }
+
   function waitFor(spec, ctx) {
     var fn = INTERACT[spec.type];
     if (!fn) { if (global.console) console.warn('Stage: no interaction "' + spec.type + '"'); return Promise.resolve({ result: 'correct' }); }
@@ -5711,6 +5761,11 @@
     var p;
     try { p = fn(spec, ctx); }
     catch (e) { alive(false); throw e; }
+    // THE FIRST THING THE CHILD SEES WHEN IT IS THEIR TURN: the things to
+    // touch pop once, in turn — "here". Then the idle ladder takes over: a
+    // pulse (and a hand, for a tap) after 2.5s of stillness, the move itself
+    // shown by a hand after 7s. Not on a retry: the child has just used them.
+    if (invite && !spec.retry) later(90, function () { var t = armTargets(spec); if (t.length) pulseHint(t, { pop: true }); });
     return Promise.resolve(p).then(
       function (r) { alive(false); return r; },
       function (e) { alive(false); throw e; }
@@ -5832,7 +5887,17 @@
       return { face: face, poly: poly };
     },
     /** The slab Swiftee peeks over or stands beside: the panel, or the left of a compared pair. */
-    peekAnchor: function () {
+    /** The swipe card now, against its home: the rim copy laid over him
+        follows this, so it never hangs where the card used to be. */
+    swipeCardOffset: function () {
+      var S = st.swipe, card = S && S.card;
+      if (!card) return null;
+      var tf = card.getAttribute('transform') || '';
+      var t = /translate\(\s*([-\d.]+)[\s,]+([-\d.]+)\s*\)/.exec(tf), r = /rotate\(\s*([-\d.]+)/.exec(tf), k = /scale\(\s*([-\d.]+)/.exec(tf);
+      return { dx: t ? +t[1] - SWIPE_HOME.x : 0, dy: t ? +t[2] - SWIPE_HOME.y : 0, rot: r ? +r[1] : 0, scale: k ? +k[1] : 1,
+               cx: SWIPE_HOME.x, cy: SWIPE_HOME.y + seatY };
+    },
+    peekAnchor: function (o) {
       if (st.panel) return seatY ? Object.assign({}, st.panel, { y: st.panel.y + seatY }) : st.panel;
       if (st.compare) {
         // the card the lesson is looking at — the one glowing — else the left
@@ -5865,7 +5930,9 @@
         var card = st.swipe.card;
         var tm = card && /translate\(\s*([-\d.]+)[\s,]+([-\d.]+)\s*\)/.exec(card.getAttribute('transform') || '');
         var home = !!card && (!tm || (Math.abs(+tm[1] - SWIPE_HOME.x) < 0.5 && Math.abs(+tm[2] - SWIPE_HOME.y) < 0.5));
-        if (!home) return null;
+        // (o.home: where the card's home is whether or not it is there — the
+        // rim copy is placed on it and then follows the card, swipeCardOffset)
+        if (!home && !(o && o.home)) return null;
         // `at` is where along the card's width his head comes up. A bin is
         // peeked over near its corner cap; a card the whole screen is about
         // is peeked over in the MIDDLE, so he and the shape and the question

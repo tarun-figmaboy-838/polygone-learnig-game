@@ -8,11 +8,11 @@ Every line Swiftee says, **in the order a child hears it**, with the file the ga
 
 **Files:** mono MP3, 44.1 kHz, 128 kbps or better, about −16 LUFS, no more than 0.2 s of silence at either end. Aim for about 0.4 s per word plus 0.4 s.
 
-**Bubbles:** where a line shows as two or three bubbles in turn, record it as ONE clip read naturally, with a short breath where each bubble ends (the `/` marks).
+**Breaths:** record every line as ONE clip, read naturally, with a short breath at each `/` in the Breaths column. On screen each sentence is one bubble; the breaths are where the words pause inside it.
 
 ## Lesson lines (46), in timeline order
 
-| # | Screen | Screen id | File | Type | Line | Bubbles | When | Delivery | Recorded |
+| # | Screen | Screen id | File | Type | Line | Breaths | When | Delivery | Recorded |
 |---|--------|-----------|------|------|------|---------|------|----------|----------|
 | 1 | 1 | intro-hi | `assets/vo/p01.mp3` | say | Hi! I am Swiftee. |  | screen 1 | arriving, friendly | — |
 | 2 | 2 | intro-remember | `assets/vo/p02.mp3` | say | Remember we learned about polygons before. |  | screen 2 | wondering aloud, a little slower | — |
@@ -21,9 +21,9 @@ Every line Swiftee says, **in the order a child hears it**, with the file the ga
 | 5 | 5 | lets-play | `assets/vo/p05.mp3` | say | Let’s play with this one. |  | screen 5 | playful, inviting | — |
 | 6 | 6 | pick-vertex | `assets/vo/p06.mp3` | say | Select any vertex. |  | screen 6 | explaining, warm and clear | — |
 | 7 | 7 | connect | `assets/vo/p07i.mp3` | instruction | Connect it to another vertex. |  | screen 7, the instruction | an instruction: plain, steady, every word clear | — |
-| 8 | 7 | connect | `assets/vo/p12.mp3` | say | Yay! You made a diagonal! |  | screen 7, after the right answer | a cheer, delighted | — |
-| 9 | 7 | connect | `assets/vo/p09.mp3` | say | This is a side of the polygon. |  | screen 7 | explaining, warm and clear | — |
-| 10 | 7 | connect | `assets/vo/p10i.mp3` | instruction | Connect it to a different vertex. |  | screen 7, the instruction | an instruction: plain, steady, every word clear | — |
+| 8 | 7 | connect | `assets/vo/p09.mp3` | say | This is a side of the polygon. |  | screen 7 | explaining, warm and clear | — |
+| 9 | 7 | connect | `assets/vo/p10i.mp3` | instruction | Connect it to a different vertex. |  | screen 7, the instruction | an instruction: plain, steady, every word clear | — |
+| 10 | 7 | connect | `assets/vo/p12.mp3` | say | Yay! You made a diagonal! |  | screen 7, after the right answer | a cheer, delighted | — |
 | 11 | 8 | define-diagonal | `assets/vo/p13.mp3` | say | A line segment joining two non-adjacent sides is a diagonal. | A line segment joining / two non-adjacent sides / is a diagonal. | screen 8 | explaining, warm and clear | — |
 | 12 | 9 | another-diagonal | `assets/vo/p14i.mp3` | instruction | Draw another diagonal from the same vertex. |  | screen 9, the instruction | an instruction: plain, steady, every word clear | — |
 | 13 | 9 | another-diagonal | `assets/vo/p14b.mp3` | say | All diagonals are still inside. |  | screen 9, after the right answer | explaining, warm and clear | — |

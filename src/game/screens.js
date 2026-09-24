@@ -248,16 +248,6 @@
         { input: { type: 'draw-diagonal', from: 'picked', sides: true, praise: false, accept: 'non-adjacent-unused' } },
         { branch: true, until: 'correct',
           on: {
-            // DIAGONAL_SUCCESS: the line is in and glowing (stage.js shimmer)
-            correct: [
-              { sfx: 'correct' },
-              { juice: 'collect', target: 'answer' },
-              { instruction: null },
-              // on the word "diagonal", the tag that names it
-              { stage: { label: { text: 'Diagonal', at: 'below-polygon', inside: true, enter: 'pop', cue: 'diagonal' } } },
-              { swiftee: 'celebrate' },
-              { say: 'Yay! You made a diagonal!', vo: 'p12' }
-            ],
             // SIDE_FEEDBACK: kept a moment, named, and another try
             side: [
               { sfx: 'pop' },
@@ -270,6 +260,16 @@
               { instruction: 'Connect it to a different vertex.', vo: 'p10i' },
               { swiftee: 'point', at: 'picked' },
               { input: { type: 'draw-diagonal', from: 'picked', sides: true, praise: false, accept: 'non-adjacent-unused', retry: true } }
+            ],
+            // DIAGONAL_SUCCESS: the line is in and glowing (stage.js shimmer)
+            correct: [
+              { sfx: 'correct' },
+              { juice: 'collect', target: 'answer' },
+              { instruction: null },
+              // on the word "diagonal", the tag that names it
+              { stage: { label: { text: 'Diagonal', at: 'below-polygon', inside: true, enter: 'pop', cue: 'diagonal' } } },
+              { swiftee: 'celebrate' },
+              { say: 'Yay! You made a diagonal!', vo: 'p12' }
             ]
           },
           // (nothing else can come back from this input — a line let go on no
@@ -925,7 +925,12 @@
         { stage: { kind: 'swipe-sort', enter: 'stagger' } },
         { say: 'Where does this polygon belong?', vo: 'p33' },
         { swiftee: 'observe', at: 'sort.item' },
-        { input: { type: 'swipe', until: 'all-classified' } },
+        // (praise: false — the finale below is his cheer; a "Well done!" first
+        // would bring him up behind a card that is no longer there)
+        { input: { type: 'swipe', until: 'all-classified', praise: false } },
+        // ALL SORTED. The card he peeked from has gone; he jumps up into the
+        // empty middle, whole, between the two piles, and cheers there.
+        { swiftee: 'enter', from: 'below', quick: true, to: 'middle', size: 'medium' },
         { feedback: milestone([{ sfx: 'levelUp' }, { juice: 'confetti', target: 'stage' }]) }
       ],
       perTap: { correct: [{ sfx: 'correct' }, { juice: 'pop', target: 'item' }],

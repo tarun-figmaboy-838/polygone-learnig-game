@@ -661,17 +661,20 @@
       // 'curious', not 'peeping': the peeping rig is drawn peering round a
       // wall of its own, and the wall came with it.
       var rise = (o.rise || 200);
-      a = o.quick
-        // a cheer does not peek first: straight up, one bounce
-        ? anim([{ translate: '0 ' + rise + 'px' }, { translate: '0 -8px', offset: 0.8 }, { translate: '0 0' }],
-               { duration: 420, easing: 'cubic-bezier(.2,.9,.3,1.2)' })
-        : anim([
-        { translate: '0 ' + rise + 'px', offset: 0 },
-        { translate: '0 ' + (rise * 0.32).toFixed(0) + 'px', offset: 0.30, easing: 'cubic-bezier(.2,.8,.4,1)' },   // eyes over the rim
-        { translate: '0 ' + (rise * 0.32).toFixed(0) + 'px', offset: 0.55 },
-        { translate: '0 -9px', offset: 0.82, easing: 'cubic-bezier(.3,.7,.3,1)' },
-        { translate: '0 0', offset: 1 }
-      ], { duration: 980, easing: 'ease-out' });
+      /* A POP, THE WAY A STICKER CHARACTER POPS UP. One springy rise, not a
+         slide: he stretches a little as he shoots up, overshoots, squashes
+         as he lands on his mark and settles — squash and stretch about his
+         feet, so he stays planted behind the rim. The user asked for it
+         "smooth, seamless, like a Snapchat character pop". (The old peek-a-boo
+         held half-way for a beat, which read as a stall.) */
+      el.style.transformOrigin = '50% 88%';
+      a = anim([
+        { translate: '0 ' + rise + 'px', scale: '0.9 1.1', offset: 0 },
+        { translate: '0 -18px', scale: '0.96 1.06', offset: o.quick ? 0.5 : 0.46, easing: 'cubic-bezier(.2,.8,.35,1)' },
+        { translate: '0 5px', scale: '1.06 0.93', offset: o.quick ? 0.7 : 0.66, easing: 'cubic-bezier(.4,0,.6,1)' },
+        { translate: '0 -3px', scale: '0.98 1.02', offset: 0.84, easing: 'ease-in-out' },
+        { translate: '0 0', scale: '1 1', offset: 1 }
+      ], { duration: o.quick ? 520 : 640, easing: 'linear' });
       clip('curious', 1);
     } else {
       // TWO HOPS IN, wings going: he comes on the way a small bird crosses
@@ -1149,13 +1152,17 @@
       var g = fresh(); stateName = 'exit'; rigLoop = null;
       var a;
       if (o && o.to === 'below') {
-        // DOWN BEHIND THE CARD, the way he came up: a small hop, then gone.
+        // DOWN BEHIND THE CARD, the way he popped up: a quick crouch-and-lift
+        // (the anticipation), then a dive — a quarter of a second, so he is
+        // gone before the card the child has taken hold of has gone anywhere.
         clip('happy', 1);
+        el.style.transformOrigin = '50% 88%';
         a = anim([
-          { translate: '0 0', offset: 0 },
-          { translate: '0 -12px', offset: 0.28, easing: 'cubic-bezier(.3,.6,.4,1)' },
-          { translate: '0 ' + (o.rise || 200) + 'px', offset: 1, easing: 'cubic-bezier(.5,0,.8,.4)' }
-        ], { duration: 560 });
+          { translate: '0 0', scale: '1 1', offset: 0 },
+          { translate: '0 3px', scale: '1.05 0.95', offset: 0.18, easing: 'ease-out' },
+          { translate: '0 -10px', scale: '0.96 1.05', offset: 0.4, easing: 'cubic-bezier(.3,.6,.4,1)' },
+          { translate: '0 ' + (o.rise || 200) + 'px', scale: '0.94 1.06', offset: 1, easing: 'cubic-bezier(.55,0,.85,.4)' }
+        ], { duration: 280 });
       } else {
         // and two hops off, the same way, fading as he goes
         clip('flapping', Infinity);

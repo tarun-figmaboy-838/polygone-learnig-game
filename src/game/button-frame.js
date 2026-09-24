@@ -11,111 +11,111 @@
   'use strict';
   var F = {
     "sun": {
-      "src": "assets/ui/btn-sun.webp",
+      "src": "assets/ui/btn-sun.webp?v=e27e0828",
       "w": 285,
       "h": 130,
       "cap": 73
     },
     "tangerine": {
-      "src": "assets/ui/btn-tangerine.webp",
+      "src": "assets/ui/btn-tangerine.webp?v=f322d8a1",
       "w": 291,
       "h": 130,
       "cap": 73
     },
     "correct": {
-      "src": "assets/ui/btn-correct.webp",
+      "src": "assets/ui/btn-correct.webp?v=37a495f1",
       "w": 283,
       "h": 129,
       "cap": 72
     },
     "wrong": {
-      "src": "assets/ui/btn-wrong.webp",
+      "src": "assets/ui/btn-wrong.webp?v=24e142af",
       "w": 285,
       "h": 129,
       "cap": 72
     },
     "convex": {
-      "src": "assets/ui/btn-convex.webp",
+      "src": "assets/ui/btn-convex.webp?v=00064e2d",
       "w": 289,
       "h": 131,
       "cap": 73
     },
     "concave": {
-      "src": "assets/ui/btn-concave.webp",
+      "src": "assets/ui/btn-concave.webp?v=bc5382b5",
       "w": 284,
       "h": 130,
       "cap": 73
     },
     "regular": {
-      "src": "assets/ui/btn-regular.webp",
+      "src": "assets/ui/btn-regular.webp?v=f77479ac",
       "w": 285,
       "h": 131,
       "cap": 73
     },
     "irregular": {
-      "src": "assets/ui/btn-irregular.webp",
+      "src": "assets/ui/btn-irregular.webp?v=73fd40fe",
       "w": 286,
       "h": 130,
       "cap": 73
     },
     "sky": {
-      "src": "assets/ui/btn-sky.webp",
+      "src": "assets/ui/btn-sky.webp?v=ceb759c4",
       "w": 286,
       "h": 130,
       "cap": 73
     },
     "plum": {
-      "src": "assets/ui/btn-plum.webp",
+      "src": "assets/ui/btn-plum.webp?v=73fd40fe",
       "w": 286,
       "h": 130,
       "cap": 73
     },
     "stepMinus": {
-      "src": "assets/ui/btn-stepMinus.webp",
+      "src": "assets/ui/btn-stepMinus.webp?v=6579f323",
       "w": 258,
       "h": 240,
       "cap": 0,
       "glyph": true
     },
     "stepPlus": {
-      "src": "assets/ui/btn-stepPlus.webp",
+      "src": "assets/ui/btn-stepPlus.webp?v=e45dda01",
       "w": 257,
       "h": 240,
       "cap": 0,
       "glyph": true
     },
     "uiPrimary": {
-      "src": "assets/ui/btn-uiPrimary.webp",
+      "src": "assets/ui/btn-uiPrimary.webp?v=d8ec3af2",
       "w": 405,
       "h": 147,
       "cap": 82
     },
     "uiNav": {
-      "src": "assets/ui/btn-uiNav.webp",
+      "src": "assets/ui/btn-uiNav.webp?v=dbbb52c5",
       "w": 404,
       "h": 148,
       "cap": 83
     },
     "uiSecondary": {
-      "src": "assets/ui/btn-uiSecondary.webp",
+      "src": "assets/ui/btn-uiSecondary.webp?v=e16e14cd",
       "w": 404,
       "h": 148,
       "cap": 83
     },
     "uiSuccess": {
-      "src": "assets/ui/btn-uiSuccess.webp",
+      "src": "assets/ui/btn-uiSuccess.webp?v=708e08a2",
       "w": 404,
       "h": 148,
       "cap": 83
     },
     "uiDanger": {
-      "src": "assets/ui/btn-uiDanger.webp",
+      "src": "assets/ui/btn-uiDanger.webp?v=13d5490e",
       "w": 401,
       "h": 149,
       "cap": 83
     },
     "uiDisabled": {
-      "src": "assets/ui/btn-uiDisabled.webp",
+      "src": "assets/ui/btn-uiDisabled.webp?v=aea5b960",
       "w": 403,
       "h": 148,
       "cap": 83

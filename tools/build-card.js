@@ -42,6 +42,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');   // a content hash on every src, so a rebuilt card is never an old cached one
 const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '..');
@@ -265,7 +266,7 @@ const MEASURE = function (opts) {
     console.log('          pane  x ' + pane.x + '  y ' + pane.y +
                 '  w ' + pane.w + '  h ' + pane.h + (card.pane ? '  (declared; measured ' + JSON.stringify(m.pane) + ')' : ''));
     if (m.cleared) console.log('          keyed out a black matte (' + (m.cleared / 1000).toFixed(0) + 'k px)');
-    frames[card.key] = { src: card.out, w: m.out.w, h: m.out.h, pane: pane };
+    frames[card.key] = { src: card.out + '?v=' + crypto.createHash('md5').update(bytes).digest('hex').slice(0, 8), w: m.out.w, h: m.out.h, pane: pane };
   }
 
   await browser.close();
