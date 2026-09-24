@@ -3050,28 +3050,17 @@
 
      WARM, AND DARK-INKED. The cool blue and violet pair read as interface
      rather than as something to press, and white type on a light warm face is
-     unreadable, so each of these carries its own ink as a third value. Sun
-     and tangerine come first because two options is by far the commonest
-     row, and a yellow button beside an orange one is unmistakably a pair of
-     buttons. */
+     unreadable, so each of these carries its own ink as a third value. */
 
   /* [face, lip, ink] — ink optional, white when absent. */
   var PILL_TONES = {
-    correct:   EVAL.yes,
-    wrong:     EVAL.no,
     sun:       ['#ffc53d', '#c07a00', '#5a3400'],
-    tangerine: ['#ff9138', '#bf5200', '#5a2300'],
-    sky:       ['#4f9df5', '#2b6fc4'],
-    plum:      ['#b271d8', '#7a3c9c'],
     blue:      ['#4f9df5', '#2b6fc4'],
     // the new kit's tones, drawn the same colours if the art is missing
     uiPrimary: ['#ffc53d', '#c07a00', '#5a3400'],
     uiSuccess: EVAL.yes,
     uiDanger:  EVAL.no
   };
-  Object.keys(CONCEPT).forEach(function (k) {
-    PILL_TONES[k] = [CONCEPT[k].face, CONCEPT[k].deep];
-  });
 
   /**
    * A LABEL. Not a button.
@@ -3171,8 +3160,8 @@
   /**
    * A button.
    *
-   * THE ARTWORK, IN THREE PIECES. assets/source/btn.png is a sheet of
-   * finished buttons; tools/build-buttons.js cuts the four this lesson needs
+   * THE ARTWORK, IN THREE PIECES. assets/source/image.png is a sheet of
+   * finished buttons; tools/build-buttons.js cuts the ones this lesson draws
    * out of it and measures where each round end finishes.
    *
    * A button here is every width from a 64-unit stepper key to a 184-unit
@@ -3248,7 +3237,7 @@
 
     // FLAT AND BOLD. No shadow under the word: on a matte pill a shadow
     // read as a smear. Dark ink on the light pills, white on the dark ones.
-    var DARK_ON = { sun: 1, tangerine: 1, concave: 1, sky: 1, convex: 1, regular: 1, uiPrimary: 1 };
+    var DARK_ON = { sun: 1, uiPrimary: 1 };
     var ink = o.ink || (DARK_ON[o.tone] ? '#3a2410' : '#ffffff');
     var t = mk('text', {
       x: x + w / 2, y: y + h * 0.18,
@@ -4572,7 +4561,6 @@
     on(st.polyG, 'pointerdown', down); on(svg, 'pointermove', move); on(svg, 'pointerup', up); on(svg, 'pointercancel', up);
     if (ctx && ctx.onCancel) ctx.onCancel(endInteraction);
   }
-  function dragVertex(i, moveFn, upFn, ctx) { return dragVertices([i], moveFn, upFn, ctx); }
 
   /**
    * HOW DEEP THE DENT IS — as a fraction of the shape's own radius.

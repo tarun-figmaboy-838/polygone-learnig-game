@@ -120,7 +120,8 @@ storyboard never had to change to accommodate the art. Most expressions ship as
 transition the animator drew.
 
 `node tools/list-sprites.js` prints exactly which sheets the game plays, what
-each is for, and which 25 animations it never touches.
+each is for, and which animations it never touches. Those stay in the rig: a
+sheet is only fetched when he plays it, so they cost a player nothing.
 
 ---
 
@@ -133,14 +134,11 @@ and the few mixed into the confetti. They are all the same six-armed lattice
 at different sizes, which is what makes the transition read as the weather
 closing in rather than as an effect switching on.
 
-The wipe marks **new work**, not a new page: it fires when a screen builds a
-new scene, or when it asks for a kind of doing the child has not been asked
-for yet — the first time they choose, drag, draw, sort or build. It never
-fires for a screen that only says another sentence. Twenty of the thirty-four
-screens qualify; the rest flow into each other, which is what keeps a
-demonstration reading as one continuous thing. Interaction types are grouped
-into families for this, so drag-endpoint to drag-vertex is not treated as new
-work — it is the same hand doing the same thing.
+The wipe marks **a new level**, not a new page: it fires on the first screen
+of each quest chapter — Shape scout, Diagonal detective, Dent discoverer,
+Pattern pro, Polygon builder — and nowhere else. The screens inside a level
+step from each other with their own small entrances, which is what keeps a
+demonstration reading as one continuous thing.
 
 Before the crystals arrive, `Stage.flurry()` raises the scene's own snowfall:
 a reserve of bigger, faster flakes joins the calm ones and the calm ones speed

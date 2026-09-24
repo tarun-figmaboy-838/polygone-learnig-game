@@ -131,14 +131,14 @@ The rest are fire-and-forget so a reaction never delays the lesson.
 | --- | --- |
 | `tap-anywhere` | Any tap on the stage. `dialogue` mode |
 | `vertex-pick` | A vertex is tapped. Store it as `picked` |
-| `drag-endpoint` | Endpoint dropped on a vertex. `correct` if `!Poly.isAdjacent(picked, target, n)`, else `wrong` |
-| `draw-diagonal` | Line drawn from `from` to a vertex. `correct` if non-adjacent and unused |
+| `draw-diagonal` | Line drawn from `from` to a vertex. `correct` if non-adjacent and unused; with `sides: true` a neighbour resolves `side` instead of `wrong` |
 | `draw-diagonals` | `count` correct diagonals from `from`. Per-diagonal feedback via `perTap` |
 | `drag-vertex` | `until: 'concave'` → `Poly.classify(v).concave`; `until: 'irregular'` → `!Poly.isRegular(v)` with `minMove` px. Apply `Poly.clampSimple` every move |
 | `choice` | A button. `correct` if label matches |
 | `multi-select` | Each tap judged via `perTap`; resolves when all correct options selected |
 | `tap-each` | Each of `count` targets tapped once, revealing `length` or `arc` |
 | `sort` | Each drop judged via `perTap` by `Poly.classify`; resolves when all placed correctly |
+| `swipe` | The card is flung, or its zone tapped, toward Regular or Irregular. A wrong side springs it back; resolves once every card is sorted (`until: 'all-classified'`) |
 | `stepper` | Stepper reaches `target`. Polygon morphs live |
 
 ### Stage kinds (6)

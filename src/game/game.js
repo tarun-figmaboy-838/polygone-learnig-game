@@ -3156,28 +3156,13 @@
     setTimeout(go, 420);
   }
 
-  /**
-   * Does this screen build a new scene, or carry on with the one already up?
-   *
-   * Only a third of the thirty-four rebuild the stage. The rest add to what is
-   * already there — a label, a diagonal, a badge on the same pentagon.
-   */
   /* ------------------------------------------------------------------ *
    * When the snow comes
    *
-   * The wipe marks one thing: that there is something new to do. It fires
-   * when a screen builds a new scene, or when it asks for a kind of doing
-   * the child has not been asked for yet — the first time they have to
-   * choose, the first time they have to drag, the first time they have to
-   * sort. It never fires for a screen that only says another sentence.
-   *
-   * Interaction types are grouped into families on purpose. Going from
-   * drag-endpoint to drag-vertex is the same hand doing the same thing; it
-   * does not deserve a storm. Going from dragging to sorting does.
-   *
-   * tap-anywhere maps to nothing. It is not an interaction, it is reading —
-   * counting it would put a wipe between every second screen and bury the
-   * lesson in weather.
+   * The wipe marks one thing: a new level. It fires on the first screen of
+   * each quest chapter and on no other, so a screen that only says another
+   * sentence, or asks for another kind of doing inside the same level,
+   * steps in with its own small entrance instead of a storm.
    * ------------------------------------------------------------------ */
 
 
@@ -3210,10 +3195,9 @@
    * whites out, and the next line says "I will connect it to another vertex"
    * about a vertex they can no longer see they chose.
    *
-   * So the wipe marks new work: a new scene, or a new kind of doing. Screens
-   * that only carry the lesson forward a sentence flow into each other, which
-   * is what makes them read as one continuous demonstration rather than a
-   * slideshow. See wipesAt() above for the rule.
+   * So the wipe marks a new level, and the screens inside one flow into each
+   * other, which is what makes them read as one continuous demonstration
+   * rather than a slideshow. See wipesAt() above for the rule.
    *
    * The first screen is exempt too: the arrival is the opening, and burying
    * it under snow would waste it.

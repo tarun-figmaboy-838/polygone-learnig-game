@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /*!
- * build-buttons.js — cut the supplied button sheet into 3-slice buttons.
+ * build-buttons.js — cut the supplied button sheets into 3-slice buttons.
  *
  *   node tools/build-buttons.js
  *
- * assets/source/btn.png is twenty finished buttons on a black background.
+ * assets/source/image.png is twenty finished capsules on a black background;
+ * assets/source/new plus-minus.png is the stepper's pair of keys.
  *
  * WHY SLICE RATHER THAN STRETCH. The buttons in this game are every width
  * from a 64-unit stepper key to a 184-unit answer, and the sheet is one
@@ -23,19 +24,13 @@
  * non-black pixels is a component, the big ones are the buttons, and they are
  * sorted into reading order by where their centres fall.
  *
- * WHICH FOUR. The sheet offers twenty and this lesson needs four:
- *
- *   sun        Primary    the first of a pair of answers
- *   tangerine  Secondary  the second
- *   correct    Success    a right answer
- *   wrong      Danger     a wrong one
- *
- * It does NOT supply the four category colours — convex, concave, regular,
- * irregular — and it cannot, because two of its twenty are the green and the
- * red that mean right and wrong, and a category drawn in those tells a child
- * that half the shapes are mistakes. Categories are drawn as flat tags and
- * tinted drop zones, never as buttons. No option button in this lesson is
- * labelled with a category word.
+ * WHICH ONES. The lesson cuts only what it draws (the want lists in SHEETS
+ * below): the stepper's two keys, and four capsules from the UI kit —
+ * uiPrimary for an answer, uiNav for Next and Back, uiSuccess and uiDanger
+ * for a verdict. A category is never a button at all: categories are flat
+ * tags and tinted drop zones (build-card.js), because a category drawn in
+ * the green or the red that mean right and wrong tells a child that half
+ * the shapes are mistakes.
  *
  * Writes assets/ui/btn-*.webp and src/game/button-frame.js.
  */
@@ -50,44 +45,25 @@ const { chromium } = require('playwright');
 const ROOT = path.join(__dirname, '..');
 const OUT_JS = path.join(ROOT, 'src/game/button-frame.js');
 
-/* THE KIT. Two sheets, each twenty-odd finished buttons on a black matte,
-   read in reading order. btn.png is matte pills in twenty colours;
-   the game takes nine of them by the meaning each colour already carries
-   here — sun and tangerine for a choice that means nothing, green and red
-   for right and wrong, the concept colours for the words that name one.
-   numberbutton1.png is pairs of small minus/plus buttons in twenty themes;
-   the gold coins are the stepper's, glyph and all, so they are cut whole
-   (glyph: true) rather than as caps and a stretch. */
+/* THE KIT, read in reading order. Only what the lesson draws is cut; a tone
+   nothing drew is not cut, and adding its line back here brings it back.
+   (The older matte-pill sheet, btn.png, went when its last pill stopped
+   being drawn: the stepper keys are their own pictures and categories are
+   never buttons.) */
 const SHEETS = [
-  { src: 'assets/source/btn.png', want: [
-    // five across, four down; matte pills with soft dark outlines
-    { cell: 1,  tone: 'sun',       role: 'Primary' },
-    { cell: 2,  tone: 'tangerine', role: 'Secondary' },
-    { cell: 10, tone: 'correct',   role: 'Success' },
-    { cell: 11, tone: 'wrong',     role: 'Danger' },
-    { cell: 7,  tone: 'convex',    role: 'Concept' },
-    { cell: 0,  tone: 'concave',   role: 'Concept' },
-    { cell: 6,  tone: 'regular',   role: 'Concept' },
-    { cell: 13, tone: 'irregular', role: 'Concept' },
-    { cell: 3,  tone: 'sky',       role: 'Neutral' },
-    { cell: 13, tone: 'plum',      role: 'Neutral' }
-  ] },
   // THE STEPPER'S KEYS: the supplied pair of glossy gold keys, minus and plus,
-  // on transparency (assets/source/new plus-minus.png, in place of the gold coins
-  // from numberbutton1.png). Cut whole, sign and all.
+  // on transparency (assets/source/new plus-minus.png). Cut whole, sign and all.
   { src: 'assets/source/new plus-minus.png', want: [
     { cell: 0,  tone: 'stepMinus', role: 'Stepper', glyph: true },
     { cell: 1,  tone: 'stepPlus',  role: 'Stepper', glyph: true }
   ] },
 
   /* THE SUPPLIED UI KIT — twenty glossy capsules, five across and four down,
-     cut by what each colour is FOR rather than by what it is. These are the
-     chrome of the game: the button that moves you on, the button that starts
-     a thing, the one that is switched off. They are deliberately a separate
-     set from the pills above, which belong to the LESSON — an answer, a right
-     answer, a wrong one — because the two must never be confused. A child
-     learning that green means "you were right" should not meet green as the
-     colour of a Next button.
+     cut by what each colour is FOR rather than by what it is: an answer, the
+     button that moves you on, and the two verdicts an answer turns into. The
+     green and the red are kept for those verdicts alone. A child learning
+     that green means "you were right" should not meet green as the colour of
+     a Next button.
 
        row 1  gold  orange  amber   beige     brown
        row 2  cyan  blue    deep    lavender  purple
@@ -97,10 +73,8 @@ const SHEETS = [
   { src: 'assets/source/image.png', want: [
     { cell: 0,  tone: 'uiPrimary',   role: 'Primary action' },
     { cell: 6,  tone: 'uiNav',       role: 'Navigation' },
-    { cell: 9,  tone: 'uiSecondary', role: 'Secondary / optional' },
     { cell: 15, tone: 'uiSuccess',   role: 'Success feedback' },
-    { cell: 12, tone: 'uiDanger',    role: 'Error feedback' },
-    { cell: 19, tone: 'uiDisabled',  role: 'Disabled / locked' }
+    { cell: 12, tone: 'uiDanger',    role: 'Error feedback' }
   ] }
 ];
 
