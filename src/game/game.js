@@ -497,6 +497,7 @@
      face for the second miss on one question. */
   var cheerUntil = 0;   // the lesson does not move on while he is still saying it
   var missesHere = 0;   // wrong answers on the screen that is up
+  var remindingUntil = 0;   // a reminder in the bubble (sayReminder) until then
   var hintedHere = false;
 
   /** The context every Swiftee request carries: which screen it is (the
@@ -598,6 +599,11 @@
     if (kind === 'correct' && !praisedHere && !o.quiet) { praisedHere = true; pick = PRAISE[praiseN++ % PRAISE.length]; mood = 'win'; }
     else if (kind === 'wrong' && now - lastFeedbackAt > 3000) { pick = (said && said.t) ? said : NUDGE[nudgeN++ % NUDGE.length]; mood = 'hint'; }
     if (pick) line = pick.t;
+    // the screen's reminder, once this miss is one it is due on (`after`:
+    // the diagonal rule waits for the second wrong line, "what a polygon is"
+    // comes on the first)
+    var rem = kind === 'wrong' ? (Screens.list[current] || {}).remind : null;
+    if (rem && (!rem.say || missesHere < (rem.after || 1))) rem = null;
     /* HIS FACE, when the storyboard has not already given one (o.face). A
        right answer on its own gets the small pleased face the first time on a
        screen and, after that, only the body's little dip — five right cards
@@ -618,7 +624,13 @@
         }
       } catch (e) {}
     };
-    if (!line) { face(); return; }
+    if (!line) {
+      face();
+      // A MISS INSIDE THREE SECONDS OF THE LAST gets no "Hmm, not quite." —
+      // but the reminder it is due still comes, unless it is already up
+      if (rem && inputLive && present && now >= remindingUntil) sayReminder(rem, true);
+      return;
+    }
     lastFeedbackAt = now;
     // AND FOR AS LONG AS THE RECORDING RUNS. These were flat numbers chosen
     // when nothing was spoken here; a clip longer than them let the lesson
@@ -661,9 +673,9 @@
       clearTimeout(bubbleTimer);
       bubbleTimer = setTimeout(function () {
         // A REMINDER FIRST, where the screen has one: after "Try again!" on
-        // the first question, what a polygon is — then the question.
-        var rem = kind === 'wrong' ? (Screens.list[current] || {}).remind : null;
-        if (rem && rem.say && inputLive && present) { sayReminder(rem, wasUp); return; }
+        // the first question, what a polygon is; after "Hmm, not quite." on a
+        // second wrong diagonal, what a diagonal is — then the question.
+        if (rem && inputLive && present) { sayReminder(rem, wasUp); return; }
         // THE INSTRUCTION COMES BACK. A nudge after a wrong answer, a cheer
         // for one right card of two: the child is still working, and the
         // words they are working to return in place — not a blank bubble,
@@ -695,6 +707,7 @@
     var hold = len ? Math.round(len * 1000) + 400
                    : lastWord + (global.Timing && Timing.readingPause ? Timing.readingPause(text) : 2000);
     say(text, 'hint', hold, clock, cues);
+    remindingUntil = Date.now() + hold;
     clearTimeout(bubbleTimer);
     bubbleTimer = setTimeout(function () {
       if (showStanding()) return;
@@ -3066,7 +3079,7 @@
     // from the screen before plays its stop and he rests; the new screen's
     // count of misses and its one hint start again.
     if (global.Swiftee && Swiftee.settle) Swiftee.settle();
-    missesHere = 0; hintedHere = false; inputSpec = null;
+    missesHere = 0; remindingUntil = 0; hintedHere = false; inputSpec = null;
     // THE CARD IS CLEARED, NOT INHERITED.
     //
     // It was only ever replaced — set by a screen that has an instruction,

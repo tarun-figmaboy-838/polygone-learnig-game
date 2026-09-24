@@ -117,8 +117,9 @@ t('every line a screen declares in `lines` is said in its beats',
   S.every((s) => (s.lines || []).every((l) => allBeats(s).some((b) => b.say === l))),
   S.filter((s) => (s.lines || []).some((l) => !allBeats(s).some((b) => b.say === l))).map((s) => s.id));
 
-t('the VO script covers every speaking screen',
-  Screens.voScript().length === S.filter((s) => s.say).length + S.reduce((n, s) => n + (s.lines || []).length, 0));
+t('the VO script covers every speaking screen, and each reminder of its own once',
+  Screens.voScript().length === S.filter((s) => s.say).length + S.reduce((n, s) => n + (s.lines || []).length, 0) +
+    new Set(S.filter((s) => s.remind && !S.some((p) => allBeats(p).some((b) => b.vo === s.remind.vo))).map((s) => s.remind.vo)).size);
 t('every line in the VO script has an id', Screens.voScript().every((l) => !!l.vo),
   Screens.voScript().filter((l) => !l.vo).map((l) => l.id));
 
@@ -207,18 +208,27 @@ t('no wrong path ever contains words — the deck has no wrong-answer copy and t
   verbalWrong.length === 0, [...new Set(verbalWrong)]);
 
 /* A REMINDER AFTER A MISS is the one place a wrong answer is followed by
-   words, and they may not be new words: it must be a line the lesson has
-   already said on an earlier screen, in that line's own recording. */
+   words. Either it is a line the lesson has already said on an earlier
+   screen, in that line's own recording, or it is the author's own reminder
+   copy with a clip id of its own that no other line uses — and then it is
+   in the VO script, so it gets recorded. */
 {
   const bad = [];
+  const script = Screens.voScript();
   S.forEach((s, i) => {
     if (!s.remind) return;
     const earlier = S.slice(0, i).some((p) => allBeats(p).some((b) => b.say === s.remind.say && b.vo === s.remind.vo));
-    if (!earlier) bad.push(s.id);
+    const own = !!s.remind.vo && !S.some((p) => allBeats(p).some((b) => b.vo === s.remind.vo)) &&
+                script.some((l) => l.vo === s.remind.vo && l.text === s.remind.say);
+    if (!earlier && !own) bad.push(s.id);
   });
-  t('a reminder repeats a line already taught, in its own voice — never new copy', bad.length === 0, bad);
-  t('the first question reminds the child what a polygon is',
-    !!Screens.byId['which-polygons'].remind && /closed shapes made from straight lines/.test(Screens.byId['which-polygons'].remind.say));
+  t('a reminder is a line already taught in its own voice, or its own line in the VO script', bad.length === 0, bad);
+  t('the first question reminds the child what a polygon is, on the first miss',
+    !!Screens.byId['which-polygons'].remind && /closed shapes made from straight lines/.test(Screens.byId['which-polygons'].remind.say) &&
+    (Screens.byId['which-polygons'].remind.after || 1) === 1);
+  const diag = ['another-diagonal', 'hexagon-your-turn'].map((id) => Screens.byId[id].remind || {});
+  t('both screens where the child draws diagonals say what a diagonal is, from the second miss',
+    diag.every((r) => r.say === 'A diagonal connects non-adjacent vertices.' && r.after === 2 && r.vo === 'p14r'), diag);
 }
 
 t('every wrong path still reacts — Swiftee, a cue, or an effect',
@@ -245,7 +255,7 @@ t('every wrong path re-opens the input or is judged per tap',
     // THE CARD THE CHILD IS WORKING TO is the one up when they are first
     // handed control; after the last beat it is what the next screen
     // inherits. (The connect screen takes its card down for the cheer at the
-    // end — the deck's "Connect it to another vertex." is what it asks.)
+    // end — the deck's "Let’s connect it to another vertex." is what it asks.)
     let asked;
     allBeats(s).forEach((b) => {
       if ('instruction' in b) card = b.instruction;

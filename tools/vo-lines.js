@@ -51,6 +51,11 @@ function fromDeck() {
       if (b.parallel) walk(b.parallel);
     });
     walk(s.beats);
+    // a reminder after a miss (game.js sayReminder) carries its own clip id
+    if (s.remind && s.remind.vo) {
+      out.push({ id: s.remind.vo, text: String(s.remind.say), kind: 'reminder',
+                 where: 'screen ' + (i + 1) + ' (' + s.id + '), after a wrong answer' });
+    }
   });
   return out;
 }

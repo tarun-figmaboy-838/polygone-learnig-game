@@ -19,7 +19,7 @@
  *   - a line let go on nothing gives no verdict and no answer away
  *   - nothing can be drawn while feedback is on (the stage state machine)
  *   - the lines come in the spec's order, each heard out:
- *       Select any vertex. / Connect it to another vertex. /
+ *       Select any vertex. / Let’s connect it to another vertex. /
  *       This is a side of the polygon. / Connect it to a different vertex. /
  *       (again) / Yay! You made a diagonal!
  *   - one voice at a time, none cut off, no stock "Nice!" over the cheer
@@ -164,7 +164,7 @@ async function play(k, { w, d, errors, voice }) {
   // 1 — the first try: a neighbour
   let sp = await next();
   t('k=' + k + ': the connect input is the sides one', sp && sp.type === 'draw-diagonal' && sp.sides === true, sp);
-  t('k=' + k + ': it is armed only after the instruction was heard out', !voice.current && lines[lines.length - 1] === 'Connect it to another vertex.', { voice: voice.current && voice.current.id, last: lines[lines.length - 1] });
+  t('k=' + k + ': it is armed only after the instruction was heard out', !voice.current && lines[lines.length - 1] === 'Let’s connect it to another vertex.', { voice: voice.current && voice.current.id, last: lines[lines.length - 1] });
   t('k=' + k + ': ready to connect', w.Stage.connectState() === 'READY_TO_CONNECT', w.Stage.connectState());
   t('k=' + k + ': the other corners are back as points to connect to',
     [...St().knobEls].every((kn) => kn.getAttribute('opacity') === '1'), [...St().knobEls].map((kn) => kn.getAttribute('opacity')));
@@ -228,7 +228,7 @@ async function play(k, { w, d, errors, voice }) {
   t('k=' + k + ': a side was never a wrong answer', sfx.filter((s) => s === 'wrong').length === mistakesBefore && !faces.includes('oops'), { wrong: sfx.filter((s) => s === 'wrong').length, faces });
 
   // the words, in the spec's order
-  const want = ['Select any vertex.', 'Connect it to another vertex.',
+  const want = ['Select any vertex.', 'Let’s connect it to another vertex.',
                 'This is a side of the polygon.', 'Connect it to a different vertex.',
                 'This is a side of the polygon.', 'Connect it to a different vertex.',
                 'Yay! You made a diagonal!'];

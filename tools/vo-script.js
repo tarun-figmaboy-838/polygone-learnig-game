@@ -42,6 +42,9 @@ function contexts(Screens) {
       if (b.parallel) walk(b.parallel, arm);
     });
     walk(s.beats, 'open');
+    const r = s.remind, seen = r && r.vo && at.get(r.vo);
+    if (r && r.vo && !seen) at.set(r.vo, { screen: i + 1, screens: [i + 1], id: s.id, page: s.page, arm: 'remind', after: r.after || 1, parts: null });
+    else if (seen && seen.arm === 'remind') seen.screens.push(i + 1);
   });
   return at;
 }
@@ -56,6 +59,7 @@ function when(r, c) {
   if (c.arm === 'right') return 'screen ' + c.screen + ', after the right answer';
   if (c.arm === 'wrong') return 'screen ' + c.screen + ', after a wrong answer';
   if (c.arm === 'after') return 'screen ' + c.screen + ', after the task';
+  if (c.arm === 'remind') return (c.screens.length > 1 ? 'screens ' + c.screens.join(' and ') : 'screen ' + c.screen) + ', from the ' + (c.after > 1 ? 'second' : 'first') + ' wrong answer on';
   return 'screen ' + c.screen + (r.kind === 'instruction' ? ', the instruction' : '');
 }
 
@@ -63,6 +67,7 @@ function delivery(r) {
   const t = r.text;
   if (r.kind === 'instruction') return 'an instruction: plain, steady, every word clear';
   if (r.kind === 'feedback' && /^fb(0[7-9]|1\d)$/.test(r.id)) return 'gentle and encouraging, never disappointed';
+  if (r.kind === 'reminder') return 'a gentle reminder: warm, clear, never disappointed';
   if (/^Hi\b/.test(t)) return 'arriving, friendly';
   if (/^(Pick|Drag|Tap|Draw|Set|Adjust)\b/.test(t)) return 'friendly, clear';
   if (/^Whoa/.test(t)) return 'surprised, amazed';

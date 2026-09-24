@@ -43,6 +43,11 @@
     { wait: 400 }
   ];
 
+  // What a diagonal is, said after the second wrong line on a screen where
+  // the child draws them (`after`: the miss it starts on). It says
+  // "vertices" where page 13's definition says "sides" — see the note there.
+  var DIAGONAL_RULE = { say: 'A diagonal connects non-adjacent vertices.', vo: 'p14r', after: 2 };
+
   /* A RIGHT ANSWER: THE CONFIRMATION FIRST, THEN HIM, THEN ON.
    *
    * The celebrate clip was awaited and came first — so everything a screen
@@ -254,7 +259,7 @@
         { swiftee: 'point', at: 'polygon' },
         { focus: 'polygon.vertices', style: 'pulse' },
         // any corner is right, so it is not praised as an answer: the pop,
-        // the nod, and straight on to "Connect it to another vertex."
+        // the nod, and straight on to "Let’s connect it to another vertex."
         { input: { type: 'vertex-pick', accept: 'any', praise: false } },
         // HE ANSWERS A RIGHT ANSWER. Six screens judged the child and then
         // said nothing with their face: the sound played, the shape moved,
@@ -294,12 +299,12 @@
        * until the diagonal is made. */
       id: 'connect', page: 7,
       swiftee: { pos: 'left-low', size: 'medium' },
-      instruction: 'Connect it to another vertex.',
+      instruction: 'Let’s connect it to another vertex.',
       lines: ['This is a side of the polygon.', 'Yay! You made a diagonal!'],
       stage: { highlight: { vertex: 'picked', color: 'yellow' } },
       beats: [
         { stage: { highlight: { vertex: 'picked', color: 'yellow' } } },
-        { instruction: 'Connect it to another vertex.', vo: 'p07i' },
+        { instruction: 'Let’s connect it to another vertex.', vo: 'p07i' },
         // "what will you make?" — he leans to their corner, curious (the
         // pointing your-turn was the screen before's, and the same gesture
         // twice running is a loop, not a reaction)
@@ -377,7 +382,7 @@
     {
       id: 'another-diagonal', page: 14,
       swiftee: { pos: 'left-low', size: 'medium' },
-      instruction: 'Draw another diagonal from the same vertex.',
+      instruction: 'Let’s draw another diagonal from the same vertex.',
       // THE SAME CORNER, A SECOND DIAGONAL, AND WHAT THEY SHOW.
       //
       // The child draws from the vertex they picked on page 6 — it is still
@@ -392,13 +397,17 @@
       // needed it. The hint ladder in stage.js shows the move only once the
       // child has been still for a while.
       lines: ['All diagonals are still inside.'],
+      // THE SECOND MISS IS ANSWERED WITH WHAT A DIAGONAL IS. The first wrong
+      // line gets "Hmm, not quite." like any other; from the second on he
+      // adds the rule the line broke — then the instruction comes back.
+      remind: DIAGONAL_RULE,
       beats: [
         // HE ASKS, THEN THE INSTRUCTION STAYS. The instruction is the last
         // thing said before the child is let in, so the words in view while
         // they draw are what to do, not a question with half of it gone.
         // SAID ONCE: the line that echoed the instruction ("Can you draw another diagonal from here?") went —
         // the same request twice in a row read as a stutter, not a lesson.
-        { instruction: 'Draw another diagonal from the same vertex.', vo: 'p14i' },
+        { instruction: 'Let’s draw another diagonal from the same vertex.', vo: 'p14i' },
         { swiftee: 'point', at: 'picked' },
         { input: { type: 'draw-diagonal', from: 'picked', accept: 'non-adjacent-unused' } },
         // until: the retry is branched on, so a right second try still gets
@@ -452,7 +461,8 @@
         // jumping-for-joy clip belongs
         { feedback: milestone([{ sfx: 'levelUp' }], 'excited') }
       ],
-      perTap: { correct: [{ sfx: 'slice' }, { juice: 'pop', target: 'diagonal' }], wrong: WRONG }
+      perTap: { correct: [{ sfx: 'slice' }, { juice: 'pop', target: 'diagonal' }], wrong: WRONG },
+      remind: DIAGONAL_RULE
     },
 
     {
@@ -531,12 +541,12 @@
     {
       id: 'drag-inward', page: 19,
       swiftee: { pos: 'left-low', size: 'medium' },
-      instruction: 'Drag the vertex inward.',
+      instruction: 'Help me pull this vertex inside.',
       stage: { highlight: { vertex: 0, color: 'yellow' } },
       beats: [
-        // SAID ONCE: the line that echoed the instruction ("Help me pull this vertex inside.") went —
-        // the same request twice in a row read as a stutter, not a lesson.
-        { instruction: 'Drag the vertex inward.', vo: 'p19i' },
+        // THE ASK IS HIS: "Help me pull this vertex inside." — the deck's own
+        // line, now the instruction itself (it replaced "Drag the vertex inward.")
+        { instruction: 'Help me pull this vertex inside.', vo: 'p19i' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
         // "what will happen?" — curious, leaning toward the corner, not the
         // winking your-turn he gave the screen before
@@ -574,7 +584,7 @@
       // with the line directly over his head in the band he leaves.
       // Small: at medium his head reaches 46 units up into the compare panels.
       swiftee: { pos: 'centre', size: 'small' },
-      instruction: 'Compare the diagonals in both pentagons.',
+      instruction: 'Let’s compare the diagonals in both pentagons.',
       say: 'Both are pentagons.',
       // the concave one is the pentagon the child dented (made: stage.js
       // keeps it); the stock dent stands in when the screen is reached without it
@@ -588,7 +598,7 @@
         // COMPARING: he looks at one, then the other
         { swiftee: 'compare', at: ['compare.left', 'compare.right'] },
         { say: 'Both are pentagons.', vo: 'p21' },
-        { instruction: 'Compare the diagonals in both pentagons.', vo: 'p21i' },
+        { instruction: 'Let’s compare the diagonals in both pentagons.', vo: 'p21i' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -1078,6 +1088,12 @@
     SCREENS.forEach(function (s) {
       if (s.say) out.push({ page: s.page, id: s.id, vo: find(s.beats, s.say), text: s.say });
       (s.lines || []).forEach(function (t) { out.push({ page: s.page, id: s.id, vo: find(s.beats, t), text: t }); });
+      // a reminder after a miss that is not a line said elsewhere (the
+      // diagonal rule) is a line of its own, recorded once
+      var r = s.remind;
+      if (r && r.vo && !out.some(function (l) { return l.vo === r.vo; })) {
+        out.push({ page: s.page, id: s.id, vo: r.vo, text: r.say, remind: true });
+      }
     });
     return out;
   }

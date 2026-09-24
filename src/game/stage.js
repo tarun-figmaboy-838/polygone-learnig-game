@@ -135,7 +135,7 @@
     var climb = function (level) {
       clearTimeout(t);
       if (!live) return;
-      var wait = level === 2 ? HINT_PULSE_MS : level === 3 ? HINT_DEMO_MS : HINT_AGAIN_MS;
+      var wait = level === 2 ? (opts.firstMs || HINT_PULSE_MS) : level === 3 ? HINT_DEMO_MS : HINT_AGAIN_MS;
       t = setTimeout(function () {
         if (!live || pressing) return;
         run(level === 2 ? pulse : demo);
@@ -375,9 +375,12 @@
     var ringR = opts.endR || ((opts.r || 11) + 9);
     var endG = mk('g', { 'class': 'gesture-ghost-end', 'pointer-events': 'none',
                          transform: 'translate(' + to.x + ',' + to.y + ')' }, layers.fx);
-    mk('circle', { r: ringR, fill: HI.lit, 'fill-opacity': 0.16, stroke: HI.line, 'stroke-width': 3,
-                   'stroke-dasharray': '6 5', 'stroke-linecap': 'round' }, endG);
-    mk('circle', { r: 4.5, fill: HI.knob, stroke: HI.edge, 'stroke-width': 1.5 }, endG);
+    // A SOFT PATCH OF LIGHT, NOT A RING. It was a dashed ice ring with a dot
+    // at its heart, and on a corner it read as a target painted over the knob
+    // (the user: "remove dashes ring, it look odd"). The light is the same
+    // mark without the drawing; a corner's own knob is its heart (endDot).
+    mk('circle', { r: ringR, fill: HI.lit, 'fill-opacity': 0.3, stroke: 'none' }, endG);
+    if (opts.endDot !== false) mk('circle', { r: 4.5, fill: HI.knob, stroke: HI.edge, 'stroke-width': 1.5 }, endG);
     endG.style.opacity = '0';
 
     var anims = [];
@@ -803,7 +806,11 @@
      hue on this stage that is neither blue nor warm. Highlighted sides are
      ice-white over a deep-water under-edge, so they stand off the blue. */
   var HI = { fill: '#4be0ff', edge: '#0b4f9e', line: '#eafcff', lit: '#4be0ff', hot: '#7ff0d0',
-             bad: '#b98cff', badLit: '#7a4cff', knob: '#eaf9ff', rim: '#4fb8ea' };
+             bad: '#b98cff', badLit: '#7a4cff', knob: '#eaf9ff', rim: '#4fb8ea',
+             // THE CHILD'S OWN CORNER is Swiftee's green — his body colour,
+             // measured off his sprite sheet — so "the one I picked" is the
+             // buddy's colour, and never the same blue as the shape
+             picked: '#34b4a4' };
   /** A lit line: the glow first (wider, translucent, the same dashes), then the ice core. Returns [glow, core]. */
   /**
    * THE GLOW IS ON THE LINE ITSELF. An SVG blur filter takes its region from
@@ -1469,7 +1476,7 @@
       if (st.picked === j && !isOpen()) {
         mk('circle', { cx: v[j].x, cy: v[j].y, r: 16, fill: 'none', stroke: HI.line, 'stroke-width': 3,
                        opacity: 0.95, 'class': 'anchor-ring', 'pointer-events': 'none',
-                       style: 'filter: drop-shadow(0 0 4px rgba(75, 224, 255, .85));' }, g);
+                       style: 'filter: drop-shadow(0 0 4px rgba(52, 180, 164, .9));' }, g);
       }
       var knob = mk('circle', {
         cx: v[j].x, cy: v[j].y,
@@ -1477,7 +1484,7 @@
         fill: col || (touch ? HI.knob : SHAPE.edge),
         stroke: col ? shade(col, -0.45) : (touch ? HI.edge : 'none'),
         'stroke-width': col ? 3 : (touch ? 2.5 : 2),
-        'class': 'knob', 'data-i': j,
+        'class': 'knob' + (st.breathe && !col && touch ? ' breathe' : ''), 'data-i': j,
         opacity: shown ? 1 : 0,
         'pointer-events': 'none'
       }, g);
@@ -1490,6 +1497,7 @@
         'class': 'vertex', 'data-i': j
       }, g);
       c.style.pointerEvents = touch ? 'all' : 'none';
+      if (st.breathe && !col && touch) knob.style.animationDelay = (j * 0.22).toFixed(2) + 's';   // one after another, round the shape
       st.knobEls.push(knob);
       st.vertEls.push(c);
     }
@@ -3924,20 +3932,48 @@
      normal — nearest the side, then sliding along it — where the whole plate
      is clear (tagClear). Returns the text baseline, or null if the card has
      no such place. The plate is tw × 40, its centre 7 above the baseline. */
-  function besideSide(a, b, tw) {
+  /* A PLATE ON THE SHAPE'S OWN FACE: wholly inside it, and clear of its
+     sides, its corners and its diagonals — the open blue a tag can sit on
+     when the glass beside a side has no room for one. */
+  function tagInside(r) {
+    var v = st.verts; if (!v || !v.length) return false;
+    var pad = 8, R = { x0: r.x0 - pad, y0: r.y0 - pad, x1: r.x1 + pad, y1: r.y1 + pad }, n = v.length;
+    var corners = [[R.x0, R.y0], [R.x1, R.y0], [R.x1, R.y1], [R.x0, R.y1]];
+    for (var c = 0; c < 4; c++) if (!Poly.contains(v, { x: corners[c][0], y: corners[c][1] })) return false;
+    for (var k = 0; k < n; k++) if (distToRect(v[k], r) < 22) return false;
+    for (var e = 0; e < n; e++) if (segHitsRect(v[e], v[(e + 1) % n], R)) return false;
+    var ds = st.diagonals || [];
+    for (var d = 0; d < ds.length; d++) if (v[ds[d][0]] && v[ds[d][1]] && segHitsRect(v[ds[d][0]], v[ds[d][1]], R)) return false;
+    return true;
+  }
+  /* BESIDE THE SIDE IT NAMES, SQUARE TO ITS MIDDLE. Outside the shape first:
+     straight out from the middle of the side at every distance before any
+     slide along it, so the tag and its arrow line up with the side rather
+     than drifting to the first gap they find. If the glass beside the side
+     has no room — a steep side near the card's edge — the tag goes INSIDE,
+     on the shape's own face, and the arrow points out at the side. Returns
+     the text baseline, or null. The plate is tw × 2hy, centred `lift` above
+     the baseline. */
+  function besideSide(a, b, tw, hy, lift) {
+    hy = hy || 20; lift = lift == null ? 7 : lift;
     var m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
     var sl = Math.hypot(b.x - a.x, b.y - a.y) || 1, ux = (b.x - a.x) / sl, uy = (b.y - a.y) / sl;
     var nx = -uy, ny = ux;
     if ((m.x - st.cx) * nx + (m.y - st.cy) * ny < 0) { nx = -nx; ny = -ny; }
-    var hx = tw / 2, hy = 20, reach = Math.abs(nx) * hx + Math.abs(ny) * hy;
-    for (var gap = 14; gap <= 150; gap += 8) {
-      for (var k = 0; k < 11; k++) {
-        var slide = Math.ceil(k / 2) * 16 * (k % 2 ? -1 : 1);
-        var cx = m.x + nx * (reach + gap) + ux * slide, cy = m.y + ny * (reach + gap) + uy * slide;
-        if (tagClear({ x0: cx - hx, y0: cy - hy, x1: cx + hx, y1: cy + hy })) return { x: cx, y: cy + 7 };
+    var hx = tw / 2, reach = Math.abs(nx) * hx + Math.abs(ny) * hy;
+    var find = function (sgn, ok) {
+      for (var pass = 0; pass < 2; pass++) {
+        for (var gap = 26; gap <= 150; gap += 8) {
+          for (var k = pass ? 1 : 0; k < (pass ? 11 : 1); k++) {
+            var slide = Math.ceil(k / 2) * 16 * (k % 2 ? -1 : 1);
+            var cx = m.x + sgn * nx * (reach + gap) + ux * slide, cy = m.y + sgn * ny * (reach + gap) + uy * slide;
+            if (ok({ x0: cx - hx, y0: cy - hy, x1: cx + hx, y1: cy + hy })) return { x: cx, y: cy + lift };
+          }
+        }
       }
-    }
-    return null;
+      return null;
+    };
+    return find(1, tagClear) || find(-1, tagInside);
   }
 
   /* A STEP THAT CANNOT BE TAKEN LOOKS IT. At the fewest sides the minus did
@@ -4091,7 +4127,8 @@
       if (h.vertex != null) {
         st.vcolor = st.vcolor || {};
         var i = resolveVertex(h.vertex);
-        st.vcolor[i] = h.color === 'red' ? HI.bad : h.color === 'orange' ? HI.hot : HI.fill;
+        // the picked corner keeps its own colour whatever the beat calls it
+        st.vcolor[i] = h.vertex === 'picked' ? HI.picked : h.color === 'red' ? HI.bad : h.color === 'orange' ? HI.hot : HI.fill;
         renderPoly();
         if (knobOf(i)) juice('pop', knobOf(i), { scale: 0.5 });
       }
@@ -4169,7 +4206,7 @@
       } else {
         var a = st.verts[st.segment[0]], b = st.verts[st.segment[1]];
         m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-        var beside = besideSide(a, b, String(l.text).length * 15 + 36);
+        var beside = besideSide(a, b, String(l.text).length * 13 + 28, 17, 6);
         if (beside) { x = beside.x; y = beside.y; }
         else {
         // (no clear place beside it on this card: the older search, which
@@ -4273,28 +4310,37 @@
       // something to press. Cut from the same ice as the cards — frost-white
       // glass with a glacier rim, deep-water lettering — it reads as a tag
       // pinned to the thing it names, and the leader is its string.
-      var lt = mk('text', { x: x, y: y, 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 800,
+      // (a size down from 26: a name on a card, not a heading — and a smaller
+      // plate finds a clear place beside a side where the big one found none)
+      var LF = 22, LH = 34, LPAD = 14;
+      var lt = mk('text', { x: x, y: y, 'text-anchor': 'middle', 'font-size': LF, 'font-weight': 800,
                             fill: '#0f3f8f', text: l.text }, g);
       var lw = 0; try { lw = lt.getComputedTextLength ? lt.getComputedTextLength() : 0; } catch (e) { lw = 0; }
-      if (!lw) lw = l.text.length * 15;
-      var plate = mk('rect', { x: x - lw / 2 - 18, y: y - 27, width: lw + 36, height: 40, rx: 11,
+      if (!lw) lw = l.text.length * 13;
+      var plate = mk('rect', { x: x - lw / 2 - LPAD, y: y - 6 - LH / 2, width: lw + LPAD * 2, height: LH, rx: 10,
                                fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 3 }, g);
       g.insertBefore(plate, lt);
       if (l.arrow && m) {
-        /* THE STRING, FROM THE PLATE'S EDGE TO A PIN IN THE SIDE. It started
-           30 units from the plate's centre — under the plate — and stopped 14
-           short of the side, so all that showed was a dot in the air beside
-           the line. It leaves the plate where the plate ends, and the pin is
-           ON the side, at its middle: the tag is pinned to the thing. */
-        var pcx = x, pcy = y - 7, phx = (lw + 36) / 2, phy = 20;
-        var dx = m.x - pcx, dy = m.y - pcy, d = Math.sqrt(dx * dx + dy * dy) || 1;
+        /* AN ARROW FROM THE TAG TO THE SIDE. It ended in a pin — a dot on the
+           side's middle — which read as one more corner (the user: "use arrow
+           to point, not dot"). It leaves the plate at its edge, square to the
+           side when the tag stands square to it, and its head stops just
+           short of the line, pointing straight at it. */
+        var pcx = x, pcy = y - 6, phx = lw / 2 + LPAD, phy = LH / 2;
+        var dx = m.x - pcx, dy = m.y - pcy, d = Math.sqrt(dx * dx + dy * dy) || 1, ax = dx / d, ay = dy / d;
         var te = Math.min(dx ? phx / Math.abs(dx) : Infinity, dy ? phy / Math.abs(dy) : Infinity);
-        var sx = pcx + dx * te + dx / d * 3, sy = pcy + dy * te + dy / d * 3;
-        var ex = m.x - dx / d * 6, ey = m.y - dy / d * 6;
-        if (te < 1 && Math.hypot(ex - sx, ey - sy) > 6) {
-          mk('line', { x1: sx, y1: sy, x2: ex, y2: ey, stroke: HI.rim, 'stroke-width': 3.5, 'stroke-linecap': 'round' }, g);
+        var sx = pcx + dx * te + ax * 3, sy = pcy + dy * te + ay * 3;
+        var tipX = m.x - ax * 5, tipY = m.y - ay * 5, HL = 13, HW = 7.5;
+        var bx = tipX - ax * HL, by = tipY - ay * HL;
+        if (te < 1) {
+          if ((bx - sx) * ax + (by - sy) * ay > 2) {
+            mk('line', { x1: sx, y1: sy, x2: bx, y2: by, stroke: HI.rim, 'stroke-width': 3.5, 'stroke-linecap': 'round' }, g);
+          }
+          mk('path', { d: 'M' + tipX.toFixed(1) + ' ' + tipY.toFixed(1) +
+                          ' L' + (bx - ay * HW).toFixed(1) + ' ' + (by + ax * HW).toFixed(1) +
+                          ' L' + (bx + ay * HW).toFixed(1) + ' ' + (by - ax * HW).toFixed(1) + ' Z',
+                       fill: HI.rim, stroke: HI.rim, 'stroke-width': 2, 'stroke-linejoin': 'round', 'class': 'tag-arrow' }, g);
         }
-        mk('circle', { cx: m.x, cy: m.y, r: 5.5, fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 2.5, 'class': 'tag-pin' }, g);
       }
       st.labelEl = g;
       if (l.cue && holdForWord(g, l.cue)) return;               // the tag arrives on its word
@@ -5097,7 +5143,11 @@
     'vertex-pick': function (spec, ctx) {
       return new Promise(function (resolve) {
         if (global.Input) Input.mode('polygon');
-        st.showVerts = true; st.touchVerts = true; renderPoly();
+        // THE CORNERS BREATHE while the child is choosing — every one, softly,
+        // a beat apart, because every one is a right answer and each is the
+        // thing to touch (the user: "pulse the points"). They stop on the pick.
+        st.showVerts = true; st.touchVerts = true; st.breathe = true; renderPoly();
+        cleanup.push(function () { if (st.breathe) { st.breathe = false; if (st.polyG) renderPoly(); } });
         setConnect('SELECT_VERTEX');
         // all of them: any corner is a vertex, and breathing one would have
         // been an answer rather than an invitation
@@ -5110,16 +5160,19 @@
           v.forEach(function (p) { if (!best || p.x + p.y > best.x + best.y) best = p; });
           return both(pulseHint((st.knobEls || []).slice(), strong ? { strong: true } : null), tapHand(best));
         };
+        // (and the ghost hand shows the tap after a second and a half of
+        // stillness, not two and a half: it is the first thing asked of them)
         hintLadder({
           pulse: function () { return pickHand(false); },
-          demo: function () { return pickHand(true); }
+          demo: function () { return pickHand(true); },
+          firstMs: 1500
         });
         st.vertEls.forEach(function (c, i) {
           c.style.cursor = 'pointer';
           on(c, 'pointerdown', function (e) {
             e.preventDefault();
             evt('vertex:selected', { vertex: i });
-            st.picked = i; st.lastEl = knobOf(i) || c; st.vcolor = {}; st.vcolor[i] = HI.fill; st.showVerts = false; renderPoly();
+            st.picked = i; st.lastEl = knobOf(i) || c; st.vcolor = {}; st.vcolor[i] = HI.picked; st.showVerts = false; st.breathe = false; renderPoly();
             setConnect('VERTEX_SELECTED', { from: i });
             endInteraction(); resolve({ result: 'correct', vertex: i });
           });
@@ -5949,7 +6002,7 @@
          corner points, and their own stays bright and ringed; the one the
          line snaps to grows under the finger. */
       var sides = !!spec.sides;
-      st.picked = from; st.vcolor = {}; st.vcolor[from] = HI.fill; st.showVerts = true; st.touchVerts = true; renderPoly();
+      st.picked = from; st.vcolor = {}; st.vcolor[from] = HI.picked; st.showVerts = true; st.touchVerts = true; renderPoly();
       /* THE CORNER THE LINE STARTS FROM TAKES A HAND. It is the one thing on
          the shape to press, and it showed the plain arrow: the corners are
          rebuilt after every line, so the hand is put back each time. */
@@ -5978,7 +6031,7 @@
           // (to a neighbour: the side is the lesson's first answer); after a
           // side has been made, it shows a line that is not one
           var t = (sides && !spec.retry) ? (from + 1) % st.n : valid()[0];
-          return t == null ? null : gestureGhost(st.verts[from], st.verts[t], { r: 11 });
+          return t == null ? null : gestureGhost(st.verts[from], st.verts[t], { r: 11, endDot: false });
         }
       });
       // Delegated: the source vertex element is rebuilt after each diagonal.

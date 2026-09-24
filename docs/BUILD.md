@@ -68,7 +68,7 @@ polygon-math.js ── every right/wrong judgement                  (truth)
 Swiftee state, stage setup, interaction spec and feedback branches for all
 31 screens. If a line of copy needs to change, it changes here and nowhere
 else. `Screens.flags()` lists every deviation from the deck.
-`Screens.voScript()` emits the 36-line recording script with VO ids.
+`Screens.voScript()` emits the recording script with VO ids — every line, plus a reminder that is its own line (the diagonal rule).
 
 **`director.js` is section 3 and section 4 as code.** Every beat is awaited;
 nothing starts early. Three properties are tested, not promised:
