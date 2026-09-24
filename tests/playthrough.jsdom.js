@@ -42,7 +42,7 @@ const lerp=(a,b,n)=>{const o=[];for(let i=1;i<=n;i++)o.push({x:a.x+(b.x-a.x)*i/n
 // SFX/juice sync counters for the section-6 check
 let cues={correct:0,wrong:0}; const origPlay=w.SFX.play.bind(w.SFX); w.SFX.play=(n,o)=>{ if(n==='correct')cues.correct++; if(n==='wrong')cues.wrong++; return origPlay(n,o); };
 
-let wrongTried=0, screensSeen=new Set(), asked=[];
+let wrongTried=0, screensSeen=new Set(), asked=[], sideTries={};
 
 async function act(spec){
   const s=St(), v=()=>St().verts, P=w.Poly;
@@ -57,16 +57,18 @@ async function act(spec){
       return;
     }
     case 'vertex-pick': await until(()=>svg().querySelectorAll('.vertex').length>0); tapEl(svg().querySelectorAll('.vertex')[0]); return;   // picked=0 -> adjacent 1, non-adjacent 2,3
-    case 'drag-endpoint': {
-      const from=s.segment[0], mv=s.segment[1]; const V=v(); const adj=(from+V.length-1)%V.length; const good=(from+2)%V.length;
-      if(!spec.retry){ await drag(svg().querySelectorAll('.vertex')[mv], lerp(V[mv],V[adj],6)); wrongTried++; return; }   // wrong: the other adjacent vertex
-      await drag(svg().querySelectorAll('.vertex')[mv], lerp(V[mv],V[good],6)); return;
-    }
     case 'draw-diagonal': case 'draw-diagonals': {
       const from=spec.from==='picked'?s.picked:spec.from; const V=v(); const n=V.length; const cnt=spec.count||1;
       const usedK=new Set((s.diagonals||[]).map(q=>q.join('-')));
       const targets=P.diagonalsFrom(from,n).filter(j=>!usedK.has([Math.min(from,j),Math.max(from,j)].join('-')));
       const hnd=()=>svg().querySelectorAll('.vertex')[from];
+      // CONNECTING (sides): a neighbour is a side, not a wrong answer — one
+      // neighbour, then the other, then a diagonal, as a child exploring would
+      if(spec.sides){
+        sideTries[w.Game.screen]=(sideTries[w.Game.screen]||0)+1;
+        const k=sideTries[w.Game.screen], to=k===1?(from+1)%n:k===2?(from+n-1)%n:targets[0];
+        await drag(hnd(), lerp(V[from],V[to],5)); await sleep(60); return;
+      }
       if(!spec.retry){ await drag(hnd(), lerp(V[from],V[(from+1)%n],5)); wrongTried++; await sleep(60); if(spec.type==='draw-diagonal') return; }   // wrong: adjacent
       for(let k=0;k<cnt;k++){ await drag(hnd(), lerp(V[from],V[targets[k]],5)); await sleep(60); }
       return;
@@ -149,8 +151,12 @@ async function act(spec){
   t('no runtime errors across the whole game', errors.length===0, errors.slice(0,3).join(' | '));
   t('all '+N+' screens were visited', screensSeen.size===N, screensSeen.size+'/'+N);
   const types=new Set(asked.map(a=>a.type));
-  t('all 12 interaction types were exercised', types.size===12, [...types].join(','));
-  t('a wrong answer was tried on every judged screen ('+wrongTried+' times)', wrongTried>=8, String(wrongTried));
+  // 11: the storyboard no longer drags a side's loose end (drag-endpoint)
+  t('all 11 interaction types were exercised', types.size===11, [...types].join(','));
+  t('the connect step went side, side, diagonal', Object.values(sideTries).some(k=>k===3), JSON.stringify(sideTries));
+  // 7: the connect step judges nothing wrong (a neighbour is a side, not a
+  // mistake), and the drag-a-side screen that had a wrong answer is gone
+  t('a wrong answer was tried on every judged screen ('+wrongTried+' times)', wrongTried>=7, String(wrongTried));
   t('every wrong attempt produced exactly one wrong cue', cues.wrong>=wrongTried, JSON.stringify(cues));
   t('correct cues fired', cues.correct>0);
   console.log('  screens: '+N+', inputs answered: '+asked.length+', elapsed '+((Date.now()-t0)/1000).toFixed(1)+'s');

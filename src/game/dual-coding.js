@@ -16,15 +16,15 @@
  * brief forbids inventing instructional text, and every term below is
  * already spoken in the deck:
  *
- *   1. TERM CHIPS      A key term in the speech bubble is tinted its own
- *                      colour — the same colour the thing it names is about
- *                      to be haloed in on the stage. The bubble holds words
+ *   1. TERM MARKS      A key term in the speech bubble is lettered as a key
+ *                      word: bright ink over a highlighter swipe that draws
+ *                      itself as the word lands. The bubble holds words
  *                      only; the picture half of the pair is the lesson
  *                      itself, which is the better half to point at.
  *
- *   2. STAGE HALO      At the same instant, the thing the term names is
- *                      haloed on the stage in that same colour. Colour is
- *                      the binding: same hue, same moment, same referent.
+ *   2. STAGE HALO      At the same instant, the thing the term names moves
+ *                      on the stage. Timing is the binding: same moment,
+ *                      same referent.
  *                      This is the contiguity principle — the label and the
  *                      picture must coincide in space and time, or the
  *                      learner pays a search cost that cancels the benefit.
@@ -87,7 +87,22 @@
     convex:    { color: '#0f6f86', tint: '#e4f8fc', target: 'polygon',          mode: 'pop' },
     concave:   { color: '#95590a', tint: '#fff3dd', target: 'polygon',          mode: 'pop' },
     regular:   { color: '#0a6c60', tint: '#e3f8f4', target: 'polygon',          mode: 'pop' },
-    irregular: { color: '#54399e', tint: '#f1ebfe', target: 'polygon',          mode: 'pop' }
+    irregular: { color: '#54399e', tint: '#f1ebfe', target: 'polygon',          mode: 'pop' },
+    // THE ACTION AND THE REST OF THE MATHS. The polish pass asked for the
+    // action word a child is given ("Drag", "Tap", "Draw", "Pick") and the
+    // maths words of a sentence ("inside", "outside", "equal", "line
+    // segment") to stand out the same way the shape words do — so "Drag the
+    // line segment to a different vertex." reads at a glance as what to do
+    // and what to do it to. Lettering only: nothing on the stage answers
+    // these, because the thing they name is already the lesson's own mark.
+    'line segment': { target: null, mode: 'none' },
+    drag:      { target: null, mode: 'none' },
+    draw:      { target: null, mode: 'none' },
+    tap:       { target: null, mode: 'none' },
+    pick:      { target: null, mode: 'none' },
+    inside:    { target: null, mode: 'none' },
+    outside:   { target: null, mode: 'none' },
+    equal:     { target: null, mode: 'none' }
   };
 
 
@@ -102,18 +117,22 @@
     ['sides', 'side'], ['side', 'side'],
     ['angles', 'angle'], ['angle', 'angle'],
     ['convex', 'convex'], ['concave', 'concave'],
-    ['regular', 'regular']
+    ['regular', 'regular'],
+    ['line segment', 'line segment'],
+    ['drag', 'drag'], ['draw', 'draw'], ['tap', 'tap'], ['pick', 'pick'],
+    ['outside', 'outside'], ['inside', 'inside'],
+    ['equal', 'equal']
   ];
 
-  /* THE WORD'S OWN INK. The child reads the sentence on cream wood or a
-     white bubble, and a warm orange is the one thing on either that is not
-     blue or white: the parts of a shape in deep amber, the kinds of shape in
-     orange. The stage's halo keeps each concept's own colour (TERMS.color);
-     only the lettering changes. */
-  var INK = { vertex: '#d98a00', side: '#d98a00', diagonal: '#d98a00', angle: '#d98a00',
-              polygon: '#e8590c', convex: '#e8590c', concave: '#e8590c', regular: '#e8590c', irregular: '#e8590c' };
+  /* ONE LOOK FOR EVERY TERM. The ink used to be two oranges, deep amber for
+     the parts of a shape and orange for the kinds of shape. Side by side they
+     were too close to tell apart and just looked inconsistent, and the amber
+     read at 2.7:1 on the cream paper. Every term is now lettered the same way
+     (index.html, .dc-term), so a child learns the look once: highlighted
+     means a word to remember. The stage halo keeps each concept's own colour
+     (TERMS.color); only the lettering is shared. */
 
-  var RE = new RegExp('\\b(' + FORMS.map(function (f) { return f[0]; }).join('|') + ')\\b', 'gi');
+  var RE =new RegExp('\\b(' + FORMS.map(function (f) { return f[0]; }).join('|') + ')\\b', 'gi');
   var LOOKUP = {};
   FORMS.forEach(function (f) { LOOKUP[f[0]] = f[1]; });
 
@@ -144,11 +163,12 @@
       out += esc(text.slice(last, m.index));
       // The word only. The chip used to carry a miniature diagram of itself,
       // which put a picture inside every sentence the child had to read. The
-      // colour still does the binding on its own: the term is tinted, and the
-      // thing it names lights up on the stage in that same colour as the word
-      // appears. Same pairing, one less thing in the text.
-      var chip = '<span class="dc-term" data-term="' + term + '" style="color:' + (INK[term] || '#e8590c') +
-                 '">' + esc(m[0]) + '</span>';
+      // lettering does the binding on its own: the term is marked, and the
+      // thing it names lights up on the stage as the word appears.
+      // Two spans: the outer one is the unit the reveal pops in (game.js
+      // unitsOf), the inner one carries the ink, so the ink's drop shadow is
+      // never a filter fighting the reveal's own blur.
+      var chip = '<span class="dc-term" data-term="' + term + '"><span class="dc-ink">' + esc(m[0]) + '</span></span>';
       last = m.index + m[0].length;
 
       // PUNCTUATION NEVER LEAVES THE WORD IT BELONGS TO.
@@ -182,9 +202,18 @@
    * Pictorial channel — the stage
    * ------------------------------------------------------------------ */
 
-  function cueTerm(term) {
+  /* THE BOARD ANSWERS THE WORD. The term's own id goes to the stage, and
+     stage.js (emphasizeConcept) decides what on the board it names right now
+     — the marked corner or every corner, the drawn side, the inside of the
+     shape — and lights it for half a second in the warmth of the word's
+     orange. True when something on the board answered. */
+  function cueTerm(term, ctx) {
     var def = TERMS[term];
-    if (!def || !global.Stage || !Stage.halo) return false;
+    if (!def || !global.Stage) return false;
+    if (Stage.emphasizeConcept) {
+      try { return Stage.emphasizeConcept(term, ctx) > 0; } catch (e) { return false; }
+    }
+    if (!Stage.halo) return false;
     try { Stage.halo(def.target, def.color, def.mode); } catch (e) {}
     return true;
   }

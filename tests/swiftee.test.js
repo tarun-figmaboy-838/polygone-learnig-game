@@ -178,10 +178,18 @@ t('the game exposes its semantic state table', RIG && Object.keys(RIG).length >=
 {
   const bad = [];
   Object.keys(RIG).forEach((name) => {
-    const rig = RIG[name].rig;
+    const def = RIG[name];
+    // a feeling with several faces is a list of states, each of which must be real
+    if (def.variants) {
+      def.variants.forEach((v) => { if (!RIG[v] || !RIG[v].rig) bad.push(name + ' variant -> ' + v); });
+      if (def.recovered && !RIG[def.recovered]) bad.push(name + ' recovered -> ' + def.recovered);
+      return;
+    }
+    const rig = def.rig;
     const isState = !!F.states[rig];
     const isClip = !!F.clips[rig];
     if (!isState && !isClip) bad.push(name + ' -> ' + rig);
+    ['then', 'again', 'seated'].forEach((k) => { if (def[k] && !RIG[def[k]]) bad.push(name + ' ' + k + ' -> ' + def[k]); });
   });
   t('every semantic state maps to a real rig state or standalone clip', bad.length === 0, bad);
 }
@@ -218,14 +226,44 @@ t('the game exposes its semantic state table', RIG && Object.keys(RIG).length >=
     return (c.pingpong ? c.frames * 2 - 2 : c.frames) / F.fps * 1000;
   };
   const slow = [];
+  // a brief expression plays n loop frames there and back (swiftee.js briefOrder)
+  const oneShot = (name) => {
+    const def = RIG[name];
+    if (!def || def.hold || !def.rig) return 0;
+    const s = F.states[def.rig] || { loop: def.rig };
+    const loop = def.brief ? (Math.min(def.brief, F.clips[s.loop].frames - 1) * 2 + 1) / F.fps * 1000
+                           : dur(s.loop) * (def.loops == null ? 1 : def.loops);
+    return (s.start ? dur(s.start) : 0) + loop + (s.stop ? dur(s.stop) : 0);
+  };
   Object.keys(RIG).forEach((name) => {
     const def = RIG[name];
-    if (def.hold) return;                          // held loops never finish by design
-    const s = F.states[def.rig] || { loop: def.rig };
-    const total = (s.start ? dur(s.start) : 0) + dur(s.loop) * (def.loops == null ? 1 : def.loops) + (s.stop ? dur(s.stop) : 0);
+    if (def.hold || def.variants) return;          // held loops never finish by design
+    // and a reaction's recovery (`then`) is part of it
+    const total = oneShot(name) + (def.then ? oneShot(def.then) : 0);
     if (total > 12000) slow.push(name + ' ' + Math.round(total) + 'ms');
   });
   t('no one-shot reaction outruns the director beat ceiling', slow.length === 0, slow);
+
+  /* THE THREE SIZES. A micro state barely moves; a response is a second or
+     two, and so short enough not to stand between a child and the next try;
+     a celebration may be longer, and is a milestone's. */
+  const tooLong = [];
+  Object.keys(RIG).forEach((name) => {
+    const def = RIG[name];
+    if (def.hold || def.variants || !def.level) return;
+    const ms = oneShot(name);
+    if (def.level === 2 && def.react && ms > 1800) tooLong.push(name + ' ' + Math.round(ms) + 'ms');
+  });
+  t('every answer reaction (level 2) is over in under 1.8s', tooLong.length === 0, tooLong);
+  const miss = oneShot('oops');
+  t('a miss is "hmm?" for about a second, not a sulk', miss > 400 && miss <= 1200, Math.round(miss) + 'ms');
+  t('every state that answers a child has an intensity level',
+    Object.keys(RIG).filter((n) => RIG[n].react && !RIG[n].level).length === 0,
+    Object.keys(RIG).filter((n) => RIG[n].react && !RIG[n].level));
+  t('the celebrations are level 3 and nothing smaller is',
+    ['celebrate', 'excited', 'delight'].every((n) => RIG[n].level === 3) &&
+    ['happySmall', 'nice', 'chuffed', 'wink', 'phew', 'oops', 'rethink', 'discover', 'nod'].every((n) => (RIG[n].level || 0) < 3));
+  t('the watching state is level 1 and holds', RIG.watch.level === 1 && RIG.watch.hold === true);
 
   const s = F.states.celebrating;
   const celebrate = dur(s.start) + dur(s.loop) * RIG.celebrate.loops + dur(s.stop);
@@ -245,11 +283,149 @@ t('the game exposes its semantic state table', RIG && Object.keys(RIG).length >=
 (function () {
   var src = require('fs').readFileSync(__dirname + '/../src/character/swiftee.js', 'utf8');
   var Frames = require('../src/character/swiftee-frames.js');
-  var named = (src.match(/rig:s*'[a-z-]+'/g) || []).map(function (x) { return x.split('\x27')[1]; });
+  // (this pattern read `rig:s*` and so matched nothing at all — a check that
+  // could not fail. It reads the table's own `rig: 'name'` entries now, and a
+  // standalone clip such as 'blinking' or 'flapping' is a real rig too.)
+  var named = (src.match(/rig:\s*'[a-z_-]+'/g) || []).map(function (x) { return x.split('\x27')[1]; });
   var uniq = named.filter(function (v, i) { return named.indexOf(v) === i; });
-  var missing = uniq.filter(function (r) { return !Frames.states[r]; });
-  t('every rig a state names exists in the sheet set', missing.length === 0, missing.join(', '));
+  var missing = uniq.filter(function (r) { return !Frames.states[r] && !Frames.clips[r]; });
+  t('every rig a state names exists in the sheet set', uniq.length >= 20 && missing.length === 0, missing.join(', ') || uniq.length);
 })();
 
-console.log('\nswiftee: ' + pass + ' passed, ' + fail + ' failed');
-process.exit(fail ? 1 : 0);
+/* ------------------------------------------------------------------ *
+ * Character direction: intentions, variety, the generated table
+ * ------------------------------------------------------------------ */
+
+{
+  // THE FRAME TABLE IS GENERATED AND NEVER EDITED BY HAND. The generator's
+  // --check rebuilds it in memory and compares; a patched coordinate fails.
+  const out = require('child_process').spawnSync(process.execPath, [path.join(ROOT, 'tools/build-swiftee-frames.js'), '--check'], { encoding: 'utf8' });
+  t('swiftee-frames.js is exactly what the manifest generates (no hand edits)', out.status === 0, (out.stderr || out.stdout || '').trim());
+}
+
+{
+  // EVERY INTENTION THE STORYBOARD ASKS FOR, ON EVERY SCREEN THAT ASKS FOR
+  // IT, IN EVERY CONTEXT (first try, after a miss, a second miss), becomes a
+  // state with a drawing — and the same one every time (no Math.random).
+  const Screens = require('../src/game/screens.js');
+  const bad = [], unstable = [];
+  Screens.list.forEach((s) => {
+    const asked = [];
+    (function walk(list) {
+      (list || []).forEach((b) => {
+        if (!b || typeof b !== 'object') return;
+        if (b.swiftee) asked.push(b.swiftee);
+        ['feedback', 'parallel', 'otherwise'].forEach((k) => { if (b[k]) walk(b[k]); });
+        if (b.on) Object.keys(b.on).forEach((k) => walk(b.on[k]));
+      });
+    })(s.beats);
+    Object.keys(s.perTap || {}).forEach((k) => (s.perTap[k] || []).forEach((b) => { if (b.swiftee) asked.push(b.swiftee); }));
+    asked.filter((a) => !/^(enter|exit|move)$/.test(a)).forEach((a) => {
+      [{ key: s.id }, { key: s.id, misses: 1, after: 'miss' }, { key: s.id, misses: 2, after: 'miss' }].forEach((ctx) => {
+        const st = Swiftee.resolve(a, ctx);
+        const def = RIG[st];
+        if (!def || !def.rig || !(F.states[def.rig] || F.clips[def.rig])) bad.push(s.id + ':' + a + '->' + st);
+        if (Swiftee.resolve(a, ctx) !== st) unstable.push(s.id + ':' + a);
+      });
+    });
+  });
+  t('every storyboard intention resolves to a drawn state in every context', bad.length === 0, bad);
+  t('the same screen always gets the same face (deterministic variety)', unstable.length === 0, unstable);
+  const faces = new Set(['which-polygons', 'drag-to-diagonal', 'another-diagonal', 'inside-or-outside', 'drag-inward', 'stayed-changed', 'build-sides', 'build-concave']
+    .map((k) => Swiftee.resolve('happySmall', { key: k })));
+  t('an ordinary right answer is not the same face on every screen', faces.size >= 2, [...faces]);
+  t('a right answer after a miss is relief', Swiftee.resolve('happySmall', { key: 'x', after: 'miss' }) === 'phew');
+  t('the second miss on one question is his thinking face', Swiftee.resolve('oops', { key: 'x', misses: 2 }) === 'rethink' && Swiftee.resolve('oops', { key: 'x', misses: 1 }) === 'oops');
+  // THE RIG, WIDER: drawings the lesson had never played are used where they belong
+  const used = new Set();
+  Screens.list.forEach((s) => (function walk(list) {
+    (list || []).forEach((b) => {
+      if (!b || typeof b !== 'object') return;
+      if (b.swiftee && RIG[b.swiftee]) {
+        const d = RIG[b.swiftee];
+        (d.variants || [b.swiftee]).forEach((v) => { if (RIG[v] && RIG[v].rig) used.add(RIG[v].rig); });
+        if (d.then && RIG[d.then]) used.add(RIG[d.then].rig);
+        if (d.recovered && RIG[d.recovered]) used.add(RIG[d.recovered].rig);
+      }
+      ['feedback', 'parallel', 'otherwise'].forEach((k) => { if (b[k]) walk(b[k]); });
+      if (b.on) Object.keys(b.on).forEach((k) => walk(b.on[k]));
+    });
+  })(s.beats));
+  const fresh = ['reading', 'writing', 'learning', 'puzzleing', 'love', 'relieved', 'blinking'].filter((r) => !used.has(r));
+  t('the storyboard reaches the rig\'s unused drawings where they fit', fresh.length <= 1, fresh);   // blinking is reached by the game (watch), not a beat
+}
+
+/* ------------------------------------------------------------------ *
+ * Behaviour, in a DOM: priority, the measuring lock, cancellation
+ * ------------------------------------------------------------------ */
+
+(async () => {
+  const { JSDOM } = require('jsdom');
+  const dom = new JSDOM('<!doctype html><div id="root"></div>', { pretendToBeVisual: true });
+  const w = dom.window;
+  global.document = w.document;
+  global.Image = w.Image;
+  global.requestAnimationFrame = w.requestAnimationFrame.bind(w);
+  global.cancelAnimationFrame = w.cancelAnimationFrame.bind(w);
+  global.matchMedia = () => ({ matches: false });
+  global.getComputedStyle = w.getComputedStyle.bind(w);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let air = false;
+  Swiftee.mount(w.document.getElementById('root'), { layout: () => ({ x: 100, y: 300, scale: 1, air: air }) });
+  Swiftee.place('left', 'medium');
+  await sleep(50);
+
+  // 1 THE MEASURING WALK OWNS HIM: nothing generic touches him while it runs
+  Swiftee.lock('measuring');
+  const before = Swiftee.state;
+  const op = Swiftee.el.style.opacity;
+  const r1 = await Swiftee.play('celebrate');
+  t('a storyboard face asked for during the measuring walk waits for it', r1 && r1.deferred === 'measuring' && Swiftee.state === before, [r1, Swiftee.state]);
+  const r2 = await Swiftee.perform('hint');
+  t('an idle hint cannot interrupt the measuring walk', r2 && r2.refused === 'locked', r2);
+  const r3 = await Swiftee.perform('watch');
+  t('not even watching the child interrupts the measuring walk', r3 && r3.refused === 'locked', r3);
+  Swiftee.visible(op === '1' ? false : true);
+  t('he is not shown or hidden by anyone else while the walk has him', Swiftee.el.style.opacity === op, [op, Swiftee.el.style.opacity]);
+  Swiftee.unlock('measuring');
+  await sleep(30);
+  t('when the walk lets go, the last thing asked for plays', Swiftee.state === 'celebrate', Swiftee.state);
+
+  // 2 PRIORITY: a hint never cuts off a reaction; the child's hand does
+  const r4 = await Swiftee.perform('hint');
+  t('a hint does not interrupt a reaction that is still playing', r4 && r4.refused === 'busy', [r4, Swiftee.busy]);
+  Swiftee.attend(true);
+  await sleep(30);
+  t('the child starting to drag gets his watching face at once', Swiftee.state === 'watch' && Swiftee.stanceName === 'watch', [Swiftee.state, Swiftee.stanceName]);
+  Swiftee.attend(false);
+  t('the verdict ends the watching stance', Swiftee.stanceName === null);
+
+  // 3 A SCREEN CHANGE: the reaction from the screen before does not carry on
+  Swiftee.play('happySmall', { key: 'which-polygons' });
+  await sleep(30);
+  const was = Swiftee.state;
+  Swiftee.settle();
+  await sleep(30);
+  t('a reaction is replaced by rest when the screen changes', /^(nice|chuffed|wink)$/.test(was) && Swiftee.state === 'idle' && Swiftee.busy === null, [was, Swiftee.state, Swiftee.busy]);
+  Swiftee.play('celebrate'); await sleep(20);
+  Swiftee.settle({ now: true }); await sleep(20);
+  t('a jump drops a celebration at once', Swiftee.state === 'idle', Swiftee.state);
+
+  // 4 A MISS RECOVERS BY ITSELF: oops -> encourage -> the stance
+  Swiftee.stance('think');
+  const t0 = Date.now();
+  await Swiftee.play('oops', { key: 'inside-or-outside', misses: 1 });
+  t('a miss recovers into encouragement and back to the question pose', Swiftee.state === 'think', Swiftee.state);
+  t('...without holding anyone up for long', Date.now() - t0 < 6000, (Date.now() - t0) + 'ms');
+  Swiftee.stance(null);
+
+  // 5 IN THE AIR a prop pose becomes its standing twin
+  air = true; Swiftee.place('top-left', 'small');
+  t('no sitting with a book in mid-air', Swiftee.resolve('recall', {}) === 'think' && Swiftee.resolve('build', {}) === 'point');
+  air = false; Swiftee.place('left', 'medium');
+  t('on the ground the prop pose is his', Swiftee.resolve('recall', {}) === 'recall');
+
+  console.log('\nswiftee: ' + pass + ' passed, ' + fail + ' failed');
+  dom.window.close();
+  process.exit(fail ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(1); });

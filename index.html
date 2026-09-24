@@ -32,6 +32,14 @@
     --ink-w: 3px;
     --ink-shadow: 4px 5px 0 rgba(28, 42, 74, .85);
     --tail-h: 18px;
+    /* THE LESSON'S TOKENS, one place for what every screen shares: the ink of
+       an instruction, the accent its key words are set in, the motion of an
+       arrival. */
+    --instruction-text: #174D59;
+    --instruction-accent: #ff7a0e;
+    --ease-out: cubic-bezier(.22, 1, .36, 1);
+    --dur-bubble: 220ms;
+    --dur-word: 200ms;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -146,18 +154,27 @@
   #bubble {
     --bubble-edge:   #169F99;   /* the border; the tail's outline follows it */
     --bubble-paper:  #FFFBEA;   /* the fill; the tail's fill follows it      */
-    --bubble-ink:    #174B52;
+    --bubble-ink:    var(--instruction-text, #174D59);
     --bubble-border: 4px;       /* keep in step with --tail-offset            */
     --bubble-radius: 26px;
-    --tail-offset:   10px;      /* mouth(12) - border/2                       */
-    --tail-x:        calc(70% - 30px);
-    --tail-y:        calc(50% - 30px);
+    /* A SHORTER TAIL, so the bubble can sit close over his head (the polish
+       pass: 12–24px from bubble to head) and the tip still stops at the top
+       of his head rather than on his face. The tail SVG keeps its 60-unit
+       drawing; this is the size it is drawn at. game.js (TAIL_SIZE, TIP,
+       MOUTH_*) works in the same pixels. */
+    --tail-size:     36px;
+    --tail-offset:   5.2px;     /* mouth(12/60 of the size) - border/2        */
+    --tail-x:        calc(70% - 18px);
+    --tail-y:        calc(50% - 18px);
 
     position: absolute; z-index: 4;
     isolation: isolate;
     box-sizing: border-box;
     /* One size for the whole component; the padding is em of this. */
-    font-size: clamp(20px, 2.3vw, 33px);
+    /* ONE SIZE FOR EVERY LINE, on every screen: it scales with the window and
+       with nothing else (the fit used to step it down for a crowded screen and
+       up for an empty one, so the words changed size from line to line). */
+    font-size: clamp(18px, 2vw, 40px);
     max-width: min(820px, 68vw);
     min-width: 5em;
     padding: .5em .78em;
@@ -172,7 +189,13 @@
       0 0 30px 8px rgb(22 159 153 / .07),
       0 8px 20px rgb(12 64 78 / .16);
     opacity: 0; pointer-events: none;
-    transform: scale(.15);
+    /* THE PANEL ARRIVES WITH A SOFT POP: 94% to 102% and settle, in 220ms
+       (bubbleIn, below) — and the first word lands 120ms into that (game.js
+       reveal, PANEL_LEAD), so the box is seen coming and then the words
+       begin. It used to spring out of the tail from fifteen per cent with a
+       45% overshoot, which was the loudest thing on the screen every time he
+       opened his mouth. */
+    transform: translateY(6px) scale(.94);
     transform-origin: 12% 100%;
     /* IT GLIDES, IT DOES NOT JUMP. The line is placed when it is set, and
        measured again on the next frame and once the scene has stopped moving
@@ -181,10 +204,23 @@
        a glitch; 240ms of easing reads as the bubble settling next to him.
        .snap turns this off for the FIRST placement of each line, so a new
        line does not slide across the screen from where the last one was. */
-    transition: transform 440ms cubic-bezier(.2, .9, .3, 1.45), opacity 200ms ease,
+    transition: transform 220ms cubic-bezier(.22, 1, .36, 1), opacity 200ms ease-out,
                 left 240ms cubic-bezier(.3, .8, .3, 1), top 240ms cubic-bezier(.3, .8, .3, 1);
   }
-  #bubble.snap { transition: transform 440ms cubic-bezier(.2, .9, .3, 1.45), opacity 200ms ease; }
+  #bubble.snap { transition: transform 220ms cubic-bezier(.22, 1, .36, 1), opacity 200ms ease-out; }
+  /* THE START OF AN ENTRANCE, laid down with no transition so the move is
+     always from here — for a line arriving and for the next bubble of one. */
+  #bubble.pre      { transition: none !important; opacity: 0; transform: translateY(6px) scale(.94); }
+  #bubble.pre-swap { transition: none !important; opacity: 0; transform: translateY(5px) scale(.96); }
+  /* The pop itself. Fill 'backwards' only: once it has played the bubble is
+     back on its ordinary styles, so dimming it while the child works still
+     works. */
+  #bubble.show.enter { animation: bubbleIn 220ms ease-out backwards; }
+  @keyframes bubbleIn {
+    0%   { opacity: 0; transform: translateY(6px) scale(.94); }
+    60%  { opacity: 1; transform: translateY(0) scale(1.02); }
+    100% { opacity: 1; transform: none; }
+  }
   /* the small catch-light that keeps the paper playful */
   #bubble::before {
     content: '';
@@ -201,31 +237,37 @@
      Tapping to finish the reveal is done BEFORE this, while the line is
      still arriving, which is the only moment that gesture means anything. */
   #bubble.show.passive { pointer-events: none; cursor: default; }
-  /* going away is quicker than arriving, and does not overshoot */
-  #bubble.out { transition: transform 260ms ease-in, opacity 220ms ease 40ms; }
+  /* WHILE THE CHILD WORKS, THE WORDS STEP BACK A LITTLE: still readable,
+     not in the way. Back to full the moment the next line comes. */
+  #bubble.show.dim { opacity: .82; }
+  /* GOING AWAY IS QUICKER THAN ARRIVING: the old bubble lifts four pixels and
+     fades in 170ms, and only then does the next one come in — two bubbles of
+     one line are never on screen together, and the words are never swapped
+     inside a box that stays. */
+  #bubble.out { opacity: 0; transform: translateY(-4px); transition: transform 170ms ease-in, opacity 170ms ease-in; }
 
   .dialogue-inner {
     position: relative; z-index: 2; max-width: 100%;
     color: var(--bubble-ink);
     font-family: "Fredoka", "Baloo 2", "Arial Rounded MT Bold", var(--sans);
-    font-size: inherit; font-weight: 700; line-height: 1.22;
+    font-size: inherit; font-weight: 700; line-height: 1.3;   /* 1.3–1.45 reads comfortably; 1.22 was tight */
     letter-spacing: .2px; text-align: center;
-    /* NOT text-wrap: balance — ordinary wrapping fills the first row to the
-       edge, so the box the text shrink-wraps into is the box it needs. */
+    /* BALANCED, SO NO WORD IS LEFT ON ITS OWN. Ordinary wrapping filled the
+       first row to the edge and left "vertex." alone on the second; balanced
+       rows give "Drag the line segment / to a different vertex." The box then
+       closes to the widest row (game.js snugWidth), so balancing costs no
+       empty paper. */
+    text-wrap: balance;
   }
   /* Screens with nothing else on them get room to breathe. */
-  #bubble.solo { font-size: clamp(26px, 3.15vw, 46px); }
+  /* (.solo, .tight and .tighter no longer change the size: one size, always) */
   /* ONE step down, and only one: used when a sentence would otherwise run
      past two rows in the space it has. Two sizes are a decision. */
-  #bubble.tight .dialogue-inner { font-size: clamp(17px, 1.95vw, 27px); }
-  #bubble.tight.solo .dialogue-inner { font-size: clamp(22px, 2.6vw, 38px); }
   /* A SECOND STEP, for the crowded scenes only. The first one is enough
      almost everywhere; where the shape, the plank and the bird between them
      leave a column, one step down still wrapped to four rows — a paragraph
      in a speech bubble. This is the floor, and fitLine only reaches it when
      three rows have already been exceeded. */
-  #bubble.tighter .dialogue-inner { font-size: clamp(15px, 1.62vw, 22px); }
-  #bubble.tighter.solo .dialogue-inner { font-size: clamp(19px, 2.2vw, 31px); }
 
   /* ONE BUBBLE, ONE LOOK. Praise, hints and questions all come in the same
      teal-and-cream bubble; a bubble that changed colour with its mood read
@@ -235,7 +277,7 @@
   /* ---- the tail ---- */
   .bubble-tail {
     position: absolute;
-    width: 60px; height: 60px;   /* square: required, so it rotates about its centre */
+    width: var(--tail-size); height: var(--tail-size);   /* square: required, so it rotates about its centre */
     overflow: visible; pointer-events: none;
     transform-origin: center;
     z-index: 1;                  /* above the bubble's own border, so the fill hides it */
@@ -244,29 +286,31 @@
   .bubble-tail-fill   { fill: var(--bubble-paper); }
   .bubble-tail-stroke {
     fill: none; stroke: var(--bubble-edge);
-    stroke-width: 4;             /* user units == the border, and scales with it */
+    /* the 60-unit drawing is shown at --tail-size, so 4px of border is
+       4 x 60/36 units of stroke */
+    stroke-width: 6.67;
     stroke-linecap: round; stroke-linejoin: round;
   }
   #bubble[data-tail="bottom"] > .bubble-tail { left: var(--tail-x); top: calc(100% - var(--tail-offset)); transform: none; }
-  #bubble[data-tail="top"]    > .bubble-tail { left: var(--tail-x); top: calc(-60px + var(--tail-offset)); transform: rotate(180deg); }
+  #bubble[data-tail="top"]    > .bubble-tail { left: var(--tail-x); top: calc(var(--tail-offset) - var(--tail-size)); transform: rotate(180deg); }
   #bubble[data-tail="right"]  > .bubble-tail { left: calc(100% - var(--tail-offset)); top: var(--tail-y); transform: rotate(-90deg); }
-  #bubble[data-tail="left"]   > .bubble-tail { left: calc(-60px + var(--tail-offset)); top: var(--tail-y); transform: rotate(90deg); }
+  #bubble[data-tail="left"]   > .bubble-tail { left: calc(var(--tail-offset) - var(--tail-size)); top: var(--tail-y); transform: rotate(90deg); }
   #bubble:not([data-tail]) > .bubble-tail { display: none; }
   /* Mirror the tail's sweep without moving it. */
   #bubble[data-tail-flip] > .bubble-tail > g { transform: scale(-1,1); transform-origin: 30px 30px; }
 
   @media (max-width: 900px) {
-    #bubble { font-size: clamp(18px, 2.6vw, 27px); }
-    #bubble.solo { font-size: clamp(22px, 3.4vw, 34px); }
+    #bubble { font-size: clamp(16px, 2.4vw, 24px); }
   }
   @media (max-width: 600px) {
-    #bubble { font-size: clamp(16px, 4.6vw, 23px); }
-    #bubble.solo { font-size: clamp(18px, 5.4vw, 26px); }
+    #bubble { font-size: clamp(15px, 4.2vw, 21px); }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    #bubble { transform: none; transition: opacity 200ms ease; }
+    #bubble, #bubble.pre, #bubble.pre-swap, #bubble.out { transform: none; }
+    #bubble { transition: opacity 200ms ease; }
     #bubble.out { transition: opacity 160ms ease; }
+    #bubble.show.enter { animation: none; }
   }
 
   /* ---- the line arrives a word at a time ----
@@ -274,40 +318,76 @@
      opacity rather than display, so the bubble is laid out at its FINAL size
      from the first frame: it never grows as the words arrive, which means it
      never jitters and never has to be re-placed against the lesson mid-line. */
-  /* EACH WORD POPS INTO PLACE.
-     A fade out of a blur alone is so quiet that the line reads as appearing
-     all at once. With no voice under it the words ARE the delivery, so each
-     one arrives with a small overshoot — up from 70%, past 100%, and settle —
-     which is the beat a spoken word has and a fade does not.
+  /* EACH WORD ARRIVES: up six pixels, from 96%, fading in — a soft ease-out
+     over about four hundred milliseconds, no bounce, one word after another
+     at a read-aloud pace (~280ms apart, dialogue-timing.js). Each word is
+     still settling as the next begins, so the line flows rather than ticks.
+     The key words get a slightly stronger pop of their own (dcTermPop, below).
 
      scale and translate, never transform: the words carry no other transform
      and these two composite on their own, so nothing here can throw away a
      position something else set. The box does not move — every word holds its
-     space from the first frame (visibility is opacity here) — so a line pops
-     in without one reflow, and the bubble never has to be re-placed against
-     the lesson mid-sentence. */
+     space from the first frame (visibility is opacity here) — so a line
+     arrives without one reflow, and the bubble never has to be re-placed
+     against the lesson mid-sentence. No blur: a filter on every word was the
+     most expensive thing in the bubble and nobody could see it. */
   .bubble-line .w, .bubble-line .dc-term {
     display: inline-block;
     transform-origin: 50% 80%;
-    transition: opacity 220ms ease-out,
-                filter 180ms ease-out,
-                scale 260ms cubic-bezier(.22, 1.2, .36, 1),
-                translate 260ms cubic-bezier(.22, 1.2, .36, 1);
+    transition: opacity 380ms cubic-bezier(.25,.8,.35,1),
+                scale 420ms cubic-bezier(.25,.8,.35,1),
+                translate 420ms cubic-bezier(.25,.8,.35,1);
   }
-  .bubble-line.revealing .w, .bubble-line.revealing .dc-term { opacity: 0; filter: blur(1px); scale: .94; translate: 0 6px; }
-  .bubble-line .w.in, .bubble-line .dc-term.in { opacity: 1; filter: none; scale: 1; translate: 0 0; }
+  .bubble-line.revealing .w, .bubble-line.revealing .dc-term { opacity: 0; scale: .96; translate: 0 6px; }
+  .bubble-line .w.in, .bubble-line .dc-term.in { opacity: 1; scale: 1; translate: 0 0; }
   @media (prefers-reduced-motion: reduce) {
-    .bubble-line .w, .bubble-line .dc-term { transition: none; scale: 1; translate: 0 0; }
+    .bubble-line .w, .bubble-line .dc-term { transition: opacity 120ms ease-out; scale: 1; translate: 0 0; }
+    .bubble-line.revealing .w:not(.in), .bubble-line.revealing .dc-term:not(.in) { translate: 0 0; scale: 1; }
   }
 
-  /* ---- dual coding: the term is tinted, and the thing it names lights
-     up on the stage in that same colour, as the word appears ---- */
-  /* INK, NOT A CHIP. The tinted block behind each term broke the sentence
-     into labels; the word is now simply set in its own warm ink, bold. */
+  /* ---- dual coding: the key word is marked, and the thing it names
+     moves on the stage as the word appears ---- */
+  /* THE KEY WORD IS THE LOUDEST WORD IN THE BUBBLE — the action the child
+     takes ("Drag", "Tap") and the maths word it is about ("vertex",
+     "diagonal", "sides", "inside"). One flat warm orange for all of them, a
+     touch bigger than the sentence, so the look is learned once and nothing
+     is stuck on the line: no chip, no highlighter bar, no gradient.
+
+     The bump in size is paid back in line-height (1.07 x 1.215 = 1.3, the
+     line's own), so a row with a term in it is the same height as a row
+     without one. And the term hangs from the TOP of the row: baseline-
+     aligned, the bigger letters sat its box 0.7px higher than its
+     neighbours', and everything that counts rows by where each word's box
+     starts (rowsOfLine, snugWidth, the browser gate) counted two rows in
+     "Pick any vertex." and closed the bubble to half its width. */
   .dc-term {
-    display: inline-block;
+    position: relative; isolation: isolate;
+    display: inline-block; vertical-align: top;
     padding: 0; margin: 0;
+    font-size: 1.07em; line-height: 1.215;
     font-weight: 800; white-space: nowrap;
+  }
+  /* FLAT WARM ORANGE, AND NOTHING BEHIND IT. The key word was a gradient
+     ink over a yellow highlighter bar; the bar read as a sticker stuck on the
+     sentence ("do not add this bg bar fill, it looks odd") and a gradient is
+     one more effect in a line a seven-year-old is trying to read. It is one
+     warm orange now — the instruction accent, against the bubble's dark teal
+     ink — a touch larger than the words round it, with the faintest lift. */
+  .dc-ink {
+    display: inline-block;
+    color: var(--instruction-accent, #B84A00);
+    text-shadow: 0 1px 0 rgba(120, 40, 0, .16);
+  }
+  /* ...and when it lands, a tiny pop more than the words round it — on the
+     same beat as the thing it names moving on the stage. */
+  .bubble-line.revealing .dc-term.in { animation: dcTermPop 320ms cubic-bezier(.22, 1, .36, 1) both; }
+  @keyframes dcTermPop {
+    0%   { scale: .92; }
+    60%  { scale: 1.06; }
+    100% { scale: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bubble-line.revealing .dc-term.in { animation: none; }
   }
   /* A tinted term and the punctuation that follows it, held together — see
      the note in dual-coding.js. The negative margin closes the gap the chip's
@@ -316,7 +396,8 @@
      word did not stand out; against the brown lettering a deep glacier
      blue is the coldest thing on the board, and reads at a glance. The
      bubble is white, and keeps the warm ink. */
-  #instruction .dc-term { color: #0f4fc0 !important; }
+  #instruction .dc-ink { color: #0f4fc0; background: none; -webkit-text-fill-color: currentColor; filter: none; }
+  #instruction .dc-term::before { display: none; }
   .dc-keep { white-space: nowrap; }
   .dc-keep > .w, .dc-keep > .dc-punct { margin-left: 0; }
 
@@ -363,16 +444,23 @@
   /* WHERE TO TAP. A side or corner still waiting to be measured breathes:
      a soft warm glow that comes and goes, never a flash. The class is put
      on by the tap-each input and taken off the moment the target is done. */
-  #stage .edge.hint {
-    stroke: #4be0ff; stroke-width: 14; stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(75, 224, 255, .9));
-    animation: hintGlow 1.3s ease-in-out infinite;
-  }
+  /* NO SECOND LINE ALONG A SIDE. A side still to measure used to be painted
+     over with a 14-unit glowing stroke — a second line running along the
+     side, which read as another side. It is marked by a small dot at its
+     middle instead (stage.js, side dots), and the side itself is left as the
+     shape draws it. The class stays for the tap target and its cursor. */
+  #stage .edge.hint { stroke: transparent; }
+  /* A side still to measure breathes along its length (stage.js side-todo):
+     slow and soft, a beat apart side to side, and still once it is measured. */
+  #stage .side-todo { animation: sideTodo 1.8s ease-in-out infinite; stroke-opacity: .3; }
+  @keyframes sideTodo { 0%, 100% { stroke-opacity: .22; } 50% { stroke-opacity: .85; } }
+  @media (prefers-reduced-motion: reduce) { #stage .side-todo { animation: none; stroke-opacity: .6; } }
   /* a bird on a mark with no ground under it bobs on the air */
   .swiftee.air { animation: hoverBob 1.6s ease-in-out infinite; }
   @keyframes hoverBob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -12px; } }
   #stage .knob.hint {
     transform-box: fill-box; transform-origin: center;
-    animation: hintBreathe 1.3s ease-in-out infinite;
+    filter: drop-shadow(0 0 4px rgba(75, 224, 255, .85));
   }
   @keyframes hintGlow { 0%, 100% { stroke-opacity: .16; } 50% { stroke-opacity: .58; } }
   /* A drop zone breathes while a card is waiting for it, and flares once
@@ -387,7 +475,7 @@
     35% { filter: drop-shadow(0 0 26px rgba(46,171,78,1)) drop-shadow(0 0 6px rgba(255,255,255,.9)); }
     100% { filter: drop-shadow(0 0 12px rgba(46,171,78,.95)) drop-shadow(0 0 3px rgba(46,171,78,.9)); }
   }
-  #stage .zone.hint { animation: zoneGlow 1.5s ease-in-out infinite; }
+  #stage .zone.hint { filter: drop-shadow(0 0 8px rgba(255, 255, 255, .6)); }
   #stage .zone.landed { animation: zoneLand .65s ease-out; }
   @keyframes zoneGlow {
     0%, 100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); }
@@ -529,8 +617,19 @@
      control feel physical, and it costs no extra art. */
   #hud button:active { transform: translate(3px, 4px); box-shadow: 0 0 0 rgba(28, 42, 74, .8); }
   #hud button.on { background: #ffe3ea; }
-  #hud .replay { width: auto; padding: 0 22px; display: none; background: #63e0a4; }
-  #hud .replay.show { display: grid; }
+  /* PLAY AGAIN IS THE KIT'S PRIMARY ACTION — the gold capsule
+     (btn-uiPrimary), 3-slice like Next and Back, so the one button the finale
+     offers is one of the game's own and not a flat green form control. Gold
+     acts, blue navigates. 82 is this capsule's cap in its own pixels. */
+  #hud .replay {
+    width: auto; height: 50px; display: none; align-items: center; gap: 6px;
+    padding: 0 2px; font-size: 18px; color: #6a3200; text-shadow: 0 1px 0 rgba(255, 244, 200, .7);
+    background: none; border: 0 solid transparent; border-width: 0 28px; border-radius: 0;
+    border-image: url("assets/ui/btn-uiPrimary.webp") 0 82 0 82 fill stretch;
+    box-shadow: none; filter: drop-shadow(0 3px 0 rgba(140, 80, 0, .35));
+  }
+  #hud .replay.show { display: inline-flex; }
+  #hud .replay:active { transform: translateY(3px); box-shadow: none; filter: drop-shadow(0 0 0 rgba(140, 80, 0, 0)) brightness(.95); }
 
   /* ---- Next: the one deliberate way to move on ----
      Advancing used to be a tap anywhere, so the same gesture both dismissed a
@@ -540,21 +639,57 @@
   #next {
     position: absolute; z-index: 6; right: calc(22px + var(--band-x, 0px)); bottom: calc(26px + var(--band-y, 0px));
     font: inherit; font-weight: 800; font-size: clamp(17px, 2vw, 23px); color: #fff;
-    /* THE SAME PILL AS EVERY OTHER BUTTON: the kit's orange, its round
-       caps at true proportion and the middle stretched to the word. */
+    /* NAVIGATION IS BLUE. This is the button that moves you on, and the
+       supplied kit gives each colour a job: gold acts, blue navigates, purple
+       is optional, green and red are verdicts. Next was the lesson's own
+       orange answer pill, which made the control that leaves a screen look
+       like one of the answers on it.
+
+       Still a 3-slice pill: round caps at their true proportion and only the
+       flat middle stretched to the word, so it fits Next and Play again alike
+       without ovalling the ends. 83 is this button's own cap in its own
+       pixels; 34px is that cap drawn at this height. */
     background: none; border: 0 solid transparent; border-width: 0 34px;
-    border-image: url("assets/ui/btn-tangerine.webp") 0 88 0 88 fill stretch;
+    border-image: url("assets/ui/btn-uiNav.webp") 0 83 0 83 fill stretch;
     height: 60px; line-height: 60px; padding: 0 6px 0 10px; cursor: pointer; display: none; align-items: center; gap: 8px;
-    filter: drop-shadow(0 4px 0 rgba(120, 60, 0, .35)); text-shadow: 0 2px 0 rgba(150, 80, 0, .5);
+    filter: drop-shadow(0 4px 0 rgba(10, 60, 120, .35)); text-shadow: 0 2px 0 rgba(12, 70, 140, .55);
     transition: transform 90ms, filter 90ms, opacity 160ms;
   }
-  #next.show { display: inline-flex; animation: nextNudge 2.1s ease-in-out infinite; }
-  #next:active { transform: translateY(4px); filter: drop-shadow(0 0 0 rgba(120, 60, 0, 0)) brightness(.94); animation: none; }
+  /* BACK IS THE SAME CONTROL FACING THE OTHER WAY.
+     Navigation blue, the same 3-slice pill and the same height, on the other
+     side of the screen so the pair reads as one axis: leave this screen left,
+     leave it right. It does NOT nudge — Next invites, Back only waits, and a
+     control that pulses at a child is a control asking to be pressed.
+
+     HIDDEN, BUT STILL LAID OUT. Swiftee's marks at the left step clear of
+     this pill (game.js backEdge), and a display:none button has no box to
+     step clear of. With visibility he stands in one place whether it is up
+     or not, and it fades in instead of blinking on. */
+  #back {
+    position: absolute; z-index: 6; left: calc(22px + var(--band-x, 0px)); bottom: calc(26px + var(--band-y, 0px));
+    font: inherit; font-weight: 800; font-size: clamp(17px, 2vw, 23px); color: #fff;
+    background: none; border: 0 solid transparent; border-width: 0 34px;
+    border-image: url("assets/ui/btn-uiNav.webp") 0 83 0 83 fill stretch;
+    height: 60px; line-height: 60px; padding: 0 10px 0 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    filter: drop-shadow(0 4px 0 rgba(10, 60, 120, .35)); text-shadow: 0 2px 0 rgba(12, 70, 140, .55);
+    visibility: hidden; opacity: 0; pointer-events: none;
+    transition: transform 90ms, filter 90ms, opacity 180ms ease, visibility 0s linear 180ms;
+  }
+  #back.show { visibility: visible; opacity: 1; pointer-events: auto; transition: transform 90ms, filter 90ms, opacity 180ms ease, visibility 0s; }
+  #back:active { transform: translateY(4px); filter: drop-shadow(0 0 0 rgba(10, 60, 120, 0)) brightness(.94); }
+  #back .chev { font-size: 1.1em; line-height: 1; }
+  @media (max-width: 760px) { #back { left: calc(14px + var(--band-x, 0px)); bottom: calc(18px + var(--band-y, 0px)); height: 50px; line-height: 50px; border-width: 0 28px; } }
+
+  /* IT WAITS BEFORE IT NUDGES. A button that twitches from the moment it
+     appears is hurrying a child who is still reading; this one first moves
+     after four seconds of nothing, and then once every eight. */
+  #next.show { display: inline-flex; animation: nextNudge 8s ease-in-out 4s infinite; }
+  #next:active { transform: translateY(4px); filter: drop-shadow(0 0 0 rgba(10, 60, 120, 0)) brightness(.94); animation: none; }
   #next .chev { font-size: 1.1em; line-height: 1; }
   @keyframes nextNudge {
-    0%, 70%, 100% { transform: translateX(0); }
-    80% { transform: translateX(5px); }
-    90% { transform: translateX(1px); }
+    0%, 12%, 100% { transform: translateX(0); }
+    4% { transform: translateX(5px); }
+    8% { transform: translateX(1px); }
   }
   @media (max-width: 760px) { #next { right: calc(14px + var(--band-x, 0px)); bottom: calc(18px + var(--band-y, 0px)); height: 50px; line-height: 50px; border-width: 0 28px; } }
   #progress-track { position: absolute; z-index: 5; left: var(--band-x, 0px); right: var(--band-x, 0px); bottom: var(--band-y, 0px); height: 6px; background: rgba(255,255,255,.35); }
@@ -705,6 +840,7 @@
     <label class="sr-only" for="jump-sel">Jump to screen</label>
     <select id="jump-sel"></select>
   </div>
+  <button id="back" type="button" aria-label="Go back one screen"><span class="chev" aria-hidden="true">&#9664;</span><span>Back</span></button>
   <button id="next" type="button" aria-label="Next"><span>Next</span><span class="chev" aria-hidden="true">&#9654;</span></button>
   <div id="progress-track"><div id="progress"></div></div>
 
@@ -746,11 +882,12 @@
 <script src="src/character/sleigh-frames.js"></script>
 <script src="src/fx/sleigh-intro.js"></script>
 <script src="src/character/swiftee.js"></script>
-<!-- generated from assets/ui/cardskit.png, panel-card.png, measure-card.png, compare-card.png, pannel.png, reg.png and irre.png by tools/build-card.js -->
+<!-- generated from assets/source/cardskit.png, panel-card.png, measure-card.png, compare-card.png, pannel.png, reg.png and irre.png by tools/build-card.js -->
 <script src="src/game/card-frame.js"></script>
 <script src="src/game/instruction.js"></script>
-<!-- generated from assets/ui/btn.png and numberbutton1.png by tools/build-buttons.js -->
+<!-- generated from assets/source/btn.png and numberbutton1.png by tools/build-buttons.js -->
 <script src="src/game/button-frame.js"></script>
+<script src="src/game/hand-art.js"></script>
 <script src="src/game/stage.js"></script>
 <script src="src/game/dual-coding.js"></script>
 <script src="src/game/quest.js"></script>

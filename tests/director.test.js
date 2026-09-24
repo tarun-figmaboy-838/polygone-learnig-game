@@ -270,6 +270,35 @@ function rig(overrides) {
     t('an unmatched result takes the otherwise path', log.indexOf('sfx:fallback') >= 0, log);
   }
 
+  /* A RETRY IS BRANCHED ON TOO. `until: 'correct'`: wrong, wrong, right —
+     the nudge plays twice, the right arm plays once, after the last try, and
+     nothing after the branch runs until then. */
+  {
+    const answers = ['wrong', 'wrong', 'correct'];
+    const { log, handlers } = rig({ input: () => { log.push('input'); return Promise.resolve({ result: answers.shift() || 'correct' }); } });
+    const d = Director.create(handlers, { sayMinMs: 10, feedbackSettleMs: 10 });
+    await d.run([
+      { input: { type: 'choice' } },
+      { branch: true, until: 'correct',
+        on: { correct: [{ sfx: 'praise' }, { say: 'All diagonals are still inside.' }] },
+        otherwise: [{ sfx: 'nudge' }, { input: { type: 'choice', retry: true } }] },
+      { sfx: 'after' }
+    ]);
+    t('a wrong retry is branched on again, not waved through', log.filter((x) => x === 'sfx:nudge').length === 2, log);
+    t('a right retry runs the right arm', log.filter((x) => x === 'sfx:praise').length === 1 && log.indexOf('say:All diagonals are still inside.') >= 0, log);
+    t('nothing after the branch runs until the answer is right', log.indexOf('sfx:after') > log.indexOf('sfx:praise'), log);
+    t('the child was asked three times', log.filter((x) => x === 'input').length === 3, log);
+  }
+  {
+    const { log, handlers } = rig({ input: () => Promise.resolve({ result: 'wrong' }) });
+    const d = Director.create(handlers, { sayMinMs: 10, feedbackSettleMs: 10 });
+    const r = await Promise.race([
+      d.run([{ input: { type: 'choice' } }, { branch: true, until: 'correct', otherwise: [{ sfx: 'nudge' }] }, { sfx: 'after' }]),
+      sleep(1500).then(() => 'HUNG')
+    ]);
+    t('an arm that asks nothing again cannot loop', r !== 'HUNG' && log.filter((x) => x === 'sfx:nudge').length === 1, log);
+  }
+
   {
     const { log, handlers } = rig();
     const d = Director.create(handlers, { sayMinMs: 10, msPerWord: 1 });

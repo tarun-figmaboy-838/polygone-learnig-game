@@ -15,105 +15,105 @@
 (function (global) {
   'use strict';
   var F = {
-      "option": {
-          "src": "assets/ui/card.webp",
-          "w": 469,
-          "h": 445,
-          "pane": {
-              "x": 0.09,
-              "y": 0.13,
-              "w": 0.82,
-              "h": 0.78
-          }
-      },
-      "convexBin": {
-          "src": "assets/ui/bin-convex.webp",
-          "w": 470,
-          "h": 442,
-          "pane": {
-              "x": 0.05,
-              "y": 0.06,
-              "w": 0.9,
-              "h": 0.89
-          }
-      },
-      "concaveBin": {
-          "src": "assets/ui/bin-concave.webp",
-          "w": 468,
-          "h": 442,
-          "pane": {
-              "x": 0.05,
-              "y": 0.06,
-              "w": 0.9,
-              "h": 0.89
-          }
-      },
-      "panel": {
-          "src": "assets/ui/panel.webp",
-          "w": 1024,
-          "h": 991,
-          "pane": {
-              "x": 0.06,
-              "y": 0.095,
-              "w": 0.88,
-              "h": 0.81
-          }
-      },
-      "plank": {
-          "src": "assets/ui/plank.webp",
-          "w": 1400,
-          "h": 353,
-          "pane": {
-              "x": 0.0321,
-              "y": 0.2206,
-              "w": 0.9349,
-              "h": 0.6785
-          }
-      },
-      "compare": {
-          "src": "assets/ui/compare.webp",
-          "w": 640,
-          "h": 542,
-          "pane": {
-              "x": 0.07,
-              "y": 0.09,
-              "w": 0.86,
-              "h": 0.83
-          }
-      },
-      "measure": {
-          "src": "assets/ui/measure.webp",
-          "w": 1024,
-          "h": 572,
-          "pane": {
-              "x": 0.036,
-              "y": 0.084,
-              "w": 0.928,
-              "h": 0.816
-          }
-      },
-      "regular": {
-          "src": "assets/ui/zone-regular.webp",
-          "w": 640,
-          "h": 611,
-          "pane": {
-              "x": 0.06,
-              "y": 0.06,
-              "w": 0.88,
-              "h": 0.88
-          }
-      },
-      "irregular": {
-          "src": "assets/ui/zone-irregular.webp",
-          "w": 640,
-          "h": 612,
-          "pane": {
-              "x": 0.06,
-              "y": 0.06,
-              "w": 0.88,
-              "h": 0.88
-          }
+    "option": {
+      "src": "assets/ui/card.webp",
+      "w": 469,
+      "h": 445,
+      "pane": {
+        "x": 0.09,
+        "y": 0.13,
+        "w": 0.82,
+        "h": 0.78
       }
+    },
+    "convexBin": {
+      "src": "assets/ui/bin-convex.webp",
+      "w": 470,
+      "h": 442,
+      "pane": {
+        "x": 0.05,
+        "y": 0.06,
+        "w": 0.9,
+        "h": 0.89
+      }
+    },
+    "concaveBin": {
+      "src": "assets/ui/bin-concave.webp",
+      "w": 468,
+      "h": 442,
+      "pane": {
+        "x": 0.05,
+        "y": 0.06,
+        "w": 0.9,
+        "h": 0.89
+      }
+    },
+    "panel": {
+      "src": "assets/ui/panel.webp",
+      "w": 1024,
+      "h": 984,
+      "pane": {
+        "x": 0.1,
+        "y": 0.1,
+        "w": 0.8,
+        "h": 0.8
+      }
+    },
+    "plank": {
+      "src": "assets/ui/plank.webp",
+      "w": 1400,
+      "h": 353,
+      "pane": {
+        "x": 0.0321,
+        "y": 0.2206,
+        "w": 0.9349,
+        "h": 0.6785
+      }
+    },
+    "compare": {
+      "src": "assets/ui/compare.webp",
+      "w": 640,
+      "h": 542,
+      "pane": {
+        "x": 0.07,
+        "y": 0.09,
+        "w": 0.86,
+        "h": 0.83
+      }
+    },
+    "measure": {
+      "src": "assets/ui/measure.webp",
+      "w": 1024,
+      "h": 572,
+      "pane": {
+        "x": 0.036,
+        "y": 0.084,
+        "w": 0.928,
+        "h": 0.816
+      }
+    },
+    "regular": {
+      "src": "assets/ui/zone-regular.webp",
+      "w": 640,
+      "h": 611,
+      "pane": {
+        "x": 0.06,
+        "y": 0.06,
+        "w": 0.88,
+        "h": 0.88
+      }
+    },
+    "irregular": {
+      "src": "assets/ui/zone-irregular.webp",
+      "w": 640,
+      "h": 612,
+      "pane": {
+        "x": 0.06,
+        "y": 0.06,
+        "w": 0.88,
+        "h": 0.88
+      }
+    }
   };
   global.CardFrame = F;
   if (typeof module !== 'undefined' && module.exports) module.exports = F;

@@ -74,6 +74,9 @@
   function schedule() {
     if (!running || !ctx) return;
     var now = ctx.currentTime;
+    // A timer that slept (a hidden tab) while the audio clock ran on would
+    // otherwise schedule every figure it missed in the past, all at once.
+    if (nextAt < now) nextAt = now + 0.05;
     while (nextAt < now + LOOK) {
       var t0 = nextAt, v = gainFor();
       FIGURE.forEach(function (n) {

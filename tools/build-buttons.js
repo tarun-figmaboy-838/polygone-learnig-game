@@ -4,7 +4,7 @@
  *
  *   node tools/build-buttons.js
  *
- * assets/ui/btn.png is twenty finished buttons on a black background.
+ * assets/source/btn.png is twenty finished buttons on a black background.
  *
  * WHY SLICE RATHER THAN STRETCH. The buttons in this game are every width
  * from a 64-unit stepper key to a 184-unit answer, and the sheet is one
@@ -58,7 +58,7 @@ const OUT_JS = path.join(ROOT, 'src/game/button-frame.js');
    the gold coins are the stepper's, glyph and all, so they are cut whole
    (glyph: true) rather than as caps and a stretch. */
 const SHEETS = [
-  { src: 'assets/ui/btn.png', want: [
+  { src: 'assets/source/btn.png', want: [
     // five across, four down; matte pills with soft dark outlines
     { cell: 1,  tone: 'sun',       role: 'Primary' },
     { cell: 2,  tone: 'tangerine', role: 'Secondary' },
@@ -71,10 +71,35 @@ const SHEETS = [
     { cell: 3,  tone: 'sky',       role: 'Neutral' },
     { cell: 13, tone: 'plum',      role: 'Neutral' }
   ] },
-  { src: 'assets/ui/numberbutton1.png', want: [
-    // the gold coins (yellow, like the rest of the game's neutral buttons), not the ice cubes
+  // THE STEPPER'S KEYS: the supplied pair of glossy gold keys, minus and plus,
+  // on transparency (assets/source/new plus-minus.png, in place of the gold coins
+  // from numberbutton1.png). Cut whole, sign and all.
+  { src: 'assets/source/new plus-minus.png', want: [
     { cell: 0,  tone: 'stepMinus', role: 'Stepper', glyph: true },
     { cell: 1,  tone: 'stepPlus',  role: 'Stepper', glyph: true }
+  ] },
+
+  /* THE SUPPLIED UI KIT — twenty glossy capsules, five across and four down,
+     cut by what each colour is FOR rather than by what it is. These are the
+     chrome of the game: the button that moves you on, the button that starts
+     a thing, the one that is switched off. They are deliberately a separate
+     set from the pills above, which belong to the LESSON — an answer, a right
+     answer, a wrong one — because the two must never be confused. A child
+     learning that green means "you were right" should not meet green as the
+     colour of a Next button.
+
+       row 1  gold  orange  amber   beige     brown
+       row 2  cyan  blue    deep    lavender  purple
+       row 3  pink  magenta red     coral     rose
+       row 4  green lime    teal    turquoise slate
+  */
+  { src: 'assets/source/image.png', want: [
+    { cell: 0,  tone: 'uiPrimary',   role: 'Primary action' },
+    { cell: 6,  tone: 'uiNav',       role: 'Navigation' },
+    { cell: 9,  tone: 'uiSecondary', role: 'Secondary / optional' },
+    { cell: 15, tone: 'uiSuccess',   role: 'Success feedback' },
+    { cell: 12, tone: 'uiDanger',    role: 'Error feedback' },
+    { cell: 19, tone: 'uiDisabled',  role: 'Disabled / locked' }
   ] }
 ];
 
@@ -283,8 +308,23 @@ const CUT = function (opts) {
           if (foreign((ay * BW + BW - 1) * 4)) edge++;
         }
 
-        out.push({ tone: w.tone, role: w.role, glyph: !!w.glyph, w: box.w, h: box.h, cap: w.glyph ? 0 : cap, edge: w.trust ? 0 : edge,
-                   webp: t2.toDataURL('image/webp', 0.94) });
+        /* A GLYPH KEY IS DRAWN SMALL: the stepper's keys are about fifty units
+           tall, so a 600px picture of one is weight with nothing to show for
+           it. Scaled to at most GLYPH_CAP tall, its own proportions kept. */
+        let outCanvas = t2, ow = box.w, oh = box.h;
+        const GLYPH_CAP = 240;
+        if (w.glyph && box.h > GLYPH_CAP) {
+          const k = GLYPH_CAP / box.h;
+          ow = Math.round(box.w * k); oh = GLYPH_CAP;
+          const t3 = document.createElement('canvas');
+          t3.width = ow; t3.height = oh;
+          const g3 = t3.getContext('2d');
+          g3.imageSmoothingQuality = 'high';
+          g3.drawImage(t2, 0, 0, box.w, box.h, 0, 0, ow, oh);
+          outCanvas = t3;
+        }
+        out.push({ tone: w.tone, role: w.role, glyph: !!w.glyph, w: ow, h: oh, cap: w.glyph ? 0 : cap, edge: w.trust ? 0 : edge,
+                   webp: outCanvas.toDataURL('image/webp', 0.94) });
       });
       resolve({ sheet: { w: img.width, h: img.height }, found: found.length, buttons: out });
     };
@@ -293,7 +333,22 @@ const CUT = function (opts) {
 };
 
 (async () => {
-  for (const sheet of SHEETS) {
+  // `node tools/build-buttons.js stepMinus stepPlus` re-cuts only the named
+  // buttons and keeps every other one exactly as button-frame.js has it, so
+  // swapping one piece of art does not re-encode the whole kit.
+  const only = process.argv.slice(2).filter((a) => !a.startsWith('-'));
+  const tones = [].concat.apply([], SHEETS.map((s) => s.want.map((w) => w.tone)));
+  const unknown = only.filter((k) => tones.indexOf(k) < 0);
+  if (unknown.length) { console.error('no such button: ' + unknown.join(', ')); process.exit(1); }
+  const sheets = only.length
+    ? SHEETS.map((s) => ({ src: s.src, want: s.want.filter((w) => only.indexOf(w.tone) >= 0) })).filter((s) => s.want.length)
+    : SHEETS;
+  let kept = {};
+  if (only.length) {
+    try { delete require.cache[require.resolve(OUT_JS)]; kept = require(OUT_JS) || {}; }
+    catch (e) { console.error('cannot read ' + OUT_JS + ' to keep the other buttons: ' + e.message); process.exit(1); }
+  }
+  for (const sheet of sheets) {
     if (!fs.existsSync(path.join(ROOT, sheet.src))) { console.error('missing ' + sheet.src); process.exit(1); }
   }
   const srv = await serve();
@@ -302,15 +357,21 @@ const CUT = function (opts) {
   const page = await browser.newPage();
   await page.goto(`http://127.0.0.1:${port}/`);
   const m = { buttons: [] };
-  for (const sheet of SHEETS) {
-    const part = await page.evaluate(CUT, { url: `http://127.0.0.1:${port}/${sheet.src}`, want: sheet.want });
-    console.log('  ' + sheet.src + '  ' + part.sheet.w + 'x' + part.sheet.h + '   buttons found: ' + part.found);
+  for (const sheet of sheets) {
+    // (the whole sheet is read, so a cell number means the same thing either way)
+    const full = SHEETS.filter((s) => s.src === sheet.src)[0];
+    const part = await page.evaluate(CUT, { url: `http://127.0.0.1:${port}/${encodeURI(sheet.src)}`, want: sheet.want });
+    console.log('  ' + sheet.src + '  ' + part.sheet.w + 'x' + part.sheet.h + '   buttons found: ' + part.found + (full && full.want.length !== sheet.want.length ? '  (re-cutting ' + sheet.want.length + ')' : ''));
     m.buttons = m.buttons.concat(part.buttons);
   }
   await browser.close();
   srv.close();
 
   const frames = {};
+  if (only.length) {
+    // every button that is not being re-cut, as it was, in the kit's own order
+    tones.forEach(function (t) { if (only.indexOf(t) < 0 && kept[t]) frames[t] = kept[t]; });
+  }
   let dirty = 0;
   m.buttons.forEach(function (b) {
     const file = 'assets/ui/btn-' + b.tone + '.webp';
@@ -327,6 +388,12 @@ const CUT = function (opts) {
                   'taking part of a neighbour.');
     process.exit(1);
   }
+  // in the kit's own order, however many were re-cut
+  const ordered = {};
+  tones.forEach(function (t) { if (frames[t]) ordered[t] = frames[t]; });
+  Object.keys(frames).forEach(function (t) { if (!ordered[t]) ordered[t] = frames[t]; });
+  Object.keys(frames).forEach(function (t) { delete frames[t]; });
+  Object.keys(ordered).forEach(function (t) { frames[t] = ordered[t]; });
 
   fs.writeFileSync(OUT_JS,
 `/*!

@@ -310,17 +310,35 @@
    * Play cues in order. Numbers in the list are gaps in seconds:
    *   SFX.sequence(['drumroll', 1.2, 'levelUp', 0.3, 'sparkle'])
    */
+  var seqTimers = [];
   function sequence(list) {
     var delay = 0;
     (list || []).forEach(function (item) {
       if (typeof item === 'number') { delay += item * 1000; return; }
-      setTimeout(function () { play(item); }, delay);
+      seqTimers.push(setTimeout(function () { play(item); }, delay));
     });
     return delay;
   }
+  /* Called off: Replay pressed during the finale's fanfare must not hear the
+     rest of it over the opening. */
+  function cancelSequences() { seqTimers.splice(0).forEach(clearTimeout); }
 
+  /* 'interrupted' is iOS's word for a context a phone call or Siri took away;
+     only 'running' means there is sound. */
   function resume() {
-    if (ctx && ctx.state === 'suspended' && ctx.resume) { try { ctx.resume(); } catch (e) {} }
+    if (hiddenNow()) return;
+    if (ctx && ctx.state !== 'running' && ctx.state !== 'closed' && ctx.resume) { try { ctx.resume(); } catch (e) {} }
+  }
+
+  /* A HIDDEN TAB IS SILENT. The tune and any cue stop when the page is
+     hidden and come back when it is shown, so a lesson left in a background
+     tab is not playing a marimba to nobody. */
+  function hiddenNow() { try { return !!(global.document && global.document.hidden); } catch (e) { return false; } }
+  if (global.document && global.document.addEventListener) {
+    global.document.addEventListener('visibilitychange', function () {
+      if (!ctx) return;
+      try { if (global.document.hidden) { if (ctx.state === 'running' && ctx.suspend) ctx.suspend(); } else resume(); } catch (e) {}
+    });
   }
 
   /**
@@ -360,6 +378,7 @@
     /** Cue by name. Unknown names warn and return false; they never throw. */
     play: play,
     sequence: sequence,
+    cancelSequences: cancelSequences,
 
     /** Call once from a real user gesture, before anything plays. */
     unlock: function () {

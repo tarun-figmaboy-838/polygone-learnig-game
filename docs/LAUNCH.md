@@ -9,14 +9,14 @@ by a gate that fails the build, not by looking at it once.
 
 | | |
 | --- | --- |
-| ✅ | All **39 screens** present, in storyboard order, each with a unique id |
+| ✅ | All **34 screens** present, in storyboard order, each with a unique id |
 | ✅ | All **36 script lines** match the recording script word for word — none rewritten, none paraphrased |
 | ✅ | **12 interaction types** all reachable and all exercised, including the swipe classification |
 | ✅ | Swipe practice: five shapes one at a time, left for Regular, right for Irregular — judged from live geometry, never from a table |
 | ✅ | A wrong swipe keeps the same shape; a twitch under the threshold classifies nothing. Both gated in the browser run |
 | ✅ | Every judged screen answers correctly to a **wrong** attempt first — 8 of them, tested that way on every run |
 | ✅ | No answer ghosts: no wrong path contains the words of the right one |
-| ✅ | Instruction card simulated on all 39 screens; every screen says what to do |
+| ✅ | Instruction card simulated on all 34 screens; every screen says what to do |
 
 ## Truth
 
@@ -127,7 +127,7 @@ on every screen, resizes the window mid-sentence and leans on the arrow keys.
 
 ```
 npm test              77 + 38 + 45 + 26 checks, quest, and a full jsdom playthrough
-npm run test:browser  the same 39 screens in a real Chrome, ~105 s
+npm run test:browser  the same 34 screens in a real Chrome, ~105 s
 ```
 
 Both green at the commit this file ships in.

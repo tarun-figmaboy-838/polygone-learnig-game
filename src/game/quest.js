@@ -1,11 +1,13 @@
 (function (global) {
   'use strict';
   var chapters = [
+    // (the diagonal chapter's five demonstration screens became the child's
+    // own connect-and-discover step, so every end after it is five earlier)
     { end: 3, name: 'Shape scout', icon: '◆' },
-    { end: 14, name: 'Diagonal detective', icon: '✦' },
-    { end: 26, name: 'Dent discoverer', icon: '⌁' },
-    { end: 34, name: 'Pattern pro', icon: '★' },
-    { end: 38, name: 'Polygon builder', icon: '⬟' }
+    { end: 9, name: 'Diagonal detective', icon: '✦' },
+    { end: 21, name: 'Dent discoverer', icon: '⌁' },
+    { end: 29, name: 'Pattern pro', icon: '★' },
+    { end: 33, name: 'Polygon builder', icon: '⬟' }
   ];
   function create() {
     var xp = 0, won = {}, badges = [], streak = 0;

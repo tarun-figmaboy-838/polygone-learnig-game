@@ -31,8 +31,24 @@
   var seatY = 0, plankFree = false;
   var SEAT_LAYERS = ['panel', 'poly', 'ui', 'fx'];
   function applySeat(animate) {
-    var p = (st.kind === 'polygon' && st.panel) ? st.panel : null;
-    var target = (plankFree && p) ? -Math.max(0, Math.min(52, p.y - 56)) : 0;
+    // the builder is a single card too (with its stepper under it): it sat
+    // unseated, a fifth of the screen of empty sky above it and the stepper
+    // on the floor
+    var p = ((st.kind === 'polygon' || st.kind === 'builder') && st.panel) ? st.panel : null;
+    /* CENTRED ON WHAT IS THERE. A fixed lift of 52 centred a full card, and a
+       card with its answer row under it — and left a card whose row had gone
+       (lets-change, drag-inward, whoa carry the Inside/Outside card on)
+       sitting high over 180px of empty snow. The scene is the card, plus the
+       control band when it has one, centred in the stage; its foot never
+       comes below Next's top (495), and the lift never passes 64. */
+    var target = 0;
+    if (plankFree && p) {
+      var band = (p.controls || st.stepperG) ? CONTROL_GAP + CONTROL_H : 0;
+      var groupH = p.h + band;
+      var want = Math.max(40, (H - groupH) / 2);
+      var lift = Math.max(p.y - want, (p.y + p.h) - 490);
+      target = -Math.max(0, Math.min(64, lift));
+    }
     if (target === seatY) return;
     var from = seatY; seatY = target;
     SEAT_LAYERS.forEach(function (n) {
@@ -47,6 +63,11 @@
     });
   }
   var onTap = function () {};       // game.js hooks perTap feedback here
+  /* The things the child does, by name — vertex:selected, diagonal:start,
+     measurement:complete, answer:selected — for the director's event stream.
+     game.js connects it; the stage only says what happened. */
+  var onEvent = function () {};
+  function evt(name, payload) { try { onEvent(name, payload || {}); } catch (e) {} }
   var cleanup = [];                 // listeners to remove when an interaction ends
 
   /* ------------------------------------------------------------------ *
@@ -71,24 +92,73 @@
   }
   function on(el, ev, fn, opts) { el.addEventListener(ev, fn, opts); cleanup.push(function () { el.removeEventListener(ev, fn, opts); }); }
   /**
-   * A HINT BEFORE THE FIRST TOUCH, AND AGAIN WHEN THE CHILD GOES IDLE.
-   * `build` makes the hint (a pulse, a gesture ghost) and returns its stop
-   * function. The hint is shown at once; the first touch takes it down; if
-   * six seconds then pass with no touch, it is built again — from the
-   * current state of the screen, since `build` reads that when it runs.
+   * HINTS WAIT FOR THE CHILD TO NEED THEM.
+   *
+   * This used to put its hint up the instant an input armed — a breathing
+   * corner, a ghost sliding across the card — and keep it going, forever,
+   * until the first touch. So every screen opened with something moving at
+   * the child while they were still reading what to do, and a child who
+   * stopped to think was pulsed at the whole time they thought.
+   *
+   * It is a ladder now, and it only climbs while nothing is happening:
+   *
+   *   level 1   at once: the targets are simply shown as touchable — the
+   *             corners visible, the hand cursor, a steady glow on a side.
+   *             Nothing moves. (The interaction does this itself.)
+   *   level 2   after HINT_PULSE_MS of stillness, the targets pulse ONCE.
+   *   level 3   HINT_DEMO_MS after that, the move is shown once — a ghost
+   *             running the gesture — or, where there is no gesture to show,
+   *             a clearer pulse.
+   *   then      level 3 again every HINT_AGAIN_MS for as long as they wait,
+   *             so a child is never left with nothing, and never pulsed at.
+   *
+   * Anything the child does puts it back to the bottom: a press takes the hint
+   * down at once, and no hint is ever started while a finger is on the glass.
+   * A pointer that is only moving counts as trying, and restarts the wait.
+   *
+   * `opts.pulse` and `opts.demo` each build a hint from the screen as it is
+   * NOW and return its stop function.
    */
-  var IDLE_HINT_MS = 6000;
-  function hintLoop(build) {
+  // 2.5s of stillness before the first, single hint (the polish pass: 2.5–3s;
+  // the diagonal pass: about 2s), the move shown 7s after that, and then no
+  // oftener than every 12s — a child thinking is not pulsed at.
+  var HINT_PULSE_MS = 2500, HINT_DEMO_MS = 7000, HINT_AGAIN_MS = 12000;
+  function hintLadder(opts) {
     if (reduced() || !svg) return;
-    var stop = null, idleT = null, live = true;
+    var pulse = opts.pulse || null, demo = opts.demo || opts.pulse || null;
+    var stop = null, t = null, live = true, pressing = false, lastMove = 0;
     var hide = function () { if (stop) { try { stop(); } catch (e) {} stop = null; } };
-    var show = function () { if (!live || stop) return; try { stop = build() || null; } catch (e) { stop = null; } };
-    var arm = function () { clearTimeout(idleT); idleT = setTimeout(show, IDLE_HINT_MS); };
-    on(svg, 'pointerdown', function () { hide(); clearTimeout(idleT); });
-    on(svg, 'pointerup', arm);
-    on(svg, 'pointercancel', arm);
-    cleanup.push(function () { live = false; hide(); clearTimeout(idleT); });
-    show();
+    var run = function (fn) { hide(); if (!live || pressing || !fn) return; try { stop = fn() || null; } catch (e) { stop = null; } };
+    var climb = function (level) {
+      clearTimeout(t);
+      if (!live) return;
+      var wait = level === 2 ? HINT_PULSE_MS : level === 3 ? HINT_DEMO_MS : HINT_AGAIN_MS;
+      t = setTimeout(function () {
+        if (!live || pressing) return;
+        run(level === 2 ? pulse : demo);
+        // said on the event stream, so the companion can make his ONE small
+        // gesture toward it (game.js) without the stage knowing he exists
+        evt('hint:show', { rung: level === 2 ? 'pulse' : 'demo' });
+        climb(level === 2 ? 3 : 4);
+      }, wait);
+    };
+    on(svg, 'pointerdown', function () { pressing = true; hide(); clearTimeout(t); });
+    var release = function () { pressing = false; climb(2); };
+    on(svg, 'pointerup', release);
+    on(svg, 'pointercancel', release);
+    on(svg, 'pointermove', function () {
+      if (pressing) return;
+      var now = Date.now();
+      if (now - lastMove < 200) return;       // a moving pointer is one signal, not sixty
+      lastMove = now;
+      // It restarts the wait, and it leaves what is showing alone: a mouse
+      // drifting toward the corner the ghost pointed at is the child FOLLOWING
+      // the hint, and taking the ghost's end mark away under it would hide the
+      // very place they are heading for. Only a press takes a hint down.
+      climb(2);
+    });
+    cleanup.push(function () { live = false; hide(); clearTimeout(t); });
+    climb(2);
   }
 
   /**
@@ -109,17 +179,28 @@
    * Animates `scale`, never `transform`: half the furniture here is placed
    * by a transform attribute and animating that would throw it to the origin.
    */
-  function pulseHint(els) {
+  /* ONCE, NOT FOREVER. A hint is a nudge the child can notice and then
+     forget; a pulse that never stops is a screen talking over them. `o.strong`
+     is the ladder's clearer rung: a little bigger, twice. A line has no body
+     to swell, so a side brightens instead. */
+  function pulseHint(els, o) {
+    o = o || {};
     if (reduced() || !svg) return function () {};
     var list = (els || []).filter(Boolean);
     if (!list.length) return function () {};
     var anims = [];
+    var peak = o.strong ? '1.12' : '1.075', times = o.strong ? 2 : 1;
     list.slice(0, 10).forEach(function (e, i) {
       if (!e.animate) return;
-      e.style.transformBox = 'fill-box'; e.style.transformOrigin = 'center';
       try {
-        anims.push(e.animate([{ scale: '1' }, { scale: '1.075' }, { scale: '1' }],
-          { duration: 1250, iterations: Infinity, delay: 420 + i * 120, easing: 'ease-in-out' }));
+        if (e.tagName === 'line' || e.tagName === 'path') {
+          anims.push(e.animate([{ strokeOpacity: 0.45 }, { strokeOpacity: 1 }, { strokeOpacity: 0.45 }],
+            { duration: 900, iterations: times, delay: i * 110, easing: 'ease-in-out' }));
+          return;
+        }
+        e.style.transformBox = 'fill-box'; e.style.transformOrigin = 'center';
+        anims.push(e.animate([{ scale: '1' }, { scale: peak }, { scale: '1' }],
+          { duration: 900, iterations: times, delay: i * 110, easing: 'ease-in-out' }));
       } catch (x) {}
     });
     var stop = function () { anims.forEach(function (a) { try { a.cancel(); } catch (e) {} }); anims = []; };
@@ -127,6 +208,90 @@
     return stop;
   }
 
+
+  /* ------------------------------------------------------------------ *
+   * THE HAND (assets/ui/hand.webp, built by tools/build-hand.js)
+   *
+   * The ladder's last rung shows the gesture with a hand, because that is
+   * what a child copies: a glove whose FINGERTIP (HandArt.tip, measured from
+   * the artwork) lands exactly on the thing, presses, and lifts. It is about
+   * a fingertip's size beside a corner knob — big enough to read as a hand,
+   * small enough never to cover the shape it points into — with a soft shadow
+   * under it so it floats just above the glass.
+   *
+   * It only ever shows a MOVE, never an answer: it taps a corner when any
+   * corner is right, a side when every side is to be measured, the stepper
+   * the target asks for; it rides a drag ghost. It never taps a choice.
+   * ------------------------------------------------------------------ */
+  var HAND_H = 62;   // stage units; the glove is 62 tall, its tip ~8 across
+  if (global.HandArt && typeof Image !== 'undefined') { try { (new Image()).src = HandArt.src; } catch (e) {} }
+  /** A glove with its fingertip at (x, y) in `parent`. Mirrored when the
+      glove would run off the stage's right edge, so it always comes in from
+      the side there is room on. */
+  function handAt(parent, x, y) {
+    var A = global.HandArt; if (!A || !A.src) return null;
+    var h = HAND_H, w = h * A.w / A.h, tx = A.tip.x * w, ty = A.tip.y * h;
+    var flip = x + (w - tx) > W - 6;
+    var g = mk('g', { 'class': 'hint-hand', 'pointer-events': 'none', transform: 'translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ')' }, parent);
+    // the press, felt: a ring leaves the fingertip
+    var ripple = mk('circle', { cx: 0, cy: 0, r: 18, fill: 'none', stroke: '#ffffff', 'stroke-width': 3, opacity: 0 }, g);
+    var body = mk('g', flip ? { transform: 'scale(-1,1)' } : {}, g);
+    var im = mk('image', { x: (-tx).toFixed(1), y: (-ty).toFixed(1), width: w.toFixed(1), height: h.toFixed(1), preserveAspectRatio: 'none' }, body);
+    im.setAttribute('href', A.src); im.setAttributeNS('http://www.w3.org/1999/xlink', 'href', A.src);
+    im.style.filter = 'drop-shadow(0 3px 2.5px rgba(8, 44, 96, .35))';
+    im.style.transformBox = 'fill-box'; im.style.transformOrigin = (A.tip.x * 100).toFixed(1) + '% ' + (A.tip.y * 100).toFixed(1) + '%';
+    ripple.style.transformBox = 'fill-box'; ripple.style.transformOrigin = 'center';
+    return { g: g, img: im, ripple: ripple, side: flip ? -1 : 1 };
+  }
+  /** Where a hint target is, in stage units: a knob's centre, a line's
+      middle, a pill's box. */
+  function centreOf(el) {
+    if (!el) return null;
+    if (el._rect) return { x: el._rect.x + el._rect.w / 2, y: el._rect.y + el._rect.h / 2 };
+    var tag = (el.tagName || '').toLowerCase();
+    if (tag === 'circle') return { x: +el.getAttribute('cx'), y: +el.getAttribute('cy') };
+    if (tag === 'line') return { x: (+el.getAttribute('x1') + +el.getAttribute('x2')) / 2, y: (+el.getAttribute('y1') + +el.getAttribute('y2')) / 2 };
+    try { var b = el.getBBox(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; } catch (e) { return null; }
+  }
+  /** THE TAP, SHOWN: in from below and to the side, onto the thing, two
+      presses — the glove dips, a ring leaves the fingertip — and away. Once
+      per rung; the ladder's press, or the interaction ending, takes it down. */
+  function tapHand(p, o) {
+    o = o || {};
+    if (reduced() || !svg || !p || !isFinite(p.x) || !isFinite(p.y)) return function () {};
+    var Hd = handAt(layers.fx, p.x, p.y); if (!Hd) return function () {};
+    var s1 = Hd.side, ms = o.duration || 2800, anims = [];
+    var lift = (s1 * 7) + 'px 8px', away = (s1 * 30) + 'px 38px';
+    try {
+      anims.push(Hd.g.animate([
+        { translate: away, opacity: 0, offset: 0 },
+        { translate: lift, opacity: 1, offset: 0.16 },
+        { translate: '0px 0px', opacity: 1, offset: 0.26 },     // press
+        { translate: lift, opacity: 1, offset: 0.37 },
+        { translate: '0px 0px', opacity: 1, offset: 0.5 },      // and again
+        { translate: lift, opacity: 1, offset: 0.61 },
+        { translate: lift, opacity: 1, offset: 0.8 },
+        { translate: away, opacity: 0, offset: 1 }
+      ], { duration: ms, easing: 'ease-in-out', fill: 'forwards' }));
+      anims.push(Hd.img.animate([
+        { scale: '1', offset: 0 }, { scale: '1', offset: 0.2 }, { scale: '.9', offset: 0.26 }, { scale: '1', offset: 0.34 },
+        { scale: '1', offset: 0.44 }, { scale: '.9', offset: 0.5 }, { scale: '1', offset: 0.58 }, { scale: '1', offset: 1 }
+      ], { duration: ms }));
+      anims.push(Hd.ripple.animate([
+        { opacity: 0, scale: '.3', offset: 0 }, { opacity: 0, scale: '.3', offset: 0.26 },
+        { opacity: 0.9, scale: '.45', offset: 0.27 }, { opacity: 0, scale: '1.3', offset: 0.42 },
+        { opacity: 0, scale: '.3', offset: 0.5 }, { opacity: 0.9, scale: '.45', offset: 0.51 },
+        { opacity: 0, scale: '1.3', offset: 0.66 }, { opacity: 0, scale: '.3', offset: 1 }
+      ], { duration: ms }));
+    } catch (e) {}
+    var live = true;
+    var stop = function () { if (!live) return; live = false; anims.forEach(function (a) { try { a.cancel(); } catch (e) {} }); if (Hd.g.parentNode) Hd.g.remove(); };
+    if (anims[0] && anims[0].finished) anims[0].finished.then(stop, function () {});
+    cleanup.push(stop);
+    return stop;
+  }
+  /** Two hints as one: the strong pulse on every target, and the hand on one. */
+  function both(a, b) { return function () { try { a && a(); } catch (e) {} try { b && b(); } catch (e) {} }; }
 
   function endInteraction() {
     cleanup.splice(0).forEach(function (f) { f(); });
@@ -186,18 +351,95 @@
       { translate: dx + 'px ' + dy + 'px', opacity: 0, offset: 0.94 },
       { translate: dx + 'px ' + dy + 'px', opacity: 0, offset: 1 }
     ];
+
+    /* WHERE THE MOVE ENDS, AND IT STAYS THERE.
+     *
+     * The ghost slid from the start to the end and faded, and the end faded
+     * with it: a child who looked up a second late saw a hand vanishing
+     * somewhere over the shape and nothing to say where it had been going.
+     * The end is marked now — a dashed ice ring round the place the drag
+     * finishes, with a dot at its heart — and the ring is the one part of the
+     * hint that stays: it rises as the ghost sets off, catches the ghost as it
+     * lands (one small pop), and is still there after the ghost has gone,
+     * perfectly still, until the child touches the screen. The ladder's
+     * press takes it down (hide -> stop), and so does the interaction ending.
+     * Not a moving hint: a mark. */
+    var ms = opts.duration || 3200;
+    var ringR = opts.endR || ((opts.r || 11) + 9);
+    var endG = mk('g', { 'class': 'gesture-ghost-end', 'pointer-events': 'none',
+                         transform: 'translate(' + to.x + ',' + to.y + ')' }, layers.fx);
+    mk('circle', { r: ringR, fill: HI.lit, 'fill-opacity': 0.16, stroke: HI.line, 'stroke-width': 3,
+                   'stroke-dasharray': '6 5', 'stroke-linecap': 'round' }, endG);
+    mk('circle', { r: 4.5, fill: HI.knob, stroke: HI.edge, 'stroke-width': 1.5 }, endG);
+    endG.style.opacity = '0';
+
     var anims = [];
-    if (mover.animate) anims.push(mover.animate(frames, { duration: opts.duration || 3200, iterations: Infinity, delay: opts.delay || 700 }));
+    // ONCE PER RUNG of the hint ladder, not on a loop: the move is shown, and
+    // then the child has the screen to themselves again.
+    var times = opts.times || 1, delay = opts.delay == null ? 120 : opts.delay;
+    if (mover.animate) anims.push(mover.animate(frames, { duration: ms, iterations: times, delay: delay }));
+    /* AND A HAND DOES IT. The glove comes down onto the start, presses, and
+       carries the ghost along the move with its fingertip on it; at the end it
+       lifts off and away, leaving the mark where the move finishes. */
+    var hand = opts.hand === false ? null : handAt(g, from.x, from.y);
+    if (hand && hand.g.animate) {
+      var hs = hand.side, dxy = dx + 'px ' + dy + 'px';
+      try {
+        anims.push(hand.g.animate([
+          { translate: (hs * 24) + 'px 30px', opacity: 0, offset: 0 },
+          { translate: '0px 0px', opacity: 1, offset: 0.12 },
+          { translate: '0px 0px', opacity: 1, offset: 0.16 },
+          { translate: dxy, opacity: 1, offset: 0.66, easing: 'cubic-bezier(.35,.6,.3,1)' },
+          { translate: dxy, opacity: 1, offset: 0.76 },
+          { translate: (dx + hs * 20) + 'px ' + (dy + 26) + 'px', opacity: 0, offset: 0.92 },
+          { translate: (dx + hs * 20) + 'px ' + (dy + 26) + 'px', opacity: 0, offset: 1 }
+        ], { duration: ms, iterations: times, delay: delay, fill: 'both' }));
+        anims.push(hand.img.animate([
+          { scale: '1', offset: 0 }, { scale: '1', offset: 0.12 }, { scale: '.92', offset: 0.16 },
+          { scale: '.92', offset: 0.7 }, { scale: '1', offset: 0.78 }, { scale: '1', offset: 1 }
+        ], { duration: ms, iterations: times, delay: delay }));
+      } catch (e) {}
+    }
     if (trail && trail.animate) anims.push(trail.animate([
       { opacity: 0, offset: 0 }, { opacity: 0.55, offset: 0.2 }, { opacity: 0.55, offset: 0.76 }, { opacity: 0, offset: 0.92 }, { opacity: 0, offset: 1 }
-    ], { duration: opts.duration || 3200, iterations: Infinity, delay: opts.delay || 700 }));
-    var stop = function () {
-      if (!live) return; live = false;
-      anims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+    ], { duration: ms, iterations: times, delay: delay }));
+    var ringIn = null;
+    if (endG.animate) {
+      try {
+        endG.style.transformBox = 'fill-box'; endG.style.transformOrigin = 'center';
+        ringIn = endG.animate([
+          { opacity: 0, scale: '.7', offset: 0 },
+          { opacity: 0.95, scale: '1', offset: 0.18 },
+          { opacity: 0.95, scale: '1', offset: 0.62 },
+          { opacity: 1, scale: '1.22', offset: 0.7 },       // the ghost arrives
+          { opacity: 0.95, scale: '1', offset: 0.8 },
+          { opacity: 0.95, scale: '1', offset: 1 }
+        ], { duration: ms, delay: delay, fill: 'forwards', easing: 'ease-out' });
+      } catch (e) { endG.style.opacity = '0.95'; }
+    } else endG.style.opacity = '0.95';
+    // THE GHOST GOES WHEN IT HAS SHOWN THE MOVE; THE MARK DOES NOT.
+    var ghostGone = false;
+    var fadeGhost = function () {
+      if (ghostGone) return; ghostGone = true;
       if (g.animate) {
         try { var f = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: 'forwards' }); f.finished.then(function () { g.remove(); }, function () { g.remove(); }); return; } catch (e) {}
       }
       g.remove();
+    };
+    if (anims[0] && anims[0].finished) anims[0].finished.then(function () { if (live) { fadeGhost(); endG.style.opacity = '0.95'; } }, function () {});
+    var stop = function () {
+      if (!live) return; live = false;
+      anims.forEach(function (a) { try { a.cancel(); } catch (e) {} });
+      fadeGhost();
+      // from wherever the ring is now — mid-rise, or standing — to nothing
+      var cur = 0;
+      try { cur = parseFloat(global.getComputedStyle(endG).opacity) || 0; } catch (e) { cur = 0; }
+      endG.style.opacity = String(cur);
+      if (ringIn) { try { ringIn.cancel(); } catch (e) {} }
+      if (cur > 0.02 && endG.animate && endG.parentNode) {
+        try { var f2 = endG.animate([{ opacity: cur }, { opacity: 0 }], { duration: 180, fill: 'forwards' }); f2.finished.then(function () { endG.remove(); }, function () { endG.remove(); }); return; } catch (e) {}
+      }
+      endG.remove();
     };
     cleanup.push(stop);
     return stop;
@@ -273,6 +515,12 @@
     // the glass instead of stopping at a line.
     svg.style.cssText = 'display:block;width:100%;height:100%;touch-action:none;user-select:none';
     container.appendChild(svg);
+    // a finger on the glass: while it is down the board is the child's, and
+    // a vocabulary word does not light anything under their hand (emphasize)
+    svg.addEventListener('pointerdown', function () { pressed = true; });
+    var lift = function () { pressed = false; };
+    (container.ownerDocument && container.ownerDocument.defaultView || global).addEventListener('pointerup', lift);
+    (container.ownerDocument && container.ownerDocument.defaultView || global).addEventListener('pointercancel', lift);
     ['bg', 'panel', 'poly', 'ui', 'fx'].forEach(function (n) {
       layers[n] = mk('g', { 'class': 'layer-' + n }, svg);
     });
@@ -600,7 +848,11 @@
     // 396..852 × 108..538: in from the corner, clear of Next (x 855+, y 495+)
     // and 18 under the plank's foot. When no plank is on the screen the whole
     // scene is SEATED higher — see applySeat() — so the card is centred.
-    right:  { x: 396, y: 108, w: 456, h: 430 },
+    // 452, NOT 396: the layout audit measured a 30–60px gap between his line
+    // and the card and 190px of empty ice to its right — the card crowded the
+    // bird and left the far side to nobody. Seated, the card's foot ends
+    // above Next's top (applySeat keeps it there), so it can use that room.
+    right:  { x: 452, y: 108, w: 456, h: 430 },
     // WITHOUT HIM, THE LESSON TAKES THE MIDDLE. The right-hand slab exists
     // to leave the bottom-left to Swiftee. On the twenty-eight screens he is
     // not on, it left half the screen to nobody; this is what a 'right'
@@ -698,10 +950,15 @@
     // A panel with a control under it stops above the control, and the pair
     // is centred in the band between the plank and the foot — so a screen
     // with a question is balanced, not weighted to whichever edge had room.
+    // Sized from the top it is actually given (TOP), not from the free
+    // panel's own y: measured from 108 and then placed at 120, the card ran
+    // twelve units into the gap above its control, and the stepper sat four
+    // units under the card instead of sixteen.
     var floor = BOTTOM - CONTROL_H - CONTROL_GAP;
-    var h = Math.min(p.h, Math.max(240, floor - p.y));
+    var h = Math.min(p.h, Math.max(240, floor - TOP));
     var slack = (BOTTOM - TOP) - (h + CONTROL_GAP + CONTROL_H);
-    return { x: p.x, y: TOP + Math.max(0, slack / 2), w: p.w, h: h };
+    // `controls`: the band under it is part of the scene (applySeat centres both)
+    return { x: p.x, y: TOP + Math.max(0, slack / 2), w: p.w, h: h, frame: p.frame, controls: true };
   }
 
   /** Where a control bar sits: under the panel, and never off the foot. */
@@ -786,15 +1043,102 @@
    * left corner of the stage for 460ms and then snapped into place. `scale`
    * and `translate` compose with the attribute instead of overwriting it.
    */
+  /* A THING ARRIVES; IT DOES NOT BOUNCE IN.
+   *
+   * The lesson's objects — a card, a polygon, a pair of pentagons — came in
+   * from seventy per cent with an overshoot, which is a toy landing, and a
+   * shape the child is about to study should arrive as itself: up a few
+   * pixels, from just under full size, settled. Only the small pieces of UI
+   * — a name tag, a badge, an answer — keep a hint of spring ('ui'), because
+   * those are meant to feel like things you press. */
+  /* ------------------------------------------------------------------ *
+   * THE WORD AND THE THING ARRIVE TOGETHER.
+   *
+   * "Are they inside or outside?" was said over an empty foot of the stage,
+   * and then both answers were dealt in together once the sentence was over
+   * — so the button that says "Inside" arrived a second after the word did,
+   * and the child had to connect the two by themselves. A piece of UI that
+   * a line names can wait for its word instead: it is built where it goes,
+   * held invisible and untouchable, and it comes in (the same small 'ui'
+   * entrance) in the frame the bubble reveals the word that names it. "Inside"
+   * appears on "inside", "Outside" on "outside"; a name tag on the word it
+   * says; a bin on its category; the stepper on "sides".
+   *
+   * NOTHING WAITS FOR EVER. If the word never comes — the line was changed,
+   * motion is reduced, the words were all shown at once by a tap — everything
+   * still held is shown when the line is over or when the child is handed
+   * control (releaseHeld, called by game.js as an input arms). A new scene
+   * forgets the old scene's holds. Reduced motion holds nothing at all.
+   * ------------------------------------------------------------------ */
+  /* THE SHAPES THE CHILD MADE, by what they were asked to make and how many
+     sides it had — kept across scenes (a scene reset does not clear it; a
+     Restart does, via Stage.forgetMade). Copies, so nothing the card does to
+     them can reach back. */
+  var made = {};
+  function rememberMade(cond, verts, moved) {
+    if (!cond || !verts || verts.length < 3) return;
+    made[cond + '-' + verts.length] = { verts: verts.map(function (p) { return { x: p.x, y: p.y }; }), moved: moved };
+  }
+  function madeShape(cond, n) {
+    var m = made[cond + '-' + n];
+    return m ? { verts: m.verts.map(function (p) { return { x: p.x, y: p.y }; }), moved: m.moved } : null;
+  }
+
+  var heldForWord = [];
+  function wordKey(w) { return String(w == null ? '' : w).toLowerCase().replace(/[^a-z0-9]+/g, ''); }
+  function holdForWord(el, words) {
+    if (!el || !el.style || reduced()) return false;
+    var list = (Array.isArray(words) ? words : [words]).map(wordKey).filter(Boolean);
+    if (!list.length) return false;
+    el.style.opacity = '0';
+    el._heldEvents = el.style.pointerEvents || '';
+    el.style.pointerEvents = 'none';
+    heldForWord.push({ words: list, el: el });
+    return true;
+  }
+  function showHeld(h, delay) {
+    var el = h.el;
+    if (!el || !el.parentNode) return;
+    var go = function () {
+      if (!el.parentNode) return;
+      el.style.opacity = '';
+      el.style.pointerEvents = el._heldEvents || '';
+      enter(el, 'ui');
+    };
+    if (delay) later(delay, go); else go();
+  }
+  /** A word of the line has just appeared in the bubble. */
+  function said(word) {
+    if (!heldForWord.length) return 0;
+    var w = wordKey(word);
+    if (!w) return 0;
+    var still = [], shown = 0;
+    heldForWord.forEach(function (h) {
+      if (h.words.indexOf(w) >= 0) { showHeld(h); shown++; }
+      else still.push(h);
+    });
+    heldForWord = still;
+    return shown;
+  }
+  /** The line is over, or the child is about to act: show whatever is left. */
+  function releaseHeld() {
+    var all = heldForWord; heldForWord = [];
+    all.forEach(function (h, i) { showHeld(h, i * 90); });
+    return all.length;
+  }
+
+  var ENTER_MS = 380;
   function enter(el, kind) {
     if (reduced() || !el.animate) return;
     var k = kind === 'rise'
-      ? [{ translate: '0 40px', opacity: 0 }, { translate: '0 0', opacity: 1 }]
+      ? [{ translate: '0 12px', opacity: 0 }, { translate: '0 0', opacity: 1 }]
       : kind === 'fade'
       ? [{ opacity: 0 }, { opacity: 1 }]
-      : [{ scale: '.7', opacity: 0 }, { scale: '1.04', opacity: 1, offset: .7 }, { scale: '1', opacity: 1 }];
+      : kind === 'ui'
+      ? [{ scale: '.94', translate: '0 8px', opacity: 0 }, { scale: '1.02', translate: '0 0', opacity: 1, offset: .7 }, { scale: '1', translate: '0 0', opacity: 1 }]
+      : [{ scale: '.94', translate: '0 8px', opacity: 0 }, { scale: '1', translate: '0 0', opacity: 1 }];
     el.style.transformBox = 'fill-box'; el.style.transformOrigin = 'center';
-    el.animate(k, { duration: 460, easing: 'cubic-bezier(.22,1,.36,1)' });
+    el.animate(k, { duration: ENTER_MS, easing: 'cubic-bezier(.22,1,.36,1)' });
   }
 
   /**
@@ -861,7 +1205,16 @@
     // 58 units out from it, and must not reach the rim on any side
     // 48: the walking bird stands 3 out from the side and is 45 tall at the
     // 56 cell, so his head stays on the glass; a reading tag sits within 44.
-    if (opts.room === 'measure') { mx = Math.max(face.w * 0.07, 48); mt = Math.max(face.h * 0.06, 48); mb = Math.max(mb, face.h * 0.10, 48); }
+    /* THE MEASURING ROOM, RE-MEASURED.
+     *
+     * These margins were cut for the old readout: a 66-wide ice plate pushed
+     * straight out from each side, which needed up to forty units of clear
+     * card beside every edge. The readout is a dimension line now — fifteen
+     * units out, a five-unit tick, and the figure sitting in a gap in the
+     * line — so it needs barely half that, and the shape was left swimming in
+     * a card it no longer had to share. The shape is the lesson; the room
+     * around it is only what the marks actually occupy. */
+    if (opts.room === 'measure') { mx = Math.max(face.w * 0.045, 32); mt = Math.max(face.h * 0.04, 30); mb = Math.max(mb, face.h * 0.07, 32); }
     var box = { x: face.x + mx, y: face.y + mt, w: face.w - mx * 2, h: face.h - mt - mb };
 
     // Built at unit size WITH its deformations, so what gets measured is what
@@ -870,7 +1223,9 @@
     // ONE SIDE IS A LINE, TWO ARE A CORNER. Below three there is no polygon
     // to draw, and the builder starts there on purpose: the child adds the
     // sides one at a time and sees the third one close the shape.
-    var u = n === 1 ? [{ x: -1, y: 0 }, { x: 1, y: 0 }]
+    // a given outline (the child's own shape) is fitted exactly as it is
+    var u = opts.shape && opts.shape.length >= 3 ? opts.shape.map(function (q) { return { x: q.x, y: q.y }; })
+          : n === 1 ? [{ x: -1, y: 0 }, { x: 1, y: 0 }]
           : n === 2 ? [{ x: -0.92, y: 0.62 }, { x: 0, y: -0.62 }, { x: 0.92, y: 0.62 }]
           : Poly.regular(n, 1, 0, 0);
     // 0.92, not 0.72. Pulled 72% of the way to the centre, a pentagon's top
@@ -903,6 +1258,45 @@
 
     var v = u.map(function (q) { return { x: cx + q.x * k, y: cy + q.y * k }; });
     return { verts: v, cx: cx, cy: cy, r: k };
+  }
+
+  /* A DIAGONAL DRAWN THE WAY A HAND DRAWS IT.
+   *
+   * The five used to be stroked in with a dash-offset trick: a solid line
+   * that wiped across in 0.7s and then, at the end, snapped into dashes — and
+   * the next one started before the last had landed, 0.42s apart, so the
+   * star arrived as a flicker of overlapping strokes a child could not
+   * follow. Now each one GROWS from its first corner to its second, already
+   * dashed (the dashes are measured from where it starts, so they do not
+   * crawl), with a small bright point at its tip like the end of a pencil,
+   * eased in and out; and it waits for the one before to land. One line, one
+   * corner to another, five times — which is what "the diagonals of this
+   * pentagon" are. Stepped by frame, and it gives up quietly if the line is
+   * taken off the stage under it. */
+  function drawIn(dg, pair, a, b, delay, each) {
+    var lines = pair.filter(function (x, i, all) { return x && all.indexOf(x) === i; });
+    var dur = Math.max(500, Math.min(1000, (each || 1150) - 250));
+    var tip = mk('circle', { cx: a.x, cy: a.y, r: 5.5, fill: '#ffffff', 'fill-opacity': 0.95, 'pointer-events': 'none' }, dg);
+    if (tip.style) tip.style.filter = 'drop-shadow(0 0 5px rgba(170, 240, 255, .95))';
+    tip.setAttribute('opacity', 0);
+    lines.forEach(function (ln) { ln.setAttribute('x2', a.x); ln.setAttribute('y2', a.y); ln.setAttribute('opacity', 0); });
+    var t0 = null;
+    var frame = global.requestAnimationFrame || function (f) { return setTimeout(function () { f(Date.now()); }, 16); };
+    var ease = function (k) { return k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; };
+    var step = function (now) {
+      if (!dg.parentNode) return;                      // redrawn or torn down: stop
+      if (t0 == null) t0 = now;
+      var el = now - t0 - delay;
+      if (el < 0) { frame(step); return; }
+      var k = Math.min(1, el / dur), e = ease(k);
+      var x = a.x + (b.x - a.x) * e, y = a.y + (b.y - a.y) * e;
+      lines.forEach(function (ln) { ln.setAttribute('opacity', 1); ln.setAttribute('x2', x); ln.setAttribute('y2', y); });
+      tip.setAttribute('cx', x); tip.setAttribute('cy', y);
+      tip.setAttribute('opacity', k < 0.9 ? 1 : Math.max(0, (1 - k) * 10));
+      if (k < 1) frame(step);
+      else { lines.forEach(function (ln) { ln.setAttribute('x2', b.x); ln.setAttribute('y2', b.y); }); tip.remove(); }
+    };
+    frame(step);
   }
 
   /** (Re)draw the main polygon from st.verts. Called on every change. */
@@ -943,13 +1337,7 @@
         // five-line draw-in every time, which looked like the animation
         // stuttering back to the start. It is spent as it is used.
         d.animate = false;
-        // drawn in slowly enough to be watched, glow and core together
-        var len = Math.hypot(b.x - a.x, b.y - a.y);
-        [line].forEach(function (ln) {
-          ln.style.strokeDasharray = len; ln.style.strokeDashoffset = len;
-          ln.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 720, delay: (d.delay || 0), easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'forwards' })
-            .finished.then(function () { if (!d.solid) { ln.style.strokeDasharray = '14 12'; } ln.style.strokeDashoffset = 0; });
-        });
+        drawIn(dg, pair, a, b, d.delay || 0, d.each);
       }
     });
 
@@ -986,31 +1374,42 @@
       }
     }
 
-    // THE SIDE IS NOT REMOVED, AND IT IS NOT LIT EITHER.
-    //
-    // Page 11 asks the child to drag the end of the side they have just made
-    // across to a far corner. The line used to travel with the drag, so the
-    // side was spent to buy the diagonal — it is kept now: st.sideMark
-    // records it, and the polygon's own outline draws it, like every other
-    // side. It is deliberately NOT drawn lit: a second white line of the
-    // same weight beside the new one reads as a leftover, or as a second
-    // diagonal, and the one thing this screen has to say is "that new line
-    // is a diagonal". Only the diagonal is lit.
-
-    // highlighted segment (side or new diagonal)
+    // THE SIDE BEING TALKED ABOUT: the one the child just connected, drawn in
+    // pale ice over the outline. The connect step lights it while it is named
+    // ("This is a side of the polygon.") and takes it down before the next
+    // try (clearSide); nothing else on the shape is drawn over a side.
     if (st.segment) {
       var sa = v[st.segment[0]], sb = v[st.segment[1]];
-      var seg = litLine(g, { x1: sa.x, y1: sa.y, x2: sb.x, y2: sb.y, 'stroke-width': 5, 'stroke-linecap': 'round' });
-      st.segGlow = seg[0]; st.segLine = seg[1];
+      var segEl = mk('line', { x1: sa.x, y1: sa.y, x2: sb.x, y2: sb.y, stroke: HI.line, 'stroke-width': 4.5,
+                               'stroke-linecap': 'round', 'pointer-events': 'none', 'class': 'segment' }, g);
+      st.segGlow = segEl; st.segLine = segEl;
     }
 
     // edges as tap targets (invisible, wide) — an open figure has no closing side
     st.edgeEls = [];
     for (var i = 0; i < (isOpen() ? n - 1 : n); i++) {
       var e1 = v[i], e2 = v[(i + 1) % n];
-      var edge = mk('line', { x1: e1.x, y1: e1.y, x2: e2.x, y2: e2.y, stroke: 'transparent', 'stroke-width': 30, 'class': 'edge', 'data-i': i }, g);
+      // 46 units wide — well past a fingertip on every screen the game runs
+      // on — so a side is hit by a tap anywhere near it, not only on the line
+      var edge = mk('line', { x1: e1.x, y1: e1.y, x2: e2.x, y2: e2.y, stroke: 'transparent', 'stroke-width': 46, 'stroke-linecap': 'round', 'class': 'edge', 'data-i': i }, g);
       st.edgeEls.push(edge);
     }
+
+    /* A SIDE STILL TO MEASURE BREATHES, the whole length of it. It was a dot
+       at its middle, which read as a corner to tap; the side itself is the
+       thing, so the side softly brightens and dims — each a beat after the
+       one before — until it has been measured, and then it is still. The
+       wide edge above takes the tap anywhere along it. (st.sideDotEls keeps
+       its name: the hints and the word "side" find the to-do marks there.) */
+    st.sideDotEls = [];
+    (st.sideTodo || []).forEach(function (si, order) {
+      var p1 = v[si], p2 = v[(si + 1) % n];
+      if (!p1 || !p2) return;
+      var todo = mk('line', { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, stroke: '#fff4c9', 'stroke-width': 7,
+                              'stroke-linecap': 'round', 'class': 'side-todo', 'data-i': si, 'pointer-events': 'none' }, g);
+      todo.style.animationDelay = (order * 0.22).toFixed(2) + 's';
+      st.sideDotEls[si] = todo;
+    });
 
     // measurements and arcs live in a sub-group so drags can refresh them
     st.measG = mk('g', { 'class': 'measurements' }, g);
@@ -1057,6 +1456,14 @@
     for (var j = 0; j < n; j++) {
       var col = st.vcolor && st.vcolor[j] ? st.vcolor[j] : null;
       var shown = !!(col || st.showVerts || isOpen());   // an open figure shows its corners
+      // THE CORNER THE CHILD CHOSE keeps a quiet icy ring for as long as it
+      // is the start of their lines — both diagonals are drawn from it — so
+      // "this is my corner" never has to be remembered.
+      if (st.picked === j && !isOpen()) {
+        mk('circle', { cx: v[j].x, cy: v[j].y, r: 16, fill: 'none', stroke: HI.line, 'stroke-width': 3,
+                       opacity: 0.95, 'class': 'anchor-ring', 'pointer-events': 'none',
+                       style: 'filter: drop-shadow(0 0 4px rgba(75, 224, 255, .85));' }, g);
+      }
       var knob = mk('circle', {
         cx: v[j].x, cy: v[j].y,
         r: col ? 10 : (touch ? 9 : 6),
@@ -1067,8 +1474,11 @@
         opacity: shown ? 1 : 0,
         'pointer-events': 'none'
       }, g);
+      // 18 units: 36 across, which is 37px on a 1024-wide window and more on
+      // anything bigger — the 36–44px a finger needs, however small the
+      // knob it lands on looks.
       var c = mk('circle', {
-        cx: v[j].x, cy: v[j].y, r: 15,
+        cx: v[j].x, cy: v[j].y, r: 18,
         fill: '#000', 'fill-opacity': 0, stroke: 'none',
         'class': 'vertex', 'data-i': j
       }, g);
@@ -1112,6 +1522,9 @@
       var C = st.vertEls[i]; if (C) { C.setAttribute('cx', v[i].x); C.setAttribute('cy', v[i].y); }
       var K = st.knobEls && st.knobEls[i]; if (K) { K.setAttribute('cx', v[i].x); K.setAttribute('cy', v[i].y); }
     }
+    // the chosen corner's ring goes where the corner goes
+    var ring = st.polyG && st.picked != null && v[st.picked] ? st.polyG.querySelector('.anchor-ring') : null;
+    if (ring) { ring.setAttribute('cx', v[st.picked].x); ring.setAttribute('cy', v[st.picked].y); }
     if (st.measG) { while (st.measG.firstChild) st.measG.removeChild(st.measG.firstChild); if (st.measure) drawMeasurements(st.measG); }
   }
 
@@ -1182,6 +1595,26 @@
     var M = svg.getScreenCTM && svg.getScreenCTM();
     var page = function (x, y) { return M ? { x: M.a * x + M.e, y: M.d * (y + seatY) + M.f } : null; };
     var flies = !!(companion && companion.animate && global.Swiftee.bounds && parseFloat(opacity || '0') > 0.05 && M);
+
+    /* THIS SEQUENCE OWNS HIM, from the flight out to the flight home.
+     *
+     * The measuring walk is a dedicated animation and nothing generic may
+     * touch the companion while it runs — a face played by a tap, the resting
+     * loop, an idle hint, being shown by a line of dialogue. Before this lock
+     * one of those did exactly that: the per-tap "well done" face put him back
+     * on his mark, visible, while his measuring self was still out walking the
+     * side. swiftee.js defers whatever is asked for until release() below. */
+    var owns = !!(global.Swiftee && Swiftee.lock);
+    if (owns) Swiftee.lock('measuring');
+    var released = false;
+    var release = function () {
+      if (released) return; released = true;
+      var at = cleanup.indexOf(release); if (at >= 0) cleanup.splice(at, 1);
+      if (owns && Swiftee.unlock) Swiftee.unlock('measuring');
+    };
+    cleanup.push(release);   // a screen change mid-walk lets go of him too
+    var finished = done;
+    done = function () { release(); finished(); };
     var here = null, hb = flies && Swiftee.bounds();
     if (hb && hb.width) here = { x: (hb.left + hb.right) / 2, y: hb.bottom }; else flies = false;
     var startAt = page(a.x + nx * ON_LINE, a.y + ny * ON_LINE);
@@ -1344,7 +1777,14 @@
     var units = !!st.measure.units;
     var sideText  = units || (!measuringAngles && sMark.groups <= 1);
     var sideTicks = !units && sides.length === n;
-    var angleText = !units && aMark.groups <= 1;
+    /* THE ANGLES ARE PLAYED WITH TOO. On the stretching screen the corners
+       carry their degrees, live, the same way the sides carry centimetres:
+       drag the corner and both change under the child's hand. They used to
+       go back to nested rings (the textbook's "not the same size" mark),
+       which says that two corners differ but not how, and read as a sign in
+       a language the lesson never taught. A number is what a child can
+       watch change. */
+    var angleText = units || aMark.groups <= 1;
     var sideDec = units ? decimalsFor(L, sMark.mark, 30, 2) : 0;
 
     for (var i = 0; i < n; i++) {
@@ -1355,37 +1795,61 @@
         var ux = dx / len, uy = dy / len;
         var t = mk('g', { 'class': 'meas', 'data-side': i }, g);
         if (sideText) {
-          // AN ICE TAG, SET OFF BY ITS OWN SIZE. The same plate as the name
-          // tag; its distance from the side is what keeps its near corner off
-          // the stroke — a wide plate beside a steep side needs more room
-          // than a plate under a flat one — so nothing touches and nothing
-          // crowds.
-          var TW = sideDec ? 74 : 66, TH = 30;
-          var off = 10 + Math.abs(ux) * (TW / 2) + Math.abs(uy) * (TH / 2);
-          var lx = mx + ux * off, ly = my + uy * off;
-          // AND NOT OFF THE GLASS. A stretched corner carries its tag with
-          // it, and a tag beside a side pushed to the edge of the card hung
-          // over the rim. The plate stays wholly on the ice it belongs to.
+          /* A TICK ACROSS THE SIDE, AND ITS LENGTH BESIDE IT.
+           *
+           * This was a dimension line: a second line held off the side for
+           * its whole length, capped at both ends — a line running along the
+           * side, which read as another side. A measured side is marked the
+           * way a geometry book marks one: a short stroke CROSSING it at its
+           * middle, square to it, and the figure just outside the shape. The
+           * side itself is never redrawn.
+           *
+           * Once every side is in, the gold equal-side ticks below take the
+           * middle instead (a mark per group of equal sides), so the tick
+           * here is only drawn while that claim is not yet made. */
+          var dink = HI.edge || '#0b4f9e';
+          /* NO MARK ACROSS A SIDE WHILE THE SIDES ARE STILL BEING MEASURED.
+             A stroke across a side is how a figure says "this one matches that
+             one" — the conclusion — and it was drawn on each side as it was
+             measured, before there was anything to compare it with. While the
+             tape is still going round, a measured side shows its length; the
+             marks come when the last side is in (sideTicks, below: one mark
+             per group of equal sides, dealt in one after another).
+             AND NONE ON THE STRETCHING SCREEN EITHER. Its live readout kept a
+             stroke at each middle for the number to hang from — the same
+             stroke that means "equal" — so a pulled, lopsided pentagon still
+             wore five matching marks while its numbers said otherwise. The
+             number stands beside the side on its own; the corners carry
+             their degrees. */
+          // the figure outside the side, pushed out by its own size so it
+          // never sits on the stroke, and kept on the glass
+          var dtext = (L[i] / 30).toFixed(sideDec) + ' cm';
+          var dtw = dtext.length * 9.5, dth = 17;
+          var doff = 16 + Math.abs(ux) * (dtw / 2) + Math.abs(uy) * (dth / 2);
+          var lx2 = mx + ux * doff, ly2 = my + uy * doff;
           if (st.panel) {
-            var gf = panelFace(st.panel);
-            lx = Math.max(gf.x + TW / 2 + 4, Math.min(gf.x + gf.w - TW / 2 - 4, lx));
-            ly = Math.max(gf.y + TH / 2 + 4, Math.min(gf.y + gf.h - TH / 2 - 4, ly));
+            var gf2 = panelFace(st.panel);
+            lx2 = Math.max(gf2.x + dtw / 2 + 6, Math.min(gf2.x + gf2.w - dtw / 2 - 6, lx2));
+            ly2 = Math.max(gf2.y + dth + 4, Math.min(gf2.y + gf2.h - 6, ly2));
           }
-          mk('rect', { x: lx - TW / 2, y: ly - TH / 2, width: TW, height: TH, rx: 10, fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 2.5 }, t);
-          mk('text', { x: lx, y: ly + 6, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 800, fill: '#0f3f8f', text: (L[i] / 30).toFixed(sideDec) + ' cm' }, t);
+          mk('text', { x: lx2, y: ly2 + 6, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 800,
+                       fill: dink, stroke: '#ffffff', 'stroke-width': 3.5, 'paint-order': 'stroke',
+                       'stroke-linejoin': 'round', text: dtext }, t);
         }
         if (sideTicks) {
           // the ticks sit across the side at its middle, spaced along it
           var sl = Math.hypot(b.x - a.x, b.y - a.y) || 1;
           var tdx = (b.x - a.x) / sl, tdy = (b.y - a.y) / sl;
           var tnx = -tdy, tny = tdx, TL = 9, TS = 7, cnt = sMark.mark[i] || 1;
+          var tg = mk('g', { 'class': 'eq-tick', 'data-side': i }, t);
           for (var k = 0; k < cnt; k++) {
             var o = (k - (cnt - 1) / 2) * TS, cx2 = mx + tdx * o, cy2 = my + tdy * o;
-            litLine(t, { x1: cx2 - tnx * TL, y1: cy2 - tny * TL, x2: cx2 + tnx * TL, y2: cy2 + tny * TL, 'stroke-width': 3, 'stroke-linecap': 'round' }, { warm: true });
+            litLine(tg, { x1: cx2 - tnx * TL, y1: cy2 - tny * TL, x2: cx2 + tnx * TL, y2: cy2 + tny * TL, 'stroke-width': 3, 'stroke-linecap': 'round' }, { warm: true });
           }
         }
       }
-      if (has(st.measure.angles, i)) drawArc(g, i, angleText ? A[i] : null, (units || aMark.groups > 1) ? (aMark.mark[i] || 1) : 1);
+      // a live readout names each corner by its number, so no rings on top
+      if (has(st.measure.angles, i)) drawArc(g, i, angleText ? A[i] : null, units ? 1 : (aMark.groups > 1 ? (aMark.mark[i] || 1) : 1));
     }
   }
   /** Hold a point inside the card's glass, with room for a vertex knob. */
@@ -1404,7 +1868,9 @@
     // every frame: the "119°93°" smear over a corner of the distort screen.
     var ag = mk('g', { 'data-angle': i }, g);   // the arc and its number, one thing to pop in
     var v = st.verts, n = v.length, p = v[i], q = v[(i + n - 1) % n], s = v[(i + 1) % n];
-    var a1 = Math.atan2(q.y - p.y, q.x - p.x), a2 = Math.atan2(s.y - p.y, s.x - p.x), r = 30;
+    // SMALL, AND FILLED: a wedge in the corner, the size a textbook draws
+    // one, not a wide open arc half way along both sides
+    var a1 = Math.atan2(q.y - p.y, q.x - p.x), a2 = Math.atan2(s.y - p.y, s.x - p.x), r = 21;
     var sweep = ((a2 - a1) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
     // THE ANGLE IS DRAWN THE WAY A GEOMETRY BOOK DRAWS IT: a line, not a
     // fill. A gold arc inside the corner, from one side to the other, and
@@ -1420,12 +1886,19 @@
     var d = inside
       ? 'M' + x1 + ' ' + y1 + ' A' + r + ' ' + r + ' 0 ' + large + ' 1 ' + x2 + ' ' + y2
       : 'M' + x1 + ' ' + y1 + ' A' + r + ' ' + r + ' 0 ' + (1 - large) + ' 0 ' + x2 + ' ' + y2;
+    // THE WEDGE: the corner itself, filled — from the vertex out along one
+    // side, round the arc, and back along the other — so the angle reads as
+    // a piece of the shape rather than as a line drawn near it
+    var wedge = 'M' + p.x + ' ' + p.y + ' L' + x1 + ' ' + y1 + ' ' + d.slice(d.indexOf('A')) + ' Z';
     if (deg != null && Math.abs(deg - 90) < 1.5) {
       // the right-angle square: two short lines meeting inside the corner
       var rs = r * 0.7, ux = Math.cos(a1) * rs, uy = Math.sin(a1) * rs, wx = Math.cos(a2) * rs, wy = Math.sin(a2) * rs;
       d = 'M' + (p.x + ux) + ' ' + (p.y + uy) + ' L' + (p.x + ux + wx) + ' ' + (p.y + uy + wy) + ' L' + (p.x + wx) + ' ' + (p.y + wy);
+      wedge = 'M' + p.x + ' ' + p.y + ' L' + (p.x + ux) + ' ' + (p.y + uy) + ' L' + (p.x + ux + wx) + ' ' + (p.y + uy + wy) + ' L' + (p.x + wx) + ' ' + (p.y + wy) + ' Z';
     }
-    var w = mk('path', { d: d, fill: 'none', stroke: HI.line, 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', style: litGlow(HI.lit) }, ag);
+    // warm gold on the cool blue shape: the one mark on it that is an angle
+    mk('path', { d: wedge, fill: '#ffd35a', 'fill-opacity': 0.82, stroke: 'none' }, ag);
+    var w = mk('path', { d: d, fill: 'none', stroke: '#fff4c9', 'stroke-width': 2.5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, ag);
     // EQUAL ANGLES, EQUAL ARCS. A second and a third ring nested inside the
     // first is how a figure says "this corner is not the same size as that
     // one" without printing a single degree.
@@ -1474,6 +1947,9 @@
       ];
       case 'chevron':   return [{ x: cx - r, y: cy + r * .7 }, { x: cx, y: cy - r * .8 }, { x: cx + r, y: cy + r * .7 }, { x: cx, y: cy + r * .1 }];
       case 'l-shape':   return [{ x: cx - r * .8, y: cy - r * .8 }, { x: cx - r * .1, y: cy - r * .8 }, { x: cx - r * .1, y: cy + r * .1 }, { x: cx + r * .8, y: cy + r * .1 }, { x: cx + r * .8, y: cy + r * .8 }, { x: cx - r * .8, y: cy + r * .8 }];
+      // A RECTANGLE: every angle the same, the sides not — irregular for the
+      // opposite reason to the rhombus beside it in the swipe deck
+      case 'rectangle': return [{ x: cx - r, y: cy - r * 0.58 }, { x: cx + r, y: cy - r * 0.58 }, { x: cx + r, y: cy + r * 0.58 }, { x: cx - r, y: cy + r * 0.58 }];
       case 'star': { var o = []; for (var i = 0; i < 10; i++) { var a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .42 : r; o.push({ x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr }); } return o; }
       case 'stretched-hexagon': { var h = Poly.regular(6, r, cx, cy); return h.map(function (p) { return { x: cx + (p.x - cx) * 1.35, y: p.y }; }); }
       case 'equilateral-concave-hexagon': {
@@ -1500,7 +1976,7 @@
   // tells the cards apart.
   var COLORS = { triangle: '#a97bff', square: '#2fd6c8', pentagon: '#ff7a91', hexagon: '#45bdff', octagon: '#4c8fe8',
                  rhombus: '#f06cff', chevron: '#35b06a', 'l-shape': '#ffc93c', star: '#ff9f5a', 'stretched-hexagon': '#6f8cff',
-                 'irregular-quad': '#ffb27a', 'equilateral-concave-hexagon': '#a97bff' };
+                 'irregular-quad': '#ffb27a', 'equilateral-concave-hexagon': '#a97bff', rectangle: '#ff9f5a' };
 
   function drawShape(name, r, cx, cy, parent) {
     var g = mk('g', { 'class': 'shape', 'data-shape': name }, parent);
@@ -1525,6 +2001,7 @@
     endInteraction();
     clear('panel'); clear('poly'); clear('ui'); clear('fx');
     st = { showVerts: false, touchVerts: false };
+    heldForWord = [];          // the old scene's pieces are gone, and so is their wait
     applySeat(false);
   }
 
@@ -1535,8 +2012,8 @@
       var morph = spec.enter === 'morph' && st.verts;
       var prev = morph ? st.verts.slice() : null;
       reset();
-      var p = panelFor(spec.panel || 'right', spec);
-      st.panel = p; st.kind = 'polygon';
+      var p = spec._panel ? Object.assign({}, spec._panel) : panelFor(spec.panel || 'right', spec);
+      st.panel = p; st.kind = 'polygon'; st.buildSpec = specOf(spec);
       panel(p, { enter: morph ? false : spec.enter });
       var P = polygonIn(p, spec.sides || 5, { below: spec.below, room: spec.room });
       st.verts = P.verts; st.cx = P.cx; st.cy = P.cy; st.r = P.r; st.n = spec.sides || 5;
@@ -1598,14 +2075,23 @@
     },
 
     compare: function (spec) {
-      reset(); st.kind = 'compare';
+      reset(); st.kind = 'compare'; st.buildSpec = specOf(spec);
       var sides = [['left', PANELS.left2, spec.left], ['right', PANELS.right2, spec.right]];
       st.compare = {};
       sides.forEach(function (s, i) {
         var pnl = s[1], cfg = s[2] || {};
         var g = panel(pnl, { enter: spec.enter === 'split' ? 'rise' : 'pop' });
+        /* THE CHILD'S OWN SHAPE, when the card is showing the kind of shape
+           they have just made. "This one" beside a stock stretched pentagon
+           is a different pentagon from the one they pulled a minute ago; the
+           one they made is the one they understand. `made` names it (the
+           condition the drag stopped at: 'concave', 'irregular'); a screen
+           reached without making it — a jump, Back past it — shows the stock
+           shape, marked the same way. */
+        var mine = cfg.made ? madeShape(cfg.made, cfg.sides || 5) : null;
         // the caption goes UNDER the card as a name tag, so the shape has the whole face
-        var P = polygonIn(pnl, cfg.sides || 5, { dent: cfg.dent, stretch: cfg.stretch });
+        var P = polygonIn(pnl, cfg.sides || 5, mine ? { shape: mine.verts } : { dent: cfg.dent, stretch: cfg.stretch });
+        var markAt = mine ? mine.moved : cfg.dent;
         var pg = mk('g', {}, layers.poly);
         mk('path', { d: pathOf(P.verts), fill: 'url(#' + candy(SHAPE.fill) + ')', stroke: SHAPE.edge, 'stroke-width': SHAPE.edgeW, 'stroke-linejoin': 'round' }, pg);
         if (cfg.diagonals === 'all') {
@@ -1615,9 +2101,11 @@
             litLine(pg, { x1: a.x, y1: a.y, x2: b.x, y2: b.y, 'stroke-width': out ? 5 : 4, 'stroke-dasharray': '10 9', 'stroke-linecap': 'round' }, { bad: out });
           });
         }
-        if (cfg.dent != null) mk('circle', { cx: P.verts[cfg.dent].x, cy: P.verts[cfg.dent].y, r: 9, fill: HI.fill, stroke: HI.edge, 'stroke-width': 2.5 }, pg);
-        if (cfg.caption) nameTag(layers.ui, pnl.x + pnl.w / 2, pnl.y + pnl.h + 38, cfg.caption, cfg.tone);
-        st.compare[s[0]] = { panel: pnl, g: g, pg: pg, verts: P.verts, tone: cfg.tone };
+        if (markAt != null && P.verts[markAt] && (cfg.dent != null || mine)) mk('circle', { cx: P.verts[markAt].x, cy: P.verts[markAt].y, r: 9, fill: HI.fill, stroke: HI.edge, 'stroke-width': 2.5 }, pg);
+        var tagEl = cfg.caption ? nameTag(layers.ui, pnl.x + pnl.w / 2, pnl.y + pnl.h + 38, cfg.caption, cfg.tone) : null;
+        // a name that is spoken arrives when it is (holdForWord)
+        if (tagEl && cfg.captionCue) holdForWord(tagEl, cfg.captionCue);
+        st.compare[s[0]] = { panel: pnl, g: g, pg: pg, verts: P.verts, tone: cfg.tone, tag: tagEl };
       });
     },
 
@@ -1718,7 +2206,10 @@
       // Swiftee on the left, which left the lesson sitting off-centre on every
       // screen that uses it — and he is placed by the screen now, so the
       // lesson does not have to make room for a guess about where he is.
-      var bw = 360, gap = 30, bh = 236, by = 282;   // the collection is the point: it gets the room; 360 seats three cards at full size
+      // The collection is the point: it gets the room; 360 seats three cards
+      // at full size. The foot stops at 492 so the Convex bin's corner clears
+      // the Back pill in the bottom-left (it ended at 518, on top of it).
+      var bw = 360, gap = 30, bh = 226, by = 266;
       var x0 = (W - (bins.length * bw + (bins.length - 1) * gap)) / 2;
       bins.forEach(function (b, i) {
         var x = x0 + i * (bw + gap), y = by;
@@ -1744,6 +2235,8 @@
         // the shelf: the glass below the title band
         g._pane = { x: pane.x, y: pane.y + 52, w: pane.w, h: pane.h - 56 };
         st.sort.bins.push(g);
+        // "...as convex or concave?": each bin comes in on its own word
+        if (spec.binsCue && holdForWord(g, b.cueWord || b.id)) return;
         if (spec.enter && !reduced()) enter(g, 'rise');
       });
       var items = spec.items || [];
@@ -1773,7 +2266,8 @@
       // THE SAME CARD AS EVERY OTHER SINGLE-SHAPE SCREEN: on the right, with
       // him on the ice at the left and his words beside his head. Centred,
       // the card left no band for the bubble, and his line went to the top.
-      var p = panelFor('right', Object.assign({ controls: true }, spec)); st.panel = p;
+      var p = spec._panel ? Object.assign({}, spec._panel) : panelFor('right', Object.assign({ controls: true }, spec)); st.panel = p;
+      st.buildSpec = specOf(spec);
       panel(p, { enter: spec.enter });
       var n = spec.sides || 3;
       var P = polygonIn(p, n, {});
@@ -1812,6 +2306,10 @@
       st.stepPlus  = pill(g, { x: x1 + BW - 58, y: sy, w: 50, h: 44, label: '+', tone: 'sun', glyph: 'stepPlus', press: true, attrs: { 'class': 'step-plus' } });
       st.stepText = mk('text', { x: x1 + BW / 2, y: sy + 11, 'text-anchor': 'middle', 'font-size': 30, 'font-weight': 800, fill: UI.ink, text: n }, g);
       st.stepper = { min: (spec.stepper && spec.stepper.min) || 1, max: (spec.stepper && spec.stepper.max) || 8 };
+      syncStepper();
+      // "Adjust the number of sides": the control arrives with the words
+      // that tell the child to use it (not on a restored scene, which was seen)
+      if (spec.stepper && spec.stepper.cue && !spec._panel) holdForWord(g, spec.stepper.cue);
     }
   };
 
@@ -1871,14 +2369,14 @@
       var seat = seats[i];
       var cell = mk('g', { 'class': 'kept' }, zone._keptG);
       var at = mk('g', { transform: 'translate(' + seat.x.toFixed(1) + ',' + seat.y.toFixed(1) + ')' }, cell);
-      optionCard(at, seat.half, nm);
+      // drawn exactly as the card that flew here was, so the swap is invisible
+      optionCard(at, seat.half, nm, { fill: reduced() ? 0.86 : 0.74 });
       if (reduced() || !cell.animate) return;
       cell.style.transformBox = 'fill-box'; cell.style.transformOrigin = 'center';
       if (i === n - 1) {
         // THE NEWEST ONE HAS JUST LANDED — the card flew here at this size —
         // so it settles with a small bounce rather than growing out of nothing.
-        cell.animate([{ scale: '1' }, { scale: '1.14', offset: .45 }, { scale: '1' }],
-                     { duration: 300, easing: 'cubic-bezier(.3,1.4,.5,1)' });
+        cell.animate([{ opacity: 0.85 }, { opacity: 1 }], { duration: 160, easing: 'ease-out' });
       } else if (was[i] && (was[i].x !== seat.x || was[i].y !== seat.y || was[i].half !== seat.half)) {
         // THE REST MAKE ROOM. When the pile re-lays for a new column or row,
         // each shape already there slides from its old seat to its new one
@@ -1945,7 +2443,7 @@
     Object.keys(sw.zones).forEach(function (k) { if (sw.zones[k].classList) sw.zones[k].classList.add('hint'); });
     var name = sw.items[sw.i];
     var g = mk('g', { 'class': 'swipe-card', 'data-shape': name }, layers.ui);
-    var card = optionCard(g, SWIPE_HALF, name);
+    var card = optionCard(g, SWIPE_HALF, name, { fill: reduced() ? 0.86 : 0.74 });
     g.setAttribute('transform', 'translate(' + SWIPE_HOME.x + ',' + SWIPE_HOME.y + ')');
     g._name = name;
     // The radius the card actually drew at, not a number typed beside it:
@@ -1994,6 +2492,73 @@
     var ix = []; for (var q = 0; q < v.length; q++) ix.push(q);
     if (Poly.isRegular(v)) return 'regular';
     return marksBy(Poly.sideLengths(v), ix, 6).groups > 1 ? 'sides' : 'angles';
+  }
+
+  /* WHERE A FIGURE MAY GO ON A CARD: inside the glass by a margin, clear of
+     every side of the shape and of the corner wedges, and clear of every
+     figure already put down. fit() takes the first candidate that is. */
+  function labelSpace(v, pane, wedgeR) {
+    var M = 6, PAD = 3.5, boxes = [];
+    var area = pane && pane.w ? { l: pane.cx - pane.w / 2 + M, r: pane.cx + pane.w / 2 - M,
+                                  t: pane.cy - pane.h / 2 + M, b: pane.cy + pane.h / 2 - M } : null;
+    var distPtSeg = function (px, py, ax, ay, bx, by) {
+      var dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1;
+      var t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2));
+      return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
+    };
+    var inBox = function (px, py, b) { return px >= b.l && px <= b.r && py >= b.t && py <= b.b; };
+    var segCross = function (ax, ay, bx, by, cx, cy, dx, dy) {
+      var d1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax), d2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax);
+      var d3 = (dx - cx) * (ay - cy) - (dy - cy) * (ax - cx), d4 = (dx - cx) * (by - cy) - (dy - cy) * (bx - cx);
+      return (d1 * d2 < 0) && (d3 * d4 < 0);
+    };
+    // how close a side comes to a box: 0 if it crosses it
+    var segBox = function (ax, ay, bx, by, b) {
+      if (inBox(ax, ay, b) || inBox(bx, by, b)) return 0;
+      var cs = [[b.l, b.t], [b.r, b.t], [b.r, b.b], [b.l, b.b]];
+      for (var e = 0; e < 4; e++) {
+        var p = cs[e], q = cs[(e + 1) % 4];
+        if (segCross(ax, ay, bx, by, p[0], p[1], q[0], q[1])) return 0;
+      }
+      var d = Infinity;
+      cs.forEach(function (c) { d = Math.min(d, distPtSeg(c[0], c[1], ax, ay, bx, by)); });
+      // and the side's own ends against the box's edges
+      [[ax, ay], [bx, by]].forEach(function (p) {
+        var cx = Math.max(b.l, Math.min(b.r, p[0])), cy = Math.max(b.t, Math.min(b.b, p[1]));
+        d = Math.min(d, Math.hypot(p[0] - cx, p[1] - cy));
+      });
+      return d;
+    };
+    var ok = function (b) {
+      if (area && (b.l < area.l || b.r > area.r || b.t < area.t || b.b > area.b)) return false;
+      for (var i = 0; i < v.length; i++) {
+        var a = v[i], c = v[(i + 1) % v.length];
+        if (segBox(a.x, a.y, c.x, c.y, b) < PAD) return false;
+        var nx = Math.max(b.l, Math.min(b.r, a.x)), ny = Math.max(b.t, Math.min(b.b, a.y));
+        if (Math.hypot(a.x - nx, a.y - ny) < (wedgeR || 0) + 2) return false;   // a corner's wedge
+      }
+      for (var k = 0; k < boxes.length; k++) {
+        var o2 = boxes[k];
+        if (b.l < o2.r + 3 && b.r > o2.l - 3 && b.t < o2.b + 3 && b.b > o2.t - 3) return false;
+      }
+      return true;
+    };
+    return {
+      fit: function (cands, w, h) {
+        for (var i = 0; i < cands.length; i++) {
+          var c = cands[i], b = { l: c.x - w / 2, r: c.x + w / 2, t: c.y - h / 2, b: c.y + h / 2 };
+          if (ok(b)) { boxes.push(b); return c; }
+        }
+        // nowhere is clear: the first place, still kept inside the glass
+        var c0 = cands[0];
+        if (!c0) return null;
+        var x = c0.x, y = c0.y;
+        if (area) { x = Math.max(area.l + w / 2, Math.min(area.r - w / 2, x)); y = Math.max(area.t + h / 2, Math.min(area.b - h / 2, y)); }
+        boxes.push({ l: x - w / 2, r: x + w / 2, t: y - h / 2, b: y + h / 2 });
+        return { x: x, y: y };
+      },
+      get count() { return boxes.length; }
+    };
   }
 
   function shapeMarks(card, o) {
@@ -2052,39 +2617,41 @@
        * navy is a diagram someone put on top of it.
        */
       var ink = o.ink || '#0f3f8f';
+      /* THE NUMBER ALONE, AND NEVER ON ANYTHING.
+       *
+       * The dimension lines went: a capped line held off every side ran round
+       * the shape a second time, just outside it, and on a card that is
+       * already a rim, a shape, five corner marks and ten numbers, it was one
+       * outline too many. Each side keeps only its length, set just outside
+       * its middle — and the place is CHECKED rather than assumed: the figure
+       * must sit inside the glass with a margin, clear of every side of the
+       * shape, clear of the corner marks and of every figure already placed.
+       * The first place that passes is used: out from the middle, then a
+       * little further, then slid along the side, then inside the shape. */
+      var placed = labelSpace(v, o.pane || card._pane, 13);
       for (var si = 0; si < n; si++) {
         var sa = v[si], sb = v[(si + 1) % n];
         var slen = Math.hypot(sb.x - sa.x, sb.y - sa.y) || 1;
         var stx = (sb.x - sa.x) / slen, sty = (sb.y - sa.y) / slen;   // along the side
         var smx = (sa.x + sb.x) / 2, smy = (sa.y + sb.y) / 2;
-        var sdx = smx - cen.x, sdy = smy - cen.y, sdl = Math.hypot(sdx, sdy) || 1;
-        var sux = sdx / sdl, suy = sdy / sdl;                          // out of the shape
-        var OFF = 15;                                                  // how far off the side it floats
+        var snx = -sty, sny = stx;                                     // square to it...
+        if (snx * (smx - cen.x) + sny * (smy - cen.y) < 0) { snx = -snx; sny = -sny; }   // ...and outward
         var text = (L[si] / UNIT).toFixed(sd) + ' cm';
-        var half = (text.length * 4.2) + 5;                            // the gap the figure needs
-        var run = Math.max(0, slen / 2 - half - 3);                    // each arm of the line
-        var ox = sux * OFF, oy = suy * OFF;
-        var lmx = smx + ox, lmy = smy + oy;
-        var arm = function (from, to) {
-          mk('line', { x1: from.x, y1: from.y, x2: to.x, y2: to.y, stroke: ink,
-                       'stroke-width': 2, 'stroke-linecap': 'round', opacity: 0.85 }, g);
-        };
-        if (run > 2) {
-          arm({ x: lmx - stx * (slen / 2), y: lmy - sty * (slen / 2) },
-              { x: lmx - stx * (half + 3), y: lmy - sty * (half + 3) });
-          arm({ x: lmx + stx * (half + 3), y: lmy + sty * (half + 3) },
-              { x: lmx + stx * (slen / 2), y: lmy + sty * (slen / 2) });
-        }
-        // the end ticks, square across the line, so it measures corner to corner
-        [-1, 1].forEach(function (e) {
-          var ex = lmx + stx * (slen / 2) * e, ey = lmy + sty * (slen / 2) * e;
-          mk('line', { x1: ex - sux * 5, y1: ey - suy * 5, x2: ex + sux * 5, y2: ey + suy * 5,
-                       stroke: ink, 'stroke-width': 2, 'stroke-linecap': 'round', opacity: 0.85 }, g);
+        var tw = text.length * 7.4 + 4, th = 15;
+        var base = 7 + Math.abs(snx) * tw / 2 + Math.abs(sny) * th / 2;
+        var cands = [];
+        [0, 0.18, -0.18, 0.32, -0.32].forEach(function (along) {
+          [base, base + 6].forEach(function (off) {
+            cands.push({ x: smx + stx * slen * along + snx * off, y: smy + sty * slen * along + sny * off });
+          });
         });
-        mk('text', { x: lmx, y: lmy + 5, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 800,
+        cands.push({ x: smx - snx * base, y: smy - sny * base });      // inside, as a last resort
+        var at = placed.fit(cands, tw, th) || cands[0];
+        mk('text', { x: at.x, y: at.y + 5, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 800,
                      fill: ink, stroke: '#ffffff', 'stroke-width': 3, 'paint-order': 'stroke',
                      'stroke-linejoin': 'round', text: text }, g);
       }
+      card._labelSpace = placed;
       /* NO DEGREES. Ten labels on one card is a wall of type, and a number of
        * degrees is not a thing a seven-year-old reads \u2014 they have met
        * centimetres and they have not met angles measured.
@@ -2171,6 +2738,16 @@
           if (pull < rr + 14) {
             var kk = (rr + 14) / (pull || 1);
             dtx = p.x + (dtx - p.x) * kk; dty = p.y + (dty - p.y) * kk;
+          }
+          // and checked like the lengths: clear of the sides, the wedges and
+          // every number already down — along the bisector, nearer or further
+          if (card._labelSpace) {
+            var bxl = cen.x - p.x, byl = cen.y - p.y, bll = Math.hypot(bxl, byl) || 1;
+            var dw = String(Math.round(A2[j])).length * 7 + 12, dh = 14, dc = [{ x: dtx, y: dty }];
+            [0.24, 0.36, 0.42, 0.18, 0.5].forEach(function (f) { dc.push({ x: p.x + bxl * f, y: p.y + byl * f }); });
+            var da = card._labelSpace.fit(dc, dw, dh, true);
+            if (da) { dtx = da.x; dty = da.y; }
+            void bll;
           }
           mk('text', { x: dtx, y: dty + 4, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 800,
                        fill: o.ink || '#0f3f8f', stroke: '#ffffff', 'stroke-width': 2.8,
@@ -2295,7 +2872,7 @@
    * Returns the radius it drew at, because the swipe card keeps its own copy
    * of the vertices and they have to be the ones on the screen.
    */
-  function optionCard(parent, half, name) {
+  function optionCard(parent, half, name, opts) {
     var F = global.CardFrame && CardFrame.option;
     var g = mk('g', { 'class': 'shape-card' }, parent);
 
@@ -2324,7 +2901,11 @@
     var cy = -halfH + halfH * 2 * (p.y + p.h / 2);
     // 0.86 of the half-extent: a regular polygon's width is up to twice its
     // circumradius, and it needs air inside the glass rather than touching it.
-    var r = Math.min(paneW, paneH) / 2 * 0.86;
+    // A card that will carry its measurements (the swipe card) draws the shape
+    // smaller, 0.74, so every length has room OUTSIDE its side: at 0.86 the
+    // hexagon's upright sides left 40 units to the glass, a "3 cm" needs 47,
+    // and the figure fell back inside the shape onto the 120° marks.
+    var r = Math.min(paneW, paneH) / 2 * ((opts && opts.fill) || 0.86);
 
     if (name) drawShape(name, r, cx, cy, g);
 
@@ -2349,8 +2930,11 @@
         if (state === 'correct') g.classList.add('mark-good');
         if (state === 'wrong') g.classList.add('mark-bad');
       }
-      if (state === 'correct' && global.Juice && Juice.confetti && !reduced()) {
-        try { Juice.confetti(g, { count: 46, fromEdge: true, speed: 0.62 }); } catch (e) {}
+      // A GLINT, NOT A PARTY. One right card among four is not a milestone;
+      // the confetti is kept for the moments that are (a sort finished, a
+      // shape built, the lesson over), so those still feel like something.
+      if (state === 'correct' && global.Juice && Juice.sparkle && !reduced()) {
+        try { Juice.sparkle(g); } catch (e) {}
       }
       if (state && !reduced() && g.animate) {
         g.style.transformBox = 'fill-box';
@@ -2465,7 +3049,11 @@
     tangerine: ['#ff9138', '#bf5200', '#5a2300'],
     sky:       ['#4f9df5', '#2b6fc4'],
     plum:      ['#b271d8', '#7a3c9c'],
-    blue:      ['#4f9df5', '#2b6fc4']
+    blue:      ['#4f9df5', '#2b6fc4'],
+    // the new kit's tones, drawn the same colours if the art is missing
+    uiPrimary: ['#ffc53d', '#c07a00', '#5a3400'],
+    uiSuccess: EVAL.yes,
+    uiDanger:  EVAL.no
   };
   Object.keys(CONCEPT).forEach(function (k) {
     PILL_TONES[k] = [CONCEPT[k].face, CONCEPT[k].deep];
@@ -2569,7 +3157,7 @@
   /**
    * A button.
    *
-   * THE ARTWORK, IN THREE PIECES. assets/ui/btn.png is a sheet of
+   * THE ARTWORK, IN THREE PIECES. assets/source/btn.png is a sheet of
    * finished buttons; tools/build-buttons.js cuts the four this lesson needs
    * out of it and measures where each round end finishes.
    *
@@ -2646,7 +3234,7 @@
 
     // FLAT AND BOLD. No shadow under the word: on a matte pill a shadow
     // read as a smear. Dark ink on the light pills, white on the dark ones.
-    var DARK_ON = { sun: 1, tangerine: 1, concave: 1, sky: 1, convex: 1, regular: 1 };
+    var DARK_ON = { sun: 1, tangerine: 1, concave: 1, sky: 1, convex: 1, regular: 1, uiPrimary: 1 };
     var ink = o.ink || (DARK_ON[o.tone] ? '#3a2410' : '#ffffff');
     var t = mk('text', {
       x: x + w / 2, y: y + h * 0.18,
@@ -2862,6 +3450,88 @@
      actually painted. */
   var VERT_PAINT = 12;   // a knob is r11 now
 
+  /* WHERE A NAME TAG MAY GO ON THE GLASS: clear of every side, every corner
+     (its knob, the chosen corner's ring and their glow), every diagonal, the
+     inside of the shape and the frame's corner crystals. `r` is the plate's
+     box. Tested against the shape itself, not its bounding box: the box of a
+     pentagon is a third empty glass, and ruling all of it out is how the tag
+     ended up on the one place left — over the corner knob. */
+  function distToRect(p, r) {
+    var dx = Math.max(r.x0 - p.x, 0, p.x - r.x1), dy = Math.max(r.y0 - p.y, 0, p.y - r.y1);
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  function segHitsRect(a, b, r) {
+    // Liang–Barsky: does any part of a→b lie inside r?
+    var t0 = 0, t1 = 1, dx = b.x - a.x, dy = b.y - a.y;
+    var p = [-dx, dx, -dy, dy], q = [a.x - r.x0, r.x1 - a.x, a.y - r.y0, r.y1 - a.y];
+    for (var i = 0; i < 4; i++) {
+      if (p[i] === 0) { if (q[i] < 0) return false; continue; }
+      var t = q[i] / p[i];
+      if (p[i] < 0) { if (t > t1) return false; if (t > t0) t0 = t; }
+      else { if (t < t0) return false; if (t < t1) t1 = t; }
+    }
+    return true;
+  }
+  function tagClear(r) {
+    var v = st.verts; if (!v || !v.length) return true;
+    var pf = st.panel ? panelFace(st.panel) : { x: 0, y: 0, w: W, h: H };
+    if (r.x0 < pf.x + 14 || r.x1 > pf.x + pf.w - 14 || r.y0 < pf.y + 14 || r.y1 > pf.y + pf.h - 8) return false;
+    if (st.panel) {
+      // the frame's crystals reach in over the glass at its four corners
+      var P = st.panel, cw = P.w * 0.17, ch = P.h * 0.15;
+      var corners = [{ x0: P.x, y0: P.y }, { x0: P.x + P.w - cw, y0: P.y }, { x0: P.x, y0: P.y + P.h - ch }, { x0: P.x + P.w - cw, y0: P.y + P.h - ch }];
+      for (var c = 0; c < 4; c++) {
+        var K = corners[c];
+        if (r.x0 < K.x0 + cw && r.x1 > K.x0 && r.y0 < K.y0 + ch && r.y1 > K.y0) return false;
+      }
+    }
+    var n = v.length, pad = 8, R = { x0: r.x0 - pad, y0: r.y0 - pad, x1: r.x1 + pad, y1: r.y1 + pad };
+    for (var k = 0; k < n; k++) if (distToRect(v[k], r) < 26) return false;
+    for (var e = 0; e < n; e++) if (segHitsRect(v[e], v[(e + 1) % n], R)) return false;
+    var ds = st.diagonals || [];
+    for (var d = 0; d < ds.length; d++) if (v[ds[d][0]] && v[ds[d][1]] && segHitsRect(v[ds[d][0]], v[ds[d][1]], R)) return false;
+    return !Poly.contains(v, { x: (r.x0 + r.x1) / 2, y: (r.y0 + r.y1) / 2 });
+  }
+  /* BESIDE THE SIDE IT NAMES. The first place along the side's outward
+     normal — nearest the side, then sliding along it — where the whole plate
+     is clear (tagClear). Returns the text baseline, or null if the card has
+     no such place. The plate is tw × 40, its centre 7 above the baseline. */
+  function besideSide(a, b, tw) {
+    var m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    var sl = Math.hypot(b.x - a.x, b.y - a.y) || 1, ux = (b.x - a.x) / sl, uy = (b.y - a.y) / sl;
+    var nx = -uy, ny = ux;
+    if ((m.x - st.cx) * nx + (m.y - st.cy) * ny < 0) { nx = -nx; ny = -ny; }
+    var hx = tw / 2, hy = 20, reach = Math.abs(nx) * hx + Math.abs(ny) * hy;
+    for (var gap = 14; gap <= 150; gap += 8) {
+      for (var k = 0; k < 11; k++) {
+        var slide = Math.ceil(k / 2) * 16 * (k % 2 ? -1 : 1);
+        var cx = m.x + nx * (reach + gap) + ux * slide, cy = m.y + ny * (reach + gap) + uy * slide;
+        if (tagClear({ x0: cx - hx, y0: cy - hy, x1: cx + hx, y1: cy + hy })) return { x: cx, y: cy + 7 };
+      }
+    }
+    return null;
+  }
+
+  /* A STEP THAT CANNOT BE TAKEN LOOKS IT. At the fewest sides the minus did
+     nothing when pressed and looked exactly like the plus; at the most, the
+     plus did. The button that has run out goes grey and flat, takes no hand
+     and does not breathe (alive() reads the hand); both do when the stepper
+     is locked. */
+  function dressStep(btn, on) {
+    if (!btn) return;
+    btn.style.opacity = on ? '' : '0.42';
+    btn.style.filter = on ? '' : 'grayscale(1)';
+    btn.style.cursor = on ? 'pointer' : 'default';
+    btn.setAttribute('aria-disabled', on ? 'false' : 'true');
+    if (btn.classList) btn.classList.toggle('disabled', !on);
+  }
+  function syncStepper() {
+    if (!st.stepMinus || !st.stepper) return;
+    var free = !st.stepLocked;
+    dressStep(st.stepMinus, free && st.n > st.stepper.min);
+    dressStep(st.stepPlus, free && st.n < st.stepper.max);
+  }
+
   function belowShape(gap, floorPad) {
     var lowest = st.verts && st.verts.length
       ? st.verts.reduce(function (m, p) { return p.y > m ? p.y : m; }, -Infinity) + VERT_PAINT
@@ -3025,6 +3695,7 @@
      * side that is, and the leader crosses nothing.
      */
     label: function (l) {
+      st.labelSpec = specOf(l);
       if (st.labelEl) st.labelEl.remove();
       var x, y, m = null;
       if (l.at === 'below-polygon' || !st.segment) {
@@ -3035,7 +3706,23 @@
         // clearance is measured from the lowest vertex, and only falls back
         // to the panel when the shape leaves no room.
         var lceil = choiceCeiling();
-        if (st.panel && lceil == null) {
+        /* ON THE GLASS, UNDER THE SHAPE (inside: true), when the card has the
+           room: the name belongs on the card beside the line it names. In the
+           band under the card it sat on the stage's floor with Back and the
+           progress bar, a card's height from its diagonal. */
+        var under = null;
+        if (l.inside && st.panel && lceil == null && st.verts && st.verts.length) {
+          var utw = String(l.text).length * 15 + 36;
+          var ulow = st.verts.reduce(function (mm, p) { return p.y > mm ? p.y : mm; }, -Infinity);
+          for (var ug = 22; ug <= 70 && !under; ug += 6) {
+            for (var uk = 0; uk < 9 && !under; uk++) {
+              var ucx = st.cx + Math.ceil(uk / 2) * 22 * (uk % 2 ? -1 : 1), ucy = ulow + ug + 20;
+              if (tagClear({ x0: ucx - utw / 2, y0: ucy - 20, x1: ucx + utw / 2, y1: ucy + 20 })) under = { x: ucx, y: ucy + 7 };
+            }
+          }
+        }
+        if (under) { x = under.x; y = under.y; }
+        else if (st.panel && lceil == null) {
           // under the card, centred, in the control band (see bandBelow)
           bandBelow();
           x = st.panel.x + st.panel.w / 2;
@@ -3054,6 +3741,11 @@
       } else {
         var a = st.verts[st.segment[0]], b = st.verts[st.segment[1]];
         m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        var beside = besideSide(a, b, String(l.text).length * 15 + 36);
+        if (beside) { x = beside.x; y = beside.y; }
+        else {
+        // (no clear place beside it on this card: the older search, which
+        // keeps the tag on the glass and off the shape's box)
         var nx = m.x - st.cx, ny = m.y - st.cy;
         var len = Math.sqrt(nx * nx + ny * ny) || 1;
         var OUT = 74;
@@ -3142,6 +3834,7 @@
           x = Math.max(tw / 2 + 12, Math.min(W - tw / 2 - 12, x));
           y = Math.max(46, Math.min(BOTTOM - 14, y));
         }
+        }
       }
       var g = mk('g', { 'class': 'label' }, layers.ui);
       // THE WORD ON A PLATE. Ink straight on the glass sat on the rim and the
@@ -3160,22 +3853,28 @@
                                fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 3 }, g);
       g.insertBefore(plate, lt);
       if (l.arrow && m) {
-        // from just outside the plate to just short of the side, in the
-        // highlight's own colour, so the word and the thing are one idea
-        var dx = m.x - x, dy = m.y - y, d = Math.sqrt(dx * dx + dy * dy) || 1;
-        var from = 30, to = 14;
-        mk('line', {
-          x1: x + dx / d * from, y1: y + dy / d * from - 8,
-          x2: m.x - dx / d * to, y2: m.y - dy / d * to,
-          stroke: HI.rim, 'stroke-width': 3.5, 'stroke-linecap': 'round'
-        }, g);
-        // the pin, where the string meets the thing
-        mk('circle', { cx: m.x - dx / d * to, cy: m.y - dy / d * to, r: 5, fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 2.5 }, g);
+        /* THE STRING, FROM THE PLATE'S EDGE TO A PIN IN THE SIDE. It started
+           30 units from the plate's centre — under the plate — and stopped 14
+           short of the side, so all that showed was a dot in the air beside
+           the line. It leaves the plate where the plate ends, and the pin is
+           ON the side, at its middle: the tag is pinned to the thing. */
+        var pcx = x, pcy = y - 7, phx = (lw + 36) / 2, phy = 20;
+        var dx = m.x - pcx, dy = m.y - pcy, d = Math.sqrt(dx * dx + dy * dy) || 1;
+        var te = Math.min(dx ? phx / Math.abs(dx) : Infinity, dy ? phy / Math.abs(dy) : Infinity);
+        var sx = pcx + dx * te + dx / d * 3, sy = pcy + dy * te + dy / d * 3;
+        var ex = m.x - dx / d * 6, ey = m.y - dy / d * 6;
+        if (te < 1 && Math.hypot(ex - sx, ey - sy) > 6) {
+          mk('line', { x1: sx, y1: sy, x2: ex, y2: ey, stroke: HI.rim, 'stroke-width': 3.5, 'stroke-linecap': 'round' }, g);
+        }
+        mk('circle', { cx: m.x, cy: m.y, r: 5.5, fill: '#f3fcff', stroke: HI.rim, 'stroke-width': 2.5, 'class': 'tag-pin' }, g);
       }
-      st.labelEl = g; if (l.enter && !reduced()) enter(g, 'pop');
+      st.labelEl = g;
+      if (l.cue && holdForWord(g, l.cue)) return;               // the tag arrives on its word
+      if (l.enter && !reduced()) enter(g, 'ui');
     },
     badge: function (b) {
       var key = b.under || 'main';
+      st.badgeSpecs = st.badgeSpecs || {}; st.badgeSpecs[key] = specOf(b);
       st.badges = st.badges || {};
       if (st.badges[key]) st.badges[key].remove();
       var x, y;
@@ -3202,7 +3901,10 @@
         attrs: { 'class': 'badge' }
       });
       st.badges[key] = g; if (b.live) st.liveBadge = g;
-      if (b.enter && !reduced()) enter(g, 'pop');
+      // a tag put under a card that has stepped back steps back too
+      if (b.under && st.compareFocus && b.under !== 'compare.' + st.compareFocus) dimTag(g, true);
+      if (b.cue && holdForWord(g, b.cue)) return;                // it arrives with its word
+      if (b.enter && !reduced()) enter(g, 'ui');
     },
     ghost: function (gh) { st.ghost = gh ? { from: resolveVertex(gh.from), to: resolveVertex(gh.to) } : null; renderPoly(); },
     draw: function (d) {
@@ -3216,13 +3918,28 @@
     },
     diagonals: function (d) {
       if (d.diagonals === 'all') {
-        st.diagonals = Poly.allDiagonals(st.n).map(function (pair, k) { return Object.assign(pair, { animate: d.animate === 'sequential', delay: k * (d.each || 200) }); });
+        st.diagonals = Poly.allDiagonals(st.n).map(function (pair, k) { return Object.assign(pair, { animate: d.animate === 'sequential', delay: k * (d.each || 200), each: d.each }); });
         st.segment = null; st.vcolor = null; renderPoly();
       }
     },
-    choices: function (list) {
+    choices: function (list, spec) {
       if (st.choiceG) { st.choiceG.remove(); st.choiceG = null; }
-      if (!list) return;
+      if (!list) {
+        // no row left to answer with: nothing should still point at its
+        // buttons, and the card is no longer sitting above a band
+        st.choiceEls = [];
+        if (st.panel && st.panel.controls && !st.stepperG) { st.panel.controls = false; applySeat(true); }
+        return;
+      }
+      // `cue`: each answer waits for the word that names it (holdForWord).
+      // true reads the words off the label itself ("Inside" on "inside");
+      // an object says which word, for an answer the line never says whole.
+      var cue = spec && spec.cue;
+      var cueFor = function (label) {
+        if (!cue) return null;
+        if (cue === true) return String(label).split(/\s+/);
+        return cue[label] || null;
+      };
       var g = mk('g', { 'class': 'choices' }, layers.ui); st.choiceG = g; st.choiceEls = [];
       // SMALLER. At 216x64 of a 1000x562 stage these came out 276x82 real
       // pixels on a laptop — a pair of slabs that took the eye before the
@@ -3253,13 +3970,17 @@
         // earns all agree. Everything else gets a colour that means nothing —
         // enough for a row to read as separate choices, never enough to hint
         // which one is right.
+        // THE NEW KIT'S BUTTON: the glossy gold capsule every other control in
+        // the game now wears (btn-uiPrimary), not the matte lesson pill
         var b = pill(g, {
           x: x, y: y, w: bw, h: bh, label: label,
-          tone: 'sun',
+          tone: 'uiPrimary',
           press: true, attrs: { 'class': 'choice', 'data-label': label }
         });
         st.choiceEls.push(b);
-        if (!reduced()) { b.style.opacity = 0; later(90 * i, function () { b.style.opacity = 1; enter(b, 'rise'); }); }
+        var words = cueFor(label);
+        if (words && holdForWord(b, words)) return;       // arrives with its word
+        if (!reduced()) { b.style.opacity = 0; later(90 * i, function () { b.style.opacity = 1; enter(b, 'ui'); }); }
       });
       // Each pill is now as wide as its word, so the row is laid again from
       // the real widths and centred where the fixed row would have been.
@@ -3275,11 +3996,112 @@
       });
       liftAboveChoices();
     },
-    stepper: function (s) { if (s === 'locked' && st.stepMinus) { st.stepMinus.style.opacity = .35; st.stepPlus.style.opacity = .35; st.stepLocked = true; } },
+    stepper: function (s) { if (s === 'locked' && st.stepMinus) { st.stepLocked = true; syncStepper(); } },
     measurements: function (m) {
       if (m === 'live') { st.measure = { sides: 'all', angles: 'all', units: true }; renderPoly(); }
+    },
+    /* "ALL DIAGONALS ARE STILL INSIDE." — SHOWN, NOT LABELLED.
+     *
+     * Once the second diagonal is in, the picture says it before the words
+     * do: each diagonal brightens in turn, then both together, and the inside
+     * of the shape glows for a moment, softly, and settles. No arrow, no
+     * "INSIDE" tag, no particles — the lines are inside, and the glow is
+     * where they are. */
+    observe: function (what) {
+      if (what !== 'diagonals' || !st.diagG || !st.polyG || reduced()) return;
+      var groups = [].slice.call(st.diagG.childNodes).filter(function (g) { return g.style.display !== 'none'; });
+      if (!groups.length) return;
+      var STEP = 420;
+      var lift = function (el, delay, dur) {
+        if (!el.animate) return;
+        try {
+          el.animate([{ filter: 'brightness(1)' },
+                      { filter: 'brightness(1.6) drop-shadow(0 0 5px rgba(191, 244, 255, .95))', offset: 0.4 },
+                      { filter: 'brightness(1)' }], { duration: dur, delay: delay, easing: 'ease-in-out' });
+        } catch (e) {}
+      };
+      groups.forEach(function (g, k) { lift(g, k * STEP, 520); });                 // one after another
+      groups.forEach(function (g) { lift(g, groups.length * STEP + 80, 640); });    // then together
+      var glow = document.createElementNS(NS, 'path');
+      glow.setAttribute('d', pathOf(st.verts)); glow.setAttribute('fill', '#e8fbff');
+      glow.setAttribute('fill-opacity', 0); glow.setAttribute('pointer-events', 'none');
+      glow.setAttribute('class', 'inside-glow');
+      st.polyG.insertBefore(glow, st.diagG);                                      // over the fill, under the lines
+      if (!glow.animate) { glow.remove(); return; }
+      try {
+        glow.animate([{ fillOpacity: 0 }, { fillOpacity: 0.34, offset: 0.45 }, { fillOpacity: 0 }],
+                     { duration: 1100, delay: groups.length * STEP + 160, easing: 'ease-in-out', fill: 'both' })
+          .finished.then(function () { glow.remove(); }, function () { glow.remove(); });
+      } catch (e) { glow.remove(); }
     }
   };
+
+  /* A SPEC WITHOUT ITS ENTRANCE: what to build, not how it arrived. */
+  function specOf(o) {
+    if (!o || typeof o !== 'object') return o;
+    var c = JSON.parse(JSON.stringify(o));
+    delete c.enter; delete c._panel;
+    return c;
+  }
+
+  /* THE SCENE, WRITTEN DOWN.
+   *
+   * Back used to rebuild a screen from the nearest one that declared a
+   * scene — which gives the right pentagon but not the child's pentagon: not
+   * the corner they picked, the diagonal they drew, the dent they pulled, the
+   * sides they measured. So a screen that had any of that on it could not be
+   * landed on, and Back from "Yay! You made a diagonal." skipped six screens
+   * to "Pick any vertex." Now game.js writes the scene down as each screen
+   * begins, and restore() puts back exactly that — the same card in the same
+   * place, the same shape, the same marks — so Back is one screen, like Next.
+   *
+   * Plain data only: no elements, nothing that belongs to a running
+   * animation. Scenes a screen always builds for itself (the grid, the sort,
+   * the swipe, the vista) are not written down; that screen's own beats
+   * rebuild them. */
+  function snapshot() {
+    if (!st.kind || !st.buildSpec || !/^(polygon|builder|compare)$/.test(st.kind)) return st.kind ? { kind: st.kind } : null;
+    var copy = function (o) { return o == null ? (o === undefined ? null : o) : JSON.parse(JSON.stringify(o)); };
+    return {
+      kind: st.kind, spec: copy(st.buildSpec), panel: copy(st.panel),
+      verts: copy(st.verts), n: st.n, cx: st.cx, cy: st.cy, r: st.r,
+      picked: st.picked == null ? null : st.picked,
+      segment: copy(st.segment), vcolor: copy(st.vcolor),
+      diagonals: (st.diagonals || []).map(function (d) { return { a: d[0], b: d[1], solid: !!d.solid }; }),
+      measure: copy(st.measure), highlightOutside: !!st.highlightOutside, onlyOutside: !!st.onlyOutside,
+      ghost: copy(st.ghost), label: copy(st.labelSpec), badges: copy(st.badgeSpecs),
+      compareFocus: st.compareFocus || null, stepLocked: !!st.stepLocked,
+      liveText: st.liveBadge && st.liveBadge._text ? st.liveBadge._text.textContent : null
+    };
+  }
+
+  /** Put a written-down scene back. False if it is not one that can be. */
+  function restore(snap) {
+    if (!snap || !snap.spec || !BUILD[snap.kind]) return false;
+    var spec = Object.assign({}, snap.spec, { enter: false, _panel: snap.panel });
+    if (snap.kind === 'polygon') { spec.label = null; spec.badge = null; spec.diagonals = null; }
+    if (snap.kind === 'builder') spec.sides = snap.n;
+    BUILD[snap.kind](spec);
+    if (snap.kind !== 'compare') {
+      st.verts = snap.verts; st.n = snap.n; st.cx = snap.cx; st.cy = snap.cy; st.r = snap.r;
+      st.picked = snap.picked == null ? null : snap.picked;
+      st.segment = snap.segment; st.vcolor = snap.vcolor;
+      st.diagonals = (snap.diagonals || []).map(function (d) { return Object.assign([d.a, d.b], d.solid ? { solid: true } : {}); });
+      st.measure = snap.measure; st.highlightOutside = snap.highlightOutside; st.onlyOutside = snap.onlyOutside;
+      st.ghost = snap.ghost;
+      if (st.stepText) st.stepText.textContent = snap.n;
+      renderPoly();
+      if (snap.stepLocked) op.stepper('locked');
+      // put back as they were seen: shown, not waiting again for a word
+      if (snap.label) op.label(Object.assign({}, snap.label, { cue: null, enter: false }));
+    } else if (snap.compareFocus) {
+      focus('compare.' + snap.compareFocus, 'dim-others');
+    }
+    Object.keys(snap.badges || {}).forEach(function (k) { op.badge(Object.assign({}, snap.badges[k], { cue: null, enter: false })); });
+    if (snap.liveText && st.liveBadge && st.liveBadge._text) st.liveBadge._text.textContent = snap.liveText;
+    applySeat(false);
+    return true;
+  }
 
   function apply(spec) {
     if (!spec) return;
@@ -3290,11 +4112,14 @@
     if ('ghost' in spec && !spec.kind) op.ghost(spec.ghost);
     if (spec.label && !spec.kind) op.label(spec.label);
     // a carried name tag is taken down by a beat that says label: null
-    if (spec.label === null && st.labelEl) { st.labelEl.remove(); st.labelEl = null; }
+    if (spec.label === null && st.labelEl) { st.labelEl.remove(); st.labelEl = null; st.labelSpec = null; }
+    // the side that was named, and its tag, fade before the next try
+    if (spec.side === null) clearSide();
     if (spec.badge && !spec.kind) op.badge(spec.badge);
-    if ('choices' in spec) op.choices(spec.choices);
+    if ('choices' in spec) op.choices(spec.choices, spec);
     if (spec.stepper && typeof spec.stepper === 'string') op.stepper(spec.stepper);
     if (spec.measurements) op.measurements(spec.measurements);
+    if (spec.observe) op.observe(spec.observe);
     if (spec.returnItem && st.sort && st.sort.dragging) returnItem(st.sort.dragging);
     if (spec.kind) applySeat(false);
   }
@@ -3325,6 +4150,14 @@
     return [];
   }
 
+  /** A name tag goes with its card: faded and drained when the card is. */
+  function dimTag(el, dim) {
+    if (!el || !el.style) return;
+    el.style.transition = 'opacity 320ms ease, filter 320ms ease';
+    el.style.opacity = dim ? .42 : '';
+    el.style.filter = dim ? 'saturate(.25) brightness(1.04)' : '';
+  }
+
   function focus(ref, style) {
     var els = targets(ref);
     if (style === 'dim-others' && st.compare) {
@@ -3344,6 +4177,11 @@
         // and a drop-shadow showed through it as a pale line inside the rim.
         // The other card stepping back is the whole cue.
         c.g.style.filter = dim ? 'saturate(.25) brightness(1.04)' : '';
+        // AND ITS NAME TAG STEPS BACK WITH IT. "Convex" stayed full strength
+        // under a card that had faded to grey, so the one bright thing on the
+        // stepped-back side was a label for the card nobody was talking about.
+        dimTag((st.badges || {})['compare.' + k], dim);
+        dimTag(c.tag, dim);
       });
       return;
     }
@@ -3351,8 +4189,12 @@
       if (!e) return;
       if (e.classList && e.classList.contains('vertex')) { e.setAttribute('opacity', 1); e.setAttribute('r', 15); }
       if (reduced() || !e.animate) return;
+      // ONCE, SOFTLY. Three swells at a quarter over size was the loudest
+      // thing on the screen at the very moment the child was being told what
+      // to do; the thing named gives one small breath and settles, and the
+      // hint ladder takes over if they need more.
       e.style.transformBox = 'fill-box'; e.style.transformOrigin = 'center';
-      e.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.25)' }, { transform: 'scale(1)' }], { duration: 900, iterations: 3, easing: 'ease-in-out' });
+      e.animate([{ scale: '1' }, { scale: '1.14' }, { scale: '1' }], { duration: 700, iterations: 1, easing: 'ease-in-out' });
     });
   }
 
@@ -3370,6 +4212,182 @@
    * Drawn into `fx`, which is pointer-events: none, so a halo can never sit
    * between a child and the vertex they are reaching for.
    */
+  /* ------------------------------------------------------------------ *
+   * THE WORD, SHOWN ON THE BOARD.
+   *
+   * A highlighted word in the bubble is not decoration: at the moment it
+   * appears, the thing it names answers it — briefly, in a warm light that
+   * belongs to the orange of the word, and then back to the lesson's own
+   * colours. "vertex" and the corners swell; "side" and the side brightens;
+   * "diagonal" and the diagonals draw over themselves; "inside" and the
+   * inside of the shape glows; "outside" and a band of light runs round the
+   * outside of its outline.
+   *
+   * WHAT IT MUST NEVER DO IS ANSWER. A word lights what the sentence already
+   * points at, or everything of its kind equally: "Which of these are
+   * polygons?" lights every card at once, never the right ones; "convex" on
+   * the sorting screen lights the Convex bin, never the convex shapes in the
+   * tray. A word with nothing on the board to name — an action, a shape not
+   * made yet — lights nothing.
+   *
+   * One mapping, here, keyed by the vocabulary's own ids (dual-coding.js
+   * TERMS); nothing per screen. Short (300–600ms), one effect at a time, and
+   * never while the child is dragging (a live drag keeps the board theirs).
+   * ------------------------------------------------------------------ */
+  var WARM = 'rgba(255, 150, 40, 0.85)';
+  function warmPulse(els, o) {
+    o = o || {};
+    var n = 0;
+    (els || []).filter(Boolean).slice(0, 12).forEach(function (e, i) {
+      if (!e.animate) return;
+      e.style.transformBox = 'fill-box'; e.style.transformOrigin = 'center';
+      var knob = e.classList && e.classList.contains('knob');
+      var peak = o.peak || (knob ? '1.5' : '1.045');
+      try {
+        e.animate([
+          { scale: '1', filter: 'brightness(1) drop-shadow(0 0 0 rgba(255,150,40,0))' },
+          { scale: peak, filter: 'brightness(1.12) drop-shadow(0 0 7px ' + WARM + ')', offset: 0.4 },
+          { scale: '1', filter: 'brightness(1) drop-shadow(0 0 0 rgba(255,150,40,0))' }
+        ], { duration: o.ms || 480, delay: (o.together ? 0 : i * 60) + (o.delay || 0), easing: 'cubic-bezier(.3,1.25,.45,1)' });
+        n++;
+      } catch (x) {}
+    });
+    return n;
+  }
+  /** The polygon's own outline, as a path to borrow the shape of. */
+  function outlineOf() { return st.fill && st.fill.getAttribute && st.fill.getAttribute('d'); }
+  /** Light a region for a moment: the inside of the shape, or a band round its outside. */
+  function regionGlow(d, outside) {
+    if (!d || !layers.fx) return 0;
+    var g = mk('g', { 'class': 'concept-glow', 'pointer-events': 'none' }, layers.fx);
+    var el;
+    if (outside) {
+      // a wide soft stroke on the outline, clipped to the OUTSIDE of the
+      // shape (a board-sized rectangle with the shape cut out of it)
+      var id = 'outside-clip-' + (++glowSeq);
+      var defs = mk('defs', {}, g);
+      var cp = mk('clipPath', { id: id }, defs);
+      mk('path', { d: 'M-50 -50 H' + (W + 50) + ' V' + (H + 50) + ' H-50 Z ' + d, 'clip-rule': 'evenodd' }, cp);
+      el = mk('path', { d: d, fill: 'none', stroke: '#fff4d6', 'stroke-width': 26, 'stroke-linejoin': 'round', 'clip-path': 'url(#' + id + ')' }, g);
+    } else {
+      el = mk('path', { d: d, fill: '#fff4d6', stroke: 'none' }, g);
+    }
+    el.setAttribute('opacity', 0);
+    if (!el.animate) { g.remove(); return 0; }
+    try {
+      el.animate([{ opacity: 0 }, { opacity: outside ? 0.55 : 0.38, offset: 0.4 }, { opacity: 0 }], { duration: 620, easing: 'ease-in-out' })
+        .finished.then(function () { g.remove(); }, function () { g.remove(); });
+    } catch (e) { g.remove(); return 0; }
+    return 1;
+  }
+  var glowSeq = 0;
+  /** Which corners the sentence means: the one(s) the lesson has marked, else all. */
+  function relevantKnobs() {
+    var ks = st.knobEls || [];
+    var marked = st.vcolor ? Object.keys(st.vcolor).map(Number).filter(function (i) { return ks[i]; }) : [];
+    if (st.picked != null && ks[st.picked] && marked.indexOf(st.picked) < 0) marked.push(st.picked);
+    var shown = marked.length ? marked.map(function (i) { return ks[i]; }) : ks;
+    return shown.filter(function (k) { return k && k.getAttribute('opacity') !== '0'; });
+  }
+  function reflexCorners(v) {
+    var A = Poly.interiorAngles(v), out = [];
+    for (var i = 0; i < A.length; i++) if (A[i] > 180.5) out.push(i);
+    return out;
+  }
+  function emphasize(term, ctx) {
+    if (!svg || reduced() || dragging()) return 0;
+    var kind = st.kind, line = String((ctx && ctx.line) || '').toLowerCase();
+    switch (term) {
+      case 'polygon':
+        if (kind === 'grid') return warmPulse(st.cards, { together: true, peak: '1.03' });   // every card, never the right ones
+        if (kind === 'compare') return warmPulse(Object.keys(st.compare || {}).map(function (k) { return st.compare[k].pg; }), { together: true });
+        if (kind === 'sort') return warmPulse(st.sort && st.sort.items, { together: true, peak: '1.06' });
+        if (kind === 'swipe-sort') return warmPulse(st.swipe && st.swipe.card ? [st.swipe.card] : [], { peak: '1.03' });
+        return warmPulse([st.polyG]);
+      case 'vertex': {
+        // "another vertex", "a different vertex": the OTHER corners; "this
+        // vertex", "the same vertex": the one the lesson has marked
+        var mine = relevantKnobs(), all = (st.knobEls || []).filter(function (k) { return k && k.getAttribute('opacity') !== '0'; });
+        if (/(another|different|other)s+vert/.test(line) && mine.length < all.length) {
+          return warmPulse(all.filter(function (k) { return mine.indexOf(k) < 0; }));
+        }
+        return warmPulse(mine);
+      }
+      case 'side':
+        if (st.segLine) return trace([st.segLine]);
+        if (st.sideDotEls && st.sideDotEls.filter(Boolean).length) return warmPulse(st.sideDotEls, { peak: '1.6' });
+        return st.fill ? trace([st.fill]) : 0;
+      case 'line segment':
+        return st.segLine ? trace([st.segLine]) : 0;
+      case 'diagonal': {
+        if (kind === 'compare') {
+          // "this one" is the card in focus; otherwise both cards' diagonals
+          var cards = Object.keys(st.compare || {}).filter(function (k) { return !st.compareFocus || /both/.test(line) || k === st.compareFocus; });
+          var dl = [];
+          cards.forEach(function (k) { var pg = st.compare[k].pg; if (pg) dl = dl.concat([].slice.call(pg.querySelectorAll('line'))); });
+          return dl.length ? trace(dl) : 0;
+        }
+        // only the diagonals that are showing: the dent screen hides the ones
+        // that stayed inside, and a word must not flash them back
+        var shown = st.diagG ? [].slice.call(st.diagG.childNodes).filter(function (g) { return g.style.display !== 'none'; }) : [];
+        return shown.length ? trace(shown) : 0;
+      }
+      case 'angle': {
+        var wedges = st.measG ? [].slice.call(st.measG.querySelectorAll('[data-angle]')) : [];
+        return wedges.length ? warmPulse(wedges, { peak: '1.15' }) : warmPulse(relevantKnobs());
+      }
+      case 'inside':
+        if (kind === 'compare') { var f1 = st.compareFocus ? st.compare[st.compareFocus] : null; return f1 ? regionGlow(pathOf(f1.verts)) : 0; }
+        return regionGlow(outlineOf());
+      case 'outside':
+        if (kind === 'compare') { var f2 = st.compareFocus ? st.compare[st.compareFocus] : null; return f2 ? regionGlow(pathOf(f2.verts), true) : 0; }
+        return regionGlow(outlineOf(), true);
+      case 'equal': {
+        var ticks = st.measG ? [].slice.call(st.measG.querySelectorAll('.eq-tick')) : [];
+        return ticks.length ? warmPulse(ticks, { peak: '1.3' }) : 0;
+      }
+      case 'convex':
+      case 'concave': {
+        var want = term === 'concave';
+        var isIt = function (v) { var c = Poly.classify(v); return want ? c.concave : c.convex; };
+        if (kind === 'sort') {                                  // the bin that is named, never the answers
+          return warmPulse((st.sort ? st.sort.bins : []).filter(function (b) { return b._bin && b._bin.id === term; }), { peak: '1.03' });
+        }
+        if (kind === 'compare') {
+          var hit = Object.keys(st.compare || {}).map(function (k) { return st.compare[k]; }).filter(function (c) { return isIt(c.verts); });
+          return warmPulse(hit.map(function (c) { return c.pg; }).concat(hit.map(function (c) { return (st.badges || {})['compare.' + (st.compare.left === c ? 'left' : 'right')]; })));
+        }
+        if ((kind === 'polygon' || kind === 'builder') && st.verts && st.verts.length >= 3 && isIt(st.verts)) {
+          if (want) {
+            // the corner that caves in first, then the whole shape
+            var bent = reflexCorners(st.verts).map(knobOf).filter(Boolean);
+            var n0 = warmPulse(bent, { peak: '1.6' });
+            later(n0 ? 260 : 0, function () { warmPulse([st.polyG]); });
+            return 1;
+          }
+          return warmPulse([st.polyG]);
+        }
+        return 0;                                              // not made yet: nothing to name
+      }
+      case 'regular':
+      case 'irregular': {
+        var reg = term === 'regular';
+        if (kind === 'compare') {
+          var cs = Object.keys(st.compare || {}).map(function (k) { return st.compare[k]; }).filter(function (c) { return !!Poly.isRegular(c.verts) === reg; });
+          return warmPulse(cs.map(function (c) { return c.pg; }).concat(cs.map(function (c) { return c.tag; })));
+        }
+        // the evidence: the equal marks, or the readings that differ
+        var ev = st.measG ? [].slice.call(st.measG.querySelectorAll(reg ? '.eq-tick,[data-angle]' : '.meas,[data-angle]')) : [];
+        return ev.length ? warmPulse(ev, { peak: '1.12' }) : 0;
+      }
+      default:
+        return 0;                                               // an action word: lettering only
+    }
+  }
+  /** A finger is on the glass moving something: the board is the child's. */
+  var pressed = false;
+  function dragging() { return pressed; }
+
   function halo(ref, color, mode) {
     void color;   // the theme decides every colour on the stage; kept for the API
     if (!svg || reduced()) return 0;
@@ -3603,57 +4621,30 @@
       return new Promise(function (resolve) {
         if (global.Input) Input.mode('polygon');
         st.showVerts = true; st.touchVerts = true; renderPoly();
+        setConnect('SELECT_VERTEX');
         // all of them: any corner is a vertex, and breathing one would have
         // been an answer rather than an invitation
-        hintLoop(function () { return pulseHint((st.knobEls || []).slice()); });
+        hintLadder({
+          pulse: function () { return pulseHint((st.knobEls || []).slice()); },
+          // every corner is right, so the hand may tap one: the lowest on the
+          // right, where the glove lies outside the shape rather than over it
+          demo: function () {
+            var v = st.verts || [], best = null;
+            v.forEach(function (p) { if (!best || p.x + p.y > best.x + best.y) best = p; });
+            return both(pulseHint((st.knobEls || []).slice(), { strong: true }), tapHand(best));
+          }
+        });
         st.vertEls.forEach(function (c, i) {
           c.style.cursor = 'pointer';
           on(c, 'pointerdown', function (e) {
             e.preventDefault();
+            evt('vertex:selected', { vertex: i });
             st.picked = i; st.lastEl = knobOf(i) || c; st.vcolor = {}; st.vcolor[i] = HI.fill; st.showVerts = false; renderPoly();
+            setConnect('VERTEX_SELECTED', { from: i });
             endInteraction(); resolve({ result: 'correct', vertex: i });
           });
         });
         if (ctx && ctx.onCancel) ctx.onCancel(endInteraction);
-      });
-    },
-
-    'drag-endpoint': function (spec, ctx) {
-      return new Promise(function (resolve) {
-        if (global.Input) Input.mode('polygon');
-        // The segment is drawn on the screen before; entered without one —
-        // a jump, a restart — the picked vertex and its neighbour stand in.
-        if (!st.segment) { var p0 = st.picked == null ? 0 : st.picked; st.segment = [p0, (p0 + 1) % st.n]; renderPoly(); }
-        var from = st.segment[0], moving = st.segment[1];
-        var ghostLine = mk('line', { x1: st.verts[from].x, y1: st.verts[from].y, x2: st.verts[moving].x, y2: st.verts[moving].y, stroke: HI.line, 'stroke-width': 5, 'stroke-linecap': 'round', opacity: 0 }, layers.fx);
-        // the gesture: the endpoint slides to a vertex it may be dropped on
-        hintLoop(function () {
-          if (!st.segment) return null;
-          var gt = Poly.diagonalsFrom(from, st.n).filter(function (j) { return j !== moving; })[0];
-          return gt != null ? gestureGhost(st.verts[moving], st.verts[gt], { r: 11 }) : null;
-        });
-        dragVertex(moving, function (p) {
-          ghostLine.setAttribute('opacity', 1); ghostLine.setAttribute('x2', p.x); ghostLine.setAttribute('y2', p.y);
-          if (st.segLine) st.segLine.setAttribute('opacity', .25);
-        }, function (p) {
-          ghostLine.remove();
-          var j = nearestVertex(p, from);
-          if (j < 0) {
-            // dropped in space: not a wrong answer, but not nothing either
-            if (st.segLine) st.segLine.setAttribute('opacity', 1);
-            missedCorner(Poly.diagonalsFrom(from, st.n));
-            return;
-          }
-          var ok = !Poly.isAdjacent(from, j, st.n);
-          endInteraction();
-          if (ok) {
-            // the side stays where it was; the drag has made a second line
-            st.sideMark = [from, moving];
-            st.diagonals = st.diagonals || []; st.diagonals.push(Object.assign([Math.min(from, j), Math.max(from, j)], { solid: true }));
-            st.segment = null; st.vcolor = {}; st.vcolor[from] = HI.fill; st.vcolor[j] = HI.fill; renderPoly(); st.lastEl = st.polyG;
-            resolve({ result: 'correct', vertex: j });
-          } else { st.lastEl = st.vertEls[j]; renderPoly(); resolve({ result: 'wrong', vertex: j }); }
-        }, ctx);
       });
     },
 
@@ -3672,7 +4663,7 @@
         if (spec.live === 'diagonals') st.highlightOutside = true;
         // the gesture: from the vertex, inward toward the middle to make a
         // dent, or out along its own line to stretch the shape
-        hintLoop(function () {
+        var ghostOf = function () {
           if (done) return null;
           var gi = idxs[0], gv = st.verts[gi], gc = Poly.centroid(st.verts);
           var glen = Math.hypot(gc.x - gv.x, gc.y - gv.y) || 1;
@@ -3684,6 +4675,10 @@
             ? { x: gv.x + (gc.x - gv.x) * 0.9, y: gv.y + (gc.y - gv.y) * 0.9 }
             : { x: gv.x - (gc.x - gv.x) / glen * 78 * 0.55, y: gv.y - (gc.y - gv.y) / glen * 78 * 0.55 };
           return gestureGhost(gv, to, { r: 11 });
+        };
+        hintLadder({
+          pulse: function () { return done ? null : pulseHint(idxs.map(knobOf)); },
+          demo: ghostOf
         });
         // WHAT THE DRAG IS ASKED TO MAKE, judged from the shape as it stands
         var judge = function (i) {
@@ -3735,6 +4730,7 @@
             // try and gets no verdict.
             if (done) return;
             var from = grabAt || st.verts[i]; held = -1; grabAt = null;
+            evt('vertex:dragged', { vertex: i });
             if (judge(i)) {
               done = true; st.lastEl = st.polyG; endInteraction();
               // the vertex they moved keeps its knob: the dent IS a vertex
@@ -3742,6 +4738,9 @@
               // the dent is made: the diagonals that stayed inside step back,
               // and the one that went outside is the whole picture
               if (spec.live === 'diagonals') st.onlyOutside = true;
+              // KEPT: the shape the child made, so a later card that shows
+              // "a concave pentagon" or "an irregular pentagon" can show theirs
+              if (spec.until) rememberMade(spec.until, st.verts, i);
               renderPoly(); resolve({ result: 'correct', vertex: i });
               return;
             }
@@ -3749,6 +4748,8 @@
             if (moved < 6) return;
             st.lastEl = knobOf(i) || st.polyG;
             juice('refuse', knobOf(i) || st.polyG);
+            // HEARD, as every other wrong answer is (the dent drags had no sound)
+            sfx('wrong');
             // a dent too shallow to see gets the reason, not a bare "no"
             onTap('wrong', spec.until === 'concave' ? { t: 'Pull it in more!', vo: 'fb11' } : null);
           }, ctx);
@@ -3758,6 +4759,12 @@
     choice: function (spec, ctx) {
       return new Promise(function (resolve) {
         if (global.Input) Input.mode('polygon');
+        // Both answers breathe when the child has been still a while — never
+        // the right one alone, which would be the answer given away.
+        hintLadder({
+          pulse: function () { return pulseHint((st.choiceEls || []).slice()); },
+          demo: function () { return pulseHint((st.choiceEls || []).slice(), { strong: true }); }
+        });
         (st.choiceEls || []).forEach(function (b) {
           // THE HAND COMES BACK FOR A RETRY. endInteraction() strips every
           // cursor when an answer lands; the retry input arms the same
@@ -3767,15 +4774,17 @@
           on(b, 'pointerdown', function (e) {
             e.preventDefault(); st.lastEl = b;
             var ok = b.getAttribute('data-label') === spec.correct;
+            evt('answer:selected', { label: b.getAttribute('data-label'), correct: ok });
+            if (ok && global.Juice && Juice.sparkle && !reduced()) { try { Juice.sparkle(b); } catch (x) {} }
             // _retint, not firstChild: a pill draws its LIP first, so setting
             // a fill on the first child recoloured the three-pixel shadow
             // under the button and left the face it sits on untouched.
-            if (ok && b._retint) b._retint('correct');
+            if (ok && b._retint) b._retint('uiSuccess');
             if (!ok && b._retint) {
               // the wrong one flushes red for a moment and comes back, so
               // the child sees which they pressed and that it is still there
-              b._retint('wrong');
-              later(650, function () { if (b._retint) b._retint('sun'); });
+              b._retint('uiDanger');
+              later(650, function () { if (b._retint) b._retint('uiPrimary'); });
             }
             endInteraction(); resolve({ result: ok ? 'correct' : 'wrong', label: b.getAttribute('data-label') });
           });
@@ -3808,8 +4817,8 @@
         var sw = st.swipe;
         if (!sw || !sw.card) { resolve({ result: 'correct' }); return; }
 
-        var W_CARD = 192;
-        var THRESHOLD = W_CARD * 0.22;
+        var W_CARD = SWIPE_HALF * 2;
+        var THRESHOLD = W_CARD * 0.2;
         var resolving = false, dragging = false, demo = null;
         var startX = 0, startY = 0, dx = 0, pid = null;
 
@@ -3817,6 +4826,27 @@
           card.setAttribute('transform',
             'translate(' + (SWIPE_HOME.x + x) + ',' + SWIPE_HOME.y + ') rotate(' + rot.toFixed(2) + ')' +
             (scale ? ' scale(' + scale + ')' : ''));
+        }
+
+        /* A card's journey, stepped on its own transform attribute (so it
+           turns and scales about its own middle), eased out, with an optional
+           lift at the middle of the path. Reduced motion lands it at once. */
+        function flyCard(card, a, b, ms, lift, then) {
+          var set = function (p) {
+            card.setAttribute('transform', 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ') rotate(' + p.rot.toFixed(2) + ')' + (Math.abs(p.s - 1) > 1e-3 ? ' scale(' + p.s.toFixed(4) + ')' : ''));
+          };
+          if (reduced() || !global.requestAnimationFrame) { set(b); if (then) then(); return; }
+          var t0 = null;
+          var step = function (now) {
+            if (!card.parentNode) { if (then) then(); return; }
+            if (t0 == null) t0 = now;
+            var k = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - k, 3);
+            set({ x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e - (lift || 0) * 4 * e * (1 - e),
+                  rot: a.rot + (b.rot - a.rot) * e, s: a.s + (b.s - a.s) * e });
+            if (k < 1) global.requestAnimationFrame(step);
+            else if (then) then();
+          };
+          global.requestAnimationFrame(step);
         }
 
         function sideOf(x) { return x < -THRESHOLD ? 'regular' : x > THRESHOLD ? 'irregular' : null; }
@@ -3828,8 +4858,10 @@
         function classify(answer) {
           if (resolving || !answer || !sw.card) return;
           stopDemo();
+          evt('answer:selected', { item: sw.card._name, zone: answer });
           resolving = true;
           var card = sw.card;
+          st.lastEl = card;
           var right = Poly.isRegular(card._verts) ? 'regular' : 'irregular';
           var ok = answer === right;
           var dir = answer === 'regular' ? -1 : 1;
@@ -3868,19 +4900,20 @@
             // same size, so nothing vanishes and nothing appears. It used to
             // be flung out past the zone, shrink to nothing and fade while a
             // copy popped up on the shelf: two events where the child made one.
+            /* ONE FLIGHT, FROM THE HAND TO THE SEAT. It was a CSS animation of
+               translate, rotate and scale on an SVG group — and an SVG group
+               turns and shrinks about the corner of the stage, not about
+               itself, so the card jumped as it set off; and it shrank to
+               seat/96 of its size when the card is 152 across, so it landed
+               half again too big and then snapped down. It is stepped on the
+               card's own transform now, which turns and scales it about its
+               own middle: from exactly where the child let go, along a low
+               arc, straight into the seat on the shelf it keeps, at exactly
+               the size of the card that is left there. Nothing bounces. */
             var pulled = dx, tilt = tiltOf(dx);
-            place(card, 0, 0);   // the pull moves into the flight
             var seat = zone ? shelfSeats(zone, zone._kept.length + 1)[zone._kept.length] : null;
             var tx = seat ? seat.x : SWIPE_HOME.x, ty = seat ? seat.y : SWIPE_HOME.y;
-            var k = seat ? seat.half / 96 : 0.4;
-            var ox = tx - SWIPE_HOME.x, oy = ty - SWIPE_HOME.y;
-            var fly = card.animate
-              ? card.animate([
-                  { translate: pulled + 'px 0', rotate: tilt + 'deg', scale: '1' },
-                  { translate: ((pulled + ox) * 0.5) + 'px ' + (Math.min(0, oy) * 0.5 - 46) + 'px', rotate: (tilt * 0.5) + 'deg', scale: String((1 + k) * 0.5 + 0.08), offset: 0.5 },
-                  { translate: ox + 'px ' + oy + 'px', rotate: '0deg', scale: String(k) }
-                ], { duration: 520, easing: 'cubic-bezier(.3,.75,.3,1)', fill: 'forwards' })
-              : null;
+            var k = seat ? seat.half / SWIPE_HALF : 0.4;
             var after = function () {
               card.style.pointerEvents = 'none';
               if (card.parentNode) card.parentNode.removeChild(card);
@@ -3894,9 +4927,11 @@
                 dealCard();
                 arm();
                 resolving = false;
+                // the next card is on the table (game.js brings him back up behind it)
+                later(420, function () { if (st.swipe && sw.card && !dragging) evt('swipe:home', { i: sw.i }); });
               });
             };
-            if (fly && fly.finished) fly.finished.then(after, after); else after();
+            flyCard(card, { x: SWIPE_HOME.x + pulled, y: SWIPE_HOME.y, rot: tilt, s: 1 }, { x: tx, y: ty, rot: 0, s: k }, 560, 46, after);
             if (ctx && ctx.onCorrect) ctx.onCorrect();
           } else {
             sfx('wrong');
@@ -3913,28 +4948,23 @@
                         { duration: 260, easing: 'ease-in-out' });
             }
             if (ctx && ctx.onWrong) ctx.onWrong();
-            // a nudge toward the side they chose, then home again
+            // NOT A SWING AND A SPRING: it glides back to the middle, where the
+            // marks on it say why (whyShape), and waits for another try
             var pulledBack = dx, tiltBack = tiltOf(dx);
-            place(card, 0, 0);   // the pull moves into the animation
-            var back = card.animate
-              ? card.animate([
-                  { translate: pulledBack + 'px 0', rotate: tiltBack + 'deg' },
-                  { translate: (dir * Math.max(Math.abs(pulledBack), 70) + dir * 22) + 'px 0', rotate: (dir * 7) + 'deg', offset: 0.42 },
-                  { translate: '0 0', rotate: '0deg' }
-                ], { duration: 520, easing: 'cubic-bezier(.3,.9,.35,1)' })
-              : null;
+            void dir;
             var reset2 = function () {
               dx = 0; place(card, 0, 0);
               leanZone(null, false);
               resolving = false;
+              evt('swipe:home', { i: sw.i });
             };
-            if (back && back.finished) back.finished.then(reset2, reset2); else reset2();
+            flyCard(card, { x: SWIPE_HOME.x + pulledBack, y: SWIPE_HOME.y, rot: tiltBack, s: 1 }, { x: SWIPE_HOME.x, y: SWIPE_HOME.y, rot: 0, s: 1 }, 260, 0, reset2);
           }
         }
 
-        /* ---- the demonstration, first round only ---- */
+        /* ---- the demonstration: the hint ladder's top rung ---- */
         function runDemo() {
-          if (reduced() || !sw.card || !sw.card.animate || sw.i !== 0) return;
+          if (reduced() || !sw.card || !sw.card.animate) return null;
           // A GHOST SHOWS THE MOVE. The card itself stays where the child will
           // take hold of it; a translucent copy slides out along the left arc
           // and fades, then along the right, until they do.
@@ -3952,11 +4982,34 @@
             { translate: '0 0', rotate: '0deg', opacity: 0.45, offset: 0.52 },
             { translate: '150px -62px', rotate: '12deg', opacity: 0, offset: 0.88 },
             { translate: '0 0', rotate: '0deg', opacity: 0, offset: 1 }
-          ], { duration: 3400, iterations: Infinity, easing: 'ease-in-out' });
+          ], { duration: 3400, iterations: 1, easing: 'ease-in-out' });
+          // the hand holds the card's middle and swipes it, left and then right
+          var hd = handAt(layers.fx, SWIPE_HOME.x, SWIPE_HOME.y);
+          if (hd && hd.g.animate) {
+            sw.demoHand = hd.g;
+            try {
+              sw.demoHandAnim = hd.g.animate([
+                { translate: '24px 30px', opacity: 0, offset: 0 },
+                { translate: '0px 0px', opacity: 1, offset: 0.06 },
+                { translate: '-150px -62px', opacity: 1, offset: 0.33 },
+                { translate: '-150px -62px', opacity: 0, offset: 0.37 },
+                { translate: '0px 0px', opacity: 0, offset: 0.42 },
+                { translate: '0px 0px', opacity: 1, offset: 0.5 },
+                { translate: '150px -62px', opacity: 1, offset: 0.85 },
+                { translate: '150px -62px', opacity: 0, offset: 0.9 },
+                { translate: '150px -62px', opacity: 0, offset: 1 }
+              ], { duration: 3400, easing: 'ease-in-out', fill: 'forwards' });
+              hd.img.animate([{ scale: '1' }, { scale: '.92', offset: 0.06 }, { scale: '.92', offset: 0.9 }, { scale: '1' }], { duration: 3400 });
+            } catch (e) {}
+          }
+          if (demo && demo.finished) demo.finished.then(stopDemo, function () {});
+          return stopDemo;
         }
         function stopDemo() {
           if (demo) { try { demo.cancel(); } catch (e) {} demo = null; }
           if (sw.ghost) { try { sw.ghost.remove(); } catch (e) {} sw.ghost = null; }
+          if (sw.demoHandAnim) { try { sw.demoHandAnim.cancel(); } catch (e) {} sw.demoHandAnim = null; }
+          if (sw.demoHand) { try { sw.demoHand.remove(); } catch (e) {} sw.demoHand = null; }
         }
 
         /* ---- pointer, the only input path that needs geometry ---- */
@@ -3991,17 +5044,17 @@
           // not far enough to mean anything: spring home
           leanZone(null, false);
           var pulledHome = dx, tiltHome = tiltOf(dx);
-          dx = 0; if (sw.card) place(sw.card, 0, 0);
-          if (sw.card && sw.card.animate && !reduced()) {
-            sw.card.animate([{ translate: pulledHome + 'px 0', rotate: tiltHome + 'deg' }, { translate: '0 0', rotate: '0deg' }],
-                            { duration: 260, easing: 'cubic-bezier(.3,1.4,.5,1)' });
-          }
+          dx = 0;
+          // back to the middle, smoothly — no spring past it
+          if (sw.card) flyCard(sw.card, { x: SWIPE_HOME.x + pulledHome, y: SWIPE_HOME.y, rot: tiltHome, s: 1 }, { x: SWIPE_HOME.x, y: SWIPE_HOME.y, rot: 0, s: 1 }, 220, 0,
+                               function () { if (!dragging && !resolving) evt('swipe:home', { i: sw.i }); });
         }
         function onCancel() {
           if (!dragging) return;
           dragging = false;
           leanZone(null, false);
           dx = 0; if (sw.card) { place(sw.card, 0, 0); sw.card.style.cursor = 'grab'; }
+          evt('swipe:home', { i: sw.i });
         }
 
         function onKey(e) {
@@ -4017,8 +5070,11 @@
           on(sw.card, 'pointerup', onUp);
           on(sw.card, 'pointercancel', onCancel);
           on(sw.card, 'lostpointercapture', onCancel);
-          runDemo();
         }
+        hintLadder({
+          pulse: function () { return sw.card ? pulseHint([sw.card]) : null; },
+          demo: runDemo
+        });
 
         // Tapping a zone does the same thing as swiping to it — the swipe is
         // the experience, but it must never be the only way in.
@@ -4045,13 +5101,15 @@
         // EVERY card still in play, not the correct ones. The hint used to
         // pick the first unfound answer and pulse that, which is the whole
         // exercise given away to anyone who waited six seconds.
-        hintLoop(function () {
-          return pulseHint(st.cards.filter(function (c) { return !c._done; }));
+        hintLadder({
+          pulse: function () { return pulseHint(st.cards.filter(function (c) { return !c._done; })); },
+          demo: function () { return pulseHint(st.cards.filter(function (c) { return !c._done; }), { strong: true }); }
         });
         st.cards.forEach(function (c) {
           c.style.cursor = 'pointer';
           on(c, 'pointerdown', function (e) {
             e.preventDefault(); if (c._done) return; st.lastEl = c;
+            evt('answer:selected', { option: c._opt.id, correct: !!c._opt.correct });
             if (c._opt.correct) {
               c._done = true; got++; c.style.cursor = '';
               if (c._card) c._card._mark('correct');
@@ -4073,9 +5131,16 @@
         if (global.Input) Input.mode('polygon');
         var isSides = spec.targets === 'sides', seen = {}, count = 0, need = spec.count || st.n;
         var queue = [], measuring = false, cancelled = false;
-        cleanup.push(function () { cancelled = true; queue.length = 0; });
+        cleanup.push(function () {
+          cancelled = true; queue.length = 0;
+          // the to-do dots go with the interaction, whichever way it ends
+          if (st.sideTodo) { st.sideTodo = null; if (st.polyG) renderPoly(); }
+        });
         st.measure = st.measure || {}; st.measure[isSides ? 'sides' : 'angles'] = [];
-        st.showVerts = !isSides; st.touchVerts = !isSides; renderPoly();
+        st.showVerts = !isSides; st.touchVerts = !isSides;
+        // every side starts on the to-do list, marked by a dot at its middle
+        st.sideTodo = isSides ? st.verts.map(function (_, k) { return k; }) : null;
+        renderPoly();
         var cls = isSides ? 'edge' : 'vertex';
         // WHERE TO TAP. Every target still waiting carries a soft pulse — a
         // glow along the side, a breath on the corner — and loses it the
@@ -4089,21 +5154,27 @@
           });
         };
         hint();
-        hintLoop(function () {
-          if (!st.verts || st.verts.length < 2) return null;
-          var k = 0; while (k < st.verts.length && seen[k]) k++;
-          if (k >= st.verts.length) return null;
-          var g0 = st.verts[k], g1 = st.verts[(k + 1) % st.verts.length];
-          void g1;
-          // a side has no body to swell — the .edge.hint glow along the line
-          // is its pulse — so only the corners are breathed here
-          return isSides ? null : pulseHint((st.knobEls || []).filter(function (_, q) { return !seen[q]; }));
+        // what is still to measure: the sides' dots and the corners breathe
+        var todo = function () {
+          return isSides ? (st.sideDotEls || []).filter(function (d, q) { return d && !seen[q]; })
+                         : (st.knobEls || []).filter(function (_, q) { return !seen[q]; });
+        };
+        hintLadder({
+          pulse: function () { return pulseHint(todo()); },
+          // every one of them is to be measured: the hand taps the next
+          demo: function () { var t = todo(); return both(pulseHint(t, { strong: true }), tapHand(centreOf(t[0]))); }
         });
         // Delegated: renderPoly() runs after every reveal.
         on(st.polyG, 'pointerdown', function (e) {
           var t = e.target; if (!t || !t.classList || !t.classList.contains(cls)) return;
           var i = +t.getAttribute('data-i'); if (seen[i]) return;
           e.preventDefault(); seen[i] = true;
+          evt('measurement:start', { what: isSides ? 'side' : 'angle', index: i });
+          // its dot goes at once: the tap has been taken
+          if (isSides && st.sideTodo) {
+            st.sideTodo = st.sideTodo.filter(function (k) { return k !== i; });
+            renderPoly(); hint();
+          }
           queue.push(i); next();
         });
         function next() {
@@ -4118,8 +5189,26 @@
             if (fresh) enter(fresh, 'pop');
             st.lastEl = isSides ? st.edgeEls[i] : (knobOf(i) || st.vertEls[i]);
             hint();
+            evt('measurement:complete', { what: isSides ? 'side' : 'angle', index: i });
             onTap('correct'); measuring = false;
-            if (count >= need) { endInteraction(); resolve({ result: 'correct' }); }
+            if (count >= need) {
+              st.sideTodo = null; renderPoly();
+              // THE LAST SIDE IS IN, AND NOW THE MARKS SAY IT: the equal-side
+              // ticks are dealt in round the shape one after another — the
+              // conclusion drawn when there is something to conclude
+              if (isSides && st.measG && !reduced()) {
+                var ticks = st.measG.querySelectorAll('.eq-tick');
+                for (var tk = 0; tk < ticks.length; tk++) {
+                  var te = ticks[tk];
+                  if (!te.animate) continue;
+                  te.style.transformBox = 'fill-box'; te.style.transformOrigin = 'center';
+                  try { te.animate([{ opacity: 0, scale: '.3' }, { opacity: 1, scale: '1.25', offset: 0.6 }, { opacity: 1, scale: '1' }],
+                                   { duration: 420, delay: 160 + tk * 150, easing: 'cubic-bezier(.3,1.4,.5,1)', fill: 'backwards' }); } catch (x) {}
+                }
+                if (ticks.length) sfx('sparkle', { gain: 0.5 });
+              }
+              endInteraction(); resolve({ result: 'correct' });
+            }
             else next();
           }
           if (isSides) measureSide(i, reveal);
@@ -4142,6 +5231,7 @@
             if (!active) return; active = false; var p = item._pos || item._home;
             var bin = S.bins.filter(function (b) { var r = b._rect; return p.x > r.x && p.x < r.x + r.w && p.y > r.y && p.y < r.y + r.h; })[0];
             st.lastEl = item;
+            if (bin) evt('answer:selected', { item: item._name, bin: bin._bin.id });
             if (!bin) { returnItem(item); return; }
             var c = Poly.classify(item._verts);
             var truth = bin._bin.id === 'convex' ? c.convex : bin._bin.id === 'concave' ? c.concave : bin._bin.id === 'regular' ? c.regular : c.irregular;
@@ -4159,12 +5249,16 @@
         S.items.forEach(armItem);
         // the gesture: a ghost of the first card slides down toward the bins
         // and fades — the move, not the answer — until the child takes one
-        hintLoop(function () {
-          var first = S.items.filter(function (it) { return !it._placed; })[0];
-          if (!first || !S.bins || !S.bins.length) return null;
-          var b0 = S.bins[0]._rect, b1 = S.bins[S.bins.length - 1]._rect;
-          var gapX = (b0.x + b0.w + b1.x) / 2, home = first._pos || first._home;
-          return gestureGhost(home, { x: gapX, y: b0.y + 40 }, { clone: first, trail: false, duration: 2600 });
+        var firstLeft = function () { return S.items.filter(function (it) { return !it._placed; })[0]; };
+        hintLadder({
+          pulse: function () { var f = firstLeft(); return f ? pulseHint([f]) : null; },
+          demo: function () {
+            var first = firstLeft();
+            if (!first || !S.bins || !S.bins.length) return null;
+            var b0 = S.bins[0]._rect, b1 = S.bins[S.bins.length - 1]._rect;
+            var gapX = (b0.x + b0.w + b1.x) / 2, home = first._pos || first._home;
+            return gestureGhost(home, { x: gapX, y: b0.y + 40 }, { clone: first, trail: false, duration: 2600 });
+          }
         });
         if (ctx && ctx.onCancel) ctx.onCancel(endInteraction);
       });
@@ -4178,57 +5272,317 @@
           if (n === st.n) return;
           var prev = st.verts.slice(); st.n = n;
           var P = polygonIn(st.panel, n, {}); st.verts = P.verts; st.stepText.textContent = n; renderPoly(); morphFrom(prev);
+          syncStepper();
           onTap('any');
           if (n === spec.target) { endInteraction(); resolve({ result: 'correct' }); }
         }
-        on(st.stepMinus, 'pointerdown', function (e) { e.preventDefault(); if (!st.stepLocked) set(st.n - 1); });
-        on(st.stepPlus, 'pointerdown', function (e) { e.preventDefault(); if (!st.stepLocked) set(st.n + 1); });
+        hintLadder({
+          pulse: function () { return pulseHint([st.n < spec.target ? st.stepPlus : st.stepMinus]); },
+          demo: function () { var b = st.n < spec.target ? st.stepPlus : st.stepMinus; return both(pulseHint([b], { strong: true }), tapHand(centreOf(b))); }
+        });
+        syncStepper();
+        on(st.stepMinus, 'pointerdown', function (e) { e.preventDefault(); if (!st.stepLocked && st.n > st.stepper.min) set(st.n - 1); });
+        on(st.stepPlus, 'pointerdown', function (e) { e.preventDefault(); if (!st.stepLocked && st.n < st.stepper.max) set(st.n + 1); });
         if (ctx && ctx.onCancel) ctx.onCancel(endInteraction);
       });
     }
   };
 
+  /* ------------------------------------------------------------------ *
+   * A LINE FROM A CORNER, DRAWN BY THE FINGER
+   *
+   * Both diagonal screens are the same gesture: from the corner the child
+   * chose, to a corner that is neither beside it nor already joined to it.
+   * These are the pieces of that gesture, so both screens feel identical:
+   *
+   *   the corners it may go to light up as the drag begins, and only those;
+   *   the line runs from the chosen corner to the finger, and within SNAP of
+   *   a corner it may go to it jumps there — a magnetic snap, with an icy
+   *   tick — so a finger that is nearly there is there;
+   *   let go anywhere else and the line slides back home;
+   *   a new diagonal shimmers once.
+   *
+   * Everything is in the stage's own units and read from the corners as they
+   * are now, so a resize or a moved corner can never leave a line behind.
+   * ------------------------------------------------------------------ */
+  var SNAP = 60;
+
+  /** Is the pair (a, b) already a diagonal on the shape? Pairs are unordered. */
+  function diagonalUsed(a, b) {
+    var k = Math.min(a, b) + '-' + Math.max(a, b);
+    return (st.diagonals || []).some(function (d) { return Math.min(d[0], d[1]) + '-' + Math.max(d[0], d[1]) === k; });
+  }
+
+  /** The line under the finger, hidden until the drag begins. */
+  function previewLine(from) {
+    var a = st.verts[from];
+    return mk('line', { x1: a.x, y1: a.y, x2: a.x, y2: a.y, stroke: HI.line, 'stroke-width': 5,
+                        'stroke-linecap': 'round', opacity: 0, 'pointer-events': 'none',
+                        style: litGlow(HI.lit) }, layers.fx);
+  }
+
+  /** Light the corners a line may go to (or put them back as they were).
+      Attributes only — no re-render, so the corners the child is holding on
+      to keep their handlers and the drag can be tried again at once. */
+  var KNOB_ATTRS = ['opacity', 'r', 'fill', 'stroke', 'stroke-width'];
+  function showTargets(idxs, on) {
+    (st.knobEls || []).forEach(function (k, i) {
+      if (!k) return;
+      if (on && idxs.indexOf(i) >= 0) {
+        if (!k._was) { k._was = {}; KNOB_ATTRS.forEach(function (a) { k._was[a] = k.getAttribute(a); }); }
+        k.setAttribute('opacity', 1); k.setAttribute('r', 9);
+        k.setAttribute('fill', HI.knob); k.setAttribute('stroke', HI.rim); k.setAttribute('stroke-width', 3);
+        k.classList.add('target');
+      } else if (k._was) {
+        KNOB_ATTRS.forEach(function (a) { if (k._was[a] == null) k.removeAttribute(a); else k.setAttribute(a, k._was[a]); });
+        k._was = null;
+        k.classList.remove('target', 'hot');
+      }
+    });
+  }
+
+  /** Move the line's free end: to the finger, or snapped to a corner it may
+      join. Returns the corner it is snapped to, or -1. */
+  function followFinger(line, from, p, valid, was) {
+    var best = -1, bd = SNAP;
+    valid.forEach(function (j) { var q = st.verts[j], d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; best = j; } });
+    var end = best >= 0 ? st.verts[best] : p;
+    line.setAttribute('opacity', 1);
+    line.setAttribute('x2', end.x); line.setAttribute('y2', end.y);
+    if (best !== was) {
+      if (was >= 0 && knobOf(was)) { knobOf(was).classList.remove('hot'); knobOf(was).setAttribute('r', 9); }
+      if (best >= 0 && knobOf(best)) {
+        knobOf(best).classList.add('hot'); knobOf(best).setAttribute('r', 12);
+        sfx('tick', { gain: 0.5 });                     // the icy tick of a line finding its corner
+      }
+    }
+    return best;
+  }
+
+  /** A line let go in the wrong place goes home, gently, and is gone.
+      x2/y2 are attributes, not CSS, so it is stepped by frame for 200ms. */
+  function retract(line, from, then) {
+    var a = st.verts[from];
+    var finished = false;
+    var done = function () { if (finished) return; finished = true; line.remove(); if (then) then(); };
+    if (reduced() || line.getAttribute('opacity') === '0') { done(); return; }
+    var x2 = +line.getAttribute('x2'), y2 = +line.getAttribute('y2');
+    var frame = global.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    var t0 = Date.now();
+    (function step() {
+      var k = Math.min(1, (Date.now() - t0) / 200), e = k * k;
+      line.setAttribute('x2', x2 + (a.x - x2) * e); line.setAttribute('y2', y2 + (a.y - y2) * e);
+      line.setAttribute('opacity', 1 - k);
+      if (k < 1 && line.parentNode) frame(step);
+      else done();
+    }());
+  }
+
+  /** A line the child has just made catches the light once. */
+  function shimmerLine(ln) {
+    if (reduced() || !ln || !ln.animate) return;
+    try {
+      ln.animate([{ strokeWidth: 4.5, filter: 'brightness(1)' }, { strokeWidth: 8, filter: 'brightness(1.5)', offset: 0.35 }, { strokeWidth: 4.5, filter: 'brightness(1)' }],
+                 { duration: 560, easing: 'ease-out' });
+    } catch (e) {}
+  }
+
+  /** A new diagonal catches the light once — or, the first one the child
+      finds for themselves (`found`), twice and slower: the glow is the
+      answer, so it lasts long enough to be seen while "Yay!" arrives. */
+  function shimmer(k, found) {
+    if (reduced() || !st.diagG) return;
+    var g = st.diagG.childNodes[k], ln = g && g.querySelector('line');
+    if (!ln || !ln.animate) return;
+    var timing = found ? { duration: 760, iterations: 2, easing: 'ease-in-out' } : { duration: 560, easing: 'ease-out' };
+    try {
+      ln.animate([
+        { strokeWidth: 4, opacity: 1 },
+        { strokeWidth: found ? 9 : 7.5, opacity: 1, offset: 0.35 },
+        { strokeWidth: 4, opacity: 1 }
+      ], timing);
+      g.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(' + (found ? 1.6 : 1.45) + ')', offset: 0.35 }, { filter: 'brightness(1)' }], timing);
+    } catch (e) {}
+  }
+
+  /* THE CONNECTING STEP, AS A STATE. Pick → connect has several moments in
+     which the shape must not take a line — while he names a side, while the
+     next instruction is still being said, while the diagonal is cheered — and
+     the stage says which one it is in, so nothing overlaps and a test can
+     ask:
+       SELECT_VERTEX     corners showing, any one may be picked
+       VERTEX_SELECTED   the corner is theirs; the instruction is being given
+       READY_TO_CONNECT  a line may be drawn from it
+       DRAWING           a finger is down, the line follows it
+       SIDE_FEEDBACK     it landed on a neighbour: a side, being named
+       DIAGONAL_SUCCESS  it landed on any other corner: a diagonal
+     Drawing is only taken in READY_TO_CONNECT; every other state belongs to
+     the lesson. */
+  function setConnect(state, detail) {
+    if (st.connect === state) return;
+    st.connect = state;
+    evt('connect:state', Object.assign({ state: state }, detail || {}));
+  }
+
+  /** The side that was named goes: its mark and its tag fade, and the shape is
+      as it was before the line was drawn (the corner stays theirs). */
+  function clearSide() {
+    var ln = st.segLine, tag = st.labelEl;
+    st.segment = null; st.segLine = st.segGlow = null;
+    if (tag) { st.labelEl = null; st.labelSpec = null; }
+    [ln, tag].forEach(function (el) {
+      if (!el) return;
+      if (reduced() || !el.animate) { el.remove(); return; }
+      try {
+        var a = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 280, easing: 'ease-in', fill: 'forwards' });
+        a.onfinish = function () { el.remove(); };
+      } catch (e) { el.remove(); }
+    });
+  }
+
   function drawDiagonals(spec, count, ctx) {
     return new Promise(function (resolve) {
       if (global.Input) Input.mode('polygon');
       var from = spec.from === 'picked' ? (st.picked == null ? 0 : st.picked) : spec.from;
+      /* `sides`: CONNECT IT TO ANY CORNER, AND FIND OUT. The child joins their
+         corner to another themselves. A neighbour (by vertex ORDER, i±1,
+         wrapping at the first and last corner — Poly.isAdjacent) makes a
+         SIDE: it lights for a moment and the lesson names it. Any other
+         corner makes the DIAGONAL.
+         THE OTHER CORNERS ARE POINTS TO CONNECT TO. They vanished when the
+         corner was picked — only the chosen one remained — and, asked to
+         "connect it to another vertex", the child had one dot on the screen
+         and nothing to connect it to (the user: "why points not added").
+         From the moment the connecting starts they are back, as plain
+         corner points, and their own stays bright and ringed; the one the
+         line snaps to grows under the finger. */
+      var sides = !!spec.sides;
       st.picked = from; st.vcolor = {}; st.vcolor[from] = HI.fill; st.showVerts = true; st.touchVerts = true; renderPoly();
-      var made = 0, active = false;
-      var rubber = mk('line', { x1: st.verts[from].x, y1: st.verts[from].y, x2: st.verts[from].x, y2: st.verts[from].y, stroke: HI.line, 'stroke-width': 5, 'stroke-linecap': 'round', opacity: 0 }, layers.fx);
-      function used(j) { var k = [Math.min(from, j), Math.max(from, j)].join('-'); return (st.diagonals || []).some(function (d) { return d.join('-') === k; }); }
-      // THE MOVE, SHOWN. This screen asks for a gesture the child has made
-      // once, two screens ago, and showed them nothing: a lit corner and a
-      // sentence. A ghost runs from the corner out to a corner it may be
-      // joined to, and goes again until they touch the stage. It gives no
-      // answer away — every non-adjacent corner is a diagonal, and this
-      // screen wants all of them.
-      hintLoop(function () {
-        var t = Poly.diagonalsFrom(from, st.n).filter(function (j) { return !used(j); })[0];
-        return t == null ? null : gestureGhost(st.verts[from], st.verts[t], { r: 11 });
+      /* THE CORNER THE LINE STARTS FROM TAKES A HAND. It is the one thing on
+         the shape to press, and it showed the plain arrow: the corners are
+         rebuilt after every line, so the hand is put back each time. */
+      var dressFrom = function () { var c = st.vertEls && st.vertEls[from]; if (c) c.style.cursor = 'grab'; };
+      dressFrom();
+      if (sides) setConnect('READY_TO_CONNECT', { from: from });
+      var made = 0, active = false, hot = -1;
+      var line = previewLine(from);
+      var valid = function () { return Poly.diagonalsFrom(from, st.n).filter(function (j) { return !diagonalUsed(from, j); }); };
+      var targets = function () {
+        if (!sides) return valid();
+        var all = [];
+        for (var q = 0; q < st.n; q++) if (q !== from && !diagonalUsed(from, q)) all.push(q);
+        return all;
+      };
+      // THE MOVE, SHOWN — once the child has been still a while (hintLadder).
+      // First the corners a line may go to breathe; then a ghost runs from the
+      // chosen corner to one of them. It gives no answer away: every corner
+      // it may go to is a diagonal, and the child still chooses.
+      hintLadder({
+        // connecting, the one that breathes first is their own corner, where
+        // the line starts (any of the others is somewhere it may go)
+        pulse: function () { return pulseHint(sides ? [knobOf(from)].filter(Boolean) : targets().map(knobOf)); },
+        demo: function () {
+          // connecting for the first time, the ghost shows JOINING TWO CORNERS
+          // (to a neighbour: the side is the lesson's first answer); after a
+          // side has been made, it shows a line that is not one
+          var t = (sides && !spec.retry) ? (from + 1) % st.n : valid()[0];
+          return t == null ? null : gestureGhost(st.verts[from], st.verts[t], { r: 11 });
+        }
       });
       // Delegated: the source vertex element is rebuilt after each diagonal.
       on(st.polyG, 'pointerdown', function (e) {
         var t = e.target; if (!t || !t.classList || !t.classList.contains('vertex') || +t.getAttribute('data-i') !== from) return;
         if (global.Input && Input.guarded) return;
-        active = true; e.preventDefault(); rubber.setAttribute('opacity', 1);
+        if (sides && st.connect !== 'READY_TO_CONNECT') return;
+        active = true; e.preventDefault();
+        try { svg.setPointerCapture && svg.setPointerCapture(e.pointerId); } catch (x) {}
+        // connecting, nothing lights up front; the corner the line finds does
+        if (sides) { showTargets([], false); setConnect('DRAWING', { from: from }); }
+        else showTargets(targets(), true);
+        svg.style.cursor = 'grabbing';
+        evt('diagonal:start', { from: from });
       });
-      on(svg, 'pointermove', function (e) { if (!active) return; var p = pt(e); rubber.setAttribute('x2', p.x); rubber.setAttribute('y2', p.y); });
-      on(svg, 'pointerup', function (e) {
-        if (!active) return; active = false; rubber.setAttribute('opacity', 0);
-        var j = nearestVertex(pt(e), from);
+      on(svg, 'pointermove', function (e) {
+        if (!active) return;
+        var was = hot;
+        hot = followFinger(line, from, pt(e), targets(), hot);
+        if (sides && hot !== was) {
+          // only the corner it has snapped to shows, for as long as it is there
+          showTargets(hot >= 0 ? [hot] : [], true);
+          if (hot >= 0 && knobOf(hot)) { knobOf(hot).classList.add('hot'); knobOf(hot).setAttribute('r', 12); }
+        }
+      });
+      var release = function (e) {
+        if (!active) return; active = false;
+        svg.style.cursor = '';
+        var j = hot >= 0 ? hot : nearestVertex(pt(e), from);
+        hot = -1;
+        showTargets([], false);
         if (j < 0) {
-          missedCorner(Poly.diagonalsFrom(from, st.n).filter(function (k) { return !used(k); }));
+          retract(line, from, function () { line = previewLine(from); });
+          if (sides) {
+            // NOTHING WAS CONNECTED, SO THERE IS NO VERDICT. The line goes home,
+            // and every corner lights for a moment — where a line can go, all
+            // of them, neighbours included, so it is not an answer — and
+            // settles back to a plain point.
+            setConnect('READY_TO_CONNECT', { from: from });
+            showTargets(targets(), true);
+            later(1400, function () { if (!active) showTargets([], false); });
+            return;
+          }
+          missedCorner(valid());
           return;
         }
-        var ok = !Poly.isAdjacent(from, j, st.n) && !used(j);
+        var ok = !Poly.isAdjacent(from, j, st.n) && !diagonalUsed(from, j);
         st.lastEl = knobOf(j) || st.vertEls[j];
+        if (sides && !ok && Poly.isAdjacent(from, j, st.n)) {
+          // A SIDE: the line lands along the outline and stays there, marked,
+          // for the lesson to name ("This is a side of the polygon.")
+          line.remove();
+          st.segment = [from, j]; st.ghost = null; renderPoly();
+          st.lastEl = st.segLine || knobOf(j);
+          // lit while it is being named, and only then (clearSide takes it
+          // down before the next try)
+          if (st.segLine) { st.segLine.setAttribute('style', litGlow(HI.lit)); shimmerLine(st.segLine); }
+          setConnect('SIDE_FEEDBACK', { from: from, to: j });
+          evt('side:made', { from: from, to: j });
+          endInteraction(); resolve({ result: 'side', vertex: j });
+          return;
+        }
         if (ok) {
+          if (sides) {
+            // the side that was named steps aside for the diagonal
+            st.segment = null;
+            if (st.labelEl) { st.labelEl.remove(); st.labelEl = null; st.labelSpec = null; }
+          }
+          line.remove(); line = previewLine(from);
+          // (connecting: the corner it reached shows as a corner too — a
+          // diagonal joins two vertices, and a line into a hidden corner read
+          // as a line that stopped in mid-air)
+          if (sides) st.vcolor[j] = HI.fill;
           st.diagonals = st.diagonals || []; st.diagonals.push(Object.assign([Math.min(from, j), Math.max(from, j)], { solid: true })); st.ghost = null; renderPoly(); made++;
+          if (made < count) dressFrom();
+          st.lastEl = knobOf(j) || st.vertEls[j];
+          shimmer(st.diagonals.length - 1, sides);
+          if (sides) setConnect('DIAGONAL_SUCCESS', { from: from, to: j });
+          evt('diagonal:complete', { from: from, to: j });
           if (count > 1) onTap('correct');
-          if (made >= count) { rubber.remove(); endInteraction(); resolve({ result: 'correct' }); }
-        } else { if (count > 1) onTap('wrong'); else { rubber.remove(); endInteraction(); resolve({ result: 'wrong' }); } }
+          if (made >= count) { line.remove(); endInteraction(); resolve({ result: 'correct' }); }
+        } else if (count > 1) {
+          retract(line, from, function () { line = previewLine(from); });
+          onTap('wrong');
+        } else {
+          endInteraction();
+          retract(line, from, function () { resolve({ result: 'wrong' }); });
+        }
+      };
+      on(svg, 'pointerup', release);
+      on(svg, 'pointercancel', function () {
+        if (!active) return; active = false; hot = -1; showTargets([], false);
+        if (sides) setConnect('READY_TO_CONNECT', { from: from });
+        retract(line, from, function () { line = previewLine(from); });
       });
-      if (ctx && ctx.onCancel) ctx.onCancel(function () { rubber.remove(); endInteraction(); });
+      if (ctx && ctx.onCancel) ctx.onCancel(function () { if (line) line.remove(); endInteraction(); });
     });
   }
 
@@ -4462,6 +5816,7 @@
 
   var api = {
     mount: mount, apply: apply, focus: focus, waitFor: waitFor, element: element, halo: halo,
+    snapshot: snapshot, restore: restore,
     isEmpty: isEmpty, contentBox: contentBox, contentParts: contentParts,
     /** The card's face and the shape's box, in page pixels: the nook beside
         the shape where a bird waiting in the corner can be spoken from. */
@@ -4482,7 +5837,10 @@
       if (st.compare) {
         // the card the lesson is looking at — the one glowing — else the left
         var k = st.compareFocus && st.compare[st.compareFocus] ? st.compareFocus : 'left';
-        if (st.compare[k] && st.compare[k].panel) return st.compare[k].panel;
+        if (st.compare[k] && st.compare[k].panel) {
+          var cp = st.compare[k].panel;
+          return seatY ? Object.assign({}, cp, { y: cp.y + seatY }) : cp;
+        }
       }
       if (st.swipe) {
         /* HE COMES UP BEHIND THE CARD IN HAND, not behind a bin.
@@ -4498,20 +5856,47 @@
          * (syncPeekRim in game.js) is the same ice he is behind. */
         var ch = SWIPE_HALF * ((global.CardFrame && CardFrame.option)
                                ? CardFrame.option.h / CardFrame.option.w : 1);
+        // THE STRIP OVER HIM IS THE CARD'S OWN TOP, exactly where the card is:
+        // the card layer is seated (seatY) and this was not, so the copy of
+        // the rim hung that far below the real one and cut across the card.
+        // And only while the card is at home: once it is being dragged, or is
+        // flying to a zone, there is no rim there to be behind (null — he
+        // stands down and the strip is taken away).
+        var card = st.swipe.card;
+        var tm = card && /translate\(\s*([-\d.]+)[\s,]+([-\d.]+)\s*\)/.exec(card.getAttribute('transform') || '');
+        var home = !!card && (!tm || (Math.abs(+tm[1] - SWIPE_HOME.x) < 0.5 && Math.abs(+tm[2] - SWIPE_HOME.y) < 0.5));
+        if (!home) return null;
         // `at` is where along the card's width his head comes up. A bin is
         // peeked over near its corner cap; a card the whole screen is about
         // is peeked over in the MIDDLE, so he and the shape and the question
         // line up as one column instead of leaning off to one side.
         return { frame: 'option', at: 0.5,
-                 x: SWIPE_HOME.x - SWIPE_HALF, y: SWIPE_HOME.y - ch,
+                 x: SWIPE_HOME.x - SWIPE_HALF, y: SWIPE_HOME.y - ch + seatY,
                  w: SWIPE_HALF * 2, h: ch * 2 };
       }
       return null;
     },
     onTap: function (fn) { onTap = fn || function () {}; },
+    onEvent: function (fn) { onEvent = fn || function () {}; },
     /** A plank-free screen lifts a lone card to the centre; a plank seats it under the band. Animated. */
     seat: function (free) { plankFree = !!free; applySeat(true); },
     get seatY() { return seatY; },
+    /* How long an answer row of n takes to be dealt: the director holds the
+       question until it has, so no answer is live before it can be seen. */
+    choicesEnterMs: function (n) { return reduced() ? 0 : 90 * Math.max(0, (n || 0) - 1) + ENTER_MS; },
+    /* THE WORD AND THE THING (holdForWord). game.js calls said() for every
+       word as the bubble reveals it, and releaseHeld() when control is handed
+       over, so nothing a line names is ever left hidden. */
+    said: said,
+    releaseHeld: releaseHeld,
+    /** The board answers a vocabulary word (see THE WORD, SHOWN ON THE BOARD). */
+    emphasizeConcept: emphasize,
+    get heldCount() { return heldForWord.length; },
+    /** The child's own shapes, from the start again (Restart). */
+    forgetMade: function () { made = {}; },
+    madeShape: madeShape,
+    /** Where the pick → connect step is (setConnect), or null off it. */
+    connectState: function () { return st.connect || null; },
     flurry: flurry, alive: alive,
     /* How many delayed callbacks from a finished scene have been refused.
        A test reads this: a suppression mechanism that never suppresses

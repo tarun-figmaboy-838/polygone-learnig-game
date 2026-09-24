@@ -279,6 +279,12 @@
   function pressUp() {
     if (!mounted || reduced()) return;
     var img = mounted.querySelector('#start img');
+    // the halo was held squashed by pressDown; let it breathe again
+    var halo = mounted.querySelector('.start-halo');
+    if (halo) run(halo, [
+      { transform: 'scale(.92)', opacity: 0.6 },
+      { transform: 'scale(1)', opacity: 1 }
+    ], { duration: 160, fill: 'forwards' });
     if (img) run(img, [
       { transform: 'scale(.9) translateY(5px)' },
       { transform: 'scale(1.08) translateY(-3px)' },

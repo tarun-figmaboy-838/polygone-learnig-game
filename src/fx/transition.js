@@ -141,10 +141,22 @@
     return host;
   }
 
+  /* The promises a cover or a reveal handed out, so a cover that interrupts
+     a reveal still lets whoever was waiting on the reveal go on. */
+  var waiting = [];
+  function settleAll() { waiting.splice(0).forEach(function (r) { try { r(); } catch (e) {} }); }
   function clear() {
     gen++;
     timers.forEach(function (t) { clearTimeout(t); });
     timers.length = 0;
+    // EVERYTHING THAT WAS MOVING STOPS, the overlay's own fade included. A
+    // reveal ends by fading the whole layer to nothing and holding it there;
+    // a cover that began before that fade was cancelled drew its snow into a
+    // layer pinned at opacity 0 — the new screen was built in full view. And
+    // each flake's sway and twinkle run forever, so without this they went on
+    // running on flakes that were no longer on the page.
+    if (host) { try { host.getAnimations({ subtree: true }).forEach(function (a) { a.cancel(); }); } catch (e) {} }
+    settleAll();
     Object.keys(layerEls).forEach(function (k) { var el = layerEls[k]; while (el.firstChild) el.removeChild(el.firstChild); });
     if (sparkleLayer) while (sparkleLayer.firstChild) sparkleLayer.removeChild(sparkleLayer.firstChild);
     if (veil) { try { veil.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {} veil.style.opacity = '0'; veil.style.clipPath = ''; }
@@ -209,7 +221,11 @@
       { transform: 'translate3d(0,' + (h * 0.84 + size).toFixed(0) + 'px,0)', opacity: peak, offset: 0.86 },
       { transform: 'translate3d(0,' + (h + size * 2.8).toFixed(0) + 'px,0)', opacity: 0, offset: 1 }
     ], { duration: fall, delay: delay, easing: 'cubic-bezier(.3,.12,.55,1)', fill: 'forwards' })
-      .then(function () { if (outer.parentNode) outer.parentNode.removeChild(outer); });
+      .then(function () {
+        // its endless sway and twinkle go with it
+        try { outer.getAnimations({ subtree: true }).forEach(function (a) { a.cancel(); }); } catch (e) {}
+        if (outer.parentNode) outer.parentNode.removeChild(outer);
+      });
     // the sway, to and fro for as long as it falls
     run(mid, [
       { transform: 'translate3d(' + (-driftPx).toFixed(0) + 'px,0,0)' },
@@ -296,7 +312,7 @@
       { opacity: 1, offset: 1 }
     ], { duration: c.coverMs, easing: 'cubic-bezier(.45,.05,.55,1)', fill: 'forwards' });
 
-    return new Promise(function (resolve) { later(c.coverMs, resolve); });
+    return new Promise(function (resolve) { waiting.push(resolve); later(c.coverMs, settleAll); });
   }
 
   /** The veil lifts from the top down, a last flurry drifts by, the snow clears. */
@@ -334,6 +350,7 @@
         { duration: fadeMs, delay: Math.max(0, c.revealMs - fadeMs), easing: 'ease-in', fill: 'forwards' });
 
     return new Promise(function (resolve) {
+      waiting.push(resolve);
       later(c.revealMs, function () {
         if (g !== gen) { resolve(); return; }
         weather(false);

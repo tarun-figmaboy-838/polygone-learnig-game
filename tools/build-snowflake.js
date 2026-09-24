@@ -2,7 +2,7 @@
 /*!
  * build-snowflake.js — the transition's flake, from the supplied artwork.
  *
- *   assets/ui/snowflake-src.png  (1254×1254, transparent)  →  assets/ui/snowflake.webp (320×320)
+ *   assets/source/snowflake-src.png  (1254×1254, transparent)  →  assets/ui/snowflake.webp (320×320)
  *
  * The transition drops sixty to a hundred of these at once, so it wants a
  * small file: the flake is cropped to its own bounds, centred, and written
@@ -13,7 +13,7 @@
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http');
 const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '..');
-const SRC = 'assets/ui/snowflake-src.png', OUT = 'assets/ui/snowflake.webp', SIZE = 320;
+const SRC = 'assets/source/snowflake-src.png', OUT = 'assets/ui/snowflake.webp', SIZE = 320;
 function serve() { const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURIComponent(q.url)); if (!fs.existsSync(f)) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'Content-Type': 'image/png', 'Access-Control-Allow-Origin': '*' }); fs.createReadStream(f).pipe(r); }); return new Promise((res) => srv.listen(0, () => res(srv))); }
 (async () => {
   const srv = await serve(); const port = srv.address().port;

@@ -20,6 +20,7 @@
  *   Juice.tada(el, { angle })
  *   Juice.flash(el)
  *   Juice.confetti(near, { count, offsetX })   // a burst, from a place
+ *   Juice.sparkle(el)                          // a small glint, for an ordinary right answer
  */
 (function (global) {
   'use strict';
@@ -133,17 +134,18 @@
     },
 
     /** Side-to-side shake. "That is not the one," without words. */
+    // A NUDGE, NOT A SHAKE: four pixels and barely a turn. Nine pixels and
+    // two and a half degrees read as the thing being told off.
     wobble: function (el, o) {
       o = o || {};
-      var d = o.distance == null ? 9 : o.distance;
+      var d = o.distance == null ? 4 : o.distance;
       return run(el, [
         { transform: 'translateX(0) rotate(0deg)' },
-        { transform: 'translateX(' + -d + 'px) rotate(-2.5deg)', offset: 0.15 },
-        { transform: 'translateX(' + d + 'px) rotate(2.5deg)', offset: 0.35 },
-        { transform: 'translateX(' + -d * 0.6 + 'px) rotate(-1.5deg)', offset: 0.55 },
-        { transform: 'translateX(' + d * 0.4 + 'px) rotate(1deg)', offset: 0.75 },
+        { transform: 'translateX(' + -d + 'px) rotate(-1deg)', offset: 0.18 },
+        { transform: 'translateX(' + d + 'px) rotate(1deg)', offset: 0.42 },
+        { transform: 'translateX(' + -d * 0.5 + 'px) rotate(-.5deg)', offset: 0.66 },
         { transform: 'translateX(0) rotate(0deg)' }
-      ], { duration: o.duration || 480, easing: 'ease-in-out' }).finished;
+      ], { duration: o.duration || 380, easing: 'ease-in-out' }).finished;
     },
 
     /** A refused drop: wobble plus a small recoil. */
@@ -152,9 +154,55 @@
       Juice.wobble(el, o);
       return run(el, [
         { transform: 'scale(1)' },
-        { transform: 'scale(0.93)', offset: 0.3 },
+        { transform: 'scale(0.97)', offset: 0.3 },
         { transform: 'scale(1)' }
-      ], { duration: o.duration || 420 }).finished;
+      ], { duration: o.duration || 360 }).finished;
+    },
+
+    /* THE VERDICT, ON THE THING ITSELF. A wrong answer glows red for a moment
+       and recoils; a right one glows green. A drop-shadow on the element, so
+       it follows any shape — a card, a knob, a whole polygon — and fades
+       back to nothing: the colour is the answer, it is not left on. */
+    bad: function (el, o) {
+      o = o || {};
+      if (!can(el)) return Promise.resolve();
+      try {
+        el.animate([
+          { filter: 'drop-shadow(0 0 0 rgba(255, 70, 70, 0))' },
+          { filter: 'drop-shadow(0 0 7px rgba(255, 60, 60, .95)) drop-shadow(0 0 2px rgba(255, 40, 40, .9))', offset: 0.25 },
+          { filter: 'drop-shadow(0 0 7px rgba(255, 60, 60, .9)) drop-shadow(0 0 2px rgba(255, 40, 40, .85))', offset: 0.6 },
+          { filter: 'drop-shadow(0 0 0 rgba(255, 70, 70, 0))' }
+        ], { duration: o.duration || 760, easing: 'ease-out' });
+      } catch (e) {}
+      return Juice.refuse(el, o);
+    },
+    good: function (el, o) {
+      o = o || {};
+      if (!can(el)) return Promise.resolve();
+      var a;
+      try {
+        a = el.animate([
+          { filter: 'drop-shadow(0 0 0 rgba(60, 220, 120, 0))' },
+          { filter: 'drop-shadow(0 0 8px rgba(60, 220, 120, .95)) drop-shadow(0 0 2px rgba(40, 200, 100, .9))', offset: 0.3 },
+          { filter: 'drop-shadow(0 0 0 rgba(60, 220, 120, 0))' }
+        ], { duration: o.duration || 820, easing: 'ease-out' });
+      } catch (e) { return Promise.resolve(); }
+      return a.finished;
+    },
+    /* A NUDGE OF THE WHOLE SCENE on a wrong answer: five pixels, a third of a
+       second, on `translate` so it never throws away a transform the scene
+       already has. Felt more than seen. */
+    shake: function (el, o) {
+      o = o || {};
+      if (!can(el)) return Promise.resolve();
+      var d = o.distance == null ? 5 : o.distance, a;
+      try {
+        a = el.animate([
+          { translate: '0 0' }, { translate: -d + 'px 0', offset: 0.2 }, { translate: d + 'px 0', offset: 0.45 },
+          { translate: (-d * 0.5) + 'px 0', offset: 0.7 }, { translate: '0 0' }
+        ], { duration: o.duration || 320, easing: 'ease-in-out' });
+      } catch (e) { return Promise.resolve(); }
+      return a.finished;
     },
 
     /** Accepted: a lift, a squeeze and a settle. */
@@ -250,6 +298,28 @@
       return Promise.all(done);
     },
 
+    /**
+     * A SMALL GLINT FOR AN ORDINARY RIGHT ANSWER.
+     *
+     * Confetti is a milestone: a sort finished, a shape built, the lesson
+     * over. A correct card on a question is not one, and a party-sized burst
+     * off every right tap made the big moments read the same as the small
+     * ones. This is a handful of tiny ice-and-gold stars thrown a short way
+     * from the thing that was right, gone in under a second.
+     */
+    sparkle: function (el, o) {
+      o = o || {};
+      if (reduced || !host || !host.ownerDocument) return Promise.resolve();
+      var doc = host.ownerDocument;
+      var hostRect = rectOf(host), r = rectOf(el);
+      if (!hostRect || !r) return Promise.resolve();
+      var cx = r.left + r.width / 2 - hostRect.left, cy = r.top + r.height / 2 - hostRect.top;
+      var reach = Math.max(40, Math.min(110, Math.max(r.width, r.height) * 0.55));
+      var n = o.count == null ? 10 : o.count, done = [];
+      for (var i = 0; i < n; i++) done.push(glint(doc, cx, cy, reach, i / n));
+      return Promise.all(done);
+    },
+
     get reducedMotion() { return reduced; },
     set reducedMotion(v) { reduced = !!v; }
   };
@@ -294,6 +364,28 @@
 
     return a.finished.then(cleanup, cleanup);
     function cleanup() { if (el.parentNode) el.parentNode.removeChild(el); }
+  }
+
+  /** One glint of a sparkle: a small star that pops out, turns, and fades. */
+  var GLINT = ['#ffffff', '#fff1a8', '#ffd84a', '#bdf3ff'];
+  function glint(doc, cx, cy, reach, turn) {
+    var el = doc.createElement('div');
+    var size = 7 + Math.random() * 6;
+    var col = GLINT[(Math.random() * GLINT.length) | 0];
+    el.style.cssText = 'position:absolute;pointer-events:none;will-change:transform,opacity;left:' + cx + 'px;top:' + cy + 'px;' +
+      'width:' + size.toFixed(1) + 'px;height:' + size.toFixed(1) + 'px;margin:' + (-size / 2).toFixed(1) + 'px;' +
+      'background:' + col + ';clip-path:' + STAR + ';filter:drop-shadow(0 0 3px rgba(255,255,255,.9));opacity:0';
+    host.appendChild(el);
+    if (!el.animate) { el.remove(); return Promise.resolve(); }
+    var a = (turn + Math.random() * 0.08) * Math.PI * 2;
+    var d = reach * (0.75 + Math.random() * 0.35);
+    var dx = Math.cos(a) * d, dy = Math.sin(a) * d;
+    var an = el.animate([
+      { transform: 'translate(0,0) scale(.2) rotate(0deg)', opacity: 0 },
+      { transform: 'translate(' + (dx * 0.55).toFixed(1) + 'px,' + (dy * 0.55).toFixed(1) + 'px) scale(1.15) rotate(70deg)', opacity: 1, offset: 0.35 },
+      { transform: 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(.4) rotate(160deg)', opacity: 0 }
+    ], { duration: 620 + Math.random() * 220, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'forwards' });
+    return an.finished.then(function () { el.remove(); }, function () { el.remove(); });
   }
 
   global.Juice = Juice;

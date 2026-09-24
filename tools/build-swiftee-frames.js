@@ -114,5 +114,20 @@ const out =
 })(typeof window !== 'undefined' ? window : this);
 `;
 
+/* --check: WRITE NOTHING, SAY WHETHER THE FILE IS STILL WHAT THIS MAKES.
+   The frame table is generated and must never be edited by hand — a patched
+   coordinate there moves a frame the manifest knows nothing about. The test
+   suite runs this, so a hand edit (or a manifest change nobody rebuilt for)
+   fails the build instead of shipping. Line endings are not a difference. */
+if (process.argv.includes('--check')) {
+  const onDisk = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n') : '';
+  if (onDisk !== out) {
+    console.error('  swiftee-frames.js is not what the manifest produces: rebuild it (node tools/build-swiftee-frames.js), never edit it');
+    process.exit(1);
+  }
+  console.log('  swiftee-frames.js matches the manifest');
+  process.exit(0);
+}
+
 fs.writeFileSync(OUT, out);
 console.log(`  swiftee-frames.js written — ${names.length} clips, ${Object.keys(m.states).length} states, ${(out.length / 1024).toFixed(0)} KB`);

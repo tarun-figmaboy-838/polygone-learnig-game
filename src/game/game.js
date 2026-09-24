@@ -12,7 +12,7 @@
   'use strict';
 
   var $ = function (s) { return document.querySelector(s); };
-  var root, stageEl, hud, bubble, instruction, progress, loadEl, nextBtn;
+  var root, stageEl, hud, bubble, instruction, progress, loadEl, nextBtn, backBtn;
   var director, current = -1, playing = false, settleTimer = null, mouthTimer = null, bubbleTimer = null;
   /* Whether Swiftee is on this screen at all. Set per screen from its
      `purpose`; when false, his lines go to the plank and his beats are
@@ -64,16 +64,19 @@
     // the card's edge, or the deck's own feedback beat — so a second burst
     // from the middle of the stage read as the same celebration twice. The
     // reward is the chime, his cheer and the line of text.
-    if (global.SFX) SFX.play(big ? 'levelUp' : 'sparkle');
-    // He joins the celebration only if he is on this screen. Off, the
-    // confetti, the level-up sound and the reward line carry it; a bird
-    // popping into a layout that was set without him is not a reward.
-    if (buddyOn && present && global.Swiftee && Swiftee.play) {
-      try {
-        Swiftee.play('celebrate');
-        if (global.Juice && Swiftee.el) Juice.tada(Swiftee.el);
-      } catch (e) {}
-    }
+    // A CHALLENGE'S XP IS NOT A SECOND CELEBRATION. It arrives in the same
+    // instant as the answer that earned it, and that answer already has its
+    // sound, its glint and his reaction; a sparkle, a cheer and a tada on top
+    // was three reactions to one tap. Only a badge — the end of a level, a
+    // milestone — is celebrated here.
+    if (!big) return;
+    if (global.SFX) SFX.play('levelUp');
+    // NOT A SECOND CELEBRATION ON TOP OF THE FIRST. A badge lands at the end
+    // of a level, in the same moment as the screen's own celebration, and
+    // this restarted his clip and shook the whole sprite with a CSS tada —
+    // the stacking the direction pass asked to be rid of (a giant bounce, a
+    // long dance and the confetti, all at once). The level-up sound and the
+    // reward line carry the badge; his celebration is the screen's.
   }
   /**
    * Record the attempt. Deliberately says nothing.
@@ -116,6 +119,15 @@
     if (!buddyOn || present || !global.Swiftee || !Swiftee.play) return Promise.resolve(false);
     if (entering) return entering;
     leaveGen++; leaving = false;   // any leave still running is overtaken (see leave())
+    // BACK TO HIS MARK, NOT TO THE WING. A leave parks him 'off' (see
+    // leave()), and the entrance rises from wherever he is placed — so after
+    // he ducked behind the swipe card, coming back up for a wrong answer was
+    // coming back up off the screen, and his words appeared with nobody
+    // saying them (the bubble pointing at empty snow).
+    if (Swiftee.pos === 'off' && Swiftee.place) {
+      var back = markFor(current, null, Swiftee.size);
+      if (back && back.pos !== 'off') Swiftee.place(back.pos, back.size);
+    }
     var done = function () { present = true; entering = null; syncPeekRim(); return true; };
     // Capped. The walk-on is under half a second; if the rig cannot finish
     // it — no animation support, a sheet that will not load — the lesson
@@ -149,7 +161,7 @@
   }
 
   function pause(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-  var SCENE_ENTER_MS = 520;   // a card's rise or pop (stage.js enter(): 460ms) plus a breath
+  var SCENE_ENTER_MS = 440;   // a card's arrival (stage.js enter(): 380ms) plus a breath
 
   /**
    * A long line becomes two short ones, split where the sentence already
@@ -390,9 +402,9 @@
      one card has nothing for him to hide behind: there he stands on the
      ground at the left and the card sits on the right. */
   function peeksBehind(i) {
-    // Only the swipe practice: its zones fill the floor, so he comes up
-    // from behind the Regular zone's rim. Beside one card or two he STANDS
-    // on the ice at the left and instructs from there.
+    // Only the swipe practice: he comes up from behind the card in hand, in
+    // the middle (Stage.peekAnchor). Beside one card or two he STANDS on the
+    // ice at the left and instructs from there.
     return sceneKindAt(i) === 'swipe-sort';
   }
 
@@ -438,17 +450,103 @@
    * already rotate — PRAISE and NUDGE above — and the face was the one part
    * of the answer that never varied. Kept short: each of these is about two
    * seconds end to end, so the reaction is over before the next line starts. */
-  var GLAD = ['happy', 'proud', 'nod'];
-  var SORRY = ['confused', 'puzzled'];
-  var gladN = 0, sorryN = 0;
+  /* NOW A FEELING, NOT A LIST OF FACES. The faces rotated by a counter, so
+     the same screen got a different one on a replay, and 'puzzled' was a HELD
+     pose that left him frowning after a miss until something else happened.
+     He answers with an intention — 'happySmall' for a right answer, 'oops'
+     for a miss — and swiftee.js picks the face: by the screen, so a replay is
+     the same replay; relief for a right answer after a miss; his thinking
+     face for the second miss on one question. */
   var cheerUntil = 0;   // the lesson does not move on while he is still saying it
+  var missesHere = 0;   // wrong answers on the screen that is up
+  var hintedHere = false;
+
+  /** The context every Swiftee request carries: which screen it is (the
+      variety key), and how the child is getting on with it. */
+  function direction(extra) {
+    var o = Object.assign({}, extra || {});
+    o.key = (Screens.list[current] || {}).id || String(current);
+    o.misses = missesHere;
+    if (missesHere && o.after == null) o.after = 'miss';
+    return o;
+  }
+
+  /* THE ANSWER FIRST, THEN THE FRIEND.
+   *
+   * The thing the child touched confirms itself the instant they touch it —
+   * the card glows, the line draws, the cue sounds — and he reacts a beat
+   * later, with his face and then his word. All in the same frame, the three
+   * were one noise; a quarter of a second apart they are a verdict and then
+   * somebody noticing. */
+  var REACT_MS = 300;
+  var verdictAt = 0;
+  function afterVerdict(fn) {
+    var screenAt = current, wait = Math.max(0, REACT_MS - (Date.now() - verdictAt));
+    if (!wait) { fn(); return; }
+    var h = setTimeout(function () { if (current === screenAt) fn(); }, wait);
+    lineTimers.push(h);
+  }
+
+  /* THE LINE THE CHILD IS WORKING TO. An instruction stays up while it is
+   * being obeyed; a cheer or a nudge borrows the bubble for a moment, and
+   * then the instruction comes back — shown, not said again, because a wrong
+   * answer must not restart the lesson's own words. Set by the lesson's lines
+   * (never by his reactions) and read when an input arms. */
+  var lessonLine = null, standing = null, inputLive = false;
+  /* The task that is live, and what his body does about it: a pose that asks
+     a question is held while the question stands; a hand on the shape — a
+     drag, a draw, a sort, a swipe — gets his watching face. Taps are over in
+     a moment and are answered, not watched; the side-measuring taps belong
+     to the measuring walk (swiftee.js lock). */
+  var inputSpec = null;
+  var HOLDS_A_QUESTION = /^(think|question|examine|inspect)$/;
+  var WATCHED = /^(draw-diagonals?|drag-vertex|sort|swipe)$/;
+  function showStanding() {
+    if (!standing || standing.screen !== current || !inputLive) return false;
+    say(standing.full, null, 0, null, null, { instant: true, passive: true });
+    return true;
+  }
+
+  /* THE VERDICT, SEEN — on every screen, the same way, once.
+   *
+   * The audit found screens where an answer got a sound and a face and
+   * nothing on the thing itself, and two where a wrong drag got nothing at
+   * all. So every judged answer passes through here: a wrong one glows red on
+   * what was answered and the scene gives a small shake; a right one glows
+   * green. The sounds, his face, the words and any confetti are still the
+   * screen's own (its feedback beats and react()); this is only the colour
+   * and the jolt, which every screen shares. A per-tap verdict and the
+   * question's verdict that follows it in the same instant are one answer. */
+  var lastFx = { kind: null, at: 0 };
+  function verdictFx(kind, type) {
+    if (!global.Juice || !global.Stage || !Stage.element) return;
+    var now = Date.now();
+    if (lastFx.kind === kind && now - lastFx.at < 300) return;
+    lastFx = { kind: kind, at: now };
+    // a dragged corner is answered on the whole shape it changed
+    var drag = (type || (inputSpec && inputSpec.type)) === 'drag-vertex';
+    var el = drag ? Stage.element('polygon') : (Stage.element('answer') || Stage.element('polygon'));
+    try {
+      if (kind === 'wrong') { if (Juice.bad) Juice.bad(el); if (Juice.shake) Juice.shake(stageEl); }
+      else if (kind === 'correct' && Juice.good) Juice.good(el);
+    } catch (e) {}
+  }
 
   // `said` — an optional { t, vo } from the stage: the reason this try
   // fell short ("Pull it in more!"), spoken in place of the generic nudge.
-  function react(kind, said) {
-    if (kind === 'wrong') quest.mistake();
+  // `o.face` false: the screen's own feedback plays his reaction, so this
+  // one only speaks — one face per answer, not two in a row.
+  function react(kind, said, o) {
+    o = o || {};
+    if (kind === 'wrong' && !o.late) { quest.mistake(); missesHere++; }
     if (!buddyOn) return;   // the sound and the confetti carry the verdict
     if (!global.Swiftee || !Swiftee.play) return;
+    if (!o.late) { var args = [kind, said, Object.assign({}, o, { late: true })]; afterVerdict(function () { react.apply(null, args); }); return; }
+    // THE MEASURING WALK IS ITS OWN ANSWER. Each tap on a side sends him out
+    // along it with the tape — that is the reaction, and it is protected. A
+    // face and a "Nice!" after each of the five walks was the generic
+    // reaction the walk exists to replace, spoken from an empty mark.
+    if (o.walked) return;
     // A WORD FROM HIM, NOT A COMMENTARY. One cheer per screen for a right
     // answer — the first — and a nudge for a wrong one no oftener than every
     // three seconds, so a screen of five taps is not five "Nice!"s. If he
@@ -457,18 +555,32 @@
     if (current !== feedbackScreen) { feedbackScreen = current; praisedHere = false; }
     var line = null, mood = null;
     var pick = null;
-    if (kind === 'correct' && !praisedHere) { praisedHere = true; pick = PRAISE[praiseN++ % PRAISE.length]; mood = 'win'; }
+    // (o.quiet: the screen has its own words for this answer — "Yay! You made
+    // a diagonal!" — and a "Nice!" first was two cheers and two voices)
+    if (kind === 'correct' && !praisedHere && !o.quiet) { praisedHere = true; pick = PRAISE[praiseN++ % PRAISE.length]; mood = 'win'; }
     else if (kind === 'wrong' && now - lastFeedbackAt > 3000) { pick = (said && said.t) ? said : NUDGE[nudgeN++ % NUDGE.length]; mood = 'hint'; }
     if (pick) line = pick.t;
-    if (!line) {
-      if (present) {
-        try {
-          Swiftee.play(kind === 'wrong' ? SORRY[sorryN++ % SORRY.length] : GLAD[gladN++ % GLAD.length]);
-          if (Swiftee.bounce) Swiftee.bounce(kind === 'wrong' ? 'no' : 'cheer');
-        } catch (e) {}
-      }
-      return;
-    }
+    /* HIS FACE, when the storyboard has not already given one (o.face). A
+       right answer on its own gets the small pleased face the first time on a
+       screen and, after that, only the body's little dip — five right cards
+       are one "yes" and four nods, not five parties. A miss gets 'oops',
+       which recovers into encouragement by itself. No head-shake: the rig's
+       own tilt says "hmm?" and a shake on top of it said "no". */
+    var face = function () {
+      if (o.face === false || !present) return;
+      // examining the angles with his magnifying glass, he stays with it: a
+      // tap is answered by the arc it fills and a small dip, and a smile cut
+      // in over a seated pose would stand him up in a single frame
+      if (o.face === 'dip') { try { if (Swiftee.bounce) Swiftee.bounce('notice'); } catch (e) {} return; }
+      try {
+        if (kind === 'wrong') Swiftee.play('oops', direction());
+        else if (kind === 'correct') {
+          if (pick) Swiftee.play('happySmall', direction());
+          else if (Swiftee.bounce) Swiftee.bounce('notice');
+        }
+      } catch (e) {}
+    };
+    if (!line) { face(); return; }
     lastFeedbackAt = now;
     // AND FOR AS LONG AS THE RECORDING RUNS. These were flat numbers chosen
     // when nothing was spoken here; a clip longer than them let the lesson
@@ -478,13 +590,9 @@
                      + (present ? 0 : 420);
     var wasUp = present;
     var speak = function () {
-      try {
-        Swiftee.play(kind === 'wrong' ? SORRY[sorryN++ % SORRY.length] : GLAD[gladN++ % GLAD.length]);
-      } catch (e) {}
-      // AND HIS WHOLE BODY, in the same frame as the face and the sound. The
-      // expression alone is a picture changing; the hop is the bird being
-      // pleased about it, and that is the difference a child reads.
-      try { if (Swiftee.bounce) Swiftee.bounce(kind === 'wrong' ? 'no' : 'cheer'); } catch (e) {}
+      // the face first, then the word (the body move rides in the face's own
+      // state now — a dip for a small yes, a hop for a milestone)
+      face();
       /* WHAT HE SAYS BACK IS SPOKEN TOO, so it keeps step like every other line.
        *
        * The narration was put on the voice's clock and this was not. A cheer
@@ -514,6 +622,11 @@
       say(line, mood, hold, clock, cues);
       clearTimeout(bubbleTimer);
       bubbleTimer = setTimeout(function () {
+        // THE INSTRUCTION COMES BACK. A nudge after a wrong answer, a cheer
+        // for one right card of two: the child is still working, and the
+        // words they are working to return in place — not a blank bubble,
+        // and not the whole line replayed.
+        if (showStanding()) return;
         say(null);
         // he only came up to say it
         if (!wasUp && present && Swiftee.pos === 'peek') leave();
@@ -737,6 +850,18 @@
     var m = map[pos] || map['left-low'];
     if (pos !== 'off' && soloed()) { m = map['centre']; }
 
+    var x = f.x + m.x * f.w;
+    // CLEAR OF BACK. Back mirrors Next in the bottom-left corner, and that is
+    // where he stands on every card screen, so the pill sat on his feet. On
+    // the two ground marks at the left he steps right until his drawn box
+    // clears it. The pill's width is fixed in px while he scales with the
+    // stage, so the step is measured, not guessed: small on a wide window,
+    // more on a tablet. It is capped so he never walks into the lesson.
+    if (!f.portrait && (m === map['left-low'] || m === map['left'])) {
+      var edge = backEdge();
+      if (edge != null) x = Math.min(Math.max(x, edge + f.h * want * 0.46), x + f.w * 0.12);
+    }
+
     var y = f.y + m.y * f.h;
 
     // In portrait he stands in the strip below the letterboxed stage. "1.02 of
@@ -748,10 +873,21 @@
       y = Math.max(y, f.y + f.h + 8 + 256 * CONTENT_FRAC * scale);
     }
 
-    var L = fit({ x: f.x + m.x * f.w, y: y, scale: scale }, pos);
+    var L = fit({ x: x, y: y, scale: scale }, pos);
     if (clipPage != null) L.clip = clipPage;
     if (m.air) L.air = true;
     return L;
+  }
+
+  /* Back's right edge plus a gap, in page px, or null. The button keeps its
+     box while it is hidden (visibility, not display), so he stands in the
+     same place whether it is showing or not and never shuffles when it
+     appears. Read by id: layout() runs before boot() has wired the HUD. */
+  function backEdge() {
+    var b = document.getElementById('back');
+    if (!b || !b.getBoundingClientRect) return null;
+    var r = b.getBoundingClientRect();
+    return r.width ? r.right + 14 : null;
   }
 
   /**
@@ -773,10 +909,13 @@
     var top = L.y - 0.877 * cell, bottom = L.y + 0.123 * cell;
     var left = L.x - cell / 2, right = L.x + cell / 2;
 
-    // Head first: if he cannot fit whole, the top of the cell is the edge to
-    // keep, because everything below the baseline is empty anyway.
+    // Head first: if he cannot fit whole, the top of his HEAD is the edge to
+    // keep, because everything below the baseline is empty anyway. His head,
+    // not the cell's: the top 58 of the cell's 512 are empty in every frame
+    // (CONTENT_FRAC), and holding that air off the window edge kept him a
+    // head's worth lower than he had to be — onto the swipe zones' rims.
     if (bottom > vh - EDGE) L.y -= (bottom - (vh - EDGE));
-    if (L.y - 0.877 * cell < EDGE) L.y = EDGE + 0.877 * cell;
+    if (L.y - CONTENT_FRAC * cell < EDGE) L.y = EDGE + CONTENT_FRAC * cell;
     if (left < EDGE) L.x += EDGE - left;
     if (right > vw - EDGE) L.x -= right - (vw - EDGE);
     return L;
@@ -806,14 +945,47 @@
    * stagger guessed in advance. The word and the thing it names now light up
    * in the same frame, which is the binding dual coding is actually after.
    */
-  var revealTimer = null, revealUnits = null;
+  var revealTimer = null, revealUnits = null, revealDone = null;
+  /* ON THE FRAME, NOT ON AN INTERVAL. The words are stepped once per painted
+     frame — a word can only appear when the screen is drawn anyway, and a
+     backgrounded tab stops paying for it. */
+  var nextFrame = global.requestAnimationFrame ? function (f) { return global.requestAnimationFrame(f); } : function (f) { return setTimeout(f, 16); };
+  var dropFrame = global.cancelAnimationFrame ? function (id) { global.cancelAnimationFrame(id); } : clearTimeout;
+  function stopReveal() { if (revealTimer != null) dropFrame(revealTimer); revealTimer = null; }
 
+  var glanced = false;    // his one look at the board per line
+  function showUnit(u) {
+    u.el.classList.add('in');
+    (u.also || []).forEach(function (x) { x.classList.add('in'); });
+    if (u.term && global.DualCode) {
+      // the sentence it is in, so "another vertex" and "this vertex" can mean what they say
+      var inLine = u.el.closest ? u.el.closest('.bubble-line') : null;
+      var lit = DualCode.cueTerm(u.term, { line: inLine ? inLine.textContent : '' });
+      // AND HE GLANCES AT IT — once a line, a small lean toward the board,
+      // never a gesture: the thing on the board is the lesson, he only looks
+      if (lit && !glanced && present && !entering && global.Swiftee && Swiftee.lookAt && !Swiftee.busy && !Swiftee.locked) {
+        glanced = true;
+        var gb = Stage.contentBox && Stage.contentBox();
+        if (gb) { try { Swiftee.lookAt({ x: (gb.left + gb.right) / 2, y: (gb.top + gb.bottom) / 2 }, 900); } catch (e) {} }
+      }
+    }
+    // AND WHATEVER THE WORD NAMES COMES IN WITH IT: an answer, a name tag,
+    // a bin, the stepper (stage.js holdForWord) — the word and the thing in
+    // the same frame
+    if (global.Stage && Stage.said) { try { Stage.said(u.el.textContent); } catch (e) {} }
+  }
+
+  /* THE FIRST TAP FINISHES THE SENTENCE. Every word still on its way lands at
+     once; nothing else moves on. Whatever was waiting for the last word — the
+     line's reading pause — starts from here instead. */
   function revealAll() {
-    clearInterval(revealTimer); revealTimer = null;
+    stopReveal();
     if (!revealUnits) return false;
     var pending = revealUnits.filter(function (u) { return !u.el.classList.contains('in'); });
-    pending.forEach(function (u) { u.el.classList.add('in'); if (u.term) DualCode.cueTerm(u.term); });
+    pending.forEach(showUnit);
     revealUnits = null;
+    var done = revealDone; revealDone = null;
+    if (done) { try { done(true); } catch (e) {} }
     return pending.length > 0;
   }
 
@@ -825,6 +997,22 @@
         if (n.nodeType === 1) {
           if (n.classList && n.classList.contains('dc-term')) {
             out.push({ el: n, term: n.getAttribute('data-term') });
+            return;
+          }
+          /* A TERM AND ITS MARK ARE ONE WORD. "polygons?" is a term and a
+             question mark held together (dual-coding.js, .dc-keep), and the
+             mark used to be split off as a word of its own — one unit more
+             than the line has words, so every word after it took its
+             neighbour's moment and the "?" landed a beat late. */
+          if (n.classList && n.classList.contains('dc-keep')) {
+            var chip = n.querySelector('.dc-term'), also = [];
+            [].slice.call(n.childNodes).forEach(function (c) {
+              if (c.nodeType !== 3 || !c.nodeValue) return;
+              var pw = document.createElement('span'); pw.className = 'w'; pw.textContent = c.nodeValue;
+              n.replaceChild(pw, c); also.push(pw);
+            });
+            if (chip) out.push({ el: chip, term: chip.getAttribute('data-term'), also: also });
+            else also.forEach(function (pw) { out.push({ el: pw, term: null }); });
             return;
           }
           split(n);
@@ -845,18 +1033,22 @@
     return out;
   }
 
-  function reveal(line, ms, units, clock, cues) {
-    clearInterval(revealTimer); revealTimer = null;
+  function reveal(line, ms, units, clock, cues, o) {
+    o = o || {};
+    stopReveal(); revealDone = null;
     // Split already, if the caller did it. unitsOf mutates the line — running
     // it twice would wrap every word span in another word span.
     units = units || unitsOf(line);
-    if (!units.length) return;
+    var finished = function (early) { if (o.onDone) { try { o.onDone(!!early); } catch (e) {} } };
+    if (!units.length) { finished(); return; }
 
+    // Reduced motion keeps the pacing and loses the pop: the words are all
+    // there at once, and the line is still held for as long as it was.
     var reduced = !!(global.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-    if (reduced) { units.forEach(function (u) { u.el.classList.add('in'); if (u.term) DualCode.cueTerm(u.term); }); return; }
+    if (reduced || o.instant) { units.forEach(showUnit); finished(); return; }
 
     line.classList.add('revealing');
-    revealUnits = units;
+    revealUnits = units; revealDone = o.onDone || null;
 
     /* THE WORDS KEEP STEP WITH THE VOICE.
      *
@@ -879,39 +1071,89 @@
     var span = Math.max(240, (ms || 1400) - 160);   // a breath left at the end
     var per = span / units.length;
     var t0 = Date.now();
+    // THE PANEL FIRST, THEN THE WORDS. `lead` is how long after the box
+    // starts to come in (or the old one starts to lift away) the first word
+    // lands: the child sees the bubble arrive, a breath, and then the line.
+    var lead = Math.max(0, o.lead || 0);
     var i = 0;
-    var show = function (u) {
-      u.el.classList.add('in');
-      if (u.term && global.DualCode) DualCode.cueTerm(u.term);
-    };
-    show(units[i++]);                               // the first word lands with the bubble
-    if (i >= units.length) { revealUnits = null; return; }
-    revealTimer = setInterval(function () {
+    var step = function () {
+      revealTimer = null;
+      var wall = Date.now() - t0;
+      if (wall < lead) { revealTimer = nextFrame(step); return; }
       // Where the speaker is. The clock returns null the moment this line's
       // clip is no longer the one playing, and then the wall clock takes over
       // rather than the words stopping dead.
       var t = clock ? clock() : null;
-      if (t == null) t = Date.now() - t0;
+      if (t == null) t = wall - lead;
       // Every word whose moment has passed, so a late tick catches up in one
       // go instead of dribbling the rest out one interval at a time.
-      while (i < units.length && t >= (cues && cues[i] != null ? cues[i] : i * per)) show(units[i++]);
-      if (i >= units.length) { clearInterval(revealTimer); revealTimer = null; revealUnits = null; }
-    }, Math.max(16, Math.min(70, per / 2)));
+      while (i < units.length && t >= (cues && cues[i] != null ? cues[i] : i * per)) {
+        showUnit(units[i]);
+        if (o.onWord) { try { o.onWord(i, units.length); } catch (e) {} }
+        i++;
+      }
+      if (i >= units.length) {
+        revealUnits = null;
+        var d = revealDone; revealDone = null;
+        if (d) { try { d(false); } catch (e) {} }
+        return;
+      }
+      revealTimer = nextFrame(step);
+    };
+    step();
   }
 
-  function say(text, mood, ms, clock, cues) {
-    clearInterval(revealTimer); revealTimer = null; revealUnits = null;
+  /* A NEW BUBBLE, NEVER NEW WORDS IN AN OLD ONE.
+   *
+   * A line of two or three parts used to swap its text in place: one frame the
+   * old words, the next the new ones, and the box jumping to its new size
+   * under them. Now the bubble that is up lifts away (four pixels, fading,
+   * SWAP_OUT) and the next one settles in from just below, the way the first
+   * one of a line comes in from eight pixels down at 97%. The box is re-fitted
+   * while it is invisible, so it never visibly jumps.
+   *
+   * o: { lead, scale, instant, passive, onDone, onWord }
+   *   lead     ms from this call to the first word — see reveal()
+   *   instant  every word at once: a line that is shown again, not said again
+   *   passive  the line is up while the child works, and takes no taps */
+  var swapTimer = null, pendingPut = null;
+  var T_PANEL_LEAD = 140, T_SWAP_OUT = 170, T_SWAP_LEAD = 290;
+  if (global.Timing) { T_PANEL_LEAD = Timing.PANEL_LEAD; T_SWAP_OUT = Timing.SWAP_OUT; T_SWAP_LEAD = Timing.SWAP_LEAD; }
+  function say(text, mood, ms, clock, cues, o) {
+    o = o || {};
+    stopReveal(); revealUnits = null; revealDone = null;
+    clearTimeout(swapTimer); swapTimer = null; pendingPut = null;
     if (!text) {
       // THE VOICE GOES WITH THE WORDS. A clip left running when its bubble
       // came down carried on into the next screen, which is what "the voice
       // plays at random" was: not a wrong clip, the right clip outliving the
       // line it belongs to.
       if (global.VO && VO.stop) VO.stop();
-      bubble.classList.add('out'); bubble.classList.remove('show');
+      bubble.classList.add('out'); bubble.classList.remove('show'); bubble.classList.remove('dim'); bubble.classList.remove('enter');
       // and the plank it stood aside for comes back. See heldCard.
       restoreHeldCard();
       return;
     }
+    var k = o.scale == null ? 1 : o.scale;
+    if (bubble.classList.contains('show')) {
+      var outMs = Math.round(T_SWAP_OUT * k);
+      var leadIn = Math.max(0, (o.lead == null ? T_SWAP_LEAD * k : o.lead) - outMs);
+      bubble.classList.add('out'); bubble.classList.remove('show'); bubble.classList.remove('dim'); bubble.classList.remove('enter');
+      if (outMs > 0) {
+        pendingPut = function () { putLine(text, mood, ms, clock, cues, o, leadIn, true); };
+        swapTimer = setTimeout(function () { swapTimer = null; var f = pendingPut; pendingPut = null; if (f) f(); }, outMs);
+        return;
+      }
+      putLine(text, mood, ms, clock, cues, o, leadIn, true);
+      return;
+    }
+    putLine(text, mood, ms, clock, cues, o, o.lead == null ? Math.round(T_PANEL_LEAD * k) : o.lead, false);
+  }
+
+  function putLine(text, mood, ms, clock, cues, o, lead, swapping) {
+    // a new bubble of words: a restored instruction (o.instant) is not new
+    // speech, so it does not earn another glance
+    if (!o || !o.instant) glanced = false;
     // A SPEAKER IS SEEN. A jump or a restart can cut an exit short and leave
     // him at opacity 0 on his mark; the moment he has a line, he is shown.
     if (present && !entering && global.Swiftee && Swiftee.visible && Swiftee.pos !== 'off') Swiftee.visible(true);
@@ -934,8 +1176,13 @@
       line.textContent = text;
     }
     bubble.classList.remove('out');
-    bubble.classList.remove('passive');   // a new line is tappable again while it arrives
-    bubble.classList.add('show');
+    bubble.classList.remove('dim');
+    // a new line is tappable again while it arrives — unless it is only the
+    // instruction coming back, which the child is already working to
+    bubble.classList.toggle('passive', !!o.passive);
+    // THE START OF THE ENTRANCE, laid down with no transition: from below for
+    // a line arriving, from just below for the next bubble of one.
+    bubble.classList.add(swapping ? 'pre-swap' : 'pre');
     // SPLIT INTO WORDS FIRST, then measure, then reveal.
     //
     // fitLine counts rows by where the words sit, and until unitsOf has run
@@ -945,12 +1192,18 @@
     // nothing. Splitting first gives every word a box to be measured by, and
     // costs nothing, since reveal needed the same split a moment later.
     var units = unitsOf(line);
+    if (!o.instant) line.classList.add('revealing');   // hidden before the first paint, not after it
     // The first placement of a new line is a jump cut, not a glide: it has
     // nowhere to travel from. The refits that follow are glides (see #bubble
     // .snap in the stylesheet).
     bubble.classList.add('snap');
     fitLine();
-    reveal(line, ms, units, clock, cues);
+    bubble.classList.remove('enter');
+    void bubble.offsetWidth;                           // commit the start state
+    bubble.classList.remove('pre'); bubble.classList.remove('pre-swap');
+    bubble.classList.add('show');
+    bubble.classList.add('enter');                     // the soft pop (index.html, bubbleIn)
+    reveal(line, ms, units, clock, cues, { lead: lead, instant: o.instant, onDone: o.onDone, onWord: o.onWord });
     requestAnimationFrame(function () { bubble.classList.remove('snap'); });
 
     // AND AGAIN ONCE THE SCENE HAS STOPPED MOVING.
@@ -1017,31 +1270,15 @@
     bubble.style.maxWidth = '';
     var inner = bubble.querySelector('.dialogue-inner');
     if (inner) inner.style.fontSize = '';    // nothing is sized from JS any more
+    // ONE SIZE, ALWAYS. The fit used to step the type down once for a line
+    // that ran past two rows and again past three (and up for an empty
+    // screen), so the words changed size from one line to the next — the
+    // user's question was simply "is all the text one size?". It is: the
+    // stylesheet has one size, and a long line wraps and is placed where it
+    // reads best (placeBubble), never shrunk to fit.
     bubble.classList.remove('tight');
     bubble.classList.remove('tighter');
     placeBubble();
-
-    // Step down ONCE if the sentence still runs past two rows in the space it
-    // was given. Not a scale — a second size, declared in the stylesheet, the
-    // same on every screen that needs it. Three rows of a speech bubble is a
-    // paragraph, and that is the only thing worth spending a size change on.
-    if (rowsOfLine() > 2) {
-      bubble.classList.add('tight');
-      placeBubble();
-    }
-    // AND ONE MORE, ONLY IF IT IS STILL A PARAGRAPH.
-    //
-    // One step down is enough on thirty-eight screens. On the crowded ones —
-    // where the card, the plank and the bird between them leave the bubble a
-    // column — it was not, and the line came out on four rows, which is the
-    // exact thing this function exists to prevent. Reaching for a second size
-    // costs a re-place on the handful of lines that need it and nothing at
-    // all on the rest, because this only runs once three rows have already
-    // been passed.
-    if (rowsOfLine() > 3) {
-      bubble.classList.add('tighter');
-      placeBubble();
-    }
     paintSkin();
   }
 
@@ -1053,23 +1290,45 @@
    * make and close the box down to it; the rows do not re-wrap, because the
    * box is still as wide as the widest of them.
    */
+  /* THE ROWS A LINE ACTUALLY MADE, grouped by where the words overlap, not
+   * by their top edge.
+   *
+   * A key word is set a size up and aligned to the top of its row
+   * (index.html .dc-term), so its top sits a couple of pixels off the plain
+   * words beside it — and bucketing by top counted that one row as two. Both
+   * halves of the fit broke on it: the row count said three where there were
+   * two, and the widest "row" was half a row, so closing the box to it
+   * re-wrapped the sentence, tripped the three-row guard and left the box at
+   * its full width — the empty paper down both sides of every line with a
+   * highlighted word in it. A word belongs to the row its middle falls in.
+   * Layout boxes (offset*), not client rects: a word still on its way in is
+   * translated a few pixels, and a moving box is no way to find a row. */
+  function lineRows(line) {
+    var kids = line ? line.childNodes : [], boxes = [], k;
+    for (k = 0; k < kids.length; k++) {
+      var n = kids[k];
+      if (n.nodeType !== 1 || !n.offsetWidth) continue;
+      boxes.push({ top: n.offsetTop, bottom: n.offsetTop + n.offsetHeight,
+                   l: n.offsetLeft, r: n.offsetLeft + n.offsetWidth });
+    }
+    var rows = [];
+    boxes.forEach(function (b) {
+      var mid = (b.top + b.bottom) / 2, row = null;
+      for (var i = 0; i < rows.length; i++) if (mid > rows[i].top && mid < rows[i].bottom) { row = rows[i]; break; }
+      if (!row) rows.push({ top: b.top, bottom: b.bottom, l: b.l, r: b.r });
+      else {
+        row.top = Math.min(row.top, b.top); row.bottom = Math.max(row.bottom, b.bottom);
+        row.l = Math.min(row.l, b.l); row.r = Math.max(row.r, b.r);
+      }
+    });
+    return rows;
+  }
+
   function snugWidth() {
     var line = bubble.querySelector('.bubble-line');
     if (!line) return;
-    var kids = line.childNodes, rows = {}, k, r, key;
-    for (k = 0; k < kids.length; k++) {
-      if (kids[k].nodeType !== 1 || !kids[k].offsetWidth) continue;
-      // layout boxes, for the same reason as rowsOfLine: a word still on its
-      // way in sits seven pixels low, and grouping by a moving top split one
-      // row into two — which closed the box to half a row and poured the
-      // sentence down a column.
-      r = { top: kids[k].offsetTop, left: kids[k].offsetLeft, right: kids[k].offsetLeft + kids[k].offsetWidth };
-      key = Math.round(r.top / 2) * 2;
-      if (!rows[key]) rows[key] = { l: r.left, r: r.right };
-      else { rows[key].l = Math.min(rows[key].l, r.left); rows[key].r = Math.max(rows[key].r, r.right); }
-    }
     var widest = 0;
-    Object.keys(rows).forEach(function (t) { widest = Math.max(widest, rows[t].r - rows[t].l); });
+    lineRows(line).forEach(function (row) { widest = Math.max(widest, row.r - row.l); });
     if (!widest) return;
     var cs = getComputedStyle(bubble);
     var chrome = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
@@ -1092,16 +1351,11 @@
   function rowsOfLine() {
     var line = bubble.querySelector('.bubble-line');
     if (!line) return 1;
-    var kids = line.childNodes, tops = {}, k, r;
-    for (k = 0; k < kids.length; k++) {
-      if (kids[k].nodeType !== 1) continue;
-      // offsetTop, not a client rect: each word is translated a few pixels
-      // while it arrives, and a client rect includes that travel — so a line
-      // half way through its reveal counted as twice as many rows as it has.
-      if (!kids[k].offsetWidth) continue;
-      tops[Math.round(kids[k].offsetTop / 2) * 2] = 1;
-    }
-    return Object.keys(tops).length || 1;
+    // offsetTop, not a client rect: each word is translated a few pixels
+    // while it arrives, and a client rect includes that travel — so a line
+    // half way through its reveal counted as twice as many rows as it has.
+    // Grouped by overlap (lineRows), so a key word a size up is its row's.
+    return lineRows(line).length || 1;
   }
 
   /**
@@ -1135,11 +1389,22 @@
     // GAP is the margin the bubble keeps from every edge it can reach. At 14
     // it sat hard against the side of the screen and read as something that
     // had slid off rather than been placed.
-    var GAP = 26, MIN_W = 240, MIN_H = 64;
+    /* THE SAME DECISION AT EVERY SIZE. Every distance below was tuned in
+       pixels on a 1280-wide window, where the type is 25.6px — and the type
+       is 2vw, so on a 1900-wide screen it is half as big again while a
+       640px width cap stayed 640px. The line that sat beside his head in
+       three rows at 1280 came out four rows at 1900, and four rows is thrown
+       to the band under the lesson: "At least one diagonal outside means
+       concave polygon." at the foot of the screen, its tail aimed at a name
+       tag. So every one of them is measured in the bubble's own type (K). */
+    var K = Math.max(0.7, Math.min(2.2, (parseFloat(getComputedStyle(bubble).fontSize) || 25.6) / 25.6));
+    var GAP = 26 * K, MIN_W = 240 * K, MIN_H = 64 * K;
     // THE TAIL'S REACH. Its tip lands 42px beyond the border, so the box
     // keeps this much clear of him on every side and the tip stops just
     // short of his head — near, never on it.
-    var TAIL_GAP = 48;
+    // 30, not 48: the tail is 36px now (index.html --tail-size), so the box
+    // can sit that much closer and the tip still stops at his head.
+    var TAIL_GAP = 30 * K;
 
     // Type size is the stylesheet's job; it only needs to know whether this
     // is a screen with room to breathe.
@@ -1154,6 +1419,7 @@
       ? instruction.getBoundingClientRect() : null;
     var hudBox = hud.getBoundingClientRect();
     var nextBox = nextBtn && nextBtn.classList.contains('show') ? nextBtn.getBoundingClientRect() : null;
+    var backBox = backBtn && backBtn.classList.contains('show') ? backBtn.getBoundingClientRect() : null;
 
     // With nothing on stage he simply speaks over the middle of the screen.
     if (solo || !content) {
@@ -1164,7 +1430,7 @@
       // of, so the only reason to cap the width at all is the reading line —
       // and 620px forced most of the thirty-six sentences onto two rows for
       // no benefit. Wide enough now that short and middling lines stay on one.
-      bubble.style.maxWidth = Math.min(f.w * 0.86, 1040) + 'px';
+      bubble.style.maxWidth = Math.min(f.w * 0.86, 1040 * K) + 'px';
       snugWidth();
       bubble.style.left = '50%';
       bubble.style.marginLeft = -(bubble.offsetWidth / 2) + 'px';
@@ -1195,7 +1461,7 @@
       var headBox = Swiftee.bounds && Swiftee.bounds();
       if (headBox) {
         var roomTop = hudBox.bottom + GAP;
-        var wantW = Math.min(f.w * 0.62, 760);
+        var wantW = Math.min(f.w * 0.62, 760 * K);
         bubble.style.maxWidth = wantW + 'px';
         snugWidth();
         var bw2 = bubble.offsetWidth, bh2 = bubble.offsetHeight;
@@ -1207,6 +1473,75 @@
           bubble.style.top = top2 + 'px';
           paintSkin();
           return;
+        }
+      }
+    }
+
+    /* ABOVE HIS HEAD, CLOSE — THE ONE RULE FOR A SPEAKER ON THE ICE.
+     *
+     * The slot search below finds the free band nearest his head, and on
+     * some screens that band was beside his knees: "Nice!" came out to his
+     * lower right, pointing up at him from the snow. A speech bubble belongs
+     * over the head of whoever is speaking. So first: the bubble centred over
+     * him, its foot ABOVE_GAP over the top of his head (the polish pass asks
+     * 12–24px), and if the card or a control is in the way, the same height
+     * shifted above-left, then above-right — always with his head under the
+     * bubble's own span, so the tail drops straight onto it. Only when none of
+     * those is clear (no room over him at all: the sorting screens, where he
+     * hovers under the HUD) does the search below take over. */
+    if (global.Swiftee && Swiftee.pos !== 'corner' && Swiftee.pos !== 'off') {
+      var overHead = birdRect();
+      if (overHead && overHead.width) {
+        var ABOVE_GAP = 22 * K;
+        bubble.style.maxWidth = Math.min(f.w * 0.5, 620 * K) + 'px';
+        snugWidth();
+        var aw = bubble.offsetWidth, ah = bubble.offsetHeight;
+        var atop = overHead.top - ABOVE_GAP - ah;
+        var acx = (overHead.left + overHead.right) / 2;
+        var aparts = Stage.contentParts ? Stage.contentParts({}) : [];
+        var ablocks = [hudBox, nextBox, backBox].filter(function (b) { return b && b.width; });
+        var aclear = function (x, y) {
+          var box = { left: x, right: x + aw, top: y, bottom: y + ah };
+          var hit = function (p, pad) {
+            return box.left < p.right + pad && box.right > p.left - pad && box.top < p.bottom + pad && box.bottom > p.top - pad;
+          };
+          for (var pi2 = 0; pi2 < aparts.length; pi2++) if (hit(aparts[pi2], 10)) return false;
+          for (var bi2 = 0; bi2 < ablocks.length; bi2++) if (hit(ablocks[bi2], 16)) return false;
+          return true;
+        };
+        var tryAbove = function () {
+          if (atop < f.y + GAP) return false;
+          var tries = [acx - aw / 2, acx - aw * 0.78, acx - aw * 0.22];   // centred, above-left, above-right
+          for (var ti = 0; ti < tries.length; ti++) {
+            var ax2 = Math.max(f.x + GAP, Math.min(f.x + f.w - GAP - aw, tries[ti]));
+            if (acx < ax2 + 26 * K || acx > ax2 + aw - 26 * K) continue;   // his head must be under the bubble
+            if (aclear(ax2, atop)) {
+              bubble.style.left = ax2 + 'px';
+              bubble.style.top = atop + 'px';
+              paintSkin();
+              return true;
+            }
+          }
+          return false;
+        };
+        if (tryAbove()) return;
+        /* NARROWER, STILL OVER HIM. A long line at full width runs into the
+           lesson beside him (the compare pair on "At least one diagonal
+           outside means concave polygon."), and the search below then sent it
+           to a band across the top of the screen. Before giving up on his
+           head, the same line is tried in the column between the window's
+           edge and the lesson — three rows over his head is speech; one row
+           at the top of the screen is a caption. */
+        if (content && acx < content.left) {
+          var col = content.left - 12 * K - (f.x + GAP);
+          if (col >= MIN_W && col < aw) {
+            bubble.style.maxWidth = col + 'px';
+            snugWidth();
+            if (rowsOfLine() <= 3) {
+              aw = bubble.offsetWidth; ah = bubble.offsetHeight; atop = overHead.top - ABOVE_GAP - ah;
+              if (tryAbove()) return;
+            }
+          }
         }
       }
     }
@@ -1299,12 +1634,12 @@
     // half-width slot, over the corner of the panel. A debug control must not
     // be able to change how the game lays itself out.
     var blocks = [birdBox];
-    [hudBox, nextBox].forEach(function (b) {
+    [hudBox, nextBox, backBox].forEach(function (b) {
       if (!b || !b.width) return;
       // A wide margin: the bubble bounces in at 103% and carries a shadow,
       // and eight pixels from the HUD read as touching it.
-      blocks.push({ left: b.left - 28, right: b.right + 28,
-                    top: b.top - 28, bottom: b.bottom + 28 });
+      blocks.push({ left: b.left - 28 * K, right: b.right + 28 * K,
+                    top: b.top - 28 * K, bottom: b.bottom + 28 * K });
     });
 
     blocks.forEach(function (box) {
@@ -1345,14 +1680,14 @@
         var capY = cs.y + cs.h, rightEdge = cs.x + cs.w;
         gp.forEach(function (p) {
           if (!(p.right > cs.x + 4 && p.left < rightEdge - 4 && p.top < capY && p.bottom > cs.y)) return;
-          if (p.left - 12 - cs.x >= 200) rightEdge = Math.min(rightEdge, p.left - 12);   // step in beside it
+          if (p.left - 12 - cs.x >= 200 * K) rightEdge = Math.min(rightEdge, p.left - 12);   // step in beside it
           else capY = Math.min(capY, p.top - 10);                                        // or stop above it
         });
         cs.w = rightEdge - cs.x;
         cs.h = capY - cs.y;
         // 200, not MIN_W: the nook beside him on the wide slab is a little
         // under 240 wide, and his lines there are short by design
-        if (cs.w >= 200 && cs.h >= MIN_H) slots = [cs];
+        if (cs.w >= 200 * K && cs.h >= MIN_H) slots = [cs];
       }
     }
     slots = slots.filter(function (r) { return r.id === 'corner' || (r.w >= MIN_W && r.h >= MIN_H); });
@@ -1394,7 +1729,7 @@
     var SAFE = 10;
     var capFor = function (r) {
       var room = (r.id === 'left' || r.id === 'right')
-        ? Math.min(r.w - SAFE, 640)
+        ? Math.min(r.w - SAFE, 640 * K)
         : Math.min(r.w - SAFE, f.w * 0.8);
       return room;
     };
@@ -1476,14 +1811,16 @@
       var fits = m.h <= r.h && m.w <= r.w;
       var rows = rowsOf(m.h);
       var near = reach(placeIn(r, m.w, m.h), m.w, m.h);
-      var score = Math.max(0, near - TAIL_GAP * 2) * 6     // every pixel past the tail's reach costs six
+      // (distances in design pixels, so a big screen does not weigh distance
+      // more heavily against wrapping than a small one does)
+      var score = Math.max(0, (near - TAIL_GAP * 2) / K) * 6   // every pixel past the tail's reach costs six
                 + (rows - 1) * 40                          // one row is nicer
                 + (rows > 2 ? 200 : 0)                     // three rows beside him beats one row far from him
                 // and four is not a speech bubble at all. Weighted past any
                 // distance on this stage, so a wider slot further from his
                 // head always wins over a narrow one beside it.
                 + (rows > 3 ? 20000 : 0)
-                + (fits ? 0 : 2400 + Math.max(0, m.h - r.h));
+                + (fits ? 0 : 2400 + Math.max(0, (m.h - r.h) / K));
       if (score < best) { best = score; slot = r; }
     }
     bubble.style.maxWidth = capFor(slot) + 'px';
@@ -1616,6 +1953,19 @@
         bubble.style.top = p2.y + 'px';
       }
     }
+    /* AND THE BOX CLOSES ON THE WORDS, LAST. The passes above that move a
+       bubble off the shape narrow it a fifth at a time and never close it
+       again, so a line that had to dodge kept the width it dodged at, with
+       the rows balanced inside it and paper to spare on both sides. Closed to
+       its widest row here, kept centred where it was put — it can only get
+       narrower, so it cannot land on anything it had cleared. */
+    var wasW = bubble.offsetWidth;
+    snugWidth();
+    var nowW = bubble.offsetWidth;
+    if (nowW < wasW - 1) {
+      bubble.style.left = ((parseFloat(bubble.style.left) || 0) + (wasW - nowW) / 2) + 'px';
+      fin = { w: nowW, h: bubble.offsetHeight };
+    }
     var lx = parseFloat(bubble.style.left) || 0, ly = parseFloat(bubble.style.top) || 0;
     bubble.style.left = Math.max(GAP, Math.min(lx, vw - fin.w - GAP)) + 'px';
     bubble.style.top = Math.max(GAP, Math.min(ly, vh - fin.h - GAP)) + 'px';
@@ -1654,15 +2004,21 @@
    * each edge, that puts the unmirrored tip at these positions along the
    * edge, and the mirrored one at 60 minus them.
    * ------------------------------------------------------------------ */
-  var TIP = { bottom: 12, top: 48, right: 48, left: 12 };   // unmirrored tip, along the edge
-  var MOUTH_LO = 14, MOUTH_HI = 46, TAIL_SIZE = 60;
+  // The 60-unit tail drawing is shown at 36px (index.html --tail-size), so
+  // every one of these is its 60-unit value times 0.6.
+  var TIP = { bottom: 7.2, top: 28.8, right: 28.8, left: 7.2 };   // unmirrored tip, along the edge
+  var MOUTH_LO = 8.4, MOUTH_HI = 27.6, TAIL_SIZE = 36;
 
   function paintSkin() {
     var tail = bubble.querySelector('.bubble-tail');
     if (!tail) return;
     var r = layoutRect(bubble);
     if (!r.width || !r.height) return;
-    var head = headPoint();
+    // OUT ON THE MEASURING WALK he is not where his words are: the tail
+    // pointed at the empty corner he had left. While the walk has him the
+    // line is a plain card with no tail; it points at him again once he is
+    // back (tailWhenHome).
+    var head = (global.Swiftee && Swiftee.locked === 'measuring') ? null : headPoint();
     if (!head) { bubble.removeAttribute('data-tail'); return; }
 
     // the edge that faces his head: below, above, or beside
@@ -1796,6 +2152,17 @@
     nextBtn.disabled = !on;
   }
 
+  /* BACK IS OFFERED WHENEVER THE CHILD IS IN CONTROL, and never while
+     something is still being said: a control that appears mid-sentence is a
+     control that invites a child to leave before they have heard the line.
+     Not on the first screen, because there is nowhere to go. */
+  function showBack(on) {
+    if (!backBtn) return;
+    var can = !!on && current > 0;
+    backBtn.classList.toggle('show', can);
+    backBtn.disabled = !can;
+  }
+
   function setProgress(i) {
     progress.style.width = ((i + 1) / Screens.list.length * 100).toFixed(1) + '%';
   }
@@ -1820,7 +2187,13 @@
     (beats || []).forEach(function (b) {
       if (b.sfx && global.SFX) SFX.play(b.sfx, b);
       if (b.juice && global.Juice && Juice[b.juice]) Juice[b.juice](Stage.element(b.target), b);
-      if (b.swiftee && buddyOn && present) Swiftee.play(b.swiftee, b);
+      // his face waits the quarter second the answer needs to land first,
+      // like every other reaction (REACT_MS), and carries the screen's context
+      if (b.swiftee && buddyOn && present) {
+        var bo = direction(b);
+        if (Swiftee.isReaction && Swiftee.isReaction(b.swiftee)) afterVerdict(function () { if (buddyOn && present) Swiftee.play(b.swiftee, bo); });
+        else Swiftee.play(b.swiftee, bo);
+      }
       if (b.stage) Stage.apply(b.stage);
     });
   }
@@ -1828,6 +2201,147 @@
   /* ------------------------------------------------------------------ *
    * Director handlers
    * ------------------------------------------------------------------ */
+
+  /* ONE LINE, SPOKEN IN ITS PARTS.
+   *
+   * dialogue-timing.js lays the whole line out in time before a word of it
+   * appears — when each bubble goes up, when its words land, how long it holds
+   * — and this plays that plan. A fragment that continues its sentence is
+   * held for a breath; one that ends a sentence is held for its reading
+   * pause; the last one is held for as long as its KIND of line needs: a
+   * narration line its reading pause, an instruction only until the hands may
+   * start (and then it stays up anyway). The beat resolves when the plan is
+   * done.
+   *
+   * A TAP NEVER SKIPS WORDS. The first tap on a line still arriving finishes
+   * the bubble that is up (revealAll); the next one brings the next bubble
+   * forward, and the whole plan moves up with it; only when every word of the
+   * line is on the screen does a tap reach the director, which may then cut
+   * the reading pause short — never below its minimum. */
+  var lineCtl = null;
+  function speakLine(parts, type, ctx, held, faceAt) {
+    var pace = Timing.scaleOf(ctx && ctx.cfg ? ctx.cfg.msPerWord : null);
+    var plan = Timing.schedule(parts, { scale: pace, type: type, showing: bubble.classList.contains('show') });
+    var steps = plan.parts, n = steps.length;
+    var t0 = Date.now(), shift = 0, shown = -1, timers = [], endTimer = null, resolveLine = null, over = false;
+    var endAt = plan.total;
+    var ctl = {};
+    lineCtl = ctl;
+    var finish = function () {
+      if (over) return; over = true;
+      timers.forEach(clearTimeout); clearTimeout(endTimer);
+      if (lineCtl === ctl) lineCtl = null;
+      if (resolveLine) resolveLine();
+    };
+    var scheduleEnd = function (atMs) {
+      clearTimeout(endTimer);
+      endAt = atMs;
+      endTimer = setTimeout(finish, Math.max(0, atMs - (Date.now() - t0)));
+      lineTimers.push(endTimer);
+    };
+    var wordsDone = function (early) {
+      // the last bubble's words are all in: the reading pause starts here
+      if (ctx && ctx.phase) ctx.phase('reading');
+      if (director) director.emit('dialogue:complete', { text: parts.map(function (p) { return typeof p === 'string' ? p : p.text; }).join(' '), type: type });
+      clearTimeout(mouthTimer); Swiftee.speaking(false);
+      if (early) scheduleEnd((Date.now() - t0) + steps[n - 1].hold);
+    };
+    var show = function (i) {
+      if (over || i <= shown || i >= n) return;
+      shown = i;
+      var p = steps[i];
+      if (faceAt) faceAt(i);
+      say(p.text, null, null, null, p.cues, {
+        lead: p.lead, scale: pace,
+        onWord: function (w) { if (director) director.emit('dialogue:word', { part: i, word: w }); },
+        onDone: i === n - 1 ? wordsDone : null
+      });
+    };
+    var plant = function () {
+      timers.forEach(clearTimeout); timers = [];
+      for (var i = shown + 1; i < n; i++) {
+        (function (j) {
+          var h = setTimeout(function () { show(j); }, Math.max(0, steps[j].at - shift - (Date.now() - t0)));
+          timers.push(h); lineTimers.push(h);
+        }(i));
+      }
+    };
+    /* the next bubble, now, and everything after it moves up by what was saved */
+    ctl.next = function () {
+      if (over || shown + 1 >= n) return false;
+      var j = shown + 1;
+      var gain = (steps[j].at - shift) - (Date.now() - t0);
+      if (gain > 0) shift += gain;
+      show(j); plant();
+      scheduleEnd(endAt - Math.max(0, gain));
+      return true;
+    };
+    ctl.done = function () { return over || shown >= n - 1; };
+
+    Swiftee.speaking(true);
+    clearTimeout(mouthTimer);
+    mouthTimer = setTimeout(function () { Swiftee.speaking(false); }, plan.lastWord + 250);
+    show(0); plant(); scheduleEnd(plan.total);
+
+    // THE LINE CLEARS ITSELF once it has been read — but not a line that asked
+    // for something, which stays up until it has been done (see handlerSay).
+    clearTimeout(bubbleTimer);
+    if (!screenAwaitsAction(current)) {
+      bubbleTimer = setTimeout(function () {
+        if (held) { say(null); return; }      // say(null) gives the plank back
+        if (instruction && instruction.classList.contains('show')) say(null);
+      }, plan.total + 1100);
+    }
+    return new Promise(function (res) {
+      resolveLine = res;
+      if (ctx && ctx.onCancel) ctx.onCancel(function () {
+        finish(); clearTimeout(bubbleTimer); clearTimeout(mouthTimer); Swiftee.speaking(false);
+        if (!(instruction && instruction.classList.contains('show'))) restoreHeldCard();
+      });
+    });
+  }
+
+  /* SHOWN, NOT SAID AGAIN: the bubbles of a line settle into the whole
+     instruction, every word at once. Held only as long as the change takes. */
+  function settleLine(text, opts, ctx) {
+    var pace = global.Timing ? Timing.scaleOf(ctx && ctx.cfg ? ctx.cfg.msPerWord : null) : 1;
+    lessonLine = { full: text, screen: current, type: (opts && opts.type) || 'action' };
+    // already up, word for word — the bubble ends with exactly these words
+    // (the line was shown settled): nothing to redo, nothing to flash
+    var up = bubble && bubble.querySelector ? bubble.querySelector('.bubble-line') : null;
+    if (up && bubble.classList.contains('show') && global.Timing && Timing.repeats && Timing.repeats(text, up.textContent)) return Promise.resolve();
+    say(text, null, 0, null, null, { instant: true, scale: pace });
+    var ms = Math.round(((global.Timing && Timing.SWAP_OUT) || 170) * pace + ((global.Timing && Timing.SWAP_IN) || 240) * pace);
+    return new Promise(function (res) {
+      var h = setTimeout(res, ms);
+      if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(h); res(); });
+    });
+  }
+
+  /* A TAP ON THE LINE: finish it, then go on through it, and only then let the
+     director shorten the reading pause. */
+  function tapLine() {
+    // A BUBBLE ON ITS WAY IN IS NOT SKIPPED. Between two bubbles of a line
+    // there is a moment where the old one has lifted away and the next is
+    // not yet up; a tap there used to reach past it to the one after, so a
+    // quick tapper never saw the middle of "A line segment joining / two
+    // non-adjacent sides / is a diagonal." It brings that bubble in now,
+    // whole, and goes no further.
+    if (swapTimer && pendingPut) {
+      clearTimeout(swapTimer); swapTimer = null;
+      var f = pendingPut; pendingPut = null; f();
+      revealAll();
+      return true;
+    }
+    if (revealAll()) return true;
+    if (lineCtl && lineCtl.next()) return true;
+    // A TAP NEVER CUTS THE VOICE. Skipping ends the beat, and the next line's
+    // clip then stopped this one mid-word — the child heard half of "This is
+    // a side of the polygon" and the lesson was already asking for the next
+    // try. The words may be hurried; while he is still saying them, the tap
+    // is taken and nothing moves on.
+    return director ? director.skip() : false;
+  }
 
   var H = null;   // the live handler table, so one handler can hand off to another
   function handlers() {
@@ -1887,6 +2401,12 @@
         // and holding for it pushed his sleigh half a second later into every
         // opening, which is long enough for the arrival to miss its cue.
         if (spec && spec.kind && spec.kind !== 'vista' && !(global.Juice && Juice.reducedMotion)) return pause(SCENE_ENTER_MS);
+        // THE ANSWERS ARE SEEN BEFORE THEY CAN BE PRESSED. A row of answers is
+        // dealt one pill after another; the question is held until the last
+        // one has landed, so no answer is live before the child can see it.
+        // (Not answers that wait for their words: those arrive with the line,
+        // and the line comes next.)
+        if (spec && spec.choices && spec.choices.length && !spec.cue && Stage.choicesEnterMs) return pause(Stage.choicesEnterMs(spec.choices.length));
       },
       swiftee: function handlerSwiftee(state, opts, ctx) {
         // No bird, but still a beat: the screen paces as it did, and only
@@ -1902,8 +2422,27 @@
         if (state !== 'enter' && !present) {
           return entrance().then(function () { return handlerSwiftee(state, opts, ctx); });
         }
-        var o = Object.assign({}, opts);
-        if (o.at) o.at = Stage.element(o.at);
+        // the screen's context rides along: its id picks the face, and how
+        // the child is getting on picks relief or a second think (direction())
+        var o = direction(opts);
+        if (Array.isArray(o.at)) o.at = o.at.map(function (a) { return Stage.element(a); });
+        else if (o.at) o.at = Stage.element(o.at);
+
+        // A REACTION IS TO SOMETHING. Straight after an answer, his face waits
+        // the quarter second the answer needs to register first (REACT_MS).
+        var reacting = (Swiftee.isReaction && Swiftee.isReaction(state)) ||
+                       /^(celebrate|nod|confused|encourage|surprised|proud|excited|happy)$/.test(state);
+        var owed = reacting ? REACT_MS - (Date.now() - verdictAt) : 0;
+        if (owed > 0) {
+          return new Promise(function (res) {
+            var h = setTimeout(res, owed);
+            if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(h); res(); });
+          }).then(function () {
+            if (ctx && ctx.signal && ctx.signal.cancelled) return;
+            verdictAt = 0;
+            return handlerSwiftee(state, opts, ctx);
+          });
+        }
 
         var p = Swiftee.play(state, o, ctx);
         if (state === 'enter') {
@@ -1941,11 +2480,12 @@
         if (!present) {
           // He comes in, then says it. The line still gets its whole reading
           // time after it appears, not whatever the entrance left of it.
-          return entrance().then(function () { return handlerSay(text, opts, ctx); }).then(function () {
-            return new Promise(function (res) {
-              var t = setTimeout(res, opts.reading || 1200);
-              if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(t); res(); });
-            });
+          // The line is paced by the line itself once he is there; the
+          // entrance used to add the director's whole reading estimate again
+          // on top, so the first line after every entrance sat twice as long.
+          return entrance().then(function () {
+            if (ctx && ctx.signal && ctx.signal.cancelled) return;
+            return handlerSay(text, opts, ctx);
           });
         }
         // TWO SHORT BUBBLES RATHER THAN ONE LONG ONE. The reading time is
@@ -1987,11 +2527,62 @@
          * is the piece the whole lesson turns on. A beat carrying `parts` is
          * obeyed exactly; one that does not is split as it always was. */
         var parts = (opts && opts.parts && opts.parts.length) ? opts.parts.slice() : splitLine(text);
+        /* SAID ONCE. When the instruction that follows only repeats this line
+           (opts.settledBy), the bubbles it repeats are one bubble — so the
+           last thing up is already the instruction, word for word, and the
+           instruction beat has nothing to add (settleLine). It used to show
+           "Draw all the diagonals" / "from this vertex." and then the same
+           sentence again whole: the same words twice in a row. */
+        if (opts && opts.settledBy && parts.length > 1 && global.Timing && Timing.repeats) {
+          for (var sk = 0; sk < parts.length - 1; sk++) {
+            if (Timing.repeats(opts.settledBy, parts.slice(sk).join(' ')) && !Timing.repeats(opts.settledBy, parts.slice(sk + 1).join(' '))) {
+              parts = parts.slice(0, sk).concat([parts.slice(sk).join(' ')]);
+              break;
+            }
+          }
+        }
+        /* A BUBBLE IS A WHOLE SENTENCE. The script breaks some sentences in
+           the middle ("Hmm… The sides look" / "suspiciously alike." / "Let's
+           check!") and each piece replaced the last — so the child could be
+           left reading "suspiciously alike." or "made from straight lines."
+           on their own, half a thought. The pieces of one sentence are one
+           bubble now, laid out at the full sentence from the first frame; the
+           script's break is kept as a breath between the words (breaks), and
+           a new bubble starts only where a sentence does. */
+        var sentences = [], curS = null;
+        var faces = (opts && opts.faces) || [];
+        parts.forEach(function (p, pIdx) {
+          var n = String(p).trim().split(/\s+/).length;
+          if (!curS) curS = { text: p, breaks: [], n: n, face: faces[pIdx] || null };
+          else { curS.breaks.push(curS.n - 1); curS.text += ' ' + p; curS.n += n; }
+          if (global.Timing && Timing.endsSentence && Timing.endsSentence(p)) { sentences.push(curS); curS = null; }
+        });
+        if (curS) sentences.push(curS);
+        parts = sentences.map(function (x) { return x.text; });
+        /* HIS FACE ON ITS BUBBLE. A line can say which face goes with which
+           of its bubbles (`faces`, one per script fragment): "Hmm…" squinting,
+           "Let's check!" with the magnifying glass coming out on the word —
+           not a beat after the whole line has been read. */
+        var faceAt = function (i) {
+          var fc = sentences[i] && sentences[i].face;
+          if (fc && buddyOn && present && global.Swiftee && Swiftee.play) { try { Swiftee.play(fc, direction()); } catch (e) {} }
+        };
         var words = function (t) { return t.split(/\s+/).length; };
         var counts = parts.map(words);
         var total = counts.reduce(function (n, count) { return n + count; }, 0) || 1;
         var recorded = (global.VO && VO.words && voId) ? VO.words(voId) : null;
         if (!recorded || recorded.length !== total) recorded = null;
+
+        /* WHAT KIND OF LINE, AND WHOSE IT IS. The director says whether this
+           line narrates, instructs or asks (dialogue-timing.js lineType), and
+           that decides how long it is left before anything else moves. It is
+           also, from now until the next line, the one the child is working
+           to — see standing. */
+        var lineType = (opts && opts.type) || 'narration';
+        lessonLine = { full: parts.join(' '), screen: current, type: lineType };
+        if (director) director.emit('dialogue:start', { text: lessonLine.full, type: lineType, parts: parts.length });
+        var clip0 = (global.VO && VO.seconds && voId) ? VO.seconds(voId) : 0;
+        if (!clip0 && global.Timing && Timing.schedule) return speakLine(sentences, lineType, ctx, held, faceAt);
 
         /* AND WITH NO RECORDING, THE LINE PACES ITSELF.
          *
@@ -2010,21 +2601,7 @@
          * The fragments of one sentence are joined by a short gap rather than
          * a reading pause: "Polygons are closed shapes" and "made from
          * straight lines." are one breath shown in two bubbles. */
-        var timed = null;
-        // The pace is the director's: everything else in the game is timed off
-        // msPerWord, so a suite that turns it down still runs fast and the
-        // shape of the timing is the same either way.
-        var pace = Timing ? Timing.scaleOf(ctx && ctx.cfg ? ctx.cfg.msPerWord : null) : 1;
-        if (!recorded && global.Timing) {
-          timed = [];
-          var runAt = 0;
-          parts.forEach(function (p) {
-            Timing.cues(p, pace).forEach(function (t) { timed.push(runAt + t); });
-            runAt += Timing.speakMs(p, pace) + Timing.FRAGMENT_GAP * pace;
-          });
-          if (timed.length !== total) timed = null;
-        }
-        if (timed) recorded = timed;
+        var timed = null;   // with a recording, the recording is the timing
 
         /* THE VOICE SETS THE PACE, NOT A COUNT OF LETTERS.
          *
@@ -2071,7 +2648,7 @@
           for (var ci = 0; ci < partIndex; ci++) first += counts[ci];
           return recorded.slice(first, first + counts[partIndex]).map(function (t) { return t - offsets[partIndex]; });
         };
-        say(parts[0], null, shares[0], clockFor(offsets[0]), cuesFor(0));
+        say(parts[0], null, shares[0], clockFor(offsets[0]), cuesFor(0)); faceAt(0);
         // the rest follow, each when the voice reaches it
         var partTimers = [];
         for (var pi = 1; pi < parts.length; pi++) {
@@ -2095,7 +2672,7 @@
                 partTimers.push(again); lineTimers.push(again);
                 return;
               }
-              say(t, null, share, clockFor(when), cuesFor(partIndex));
+              say(t, null, share, clockFor(when), cuesFor(partIndex)); faceAt(partIndex);
             };
             var h = setTimeout(fire, when);
             partTimers.push(h); lineTimers.push(h);
@@ -2175,7 +2752,16 @@
         // ON A CARD SCREEN HE SAYS IT. The plank would sit over a card that
         // has room beside it for him, so the instruction goes through his
         // bubble, with a line's reading time, and the plank stays down.
-        if (text && buddyOn && speaksAll(current) && H && H.say) return H.say(text, opts || {}, ctx);
+        if (text && buddyOn && speaksAll(current) && H && H.say) {
+          // THE SCRIPT HAS ALREADY SAID IT. "Draw all the diagonals / from this
+          // vertex." and then the card's "Draw all the diagonals from this
+          // vertex." is one sentence twice; the second time it is shown — the
+          // bubbles settle into the whole instruction, in place — and not said.
+          if (lessonLine && lessonLine.screen === current && global.Timing && Timing.repeats && Timing.repeats(text, lessonLine.full)) {
+            return settleLine(text, opts, ctx);
+          }
+          return H.say(text, opts || {}, ctx);
+        }
         setCard(text);
         // The plank says it; the voice still says it too, and the beat holds
         // until it has. An instruction beat had no wait of its own at all, so
@@ -2200,6 +2786,8 @@
         // had already become draggable — which is the worst possible moment
         // to split a seven-year-old's attention.
         revealAll();
+        // nothing the child is about to use is still waiting for its word
+        if (Stage.releaseHeld) Stage.releaseHeld();
 
         /* THE LINE STAYS, AND STOPS BEING A LID.
          *
@@ -2212,6 +2800,10 @@
          * beat that builds them runs after the line. */
         bubble.classList.add('passive');
         placeBubble();
+        // the instruction this input answers, to come back to after a nudge
+        // (not for the Next button: reading on is not working at something)
+        inputLive = spec.type !== 'tap-anywhere';
+        standing = (inputLive && lessonLine && lessonLine.screen === current) ? lessonLine : null;
 
         // THE REACTION'S SHEETS, FETCHED WHILE THEY ARE STILL DECIDING.
         // An input beat is dead air on his side — he is resting in a pinned
@@ -2222,9 +2814,32 @@
 
         var waiting = spec.type === 'tap-anywhere';
         showNext(waiting);
+        showBack(true);
         if (ctx && ctx.onCancel) ctx.onCancel(function () { showNext(false); });
+        if (ctx && ctx.onCancel) ctx.onCancel(function () { inputLive = false; inputSpec = null; });
+
+        /* WHILE THE CHILD WORKS, HE WAITS WITH THEM. The pose he asked the
+           question in — thinking, head on one side, the magnifying glass —
+           is kept for as long as the question stands: a miss goes "hmm?",
+           smiles, and comes back to it. A drag, the moment it starts, gets
+           his quiet watching face instead (Input 'down', below). */
+        inputSpec = waiting ? null : spec;
+        if (!waiting && buddyOn && present && global.Swiftee && Swiftee.stance) {
+          Swiftee.stance(HOLDS_A_QUESTION.test(Swiftee.state || '') ? Swiftee.state : null);
+        }
         return Stage.waitFor(spec, ctx).then(function (r) {
+          inputLive = false; inputSpec = null;
+          bubble.classList.remove('dim');
+          // the task is over: whatever he was watching or holding, the answer's
+          // reaction comes next, and after it he rests
+          if (global.Swiftee && Swiftee.stance) Swiftee.stance(null);
+          if (r && (r.result === 'correct' || r.result === 'wrong')) {
+            verdictAt = Date.now();
+            if (director) director.emit(r.result === 'correct' ? 'answer:correct' : 'answer:incorrect', { spec: spec, detail: r });
+            verdictFx(r.result, spec.type);
+          }
           showNext(false);
+          // (Back stays: it is offered for the whole of every screen after the first)
           if (waiting) say(null);
           else if (r && r.result === 'correct') {
             var earned = quest.award(current + ':' + spec.type);
@@ -2234,9 +2849,10 @@
             // desync as a wrong answer getting none.
             if (earned) reward('+' + earned + ' XP. Challenge complete.', false);
             // and he says so, whether or not there was XP in it: react() is
-            // the one place his word on an answer comes from
-            react('correct');
-          } else if (r && r.result === 'wrong') react('wrong');
+            // the one place his word on an answer comes from. His FACE is the
+            // screen's own feedback beat, a moment later — one reaction, not two.
+            react('correct', null, { face: false, quiet: spec.praise === false });
+          } else if (r && r.result === 'wrong') react('wrong', null, { face: false });
           return r;
         }, function (e) { showNext(false); throw e; });
       },
@@ -2347,6 +2963,11 @@
     clearLineTimers();
     clearTimeout(bubbleTimer);
     say(null);
+    // AND WHATEVER HE WAS STILL DOING ABOUT IT STAYS THERE TOO: a reaction
+    // from the screen before plays its stop and he rests; the new screen's
+    // count of misses and its one hint start again.
+    if (global.Swiftee && Swiftee.settle) Swiftee.settle();
+    missesHere = 0; hintedHere = false; inputSpec = null;
     // THE CARD IS CLEARED, NOT INHERITED.
     //
     // It was only ever replaced — set by a screen that has an instruction,
@@ -2373,7 +2994,7 @@
     //
     // Every screen in screens.js carries a `swiftee: { pos, size }` block and
     // NOTHING READ IT. He was placed once at boot — left, large — and moved
-    // only where a beat explicitly told him to, so thirty-nine screens of
+    // only where a beat explicitly told him to, so thirty-four screens of
     // carefully chosen positions were dead configuration and he stood in the
     // same spot for the whole lesson, including on the screens whose lesson
     // reaches into that spot.
@@ -2434,12 +3055,34 @@
     }
 
     current = i; setProgress(i);
+    // BACK IS THERE FOR THE WHOLE SCREEN, on every screen after the first —
+    // not only once a task has armed, which left it missing through every
+    // line of narration and on the screens that play themselves through.
+    showBack(i > 0);
     // A carried card rides up when this screen has no plank, and eases back
     // under the band when it has; a scene built by this screen's beats is
     // seated as it is built.
     if (Stage.seat) Stage.seat(!hasPlank(i));
-    Stage.onTap(function (kind, said) { if (s.perTap) fire(s.perTap[kind] || s.perTap.any); react(kind, said); });
+    Stage.onTap(function (kind, said) {
+      if (kind === 'correct' || kind === 'wrong') {
+        verdictAt = Date.now();
+        if (director) director.emit(kind === 'correct' ? 'answer:correct' : 'answer:incorrect', { perTap: true });
+        // (not the measuring taps: a measured side is not an answer)
+        if (!(inputSpec && inputSpec.type === 'tap-each')) verdictFx(kind);
+      }
+      var list = s.perTap ? (s.perTap[kind] || s.perTap.any) : null;
+      if (list) fire(list);
+      // ONE FACE PER TAP: the storyboard's, when its per-tap list gives him
+      // one, and otherwise react()'s. On the side-measuring screen the walk
+      // itself is the answer to every tap (it is protected: swiftee.js lock).
+      var walked = !!(inputSpec && inputSpec.type === 'tap-each' && inputSpec.targets === 'sides');
+      var dip = !!(inputSpec && inputSpec.type === 'tap-each');
+      react(kind, said, { face: dip ? 'dip' : !(list && list.some(function (b) { return b && b.swiftee; })), walked: walked });
+    });
     if (global.Input) Input.mode('locked');
+    // WRITTEN DOWN AS IT BEGINS: the scene exactly as the child found it on
+    // this screen, so Back can put it back (Stage.snapshot / restore).
+    try { snaps[i] = Stage.snapshot ? Stage.snapshot() : null; } catch (e) { snaps[i] = null; }
     return director.run(s.beats);
   }
 
@@ -2473,7 +3116,7 @@
   /**
    * Does this screen build a new scene, or carry on with the one already up?
    *
-   * Only twelve of the thirty-nine rebuild the stage. The rest add to what is
+   * Only a third of the thirty-four rebuild the stage. The rest add to what is
    * already there — a label, a diagonal, a badge on the same pentagon.
    */
   /* ------------------------------------------------------------------ *
@@ -2588,8 +3231,64 @@
     finish();
   }
 
+  /* THE TAIL LEAVES WITH HIM AND COMES BACK WITH HIM. A side's measuring walk
+     takes him away from his words (paintSkin drops the tail while the walk
+     holds him); this watches for the walk to hand him back and points the
+     line at him again. */
+  var tailWatch = null;
+  function tailWhenHome() {
+    clearInterval(tailWatch);
+    var since = Date.now(), away = false;
+    var repaint = function () { if (bubble && bubble.classList.contains('show')) paintSkin(); };
+    tailWatch = setInterval(function () {
+      var out = !!(global.Swiftee && Swiftee.locked === 'measuring');
+      // the walk takes its lock a moment after the tap: hide the tail then
+      if (out && !away) { away = true; repaint(); }
+      if (out && Date.now() - since < 20000) return;
+      // not gone yet (the walk has not started) — keep waiting, briefly
+      if (!away && Date.now() - since < 1500) return;
+      clearInterval(tailWatch); tailWatch = null;
+      repaint();
+    }, 120);
+  }
+
+  /* THE NEXT CARD IS ON THE TABLE, AND HE IS BACK BEHIND IT. On the swipe
+     practice he ducks when the child takes hold of a card (Input 'down'); the
+     stage says when a card is at rest in the middle again — newly dealt, or
+     glided home after a miss or a short drag — and he comes up behind it
+     with the question, so there is never a bubble without him, and never him
+     in the middle of the card's flight. */
+  function swipeHome() {
+    if (!buddyOn || present || entering || !inputLive) return;
+    if (!inputSpec || inputSpec.type !== 'swipe') return;
+    var m = markFor(current, null, Swiftee.size);
+    if (!m || m.pos !== 'peek') return;
+    entrance().then(function (ok) { if (ok && inputLive) { showStanding(); placeBubble(); } });
+  }
+
+  /* THE IDLE HINT, IN HIM TOO — ONCE. When the stage's hint ladder first
+     nudges a child who has been still (the targets pulse), he makes one small
+     gesture toward the work: a look, head on one side. Once per screen: the
+     ladder climbs again for as long as they wait, and he does not. It yields
+     to everything (swiftee.js perform: a reaction, a gesture, the measuring
+     walk), and the child's next touch replaces it with his watching face. */
+  function hintGesture(p) {
+    if (hintedHere || !p || p.rung !== 'pulse') return;
+    if (!inputSpec || !buddyOn || !present || entering || !global.Swiftee || !Swiftee.perform) return;
+    // not on the measuring screens: the side walk is protected, and over the
+    // angles he is already examining them with the child — the pulsing
+    // corners and dots are the hint there
+    if (inputSpec.type === 'tap-each') return;
+    var box = Stage.contentBox && Stage.contentBox();
+    var at = box ? { x: (box.left + box.right) / 2, y: (box.top + box.bottom) / 2 } : null;
+    hintedHere = true;
+    Swiftee.perform('hint', direction({ at: at }));
+  }
+
   function finish() {
     say(null); setCard(null); showNext(false);
+    // and Back stays: the last screen can be stepped back to from the end
+    showBack(true);
     if (global.Music) Music.mood('win');   // the tune lifts for the last screen
     sayLong('Honk-tastic! ' + quest.snapshot().xp + ' XP and ' + quest.snapshot().badges.length + ' badges. You are a polygon adventurer!', 'win', 3400);
     // one burst, wide, for the finale — two from different points read as a stutter
@@ -2602,9 +3301,14 @@
   }
 
   function restart() {
-    director.abort(); playing = false; showNext(false);
+    backGen++; goingBack = false;
+    director.abort(); playing = false; showNext(false); showBack(false);
+    if (global.Swiftee && Swiftee.settle) Swiftee.settle({ now: true });
     clearTimeout(rewardTimer);
-    quest = Quest.create(); say(null);
+    quest = Quest.create(); say(null); snaps = [];
+    if (Stage.forgetMade) Stage.forgetMade();   // a new lesson: no shapes made yet
+    // the finale's fanfare does not play on over the new opening
+    if (global.SFX && SFX.cancelSequences) SFX.cancelSequences();
     $('#reward').classList.remove('show');
     hud.querySelector('.replay').classList.remove('show');
     Stage.apply({ kind: 'vista' });
@@ -2636,10 +3340,7 @@
       // A tap finishes the line first. Only once it is all there does the
       // same gesture shorten the hold — otherwise an impatient child skips
       // past words they never saw.
-      Input.on('tap', function () {
-        if (revealAll()) return;
-        director.skip();
-      });
+      Input.on('tap', function () { tapLine(); });
 
       /* HE NOTICES THE FINGER, not just the verdict.
        *
@@ -2656,6 +3357,29 @@
        * starts, and a mascot that flinches at every touch is the mess this
        * is meant to avoid.
        */
+      /* THE FINGER IS ON THE GLASS. While an input is live, a press is the
+         child trying: the state says so, the event says so, and the
+         instruction steps back a little — still readable, not in the way. */
+      Input.on('down', function () {
+        if (!inputLive) return;
+        if (director) { director.mark(Director.STATES ? Director.STATES.USER_INTERACTING : 'USER_INTERACTING'); director.emit('interaction:start', {}); }
+        if (bubble.classList.contains('show')) bubble.classList.add('dim');
+        // THE CHILD'S HAND IS THE ANIMATION NOW. A drag gets his quiet,
+        // watching face at once — cutting in over any gesture he was making,
+        // because nothing on the screen outranks what the child is doing —
+        // and he stays on it until the verdict. (swiftee.js attend())
+        if (inputSpec && WATCHED.test(inputSpec.type) && buddyOn && present && global.Swiftee && Swiftee.attend) Swiftee.attend(true);
+        // PEEKING OVER THE CARD THE CHILD HAS JUST TAKEN HOLD OF, he drops back
+        // behind it: the card is leaving, and the strip of its rim that hides
+        // his body would be left hanging in the air where it was. HIS WORDS
+        // GO WITH HIM — a bubble with nobody under it is a caption pointing
+        // at the snow — and both come back up when the next card is home
+        // (swipeHome).
+        if (inputSpec && inputSpec.type === 'swipe' && present && !entering && global.Swiftee && Swiftee.pos === 'peek') { say(null); leave(); }
+      });
+      (stageEl.ownerDocument.defaultView || global).addEventListener('pointerup', function () {
+        if (inputLive && director) director.mark(Director.STATES ? Director.STATES.WAITING_FOR_USER : 'WAITING_FOR_USER');
+      });
       var lastNoticed = 0;
       Input.on('down', function () {
         var t = Date.now();
@@ -2670,11 +3394,28 @@
     if (global.SFX) SFX.key('C pentatonic');
     loadAudio();
 
-    director = Director.create(handlers(), { msPerWord: 300, sayMinMs: 1100 });
+    // The line paces itself (dialogue-timing.js), including the breath before
+    // the child may act, so the director adds none of its own after speech.
+    // feedbackSettleMs 900: a right answer is held for the polish pass's
+    // 700–1100ms, long enough for his "Nice!", then the lesson moves on.
+    director = Director.create(handlers(), { msPerWord: 300, sayMinMs: 900, readablePauseMs: 0, feedbackSettleMs: 900 });
+    if (Stage.onEvent) Stage.onEvent(function (name, payload) {
+      director.emit(name, payload);
+      if (name === 'hint:show') hintGesture(payload);
+      if (name === 'swipe:home') swipeHome();
+      if (name === 'measurement:start' && payload && payload.what === 'side') tailWhenHome();
+    });
 
 
     // HUD wiring. Audio is optional at every call site: a build without
     // sfx.js should still teach the lesson silently rather than die on boot.
+    // Back is Next's twin. Where it lands and how is goBack()'s business.
+    backBtn = $('#back');
+    if (backBtn) backBtn.addEventListener('click', function () {
+      if (backBtn.disabled) return;
+      backBtn.blur();   // or the next Space / Enter would press Back again
+      goBack();
+    });
     var muteBtn = hud.querySelector('.mute');
     muteBtn.addEventListener('click', function () {
       var m = global.SFX ? SFX.mute() : true;
@@ -2685,6 +3426,8 @@
       if (global.Input) Input.advance();
     });
     // Keyboard parity: a child on a laptop should not have to find the mouse.
+    // (Back has no key. The swipe screen already answers "Regular" on ←, and
+    // Back is up during that input, so one press would answer AND leave.)
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'ArrowRight') return;
       if (!nextBtn.classList.contains('show')) return;
@@ -2698,7 +3441,8 @@
     muteBtn.classList.toggle('on', !!(global.SFX && SFX.isMuted()));
 
     // Tap anywhere on the bubble skips narration too.
-    bubble.addEventListener('pointerdown', function () { director.skip(); });
+    // Finish the line first, then go on through it — the same as a tap on the stage.
+    bubble.addEventListener('pointerdown', function () { tapLine(); });
 
     window.addEventListener('resize', relayout);
 
@@ -2780,20 +3524,182 @@
    * still moves the selection, so the box never claims you are somewhere you
    * are not.
    */
+  /* GO TO A SCREEN, FROM ANYWHERE.
+   *
+   * play() is a loop over the remaining screens and refuses to start a second
+   * one while the first is running, so changing screen is not "call play" — it
+   * is "end the loop that is running, then start one at n". abort() makes the
+   * awaited screen resolve CANCELLED, which is that loop's own way out, and
+   * the beat afterwards is so the old loop has unwound before the new one
+   * claims the flag.
+   *
+   * Some screens never build a stage: they add a question to whatever the
+   * screen before them put up. Played in order that is right; arrived at
+   * directly it means inheriting whichever stage happened to be up, so this
+   * walks back to the nearest screen that DOES declare one and builds that
+   * first. The layout reads where he stands, so he is put on the target
+   * screen's mark before its stage is built.
+   *
+   * This was the screen picker's change handler. Back needs every line of it,
+   * and two copies of this would drift.
+   */
+  function goTo(n) {
+    if (!(n >= 0 && n < Screens.list.length)) return;
+    director.abort();
+    playing = false;
+    showNext(false);
+    showBack(false);
+    cancelScreenLine(); clearLineTimers(); clearTimeout(bubbleTimer); say(null);
+    // a jump drops whatever he was doing, at once (and anything a sequence was
+    // holding for him: the rebuild below lets go of the measuring walk)
+    if (global.Swiftee && Swiftee.settle) Swiftee.settle({ now: true });
+
+    // THE SCREEN AS IT WAS, if the child has been there: put back exactly,
+    // with him on this screen's own mark.
+    var snap = snaps[n];
+    if (snap && snap.spec && Stage.restore) {
+      if (global.Swiftee && Swiftee.place) {
+        var ms = markFor(n, Swiftee.pos, Swiftee.size);
+        Swiftee.place(ms ? ms.pos : 'off', ms ? ms.size : Swiftee.size);
+        if (!present && Swiftee.visible) Swiftee.visible(false);
+      }
+      if (Stage.seat) Stage.seat(!hasPlank(n));
+      var ok = false;
+      try { ok = Stage.restore(snap); } catch (e) { ok = false; }
+      if (ok) { syncPeekRim(); setTimeout(function () { play(n); }, 80); return; }
+    }
+
+    var built = -1;
+    for (var b = n; b >= 0; b--) {
+      var sp = Screens.list[b].stage;
+      if (sp && sp.kind) { built = b; break; }
+    }
+    if (global.Swiftee && Swiftee.place) {
+      var mb = built >= 0 ? markFor(built, Swiftee.pos, Swiftee.size) : null;
+      Swiftee.place(mb ? mb.pos : 'off', mb ? mb.size : Swiftee.size);
+    }
+    if (Stage.seat) Stage.seat(!hasPlank(n));
+    if (built >= 0) Stage.apply(Screens.list[built].stage);
+    if (global.Swiftee && Swiftee.place) {
+      var m = markFor(n, Swiftee.pos, Swiftee.size);
+      Swiftee.place(m ? m.pos : 'off', m ? m.size : Swiftee.size);
+      // place() also shows him. If he has already hopped off, he stays in the
+      // wing and the screen's first line brings him back in.
+      if (!present && Swiftee.visible) Swiftee.visible(false);
+    }
+    setTimeout(function () { play(n); }, 80);
+  }
+
+  /* WHERE BACK GOES.
+   *
+   * The screen before, whenever that screen can be put back exactly as the
+   * child first saw it. goTo() can rebuild a screen's scene, but not what the
+   * child did to it. "Yay! You made a diagonal." rebuilt from the stage it
+   * inherits is a pentagon with no diagonal on it, and "Whoa! One of the
+   * diagonals went outside." is a convex shape. So a screen is a fair place to
+   * land only if nothing between the scene being built and that screen
+   * changed the scene: no beat added to it, and no input that moved or marked
+   * it. When the screen before fails that test, Back keeps going to the
+   * nearest earlier screen that passes. In the sequences built on one shape,
+   * that is the step where the child last changed it, so the lesson replays
+   * from there with their own hands in it.
+   *
+   * Read from the storyboard, like wipesAt(), so it is the same every time. */
+  var CHANGES_SCENE = /^(vertex-pick|draw-diagonals?|drag-vertex|tap-each|stepper|sort|swipe|multi-select)$/;
+  function scriptOf(i) {
+    var s = Screens.list[i], edits = 0, moves = false;
+    (function walk(b) {
+      if (!b || typeof b !== 'object') return;
+      if (Array.isArray(b)) { b.forEach(walk); return; }
+      if (b.stage && typeof b.stage === 'object' && !b.stage.kind) edits++;
+      if (b.input && CHANGES_SCENE.test(b.input.type)) moves = true;
+      for (var k in b) if (k !== 'stage' && b[k] && typeof b[k] === 'object') walk(b[k]);
+    })(s && s.beats);
+    return { builds: !!(s && s.stage && s.stage.kind), changes: edits > 0 || moves };
+  }
+  function landable(t) {
+    var b = t;
+    while (b > 0 && !scriptOf(b).builds) b--;
+    for (var k = b; k < t; k++) if (scriptOf(k).changes) return false;
+    return true;
+  }
+  /* ONE SCREEN BACK, like Next is one screen on.
+   *
+   * Every screen is written down as the child reaches it (snaps), so the one
+   * before can be put back exactly — their corner, their diagonal, their
+   * dent — and Back is a step, not a jump to wherever the scene was last
+   * built. Two exceptions. A screen with nothing for the child to do (the
+   * side being drawn) plays itself through, so landing on it would carry
+   * them straight back here: Back steps over it. And a screen arrived at
+   * without being passed through (the review picker) has nothing written
+   * down, so it falls back to the nearest screen the storyboard alone can
+   * rebuild (landable). */
+  var snaps = [];
+  function hasInput(i) {
+    var found = false;
+    (function walk(b) {
+      if (found || !b || typeof b !== 'object') return;
+      if (Array.isArray(b)) { b.forEach(walk); return; }
+      if (b.input) { found = true; return; }
+      for (var k in b) if (b[k] && typeof b[k] === 'object') walk(b[k]);
+    })(Screens.list[i] && Screens.list[i].beats);
+    return found;
+  }
+  function backTarget(c) {
+    var t = c - 1;
+    while (t > 0 && !hasInput(t)) t--;
+    if (snaps[t] !== undefined) return t;
+    while (t > 0 && !landable(t)) t--;
+    return t;
+  }
+  function chapterOf(i) {
+    var ch = (global.Quest && Quest.chapters) || [];
+    for (var k = 0; k < ch.length; k++) if (i <= ch[k].end) return k;
+    return ch.length;
+  }
+
+  /* BACK, AS A CHILD SEES IT. Back is the same screen change as the picker
+     (goTo), with the arrival done properly. Into another level, the snow
+     comes down first, the same page-turn as going forward. Onto a screen
+     where he stands somewhere else, he hops off and comes back in with the
+     screen's first line, rather than jumping across the ice. Everywhere
+     else he stays where he is and the scene is rebuilt around him. */
+  var goingBack = false, backGen = 0;
+  function goBack() {
+    if (goingBack || !(current > 0)) return;
+    var t = backTarget(current);
+    if (!(t >= 0 && t < current)) return;
+    goingBack = true;
+    var gen = ++backGen;
+    if (global.SFX) SFX.play('select');
+    director.abort(); playing = false;
+    showNext(false); showBack(false);
+    cancelScreenLine(); clearLineTimers(); clearTimeout(bubbleTimer); say(null);
+    if (global.Input) Input.mode('locked');
+
+    var mark = wantsBuddy(t) ? markFor(t, Swiftee.pos, Swiftee.size) : null;
+    var moves = present && (!mark || mark.pos !== Swiftee.pos || mark.size !== Swiftee.size);
+    var levels = chapterOf(t) !== chapterOf(current) && global.Transition && Transition.cover;
+    var ready = levels ? Transition.cover() : (moves ? leave() : Promise.resolve());
+    // A Restart pressed while he was hopping off wins.
+    var go = function () { if (gen !== backGen) return; goingBack = false; goTo(t); };
+    Promise.resolve(ready).then(go, go);
+  }
+
   function wireJump() {
     var box = $('#jump-sel');
     if (!box || !global.Screens) return;
     // A CHILD NEVER SEES IT. It is a dropdown listing every screen by number
-    // over the top-left of the lesson, which is a hole in the game: one tap
-    // and they are somewhere they did not choose to be. ?dev=1 turns it on
-    // for a review or a test run and nothing else does.
-    // On this machine it is always there — a review is what it is for — and
-    // on the deployed site it is there only if the address asks for it.
+    // over the top of the lesson, which is a hole in the game: one tap and
+    // they are somewhere they did not choose to be — and "11.
+    // drag-to-diagonal" printed over the sky is an internal name, not part of
+    // the lesson. ONLY ?dev=1 turns it on, on this machine as anywhere else:
+    // it used to appear by itself on localhost, so every review of the game
+    // looked like it shipped with a debug menu.
     var dev = false;
     try {
       var loc = global.location || {};
-      var local = /^(localhost|127\.0\.0\.1|\[::1\]|)$/.test(loc.hostname || '') || loc.protocol === 'file:';
-      dev = local || /[?&]dev=1\b/.test(loc.search || '');
+      dev = /[?&]dev=1\b/.test(loc.search || '');
     } catch (e) { dev = false; }
     if (!dev) { var host = $('#jump'); if (host) host.remove(); return; }
     var host2 = $('#jump'); if (host2) host2.removeAttribute('hidden');
@@ -2804,46 +3710,10 @@
       box.appendChild(o);
     });
     box.addEventListener('change', function () {
+      // The picker and the Back button change screen the same way: goTo().
       var n = +box.value;
-      if (!(n >= 0 && n < Screens.list.length)) return;
-      // play() is a loop over the remaining screens and refuses to start a
-      // second one while the first is running, so jumping is not 'call play'
-      // — it is 'end the loop that is running, then start one at n'. abort()
-      // makes the awaited screen resolve CANCELLED, which is that loop's own
-      // way out; the beat after it is so the old loop has unwound before the
-      // new one claims the flag.
-      director.abort();
-      playing = false;
-      showNext(false);
-      cancelScreenLine(); clearLineTimers(); clearTimeout(bubbleTimer); say(null);
-
-      // Some screens never build a stage — they add a question to whatever
-      // the screen before them put up. Played in order that is exactly
-      // right; jumped to, it means you inherit whichever stage happened to
-      // be on screen, which for a picker is every stage but the correct one.
-      // So walk back to the nearest screen that does declare one and build
-      // that first.
-      // THE LAYOUT READS WHERE HE STANDS, so he goes to the target screen's
-      // mark before its stage is built — otherwise a jump from the intro
-      // built every slab to the right of a bird who was about to leave.
-      var built = -1;
-      for (var b = n; b >= 0; b--) {
-        var sp = Screens.list[b].stage;
-        if (sp && sp.kind) { built = b; break; }
-      }
-      if (global.Swiftee && Swiftee.place) {
-        // the scene was laid out for wherever he stood when it was built
-        var mb = built >= 0 ? markFor(built, Swiftee.pos, Swiftee.size) : null;
-        Swiftee.place(mb ? mb.pos : 'off', mb ? mb.size : Swiftee.size);
-      }
-      if (Stage.seat) Stage.seat(!hasPlank(n));
-      if (built >= 0) Stage.apply(Screens.list[built].stage);
-      if (global.Swiftee && Swiftee.place) {
-        var m = markFor(n, Swiftee.pos, Swiftee.size);
-        Swiftee.place(m ? m.pos : 'off', m ? m.size : Swiftee.size);
-      }
       box.blur();                       // so the arrow keys go back to the lesson
-      setTimeout(function () { play(n); }, 80);
+      goTo(n);
     });
     if (director && director.on) {
       director.on('start', function () {

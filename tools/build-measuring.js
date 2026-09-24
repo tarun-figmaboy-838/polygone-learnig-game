@@ -10,7 +10,7 @@ const root = path.join(__dirname, '..');
   const browser = await chromium.launch({ channel: 'chrome', headless: true });
   try {
     const page = await browser.newPage();
-    const source = fs.readFileSync(path.join(root, 'assets/swiftee/swiftee-measuring-draft.png')).toString('base64');
+    const source = fs.readFileSync(path.join(root, 'assets/source/swiftee-measuring-draft.png')).toString('base64');
     const result = await page.evaluate(async base64 => {
       const image = new Image(); image.src = 'data:image/png;base64,' + base64; await image.decode();
       const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;

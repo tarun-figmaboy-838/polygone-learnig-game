@@ -91,6 +91,10 @@
   function show(text) {
     if (!mount()) return;
     clearTimeout(swapTimer);
+    // A swap cut short by the next call is finished, not abandoned: the old
+    // text is not left faded out, and the sentence it was fading to is the
+    // one that counts from here.
+    el.classList.remove('fading');
 
     if (!text) {
       current = null;
@@ -116,9 +120,9 @@
     if (current) {
       // out, then in — so the two sentences are never on the plank together
       el.classList.add('fading');
+      current = text;
       swapTimer = setTimeout(function () {
         el.classList.remove('fading');
-        current = text;
         write();
       }, 160);
     } else {

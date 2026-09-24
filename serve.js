@@ -27,13 +27,18 @@ const TYPES = {
   '.webp': 'image/webp',
   '.svg': 'image/svg+xml',
   '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
   '.riv': 'application/octet-stream'
 };
 
 http.createServer((req, res) => {
-  const rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html';
+  let rel;
+  try { rel = decodeURIComponent(req.url.split('?')[0]).replace(/^\/+/, '') || 'index.html'; }
+  catch (e) { res.writeHead(400).end('bad request'); return; }
   const file = path.resolve(ROOT, rel);
-  if (!file.startsWith(ROOT)) { res.writeHead(403).end('forbidden'); return; }
+  // inside this folder — not a sibling whose name merely starts the same —
+  // and never the repository's own history
+  if ((file !== ROOT && !file.startsWith(ROOT + path.sep)) || /(^|[\\/])\.git([\\/]|$)/.test(rel)) { res.writeHead(403).end('forbidden'); return; }
 
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404, { 'Content-Type': 'text/plain' }).end('not found: /' + rel); return; }
@@ -44,6 +49,6 @@ http.createServer((req, res) => {
     });
     res.end(buf);
   });
-}).listen(PORT, () => {
+}).listen(PORT, '127.0.0.1', () => {
   console.log('  Swiftee & the Polygons  ->  http://localhost:' + PORT + '/');
 });

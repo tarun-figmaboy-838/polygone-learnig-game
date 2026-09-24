@@ -82,13 +82,17 @@
     //
     // 'listening' is the calm attentive loop the set does have, and it is
     // what an idle mascot waiting for a child should be doing.
-    idle:        { rig: 'listening',   hold: true },
+    // NOT 'listening' ANY MORE. That loop turns him three-quarters away with a
+    // wing up and his brows knitted — an anxious face, and the one he wore
+    // between every line of the lesson. 'blinking' is the rig's own calm
+    // idle: facing the child, pleased, blinking. (He still listens: 'watch'.)
+    idle:        { rig: 'blinking',    hold: true, level: 1, tier: 'idle' },
 
     // narration and attention
-    explain:     { rig: 'talking',     hold: true },
-    think:       { rig: 'thinking',    hold: true },
-    inspect:     { rig: 'focussed',    hold: true },
-    look:        { rig: 'curious',     loops: 2,  lean: true },
+    explain:     { rig: 'talking',     hold: true, level: 1, tier: 'present' },
+    think:       { rig: 'thinking',    hold: true, level: 2, tier: 'present' },
+    inspect:     { rig: 'focussed',    hold: true, level: 2, tier: 'present' },
+    look:        { rig: 'curious',     loops: 2,  lean: true, level: 2, tier: 'present' },
     // NOT 'calling'. That rig is a phone call — he lies down and a handset
     // rings beside him — which is a charming animation and has nothing to do
     // with showing a child where to tap. It was mapped here on the name alone.
@@ -107,30 +111,41 @@
     // "your turn" screen. 'playful' is the same open, leaning-in energy
     // with a face that is pleased about it. One loop: 'excited' was tried
     // and its two loops run fifteen seconds, past the director's ceiling.
-    point:       { rig: 'playful',     loops: 1,  lean: true },
+    point:       { rig: 'playful',     loops: 1,  lean: true, level: 2, tier: 'present' },
 
     // reactions
     wave:        { rig: 'waving',      loops: 2, cut: true },
     // `confident` is the closer match for a nod, but its loop is a 4.4s
     // pingpong — far too long for a beat that just means "yes, go on".
-    nod:         { rig: 'happy',       loops: 1, mood: 'glad', cut: true },
+    // BRIEF (see CHARACTER DIRECTION): a nod is a second, not three.
+    nod:         { rig: 'happy',       brief: 6, mood: 'glad', cut: true, react: true, body: 'notice', level: 2, tier: 'feedback' },
     // The director awaits this one, so it gates every correct answer. One
     // loop is 3.4s end to end; two made the reward outstay its welcome.
-    celebrate:   { rig: 'celebrating', loops: 1, mood: 'glad', cut: true },
+    // LEVEL 3: the milestones only — the first diagonal, a finished sort, a
+    // shape made concave by the child's own hand, the end. A cheer that
+    // follows every tap stops meaning anything by the third.
+    celebrate:   { rig: 'celebrating', loops: 1, mood: 'glad', cut: true, react: true, body: 'cheer', level: 3, tier: 'feedback' },
     // A SMALL, LEGIBLE SET. Hearts for encouragement, a wiped brow for
     // stepping back, a puzzle for being stuck: each read as a character
     // from another story. He is glad, curious, confident, surprised or
     // puzzled — the faces a child meets while learning a shape — and no
     // more. A reaction does not colour the next line: 'confused' and
     // 'surprised' are moments, and he talks normally after them.
-    encourage:   { rig: 'happy',       loops: 1, mood: 'glad', cut: true },
-    confused:    { rig: 'confused',    loops: 1, cut: true },
-    surprised:   { rig: 'surprised',   loops: 1, cut: true },
-    mischief:    { rig: 'playful',     loops: 2 },
-    'step-back': { rig: 'proud',       loops: 1, shift: -34 },
+    // NOT CUT. Encouraging is a recovery — after 'oops', or the "Your turn!"
+    // of a new task — and nobody is waiting on it, so the stop of whatever he
+    // was doing is paid first, as the animator drew it.
+    encourage:   { rig: 'happy',       brief: 6, mood: 'glad', level: 2, tier: 'present' },
+    confused:    { rig: 'confused',    brief: 8, cut: true, react: true, level: 2, tier: 'feedback' },
+    // "Whoa!": the gasp is a moment, and the line after it is SPOKEN amazed
+    // (the mood holds the face), so the reaction itself need not run five seconds
+    surprised:   { rig: 'surprised',   brief: 8, cut: true, react: true, mood: 'amazed', level: 2, tier: 'feedback' },
+    mischief:    { rig: 'playful',     loops: 2, level: 2, tier: 'present' },
+    'step-back': { rig: 'proud',       loops: 1, shift: -34, level: 1, tier: 'present' },
 
     // moments the game reaches outside screens.js
-    proud:       { rig: 'proud',       loops: 2, mood: 'glad', cut: true },
+    // left as it was: the finale settles into it, and the side-measuring
+    // screen ends on it (that screen's choreography is protected)
+    proud:       { rig: 'proud',       loops: 2, mood: 'glad', cut: true, level: 2, tier: 'feedback' },
     /* MORE THAN ONE FACE FOR THE SAME FEELING.
      *
      * Twenty-six expressions were drawn and fifteen were ever played; a child
@@ -143,12 +158,18 @@
      * 'peeping' is the one that matters most: it is the rig drawn for a head
      * coming up over something, and he does that on every card screen while
      * wearing the calm attentive face of 'listening'. */
-    peek:        { rig: 'peeping',     hold: true },
-    puzzled:     { rig: 'puzzleing',   loops: 1, cut: true },
-    relieved:    { rig: 'relieved',    loops: 1, cut: true },
-    excited:     { rig: 'excited',     loops: 1, mood: 'glad', cut: true },
+    // NOT 'peeping': that drawing brings its own red wall — he peers round
+    // the edge of a door that is part of the art — and on every screen he
+    // peeks over a card from, the wall stood over the card beside his head.
+    // Over a card the card IS the thing he is peering round; what the head
+    // needs is the calm attentive face this comment always asked for.
+    peek:        { rig: 'blinking',    hold: true, level: 1, tier: 'idle' },
+    // ('puzzled' was listed here as the puzzle rig AND below as a mood; the
+    // second silently won, so the first was never reachable. It is the mood.)
+    relieved:    { rig: 'relieved',    brief: 8, cut: true, react: true, level: 2, tier: 'feedback' },
+    excited:     { rig: 'excited',     loops: 1, mood: 'glad', cut: true, react: true, body: 'cheer', level: 3, tier: 'feedback' },
     stuck:       { rig: 'thinking',    loops: 2 },
-    happy:       { rig: 'happy',       loops: 1, mood: 'glad', cut: true },
+    happy:       { rig: 'happy',       brief: 6, mood: 'glad', cut: true, react: true, body: 'notice', level: 2, tier: 'feedback' },
     daydream:    { rig: 'curious',     hold: true },   // a look around, not a doze: the child is thinking, not gone
     // IN THE AIR: wings going, for as long as he is on a mark with no
     // ground under it (layout gives those marks `air`). The bob is CSS
@@ -170,6 +191,61 @@
     amazed:      { rig: 'surprised',   hold: true },
     puzzled:     { rig: 'confused',    hold: true },
 
+    /* THE DIRECTION VOCABULARY — what the storyboard asks for now. Every one
+     * is an intention ("he is asking", "he is watching the child work"), and
+     * every one is a drawing that exists: tests/swiftee.test.js walks this
+     * table against the manifest. See CHARACTER DIRECTION below for `brief`,
+     * `then`, `seated`, `variants`, `level` and `tier`.
+     *
+     * LEVEL 1 — hardly moving. The child's hand is the animation now. */
+    // 'blinking' is the calmest loop the rig has: standing, facing the work,
+    // blinking. It was drawn as the idle and never played.
+    watch:       { rig: 'blinking',    hold: true, level: 1, tier: 'act' },
+
+    /* LEVEL 2 — a short, legible gesture, and then out of the way. */
+    // "Ta-da — look." Both wings open and close again, leaning toward what he
+    // is showing: celebrate_start straight into celebrate_stop.
+    present:     { rig: 'celebrating', brief: 3, lean: true, level: 2, tier: 'present' },
+    // looking at something with interest, head on one side
+    observe:     { rig: 'curious',     brief: 10, lean: true, level: 2, tier: 'present' },
+    // a question stands: the head stays tilted while it does
+    question:    { rig: 'curious',     hold: true, level: 2, tier: 'present' },
+    // "what will happen?" — before the child reshapes something
+    curious:     { rig: 'curious',     brief: 6, lean: true, level: 2, tier: 'present' },
+    // one card, then the other: `at` is the pair, and he leans to each in turn
+    compare:     { rig: 'curious',     loops: 1, lean: true, level: 2, tier: 'present' },
+    // THE PROPS. Four drawings nobody had used, each for the one moment it
+    // was obviously drawn for: opening a book to remember, writing a rule
+    // down, a magnifying glass for "let's check", puzzle pieces for building
+    // a shape. `seated` is the standing pose to use instead in the air.
+    // held for the whole line: he keeps the book open while it is read
+    recall:      { rig: 'reading',     hold: true, seated: 'think', level: 2, tier: 'present' },
+    note:        { rig: 'writing',     hold: true, seated: 'explain', level: 2, tier: 'present' },
+    investigate: { rig: 'learning',    loops: 1, seated: 'inspect', level: 2, tier: 'present' },
+    // held while the child measures the angles: the same glass, looking with them
+    examine:     { rig: 'learning',    hold: true, seated: 'inspect', level: 2, tier: 'present' },
+    build:       { rig: 'puzzleing',   loops: 1, seated: 'point', level: 2, tier: 'present' },
+    // the idle nudge: one look toward whatever is waiting to be touched
+    hint:        { rig: 'curious',     brief: 6, lean: true, level: 2, tier: 'hint' },
+    // ANSWERING THE CHILD. A miss is "hmm?" for about half a second, then a
+    // smile that says go on — never a frown, never a sulk, never long enough
+    // to stand between the child and the next try. The second miss on the
+    // same question gets his thinking face instead: working it out with them.
+    oops:        { rig: 'confused',    brief: 4, cut: true, react: true, then: 'encourage', again: 'rethink', level: 2, tier: 'feedback' },
+    rethink:     { rig: 'thinking',    brief: 6, cut: true, react: true, then: 'encourage', level: 2, tier: 'feedback' },
+    // an ordinary right answer: a small pleased face, not a party
+    happySmall:  { variants: ['nice', 'chuffed', 'wink'], recovered: 'phew', react: true, level: 2, tier: 'feedback' },
+    nice:        { rig: 'happy',       brief: 6, mood: 'glad', cut: true, react: true, body: 'notice', level: 2, tier: 'feedback' },
+    chuffed:     { rig: 'proud',       brief: 6, mood: 'glad', cut: true, react: true, body: 'notice', level: 2, tier: 'feedback' },
+    wink:        { rig: 'playful',     brief: 6, mood: 'glad', cut: true, react: true, body: 'notice', level: 2, tier: 'feedback' },
+    // right after a miss: relief, eyes shut — "phew, there it is"
+    phew:        { rig: 'relieved',    brief: 8, mood: 'glad', cut: true, react: true, body: 'notice', level: 2, tier: 'feedback' },
+    // the shape did something: a quick "oh!" — smaller than a celebration
+    discover:    { rig: 'surprised',   brief: 6, mood: 'amazed', cut: true, react: true, level: 2, tier: 'feedback' },
+
+    /* LEVEL 3 — the milestones. Heart eyes for a discovery he loves. */
+    delight:     { rig: 'love',        loops: 1, mood: 'glad', cut: true, react: true, body: 'cheer', level: 3, tier: 'feedback' },
+
     // travel — a standalone loop under a WAAPI move
     enter:       { rig: 'driving',     hold: true },
     // No flight rig exists either. He waves as he goes, and travels on the
@@ -184,7 +260,7 @@
    * Everything else is fetched the first time it is asked for, which costs
    * one 400ms grace period per expression, once per session.
    */
-  var PRELOAD = ['listening_start', 'listening', 'listening_stop',
+  var PRELOAD = ['blinking',
                  'wave_start', 'waving', 'wave_stop',
                  'talk_start', 'talking', 'talk_stop', 'flapping'];
 
@@ -197,7 +273,9 @@
    * reaction sheets are fetched. By the time the child commits, they are
    * decoded. warm() is called from game.js as each input arms. */
   var REACTIONS = ['happy_start', 'happy', 'happy_stop',
-                   'confused_start', 'confused', 'confused_stop'];
+                   'confused_start', 'confused', 'confused_stop',
+                   // and the face he watches the child work with
+                   'blinking'];
 
   /**
    * How many sheet pages may stay decoded at once.
@@ -222,7 +300,7 @@
    * at all — it was evicted by the forty-odd other clips competing for ten,
    * and every return to rest paid a fetch and a grace period, over and over,
    * while a pinned slot sat on a sheet that is never drawn. */
-  var PINNED = { listening: 1, talking: 1, talk_start: 1, talk_stop: 1, flapping: 1 };
+  var PINNED = { blinking: 1, talking: 1, talk_start: 1, talk_stop: 1, flapping: 1 };
 
   var IDLE_DAYDREAM_MS = 30000;
   var IDLE_SLEEP_MS = 75000;
@@ -432,7 +510,7 @@
    * Play one rig clip for `repeats` passes. Resolves when it finishes, or
    * as `{ interrupted: true }` if something else takes over first.
    */
-  function clip(name, repeats) {
+  function clip(name, repeats, frames) {
     var c = F.clips[name];
     if (!c) {
       if (global.console) console.warn('Swiftee: no clip "' + name + '"');
@@ -444,7 +522,7 @@
     return awaitSheet(name).then(function () {
       return new Promise(function (resolve) {
         var a = {
-          name: name, order: order(c), i: 0, passes: 0,
+          name: name, order: frames || order(c), i: 0, passes: 0,
           repeats: repeats == null ? 1 : repeats, acc: 0, resolve: resolve
         };
         active = a;
@@ -494,6 +572,24 @@
    * and resolve immediately, so a thinking pose lasts the whole line without
    * the director waiting on it.
    */
+  /* THE FIRST FEW FRAMES OF A LOOP, THERE AND BACK.
+   *
+   * A brief expression still plays all three of the animator's parts —
+   * start, loop, stop — but only `n` frames into the loop and back out the
+   * same way, so it ends on the loop's own first frame, which is exactly the
+   * frame the stop clip was drawn from (measured: the seam is the one the full
+   * triad already has). The expression lands in about a second instead of
+   * three, and nothing is cut. */
+  function briefOrder(loopName, n) {
+    var c = F.clips[loopName];
+    if (!c) return null;
+    n = Math.max(1, Math.min(n, c.frames - 1));
+    var out = [], i;
+    for (i = 0; i <= n; i++) out.push(i);
+    for (i = n - 1; i >= 0; i--) out.push(i);
+    return out;
+  }
+
   function runState(name, g) {
     var def = STATES[name] || STATES.idle;
     var t = triad(def.rig);
@@ -505,7 +601,7 @@
     }).then(function () {
       if (stale(g)) return { cancelled: true };
       rigLoop = def.rig;
-      var loop = clip(t.loop, repeats);
+      var loop = (def.brief && !def.hold) ? clip(t.loop, 1, briefOrder(t.loop, def.brief)) : clip(t.loop, repeats);
       if (def.hold) return { holding: true };          // do not await an endless loop
       return loop.then(function (r) {
         if (stale(g) || (r && r.interrupted)) return { cancelled: true };
@@ -522,6 +618,11 @@
   function restingState() {
     if (speaking) return mood || 'explain';            // narrating -> the mood, else the talking loop
     if (airborne) return 'hover';                      // nothing to stand on: he flies
+    // WHAT HE IS DOING WHILE THE CHILD WORKS — watching their hand, or still
+    // holding the question he asked. The game sets it as an input arms and
+    // clears it with the verdict (stance()); every reaction in between comes
+    // back to it rather than to the resting loop.
+    if (stance && STATES[stance]) return stance;
     // HIS CHIN IS ON A CARD: that is a peep, and there is a rig for it
     if (pos === 'peek') return 'peek';
     if (idleLevel === 2) return 'sleep';
@@ -592,6 +693,9 @@
   }
 
   function rest() {
+    // A DEDICATED SEQUENCE OWNS HIM (the measuring walk): nothing, not even
+    // the resting loop, changes his drawing until it lets go. unlock() rests.
+    if (lockedBy()) { restOwed = true; return Promise.resolve({ locked: true }); }
     // Whatever he stepped aside for is over.
     if (shiftAnim) { try { shiftAnim.cancel(); } catch (e) {} shiftAnim = null; }
     // A mood is measured from the END of the reaction that set it: a
@@ -623,7 +727,8 @@
 
   function isResting() {
     return stateName === 'idle' || stateName === 'daydream' || stateName === 'sleep' || stateName === 'explain'
-        || stateName === 'glad' || stateName === 'amazed' || stateName === 'puzzled';
+        || stateName === 'glad' || stateName === 'amazed' || stateName === 'puzzled'
+        || (stance != null && stateName === stance);
   }
 
   /**
@@ -766,19 +871,30 @@
    * A sprite has no pupils to aim, so "looking at" something is a lean and a
    * small step toward it. It reads, and it cannot desync from the art.
    */
-  function lean(target) {
-    if (!el || !target || reduced) return;
+  function lean(target, ms) {
+    if (!el || !target || reduced) return null;
     var p = target.getBoundingClientRect ? centre(target.getBoundingClientRect()) : target;
-    if (!p || p.x == null) return;
+    if (!p || p.x == null) return null;
     var me = centre(el.getBoundingClientRect());
     var dir = p.x >= me.x ? 1 : -1;
     var far = Math.min(1, Math.abs(p.x - me.x) / 500);
-    anim([
+    return anim([
       { transform: 'translateX(0) rotate(0deg)' },
       { transform: 'translateX(' + (dir * 10 * far).toFixed(1) + 'px) rotate(' + (dir * 4 * far).toFixed(1) + 'deg)', offset: 0.4 },
       { transform: 'translateX(' + (dir * 8 * far).toFixed(1) + 'px) rotate(' + (dir * 3 * far).toFixed(1) + 'deg)', offset: 0.8 },
       { transform: 'translateX(0) rotate(0deg)' }
-    ], { duration: 1400, easing: 'ease-in-out' });
+    ], { duration: ms || 1400, easing: 'ease-in-out' });
+  }
+
+  /* LOOK AT ONE, THEN THE OTHER — comparing is a head going between two
+     things. The same lean, twice, each a little quicker; the second only if
+     nothing else has been asked for in between. */
+  function leanEach(targets, g) {
+    var list = (targets || []).filter(Boolean);
+    if (!list.length) return;
+    var first = lean(list[0], 1100);
+    if (list.length < 2 || !first || !first.finished) return;
+    first.finished.then(function () { if (!stale(g)) lean(list[1], 1100); }, function () {});
   }
 
   /* ------------------------------------------------------------------ *
@@ -846,12 +962,15 @@
    * around after every tap is noise, and noise is what a child stops reading.
    */
   var BODY = {
-    // up, and a stretch on the way — the whole body saying yes
-    cheer: { ms: 460, easing: 'cubic-bezier(.3,1.5,.5,1)', frames: [
+    // up, and a stretch on the way — the whole body saying yes. A TINY hop
+    // (the direction pass: "a tiny bounce after success", never a squash the
+    // drawing does not have): fourteen pixels, and barely any stretch — the
+    // celebrating frames carry the joy, this only lifts him off the ice.
+    cheer: { ms: 420, easing: 'cubic-bezier(.3,1.4,.5,1)', frames: [
       { transform: 'translate(0,0) scale(1,1)' },
-      { transform: 'translate(0,-6px) scale(.94,1.09)', offset: 0.22 },
-      { transform: 'translate(0,-26px) scale(1.03,1.02)', offset: 0.52 },
-      { transform: 'translate(0,0) scale(1.12,.9)', offset: 0.82 },
+      { transform: 'translate(0,-3px) scale(.98,1.03)', offset: 0.22 },
+      { transform: 'translate(0,-14px) scale(1,1)', offset: 0.52 },
+      { transform: 'translate(0,0) scale(1.04,.97)', offset: 0.82 },
       { transform: 'translate(0,0) scale(1,1)' }
     ] },
     // a head-shake, not a wobble: small, level, and over quickly
@@ -1099,6 +1218,18 @@
     if (!el) return Promise.resolve();
     opts = opts || {};
 
+    /* THE MEASURING WALK OWNS HIM. See lock() below. Anything asked for
+     * while it runs is done when it lets go — the latest request wins — and
+     * he is NOT shown in the meantime: the walk hides him on purpose, and a
+     * face played now would stand a second Swiftee on his mark while the
+     * first is out on the side with the tape. Travel still goes through: a
+     * screen change is not his to refuse. */
+    var lock = lockedBy();
+    if (lock && !MOVES[state]) {
+      deferred = { state: state, opts: opts };
+      return Promise.resolve({ deferred: lock });
+    }
+
     // WHOEVER INTERRUPTS THE ARRIVAL ENDS IT. The intro is six and a half
     // seconds of canvas, and the director will move on without it if a beat
     // runs long — a slow machine, a low ceiling, a child who taps through.
@@ -1124,19 +1255,21 @@
     }
     if (ctx && ctx.onCancel) ctx.onCancel(function () { cancelAll(); });
 
-    if (MOVES[state]) { stir(); return MOVES[state](opts); }
+    if (MOVES[state]) { stir(); busy = null; return MOVES[state](opts); }
 
-    var def = STATES[state];
-    if (!def) {
+    if (!STATES[state]) {
       if (global.console) console.warn('Swiftee: no state "' + state + '"');
       return Promise.resolve();
     }
+    // the one face for this feeling, on this screen, in this air
+    state = resolve(state, opts);
+    var def = STATES[state];
     // A reaction sets the mood the next line is spoken in; anything else
     // he is asked to do clears it.
     if (def.mood) { mood = def.mood; moodAt = Date.now(); }
     else if (!def.hold || state === 'explain') mood = null;
 
-    if (def.lean && opts.at) lean(opts.at);
+    if (def.lean && opts.at && !Array.isArray(opts.at)) lean(opts.at);
     if (def.shift) {
       // Held, not permanent. `fill: 'forwards'` with `composite: 'add'` means
       // this offset survives the state, the screen and the rest of the lesson:
@@ -1150,21 +1283,183 @@
 
     var g = fresh();
     stateName = state;
+    // A one-shot is something he is in the middle of; a held pose is not.
+    busy = def.hold ? null : { tier: def.tier || 'present', g: g, state: state };
+    if (def.lean && Array.isArray(opts.at)) leanEach(opts.at, g);
+    // HIS WHOLE BODY, in the same frame as the face: a tiny dip for an
+    // ordinary yes, a hop for a milestone (BODY, above). Nothing for a miss —
+    // the rig's own head-tilt says "hmm?", and a shake on top said "no".
+    if (def.body) bounce(def.body);
     var seq = stir().then(function () {
       if (stale(g)) return { cancelled: true };
       return runState(state, g);
     });
 
     // A one-shot reaction returns to whatever he should be resting in —
-    // `talking` if a line is still playing, otherwise blinking or, after a
-    // long silence, daydreaming.
+    // `talking` if a line is still playing, the stance the child's task has
+    // given him, otherwise the resting loop — or first to the recovery it
+    // owes (`then`: after 'oops', the smile that says go on).
     if (!def.hold) {
       seq = seq.then(function (r) {
         if (stale(g) || (r && r.cancelled)) return r;
+        busy = null;
+        if (def.then && STATES[def.then]) return play(def.then, { key: opts.key });
         return rest().then(function () { return r; });
       });
     }
     return seq;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * CHARACTER DIRECTION
+   *
+   * The table at the top says which drawing a feeling is. This is the little
+   * that is left for a companion rather than a sprite player: how big a
+   * reaction is, which of several faces a moment gets, what may interrupt
+   * what, and who owns him while something special is running. It is not a
+   * second scheduler — every change still goes through play(), runState()
+   * and the one ticker, and the director still decides WHEN.
+   *
+   *   level     1 micro (watching, reading, the child dragging) — barely moves
+   *             2 response (a look, a question, a hint, a discovery, a miss)
+   *             3 celebration — milestones only, so it keeps meaning something
+   *   brief     start -> the first n loop frames there and back -> stop
+   *             (briefOrder): the whole expression in about a second, with
+   *             every one of the animator's parts played and none cut
+   *   then      the recovery a reaction owes when it is over
+   *   seated    a prop pose; in the air he takes this standing pose instead
+   *   variants  several faces for one feeling, picked by the SCREEN (opts.key),
+   *             never by chance: the same screen is the same every time, and
+   *             a test can say which face it gets
+   *   recovered the face for a right answer that comes after a miss
+   *   tier      what may interrupt what, for the requests the game makes on
+   *             its own (perform): the dedicated sequences first, then the
+   *             child's own action, then an answer's reaction, then the
+   *             lesson's gestures, then a hint, then idling
+   * ------------------------------------------------------------------ */
+
+  var TIER = { idle: 0, hint: 1, present: 2, feedback: 3, act: 4 };
+  var busy = null;          // { tier, g, state } while a one-shot plays
+  var stance = null;        // what he rests in while the child works
+  var locks = {};           // name -> true: a dedicated sequence owns him
+  var deferred = null;      // the latest request made while locked
+  var restOwed = false;
+
+  function lockedBy() { for (var k in locks) if (locks[k]) return k; return null; }
+
+  function hashOf(key) {
+    var s = String(key == null ? '' : key), h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h;
+  }
+
+  /** The concrete state an intention becomes: the context's face, then the
+      screen's variant, then — in the air — the standing pose for a prop. */
+  function resolve(state, opts) {
+    var def = STATES[state];
+    if (!def) return state;
+    if (def.recovered && opts && opts.after === 'miss' && STATES[def.recovered]) state = def.recovered;
+    else if (def.again && opts && opts.misses > 1 && STATES[def.again]) state = def.again;
+    else if (def.variants && def.variants.length) state = def.variants[hashOf(opts && opts.key) % def.variants.length];
+    def = STATES[state];
+    if (def && def.seated && airborne && STATES[def.seated]) state = def.seated;
+    return state;
+  }
+
+  /**
+   * A REQUEST THE GAME MAKES ON ITS OWN — watching the child's hand, the idle
+   * hint — as opposed to a beat the storyboard asked for. It yields:
+   *
+   *   1 to a dedicated sequence: the arrival, a walk on or off, a journey
+   *     across the ice, the measuring walk (locked)
+   *   2 to anything bigger still playing: a hint never cuts off a reaction,
+   *     an idle gesture never cuts off anything. The child's own action is
+   *     the top tier, so watching them may cut in over a reaction — their hand
+   *     on the shape is the most important thing on the screen.
+   *
+   * Refusals are answered, never thrown, so a caller can fire and forget.
+   */
+  function perform(intent, opts) {
+    opts = opts || {};
+    if (!el || !STATES[intent]) return Promise.resolve({ refused: 'unknown' });
+    if (lockedBy() || /^(enter|exit|move)$/.test(stateName)) return Promise.resolve({ refused: 'locked' });
+    var want = TIER[STATES[intent].tier || 'present'] || 0;
+    if (busy && !stale(busy.g) && (TIER[busy.tier] || 0) > want) return Promise.resolve({ refused: 'busy' });
+    if (STATES[intent].hold && stateName === intent) return Promise.resolve({ already: true });
+    return play(intent, opts);
+  }
+
+  /** What he rests in while the child works (restingState): 'watch' while
+      their hand is on the shape, the question he asked while it stands, or
+      nothing. A pose he is resting in changes now; a reaction still playing
+      comes back to it when it is done. */
+  function setStance(name) {
+    var next = (name && STATES[name]) ? name : null;
+    if (next === stance) return;
+    var was = stance;
+    stance = next;
+    if (lockedBy()) { restOwed = true; return; }
+    if (!busy && (stateName === was || isResting())) rest();
+  }
+
+  /**
+   * THE CHILD HAS STARTED WORKING — a finger down on something to drag. He
+   * drops whatever gesture he was making and watches, and keeps watching (the
+   * stance) until the verdict clears it. The top tier: the only things it
+   * yields to are the dedicated sequences. In the air he keeps flying, which
+   * is what watching is up there.
+   */
+  function attend(on) {
+    if (!on) { if (stance === 'watch') setStance(null); return null; }
+    stance = 'watch';
+    if (!el || lockedBy() || /^(enter|exit|move)$/.test(stateName)) return null;
+    if (airborne || speaking || stateName === 'watch') return null;
+    return play('watch');
+  }
+
+  /**
+   * A SEQUENCE THAT OWNS HIM. The measuring walk (stage.js measureSide) is a
+   * dedicated animation — its own sheet, its own path along the side, his own
+   * element hidden while the drawn one walks and flown to and from the side —
+   * and nothing generic may touch him while it runs: no face, no resting loop,
+   * no idle, no hint, not even being shown. lock() takes him; unlock() gives
+   * him back, doing the last thing anyone asked for in the meantime.
+   *
+   * GUARD FOR THE FUTURE: any new behaviour belongs behind this. play(),
+   * rest(), perform(), setStance() and visible() all check it; add the check
+   * to anything new that changes his drawing or shows him.
+   */
+  function lock(name) { locks[name || 'sequence'] = true; }
+  function unlock(name) {
+    delete locks[name || 'sequence'];
+    if (lockedBy()) return null;
+    var d = deferred, owed = restOwed;
+    deferred = null; restOwed = false;
+    if (d) return play(d.state, d.opts);
+    if (owed || isResting()) return rest();
+    return null;
+  }
+
+  /**
+   * THE SCREEN HAS CHANGED. A reaction from the screen before does not carry
+   * over into this one: it plays its stop and he rests. A pose the storyboard
+   * held (thinking, explaining) is left for this screen's first beat to close
+   * properly. `now` — a jump, Back, Restart — drops everything at once.
+   */
+  function settleScreen(o) {
+    o = o || {};
+    stance = null; deferred = null;
+    if (!el || lockedBy() || /^(enter|exit|move)$/.test(stateName)) { busy = null; return Promise.resolve(); }
+    var leftover = !!(busy && !stale(busy.g));
+    busy = null;
+    if (o.now) {
+      rigLoop = null;                                   // the owed stop is written off
+      fresh();
+      stateName = '';                                   // so rest() moves whatever he is in
+      return rest();
+    }
+    if (leftover || stateName === 'watch') return rest();
+    return Promise.resolve();
   }
 
   /* ------------------------------------------------------------------ *
@@ -1234,6 +1529,24 @@
     play: play,
     lookAt: lean,
 
+    /* CHARACTER DIRECTION (see above). perform() is for the game's own
+       requests and yields by priority; play() is the storyboard's. */
+    perform: perform,
+    stance: setStance,
+    attend: attend,
+    lock: lock,
+    unlock: unlock,
+    settle: settleScreen,
+    /** Which concrete state an intention becomes, without playing it. */
+    resolve: function (state, opts) { return resolve(state, opts || {}); },
+    /** 1 micro, 2 response, 3 celebration. */
+    levelOf: function (state) { var d = STATES[resolve(state, {})]; return d ? (d.level || 1) : 0; },
+    /** Does this state answer the child (and so wait for the answer to land)? */
+    isReaction: function (state) { var d = STATES[state]; return !!(d && d.react); },
+    get locked() { return lockedBy(); },
+    get busy() { return busy && !stale(busy.g) ? busy.state : null; },
+    get stanceName() { return stance; },
+
     /**
      * Narration started or ended. While true, every settle returns to the
      * `talking` loop instead of `blinking`, so his mouth moves for exactly
@@ -1258,7 +1571,8 @@
       // here put him on the snow, centre stage, for the gap before that beat
       // hid him again — a blink on a fast machine and a full second on one
       // still fetching the sleigh sheet. The landing is what shows him.
-      el.style.opacity = (pos === 'off' || !arrived) ? '0' : '1';
+      // (not while the measuring walk has him hidden — lock())
+      if (!lockedBy()) el.style.opacity = (pos === 'off' || !arrived) ? '0' : '1';
       place(pos, size);
     },
 
@@ -1285,7 +1599,7 @@
     },
 
     /** Show or hide without moving him. Safe before mount(). */
-    visible: function (v) { if (el) el.style.opacity = v ? '1' : '0'; return !!v; },
+    visible: function (v) { if (el && !lockedBy()) el.style.opacity = v ? '1' : '0'; return !!v; },
     relayout: function () { place(pos, size); },
     setLayout: function (fn) { layout = fn; place(pos, size); },
 

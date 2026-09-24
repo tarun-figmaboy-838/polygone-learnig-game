@@ -27,6 +27,23 @@
  *                tap constantly; the game must survive it without losing
  *                the lesson.
  *
+ * ONE STATE AT A TIME. The director is also the lesson's state machine: at any
+ * moment exactly one of
+ *
+ *   IDLE  ENTERING  DIALOGUE_REVEAL  DIALOGUE_READING  WAITING_FOR_USER
+ *   USER_INTERACTING  CHECKING  FEEDBACK  EXITING  NEXT_STEP
+ *
+ * holds the screen, and every change is announced as a 'state' event. The
+ * beats move it along; game.js reports the two things only it can see — the
+ * finger coming down (USER_INTERACTING) and the screen being left (EXITING).
+ *
+ * AND ONE EVENT STREAM. The lesson's own events — dialogue:start,
+ * dialogue:word, dialogue:complete, interaction:enabled, interaction:start,
+ * interaction:complete, answer:correct, feedback:start, step:complete and the
+ * rest — go through the same emitter, so the dialogue can react to what the
+ * child did instead of guessing with a timer, and a test can listen to
+ * exactly what happened, in order.
+ *
  * The director owns timing only. It knows nothing about the DOM. You give
  * it handlers for the things it sequences:
  *
@@ -52,22 +69,22 @@
  *     { sfx: 'select' }
  *   ]);
  *
- * Every handler receives `ctx` with `ctx.signal.cancelled` and
- * `ctx.onCancel(fn)`, so it can stop a VO or an animation when the screen
- * changes. Handlers that ignore ctx still work; they just cannot be
- * interrupted mid-effect.
+ * Every handler receives `ctx` with `ctx.signal.cancelled`, `ctx.onCancel(fn)`
+ * and `ctx.phase(name)`, so it can stop a VO or an animation when the screen
+ * changes and report where a line has got to. Handlers that ignore ctx still
+ * work; they just cannot be interrupted mid-effect.
  */
 (function (global) {
   'use strict';
 
   var DEFAULTS = {
-    // Reading-time fallback for `say` when there is no VO or it fails:
+    // Reading-time fallback for `say` when there is no handler to pace it:
     // roughly the pace a child needs to read along, plus a settle.
     msPerWord: 280,
     sayMinMs: 900,
-    // the breath between the last word of an instruction and the moment the
-    // child may touch anything; a harness turns it down so a full run is not
-    // paced for reading
+    // the breath between the last word of a line and the moment the child
+    // may touch anything, for a handler that does not pace its own lines;
+    // a harness turns it down so a full run is not paced for reading
     readablePauseMs: 400,
     sayMaxMs: 9000,
     // Absolute ceiling on any single non-input beat. If an animation's
@@ -75,6 +92,14 @@
     beatCeilingMs: 12000,
     // A brief hold after feedback so it registers before anything moves.
     feedbackSettleMs: 500
+  };
+
+  /* The states, by name. Exposed so a caller never has to spell one. */
+  var STATES = {
+    IDLE: 'IDLE', ENTERING: 'ENTERING',
+    DIALOGUE_REVEAL: 'DIALOGUE_REVEAL', DIALOGUE_READING: 'DIALOGUE_READING',
+    WAITING_FOR_USER: 'WAITING_FOR_USER', USER_INTERACTING: 'USER_INTERACTING',
+    CHECKING: 'CHECKING', FEEDBACK: 'FEEDBACK', EXITING: 'EXITING', NEXT_STEP: 'NEXT_STEP'
   };
 
   /* ------------------------------------------------------------------ *
@@ -127,6 +152,33 @@
 
   function words(s) { return String(s || '').trim().split(/\s+/).filter(Boolean).length; }
 
+  /* WHAT KIND OF LINE THIS IS — narration, an instruction to act, a question.
+     dialogue-timing.js reads it off the beats that follow; without it every
+     line is narration, which is the old behaviour exactly. */
+  function lineTypeAt(beats, i) {
+    var T = global.Timing;
+    if (T && T.lineType) { try { return T.lineType(beats, i); } catch (e) {} }
+    return 'narration';
+  }
+
+  /* THE INSTRUCTION THAT ONLY REPEATS THIS LINE, if the next line on the
+     screen is one ("…Draw all the diagonals from this vertex." and then the
+     card's "Draw all the diagonals from this vertex."). The line is shown so
+     that its last bubble already IS that instruction, and the instruction
+     then has nothing left to show: the words appear once. */
+  function settledByAt(beats, i) {
+    var T = global.Timing, own = beats[i] && beats[i].say;
+    if (!T || !T.repeats || typeof own !== 'string') return null;
+    for (var k = i + 1; k < beats.length; k++) {
+      var b = beats[k];
+      if (!b || typeof b !== 'object') continue;
+      if (b.say != null) return null;
+      if (typeof b.instruction === 'string') return T.repeats(b.instruction, own) ? b.instruction : null;
+      if (b.input || b.branch != null) return null;
+    }
+    return null;
+  }
+
   /* ------------------------------------------------------------------ *
    * Director
    * ------------------------------------------------------------------ */
@@ -140,17 +192,33 @@
     var current = null;      // token for the running sequence
     var skipRequested = null;// resolver for the current skippable beat
     var listeners = {};
+    var state = STATES.IDLE;
 
     function emit(name, payload) {
-      var list = listeners[name] || [];
+      var list = (listeners[name] || []).slice();
       for (var i = 0; i < list.length; i++) { try { list[i](payload); } catch (e) {} }
+    }
+
+    /* ONE STATE AT A TIME, and every change said out loud. */
+    function setState(to, info) {
+      if (!to || to === state) return;
+      var from = state; state = to;
+      emit('state', { from: from, to: to, info: info || null });
     }
 
     function ctxFor(token) {
       return {
         signal: token,
         onCancel: function (fn) { token.onCancel(fn); },
-        cfg: cfg
+        cfg: cfg,
+        // Where a line has got to. A handler that reveals its words over time
+        // says 'reading' once they are all in, and the screen is then in its
+        // reading pause rather than still being told something.
+        phase: function (name) {
+          if (token !== current || token.cancelled) return;
+          if (name === 'reading') setState(STATES.DIALOGUE_READING);
+          else if (name === 'reveal') setState(STATES.DIALOGUE_REVEAL);
+        }
       };
     }
 
@@ -168,24 +236,43 @@
     }
 
     /**
-     * Narration. Shows text, plays VO if present, and holds for whichever is
-     * longer: the VO, or reading time. Skippable: a skip() finishes the hold
-     * but leaves the text on screen. Never shorter than sayMinMs, so a
-     * hyper-tapping child cannot blow through the lesson.
+     * Narration. Shows text, plays VO if present, and holds for as long as
+     * the line takes. Skippable: a skip() finishes the hold but leaves the
+     * text on screen. Never shorter than sayMinMs, so a hyper-tapping child
+     * cannot blow through the lesson.
+     *
+     * THE HANDLER PACES A LINE IT KNOWS HOW TO PACE. The say handler knows
+     * when each word lands, how long the panel takes to come in, which kind
+     * of line this is and so how long it must stay — and it resolves when the
+     * line is done. A word count here, laid over the top of that as a second
+     * floor, could only ever make a line wait longer than the line itself
+     * says it needs: that is how "Pick any vertex." kept the child's hands off
+     * the polygon for well over a second after the last word. So with a
+     * handler, the only floor is the minimum; the word count is the fallback
+     * for a build with no handler, or one whose handler failed.
      */
-    function beatSay(beat, token) {
+    function beatSay(beat, token, info) {
       var text = beat.say;
+      var type = (info && info.type) || 'narration';
       var reading = Math.min(cfg.sayMaxMs, Math.max(cfg.sayMinMs, words(text) * cfg.msPerWord + 400));
       var ctx = ctxFor(token);
       var started = Date.now();
+      var hasHandler = typeof handlers.say === 'function';
 
-      emit('say', { text: text, vo: beat.vo });
+      setState(STATES.DIALOGUE_REVEAL, { text: text, type: type });
+      emit('say', { text: text, vo: beat.vo, type: type });
       lastWasSpeech = true;
-      var voDone = guard(call('say', [text, { vo: beat.vo, reading: reading }, ctx]), token, cfg.beatCeilingMs);
+      var voDone = guard(call('say', [text, { vo: beat.vo, reading: reading, parts: beat.parts, type: type, settledBy: info && info.settledBy, faces: beat.faces }, ctx]), token, cfg.beatCeilingMs)
+        .then(function (r) {
+          // A handler that failed or hung paced nothing: fall back to the
+          // reading time, so a broken voice never turns into a flash of text.
+          if (r && (r.failed || r.timedOut)) return sleep(Math.max(0, reading - (Date.now() - started)), token);
+          return r;
+        });
 
-      // Reading-time floor runs in parallel with VO; we wait for both, but a
-      // skip short-circuits the remainder past the minimum.
-      var floor = sleep(reading, token);
+      // The minimum runs in parallel; a skip short-circuits the remainder
+      // past it.
+      var floor = sleep(hasHandler ? cfg.sayMinMs : reading, token);
       var skip = new Promise(function (resolve) { skipRequested = resolve; });
 
       return Promise.race([
@@ -201,10 +288,17 @@
       });
     }
 
-    function beatInstruction(beat, token) {
-      emit('instruction', { text: beat.instruction });
+    function beatInstruction(beat, token, info) {
+      var type = (info && info.type) || 'narration';
+      if (beat.instruction) setState(STATES.DIALOGUE_REVEAL, { text: beat.instruction, type: type });
+      emit('instruction', { text: beat.instruction, type: type });
       if (beat.instruction) lastWasSpeech = true;
-      return guard(call('instruction', [beat.instruction, beat, ctxFor(token)]), token, cfg.beatCeilingMs);
+      // The beat itself, with what kind of line it is: the handler may speak
+      // it, and a spoken line is paced by its kind.
+      var opts = {};
+      for (var key in beat) opts[key] = beat[key];
+      opts.type = type;
+      return guard(call('instruction', [beat.instruction, opts, ctxFor(token)]), token, cfg.beatCeilingMs);
     }
 
     function beatSwiftee(beat, token) {
@@ -212,7 +306,12 @@
       var p = call('swiftee', [beat.swiftee, beat, ctxFor(token)]);
       // Some states are fire-and-forget (idle, look-at); only await if the
       // beat asks for it or the state is inherently transitional.
-      var transitional = /^(enter|exit|move|celebrate|hop)$/.test(beat.swiftee);
+      // A CELEBRATION IS NOT A WAIT. It was awaited, and the clip runs 3.4s,
+      // so "Yay! You made a diagonal." sat unsaid for three and a half
+      // seconds after the diagonal was made, and every right answer held the
+      // lesson that long. He celebrates while the lesson goes on — into the
+      // next line, which he then says glad (swiftee.js moods).
+      var transitional = /^(enter|exit|move|hop)$/.test(beat.swiftee);
       if (beat.await === false || (!transitional && beat.await !== true)) return Promise.resolve();
       return guard(p, token, cfg.beatCeilingMs);
     }
@@ -247,9 +346,11 @@
      * The sentence finishes and the input arms in the same tick, so a child
      * who is still reading the last word is already being judged — and a
      * finger already moving lands on a target that was not there a moment
-     * ago. Four hundred milliseconds after speech, and only after speech:
-     * an input that follows an animation or another input arms at once, as
-     * it always did. Cancellable like every other wait.
+     * ago. A handler that paces its own lines has already left that breath,
+     * sized to the kind of line it was (dialogue-timing.js); for one that
+     * does not, readablePauseMs is it. Only after speech: an input that
+     * follows an animation or another input arms at once, as it always did.
+     * Cancellable like every other wait.
      */
     var lastWasSpeech = false;
 
@@ -266,7 +367,9 @@
     }
 
     function armInput(beat, token) {
+      setState(STATES.WAITING_FOR_USER, { spec: beat.input });
       emit('input', { spec: beat.input });
+      emit('interaction:enabled', { spec: beat.input });
       return new Promise(function (resolve) {
         if (token.cancelled) return resolve(CANCELLED);
         token.onCancel(function () { resolve(CANCELLED); });
@@ -274,6 +377,12 @@
           if (global.console) console.warn('Director: input handler failed —', err && err.message || err);
           resolve({ failed: true });
         });
+      }).then(function (r) {
+        if (r !== CANCELLED && token === current) {
+          setState(STATES.CHECKING, { result: r && r.result });
+          emit('interaction:complete', { spec: beat.input, result: r && r.result, detail: r });
+        }
+        return r;
       });
     }
 
@@ -282,15 +391,40 @@
      * lists; `otherwise` is the fallback. The chosen list runs inline, so
      * feedback is part of the sequence rather than a side effect.
      */
+    /* A BRANCH CAN WAIT FOR THE RIGHT ANSWER. `until: 'correct'` runs the
+       branch again on whatever the arm it took asked for last: a wrong answer
+       runs `otherwise` — the nudge, then the question again — and the answer
+       to THAT is branched on in turn. Without it the retry's result fell off
+       the end of the list: a right second try got no praise and skipped what
+       the right arm shows ("All diagonals are still inside."), and a wrong
+       second try moved the lesson on. It only goes round when the arm asked
+       again (a new input result); an arm with no input cannot loop. */
     function beatBranch(beat, token, state) {
       var key = state.last && state.last.result != null ? String(state.last.result) : 'otherwise';
       var list = beat.on && beat.on[key] || beat.otherwise || [];
-      return runList(list, token, state);
+      var asked = state.last;
+      return inFeedback(list, token, state, key, function () { return runList(list, token, state); }).then(function (r) {
+        if (r === CANCELLED || token.cancelled) return CANCELLED;
+        if (beat.until != null && key !== String(beat.until) && state.last !== asked) return beatBranch(beat, token, state);
+        return r;
+      });
+    }
+
+    /* FEEDBACK IS A STATE, with a beginning and an end the rest of the game
+       can hear: a line a wrong answer interrupted comes back on
+       feedback:complete, not on a guessed timer. */
+    function inFeedback(list, token, st, key, body) {
+      setState(STATES.FEEDBACK, { result: key });
+      emit('feedback:start', { result: key });
+      return body().then(function (r) {
+        if (r !== CANCELLED && token === current) emit('feedback:complete', { result: key });
+        return r;
+      });
     }
 
     /* --- the loop --------------------------------------------------- */
 
-    function runBeat(beat, token, state) {
+    function runBeat(beat, token, state, info) {
       if (token.cancelled) return Promise.resolve(CANCELLED);
       if (typeof beat === 'number') return sleep(beat, token);
       if (typeof beat === 'function') {
@@ -298,8 +432,8 @@
       }
       if (beat.stage != null)       return beatStage(beat, token);
       if (beat.wait != null)        return beatWait(beat, token);
-      if (beat.say != null)         return beatSay(beat, token);
-      if (beat.instruction != null) return beatInstruction(beat, token);
+      if (beat.say != null)         return beatSay(beat, token, info);
+      if (beat.instruction != null) return beatInstruction(beat, token, info);
       if (beat.swiftee != null)     return beatSwiftee(beat, token);
       if (beat.focus != null)       return beatFocus(beat, token);
       if (beat.sfx != null)         return beatSfx(beat);
@@ -309,12 +443,16 @@
       }
       if (beat.branch != null)      return beatBranch(beat, token, state);
       if (beat.parallel != null) {
-        return Promise.all(beat.parallel.map(function (b) { return runBeat(b, token, state); }));
+        return Promise.all(beat.parallel.map(function (b) { return runBeat(b, token, state, info); }));
       }
       if (beat.feedback != null) {
         // Sugar: a feedback beat is a list followed by the settle hold.
-        return runList(beat.feedback, token, state).then(function () {
-          return sleep(cfg.feedbackSettleMs, token);
+        var key = state.last && state.last.result != null ? String(state.last.result) : 'feedback';
+        return inFeedback(beat.feedback, token, state, key, function () {
+          return runList(beat.feedback, token, state).then(function (r) {
+            if (r === CANCELLED) return r;
+            return sleep(cfg.feedbackSettleMs, token);
+          });
         });
       }
       return Promise.resolve();
@@ -325,9 +463,14 @@
       function next() {
         if (token.cancelled) return Promise.resolve(CANCELLED);
         if (i >= beats.length) return Promise.resolve(state);
-        var beat = beats[i++];
-        emit('beat', { index: i - 1, beat: beat });
-        return runBeat(beat, token, state).then(function (r) {
+        var at = i++;
+        var beat = beats[at];
+        emit('beat', { index: at, beat: beat });
+        var info = null;
+        if (beat && typeof beat === 'object' && (beat.say != null || typeof beat.instruction === 'string')) {
+          info = { type: lineTypeAt(beats, at), settledBy: beat.say != null ? settledByAt(beats, at) : null };
+        }
+        return runBeat(beat, token, state, info).then(function (r) {
           if (r === CANCELLED) return CANCELLED;
           return next();
         });
@@ -344,10 +487,14 @@
         api.abort();
         var token = current = new Token();
         var state = { last: null, results: [] };
+        lastWasSpeech = false;
+        setState(STATES.ENTERING);
         emit('start', { count: beats.length });
         return runList(beats, token, state).then(function (r) {
-          if (current === token) current = null;
+          var mine = current === token;
+          if (mine) current = null;
           emit('end', { cancelled: r === CANCELLED });
+          if (r !== CANCELLED && mine) { setState(STATES.NEXT_STEP); emit('step:complete', {}); }
           return r === CANCELLED ? CANCELLED : state;
         });
       },
@@ -356,6 +503,7 @@
       abort: function () {
         if (current) { var t = current; current = null; t.cancel(); emit('abort', {}); }
         skipRequested = null;
+        setState(STATES.IDLE);
       },
 
       /**
@@ -367,8 +515,22 @@
         return false;
       },
 
+      /* The two states only the game can see: a finger on the stage while an
+         input is live, and the screen being left. Anything else is the
+         beats' to say, so nothing else is accepted here. */
+      mark: function (name) {
+        if (name === STATES.USER_INTERACTING && (state === STATES.WAITING_FOR_USER)) setState(name);
+        else if (name === STATES.WAITING_FOR_USER && state === STATES.USER_INTERACTING) setState(name);
+        else if (name === STATES.EXITING) setState(name);
+        return state;
+      },
+
+      /** Put one of the lesson's own events on the stream. */
+      emit: function (name, payload) { emit(name, payload); return api; },
+
       get running() { return !!current; },
       get skippable() { return !!skipRequested; },
+      get state() { return state; },
 
       on: function (name, fn) { (listeners[name] || (listeners[name] = [])).push(fn); return api; },
       off: function (name, fn) {
@@ -377,12 +539,13 @@
       },
 
       configure: function (o) { for (var k in o) if (k in cfg) cfg[k] = o[k]; return cfg; },
-      CANCELLED: CANCELLED
+      CANCELLED: CANCELLED,
+      STATES: STATES
     };
     return api;
   }
 
-  global.Director = { create: create, CANCELLED: CANCELLED, DEFAULTS: DEFAULTS };
+  global.Director = { create: create, CANCELLED: CANCELLED, DEFAULTS: DEFAULTS, STATES: STATES };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.Director;
 
 })(typeof window !== 'undefined' ? window : this);

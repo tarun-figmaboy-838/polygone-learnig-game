@@ -11,7 +11,7 @@
  *                ships the answer as a ghost; the definition on page 13 says
  *                vertices, not sides.
  *
- *   CARD         The instruction card is simulated through all 39 screens.
+ *   CARD         The instruction card is simulated through all 34 screens.
  *                The deck drops the card on pages 16, 18, 20, 22, 24, 27 and
  *                32b, and a build that only ever *sets* the card would leave
  *                the previous one showing. This walks the whole lesson and
@@ -82,7 +82,9 @@ function wrongBeats(screen) {
  * Structural
  * ------------------------------------------------------------------ */
 
-t('there are 39 screens', S.length === 39, S.length);
+// 34: the diagonal chapter's six demonstration screens (pages 7–12) are one
+// screen now, where the child connects the corner and finds out.
+t('there are 34 screens', S.length === 34, S.length);
 
 const ids = S.map((s) => s.id);
 t('every screen id is unique', new Set(ids).size === ids.length,
@@ -103,12 +105,19 @@ t('a screen that claims a line actually says it in its beats',
   S.every((s) => !s.say || allBeats(s).some((b) => b.say === s.say)),
   S.filter((s) => s.say && !allBeats(s).some((b) => b.say === s.say)).map((s) => s.id));
 
+// A screen declares its own line in `say` and any further ones in `lines`
+// (the second-diagonal screen ends with "All diagonals are still inside.").
+const declared = (s, text) => text === s.say || (s.lines || []).indexOf(text) >= 0;
 t('no beat says a line the screen does not declare',
-  S.every((s) => allBeats(s).every((b) => b.say == null || b.say === s.say)),
-  S.filter((s) => allBeats(s).some((b) => b.say != null && b.say !== s.say)).map((s) => s.id));
+  S.every((s) => allBeats(s).every((b) => b.say == null || declared(s, b.say))),
+  S.filter((s) => allBeats(s).some((b) => b.say != null && !declared(s, b.say))).map((s) => s.id));
+
+t('every line a screen declares in `lines` is said in its beats',
+  S.every((s) => (s.lines || []).every((l) => allBeats(s).some((b) => b.say === l))),
+  S.filter((s) => (s.lines || []).some((l) => !allBeats(s).some((b) => b.say === l))).map((s) => s.id));
 
 t('the VO script covers every speaking screen',
-  Screens.voScript().length === S.filter((s) => s.say).length);
+  Screens.voScript().length === S.filter((s) => s.say).length + S.reduce((n, s) => n + (s.lines || []).length, 0));
 t('every line in the VO script has an id', Screens.voScript().every((l) => !!l.vo),
   Screens.voScript().filter((l) => !l.vo).map((l) => l.id));
 
@@ -167,7 +176,7 @@ t('no screen claims page 34 or 36', !S.some((s) => s.page === 34 || s.page === 3
  * Splitting them is the point: a build that quietly dropped the wrong path
  * from `choice` would otherwise hide behind these.
  */
-const JUDGING = ['drag-endpoint', 'draw-diagonal', 'draw-diagonals', 'choice', 'multi-select', 'sort', 'swipe'];
+const JUDGING = ['draw-diagonal', 'draw-diagonals', 'choice', 'multi-select', 'sort', 'swipe'];
 const OPEN = ['vertex-pick', 'drag-vertex', 'tap-each', 'stepper', 'tap-anywhere'];
 
 const inputsOf = (s) => allBeats(s).filter((b) => b.input).map((b) => b.input.type);
@@ -210,18 +219,27 @@ t('every wrong path re-opens the input or is judged per tap',
   judged.filter((s) => !(s.perTap && s.perTap.wrong) && !wrongBeats(s).some((b) => b.input)).map((s) => s.id));
 
 /* ------------------------------------------------------------------ *
- * The instruction card, simulated through all 39 screens
+ * The instruction card, simulated through all 34 screens
  * ------------------------------------------------------------------ */
 
 {
   let card = null;                       // what a real build would be showing
   const mismatches = [];
   S.forEach((s) => {
-    allBeats(s).forEach((b) => { if ('instruction' in b) card = b.instruction; });
-    const want = s.instruction === undefined ? card : s.instruction;
-    if (card !== want) mismatches.push({ page: s.page, id: s.id, showing: card, deck: want });
+    // THE CARD THE CHILD IS WORKING TO is the one up when they are first
+    // handed control; after the last beat it is what the next screen
+    // inherits. (The connect screen takes its card down for the cheer at the
+    // end — the deck's "Connect it to another vertex." is what it asks.)
+    let asked;
+    allBeats(s).forEach((b) => {
+      if ('instruction' in b) card = b.instruction;
+      if (b.input && asked === undefined) asked = card;
+    });
+    const shown = asked === undefined ? card : asked;
+    const want = s.instruction === undefined ? shown : s.instruction;
+    if (shown !== want) mismatches.push({ page: s.page, id: s.id, showing: shown, deck: want });
   });
-  t('the instruction card matches the deck on every one of the 39 screens',
+  t('the instruction card matches the deck on every one of the 34 screens',
     mismatches.length === 0, mismatches.slice(0, 4));
 }
 
@@ -246,7 +264,7 @@ t('every wrong path re-opens the input or is judged per tap',
 // 'excited' since the sprite sheets landed, and a storyboard beat that used
 // it failed a test whose message said it was not implemented.
 const SWIFTEE = require('../src/character/swiftee.js').states;
-const INPUTS = ['tap-anywhere', 'vertex-pick', 'drag-endpoint', 'draw-diagonal', 'draw-diagonals',
+const INPUTS = ['tap-anywhere', 'vertex-pick', 'draw-diagonal', 'draw-diagonals',
                 'drag-vertex', 'choice', 'multi-select', 'tap-each', 'sort', 'stepper', 'swipe'];
 const KINDS = ['vista', 'polygon', 'choice-grid', 'compare', 'sort', 'builder', 'swipe-sort'];
 const SFX = ['boing', 'correct', 'honk', 'levelUp', 'menuWhoosh', 'pop', 'select', 'slice',
@@ -311,7 +329,9 @@ t('every juice effect referenced exists', unknown(used.juice, JUICE).length === 
   }
 }
 
-t('all 12 interaction types are actually used somewhere', used.input.size === 12, [...used.input]);
+// 11: the drag-a-side's-end interaction (the old page 11) is gone — the child
+// now draws the diagonal from their own corner
+t('all 11 interaction types are actually used somewhere', used.input.size === INPUTS.length, [...used.input]);
 t('all 7 stage kinds are actually used somewhere', used.kind.size === 7, [...used.kind]);
 
 /* ------------------------------------------------------------------ *
@@ -346,6 +366,206 @@ t('Swiftee sizes are ones the layout knows',
 t('every move beat names a position the layout knows',
   S.every((s) => allBeats(s).every((b) =>
     b.swiftee !== 'move' || POSITIONS.indexOf(b.to) >= 0)));
+
+/* ------------------------------------------------------------------ *
+ * Character direction
+ * ------------------------------------------------------------------ */
+
+const RIG = require('../src/character/swiftee.js').rig;
+const intentsIn = (list) => {
+  const out = [];
+  (function walk(bs) {
+    (bs || []).forEach((b) => {
+      if (!b || typeof b !== 'object') return;
+      if (b.swiftee) out.push(b.swiftee);
+      ['feedback', 'parallel', 'otherwise'].forEach((k) => { if (b[k]) walk(b[k]); });
+      if (b.on) Object.keys(b.on).forEach((k) => walk(b.on[k]));
+    });
+  })(list);
+  return out;
+};
+const levelOf = (st) => { const d = RIG[st]; return d ? (d.level || 1) : 0; };
+
+/* A WRONG ANSWER CANNOT MOVE THE LESSON ON. Every branch whose wrong arm asks
+   again has `until: 'correct'`, so the retry's own answer is branched on:
+   a right retry gets the right arm, a wrong one is asked again. */
+{
+  const loose = [];
+  S.forEach((s) => (s.beats || []).forEach((b) => {
+    if (!b || !b.branch) return;
+    const asksAgain = (b.otherwise || []).some((x) => x && x.input);
+    if (asksAgain && b.until !== 'correct') loose.push(s.id);
+  }));
+  t('every retry is branched on until the answer is right', loose.length === 0, loose);
+}
+
+/* THE REACTION MATCHES THE VERDICT. No right-answer face in a wrong arm,
+   no miss in a right one — a wrong answer met with a smile was a real bug. */
+{
+  const crossed = [];
+  const GLAD = /^(happySmall|nice|chuffed|wink|phew|celebrate|excited|delight|nod|proud|happy)$/;
+  S.forEach((s) => {
+    (s.beats || []).forEach((b) => {
+      if (!b || !b.branch) return;
+      intentsIn(b.otherwise).forEach((i) => { if (GLAD.test(i)) crossed.push(s.id + ' wrong arm: ' + i); });
+      intentsIn((b.on || {}).correct).forEach((i) => { if (/^(oops|rethink|confused)$/.test(i)) crossed.push(s.id + ' right arm: ' + i); });
+    });
+    ((s.perTap || {}).wrong || []).forEach((x) => { if (x.swiftee && GLAD.test(x.swiftee)) crossed.push(s.id + ' per-tap wrong: ' + x.swiftee); });
+  });
+  t('a wrong answer never gets a happy face and a right one never a miss', crossed.length === 0, crossed);
+  t('a wrong answer is one reaction, not a list of faces to race each other',
+    Screens.WRONG.filter((b) => b.swiftee).length === 1 && Screens.WRONG.some((b) => b.swiftee === 'oops'),
+    Screens.WRONG);
+}
+
+/* THE ARRIVAL IS PROTECTED. The first screen is the sleigh, its landing, and
+   the greeting — exactly as it was, beat for beat. */
+{
+  const intro = S[0];
+  t('the arrival screen is unchanged', intro.id === 'intro-hi' && JSON.stringify(intro.beats) === JSON.stringify([
+    { stage: { kind: 'vista' } },
+    { wait: 500 },
+    { swiftee: 'enter', from: 'left' },
+    { wait: 300 },
+    { say: 'Hi! I am Swiftee.', vo: 'p01' },
+    { parallel: [{ swiftee: 'wave' }, { sfx: 'pop' }] },
+    { input: { type: 'tap-anywhere' } }
+  ]), intro.beats);
+  t('the arrival is still the move that plays the sleigh', !RIG.enter || RIG.enter.rig === 'driving');
+}
+
+/* THE SIDE-MEASURING SCREEN IS PROTECTED. Its choreography is the dedicated
+   measuring walk (stage.js measureSide, its own sheet); nothing generic was
+   given to it. Beat for beat as it was, and no per-tap face. */
+{
+  const m = Screens.byId['measure-sides'];
+  t('the side-measuring screen is unchanged', !!m && JSON.stringify(m.beats) === JSON.stringify([
+    { stage: { kind: 'polygon' } },
+    { instruction: 'Tap the sides to measure them.', vo: 'p29i' },
+    { swiftee: 'inspect' },
+    { focus: 'polygon.sides', style: 'pulse' },
+    { input: { type: 'tap-each', targets: 'sides', reveal: 'length', count: 5 } },
+    { feedback: [{ sfx: 'correct' }, { swiftee: 'proud' }] }
+  ]), m && m.beats);
+  t('no generic face is asked for per measured side',
+    !!m && !Object.keys(m.perTap || {}).some((k) => (m.perTap[k] || []).some((b) => b.swiftee)));
+  require('../src/character/measuring-frames.js');
+  const MF = global.MeasuringFrames;
+  const spec = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '../assets/swiftee/swiftee-measuring.json'), 'utf8'));
+  t('the measuring sprite table is still the one its build tool wrote', JSON.stringify(MF) === JSON.stringify(spec), [MF && MF.frames, spec.frames]);
+}
+
+/* THE BIG ONE IS FOR MILESTONES. A full celebration (level 3) only where the
+   lesson has earned it, never per tap, and not twice on screens in a row. */
+{
+  const L3 = [];
+  S.forEach((s, i) => {
+    intentsIn(s.beats).forEach((st) => { if (levelOf(st) === 3) L3.push(i); });
+  });
+  const perTapBig = S.filter((s) => Object.keys(s.perTap || {}).some((k) => (s.perTap[k] || []).some((b) => b.swiftee && levelOf(b.swiftee) === 3))).map((s) => s.id);
+  t('no celebration is played per tap', perTapBig.length === 0, perTapBig);
+  const uniq = [...new Set(L3)];
+  t('celebrations are rare: a handful of milestones, not every answer', uniq.length <= 9, uniq);
+  // back to back: a screen that ENDS celebrating, and the next one OPENING with
+  // another (a whole task between two milestones is two moments, not one)
+  const seq = S.map((x) => intentsIn(x.beats).filter((y) => !/^(enter|exit|move)$/.test(y)));
+  const back2back = [];
+  for (let i = 1; i < S.length; i++) {
+    const endBig = seq[i - 1].length && levelOf(seq[i - 1][seq[i - 1].length - 1]) === 3;
+    const openBig = seq[i].length && levelOf(seq[i][0]) === 3;
+    if (endBig && openBig) back2back.push(S[i - 1].id + '+' + S[i].id);
+  }
+  t('no celebration follows straight on from another', back2back.length === 0, back2back);
+  t('ordinary right answers get the small face',
+    S.filter((s) => intentsIn(s.beats).indexOf('happySmall') >= 0).length >= 6);
+}
+
+/* HE DOES NOT DO THE SAME THING SCREEN AFTER SCREEN. The gesture each screen
+   opens with (travel aside, and the protected measuring screen aside) is
+   never the one the screen before opened with. */
+{
+  const first = S.map((s) => intentsIn(s.beats).filter((x) => !/^(enter|exit|move)$/.test(x))[0] || null);
+  const repeats = [];
+  for (let i = 1; i < S.length; i++) {
+    if (S[i].id === 'measure-sides' || !first[i] || !first[i - 1]) continue;
+    if (first[i] === first[i - 1]) repeats.push(S[i - 1].id + '+' + S[i].id + ':' + first[i]);
+  }
+  t('no two screens in a row open with the same gesture', repeats.length === 0, repeats);
+  const distinct = new Set(first.filter(Boolean));
+  t('the lesson uses a real range of his direction', distinct.size >= 14, [...distinct]);
+}
+
+/* ------------------------------------------------------------------ *
+ * The word and the thing arrive together
+ * ------------------------------------------------------------------ */
+
+/* EVERY PIECE OF UI THAT WAITS FOR A WORD HEARS IT. An answer, a tag, a bin
+   or the stepper held back for its word (stage.js holdForWord) only arrives
+   in step if that word is in a line said on the same screen; otherwise it
+   falls back to appearing when the child is handed control — late, and out
+   of step. So the word must be in the screen's own lines. */
+{
+  const key = (w) => String(w).toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const spokenWords = (s) => {
+    const out = new Set();
+    allBeats(s).forEach((b) => {
+      const text = b.say != null ? b.say : (typeof b.instruction === 'string' ? b.instruction : null);
+      if (text) text.split(/\s+/).forEach((w) => out.add(key(w)));
+    });
+    return out;
+  };
+  const deaf = [];
+  let held = 0;
+  S.forEach((s) => {
+    const words = spokenWords(s);
+    const need = (w, what) => { held++; if (!words.has(key(w))) deaf.push(s.id + ': ' + what + ' waits for "' + w + '"'); };
+    const specs = allBeats(s).filter((b) => b.stage).map((b) => b.stage);
+    if (s.stage && s.stage.kind) specs.push(s.stage);
+    specs.forEach((sp) => {
+      if (sp.choices && sp.cue) sp.choices.forEach((c) => {
+        const ws = sp.cue === true ? String(c).split(/\s+/) : [].concat(sp.cue[c] || []);
+        if (!ws.some((w) => words.has(key(w)))) deaf.push(s.id + ': the "' + c + '" answer waits for ' + JSON.stringify(ws));
+        held++;
+      });
+      if (sp.label && sp.label.cue) need(sp.label.cue, 'the tag');
+      if (sp.badge && sp.badge.cue) need(sp.badge.cue, 'the badge');
+      if (sp.stepper && sp.stepper.cue) need(sp.stepper.cue, 'the stepper');
+      if (sp.binsCue) (sp.bins || []).forEach((b) => need(b.cueWord || b.id, 'the ' + b.id + ' bin'));
+      ['left', 'right'].forEach((k) => { if (sp[k] && sp[k].captionCue) need(sp[k].captionCue, 'the ' + k + ' name tag'); });
+    });
+  });
+  t('every answer, tag, bin and control that waits for a word hears it on its own screen', deaf.length === 0, deaf);
+  t('the word-and-thing sync is used across the lesson, not on one screen', held >= 10, held);
+  const io = Screens.byId['inside-or-outside'].beats;
+  t('"Inside" and "Outside" are built before the question is asked, so they can arrive with its words',
+    io.findIndex((b) => b.stage && b.stage.choices) < io.findIndex((b) => b.say || typeof b.instruction === 'string'));
+}
+
+/* EVERY WORD THE BUBBLE LETTERS HAS A MEANING ON THE BOARD. The vocabulary's
+   own ids (dual-coding.js) are what the stage's concept mapping answers; a
+   noun the mapping does not know would be lettered orange and do nothing. */
+{
+  const src = require('fs').readFileSync(require('path').join(__dirname, '../src/game/stage.js'), 'utf8');
+  const DC = require('../src/game/dual-coding.js');
+  const nouns = ['polygon', 'vertex', 'side', 'line segment', 'diagonal', 'angle', 'inside', 'outside', 'equal', 'convex', 'concave', 'regular', 'irregular'];
+  const unmapped = nouns.filter((n) => src.indexOf("case '" + n + "'") < 0);
+  t('every vocabulary noun has a reaction on the board', unmapped.length === 0, unmapped);
+  t('the bubble letters every one of those nouns', nouns.every((n) => /dc-term/.test(DC.markup('the ' + n + ' here'))), nouns.filter((n) => !/dc-term/.test(DC.markup('the ' + n + ' here'))));
+  t('the grid lights every card for "polygons", never the right ones',
+    /case 'polygon':[\s\S]{0,200}kind === 'grid'\) return warmPulse\(st\.cards, \{ together: true/.test(src));
+}
+
+/* THE VOICE SCRIPT IS THE STORYBOARD. docs/VO.md is generated from the
+   beats, so a line added or reworded here and not in the script is a clip
+   nobody will record. */
+{
+  const fs = require('fs'), path = require('path');
+  const doc = fs.readFileSync(path.join(__dirname, '../docs/VO.md'), 'utf8');
+  const ids = [];
+  S.forEach((s) => allBeats(s).forEach((b) => { if (b.vo) ids.push(b.vo); }));
+  const missing = [...new Set(ids)].filter((id) => doc.indexOf('assets/vo/' + id + '.mp3') < 0);
+  t('the voice script lists every clip the storyboard asks for (npm run vo:script)', missing.length === 0, missing);
+}
 
 console.log('\nscreens: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

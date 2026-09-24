@@ -289,22 +289,62 @@
     return { x: x / v.length, y: y / v.length };
   }
 
+  /** Distance from p to the segment ab. */
+  function segDist(p, a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+    var t = len2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+    return Math.hypot(p.x - (a.x + dx * t), p.y - (a.y + dy * t));
+  }
+
+  /* NOT ONLY UNCROSSED — APART.
+   *
+   * isSimple() counts two edges that merely touch as fine, so a corner
+   * dragged past the far side of a pentagon was parked exactly ON that side:
+   * the outline pinched into two lobes meeting at a point, and classify()
+   * called it a perfectly good concave pentagon — a correct answer that
+   * looks broken. So the corner in hand, and the two sides it carries, keep
+   * a gap from every part of the outline they are not joined to: six
+   * hundredths of the shape's own size, a few pixels on the card, enough that
+   * a dent is always a dent and never a pinch. */
+  function clearOf(v, i, gap) {
+    var n = v.length, prev = (i - 1 + n) % n, next = (i + 1) % n, p = v[i];
+    for (var j = 0; j < n; j++) {
+      var k = (j + 1) % n;
+      if (j === i || k === i) continue;                                  // the corner's own sides
+      if (segDist(p, v[j], v[k]) < gap) return false;                     // the corner near a far side
+    }
+    for (var q = 0; q < n; q++) {
+      if (q === i || q === prev || q === next) continue;
+      if (segDist(v[q], v[prev], p) < gap || segDist(v[q], p, v[next]) < gap) return false;   // its sides near a far corner
+    }
+    return true;
+  }
+
+  function sizeOf(v) {
+    var c = centroid(v), r = 0;
+    for (var k = 0; k < v.length; k++) r += Math.hypot(v[k].x - c.x, v[k].y - c.y);
+    return r / (v.length || 1);
+  }
+
   /**
    * Given a proposed new position for vertex i, return the nearest position
-   * that keeps the polygon simple. Lets a drag stop at the edge of validity
-   * instead of turning into a bowtie mid-gesture.
+   * that keeps the polygon simple — and clear of itself (see clearOf). Lets
+   * a drag stop at the edge of validity instead of turning into a bowtie, or
+   * a pinch, mid-gesture.
    */
-  function clampSimple(v, i, proposed) {
+  function clampSimple(v, i, proposed, opts) {
+    var gap = opts && opts.gap != null ? opts.gap : sizeOf(v) * 0.06;
     var trial = v.map(function (p) { return { x: p.x, y: p.y }; });
+    var ok = function () { return isSimple(trial) && (v.length < 4 || clearOf(trial, i, gap)); };
     trial[i] = proposed;
-    if (isSimple(trial)) return proposed;
+    if (ok()) return proposed;
     // Binary search back toward the original along the drag vector.
     var lo = 0, hi = 1, from = v[i];
     for (var k = 0; k < 18; k++) {
       var mid = (lo + hi) / 2;
       trial[i] = { x: from.x + (proposed.x - from.x) * mid,
                    y: from.y + (proposed.y - from.y) * mid };
-      if (isSimple(trial)) lo = mid; else hi = mid;
+      if (ok()) lo = mid; else hi = mid;
     }
     return { x: from.x + (proposed.x - from.x) * lo,
              y: from.y + (proposed.y - from.y) * lo };

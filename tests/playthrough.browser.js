@@ -2,7 +2,7 @@
 /*!
  * playthrough.browser.js — the whole lesson, in a real browser, via Playwright.
  *
- *   node tests/playthrough.browser.js            full 39-screen play
+ *   node tests/playthrough.browser.js            full 34-screen play
  *   node tests/playthrough.browser.js --checks   render and layout only (fast)
  *   node tests/playthrough.browser.js --headed   watch it
  *   node tests/playthrough.browser.js --shots <dir>
@@ -368,16 +368,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         await tapNth('.vertex', 0);
         return;
 
-      case 'drag-endpoint': {
-        const s = await st();
-        await dragPath(s.verts[s.segment[1]], s.verts[(s.segment[0] + 2) % s.n]);
-        return;
-      }
-
       case 'draw-diagonal':
       case 'draw-diagonals': {
         const s = await st();
         const from = spec.from === 'picked' ? s.picked : spec.from;
+        // connecting (sides): the first try goes to a neighbour — a side, named,
+        // and asked again — and the retry draws the diagonal
+        if (spec.sides && !spec.retry) { await dragPath(s.verts[from], s.verts[(from + 1) % s.n]); return; }
         const used = new Set(s.diagonals.map((d) => d.slice().sort((a, b) => a - b).join('-')));
         const adj = (i, j) => Math.abs(i - j) === 1 || Math.abs(i - j) === s.n - 1;
         const targets = [];
@@ -598,9 +595,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // reading of a different pose at a different size on a different mark —
     // which looks exactly like the shift this exists to catch.
     const screenOf = () => (window.Game && window.Game.screen);
+    // A MILESTONE MAY HOP; A FACE MAY NOT MOVE HIM. A celebration lifts him
+    // off the ice for a moment (swiftee.js BODY.cheer) and lands him where he
+    // stood; what this guards is his REGISTRATION — the pivot and baseline a
+    // new expression must not shift. So each reading waits for any body move
+    // on his element to finish before it measures.
+    const settled = async () => {
+      for (let k = 0; k < 20; k++) {
+        const moving = (window.Swiftee.el.getAnimations ? window.Swiftee.el.getAnimations() : []).filter((a) => a.playState === 'running');
+        if (!moving.length) return;
+        await nap(60);
+      }
+    };
     for (const s of ['idle', 'wave', 'think', 'celebrate', 'confused', 'surprised', 'point', 'idle']) {
       window.Swiftee.play(s);
       await new Promise((r) => setTimeout(r, 450));
+      await settled();
       out.push([s, rect(), screenOf()]);
     }
     return out;
@@ -663,7 +673,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     return hits.length ? { screen: window.Game.screen, id: (window.Screens.list[window.Game.screen] || {}).id, hits: hits } : null;
   }), null);
   // WHICH SCREEN. 'swiftee/stage' on its own says something overlaps
-  // somewhere in a thirty-nine screen lesson, which is a search, not a
+  // somewhere in a thirty-four screen lesson, which is a search, not a
   // report.
   t('no overlay covers the lesson, the character or another overlay',
     !overlap, overlap ? 'screen ' + (overlap.screen + 1) + ' ' + overlap.id + ': ' + overlap.hits.join(', ') : '');
@@ -714,7 +724,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     t('all ' + N + ' screens were visited', seen === N, seen + '/' + N);
     const buddy = await safe(() => page.evaluate(() => window.__buddy), []);
     t('Swiftee is on screen only where he has a purpose', buddy.length === 0, buddy.join(' '));
-    t('all 12 interaction types were exercised', new Set(asked).size === 12, [...new Set(asked)].join(','));
+    // 11: the storyboard no longer drags a side's loose end (drag-endpoint)
+    t('all 11 interaction types were exercised', new Set(asked).size === 11, [...new Set(asked)].join(','));
     t('correct cues fired', cues.correct > 0, JSON.stringify(cues));
     t('never stalled on a screen', stalls === 0, stalled ? JSON.stringify(stalled) : '');
   }

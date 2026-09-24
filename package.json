@@ -2,13 +2,14 @@
   "name": "swiftee-polygons",
   "version": "1.0.0",
   "private": true,
-  "description": "Swiftee & the Polygons — diagonals, convex and concave, regular and irregular. A 39-screen guided lesson. The game itself is plain scripts and needs no build; everything here is for the test gates and the Swiftee frame table.",
+  "description": "Swiftee & the Polygons Ã¢â‚¬â€ diagonals, convex and concave, regular and irregular. A 39-screen guided lesson. The game itself is plain scripts and needs no build; everything here is for the test gates and the Swiftee frame table.",
   "scripts": {
-    "test": "node tests/polygon-math.test.js && node tests/director.test.js && node tests/quest.test.js && node tests/screens.test.js && node tests/swiftee.test.js && node tests/playthrough.jsdom.js",
+    "test": "node tests/polygon-math.test.js && node tests/director.test.js && node tests/quest.test.js && node tests/screens.test.js && node tests/swiftee.test.js && node tests/connect.test.js && node tests/playthrough.jsdom.js",
     "test:math": "node tests/polygon-math.test.js",
     "test:director": "node tests/director.test.js",
     "test:screens": "node tests/screens.test.js",
     "test:swiftee": "node tests/swiftee.test.js",
+    "test:connect": "node tests/connect.test.js",
     "test:measuring": "node tests/measuring.test.js",
     "test:measuring:browser": "node tests/measuring.browser.js",
     "build:measuring": "node tools/build-measuring.js",
@@ -25,7 +26,10 @@
     "vo:lines": "node tools/vo-lines.js",
     "vo:check": "node tools/vo-check.js",
     "vo:encode": "node tools/encode-vo.js",
-    "vo:refine": "node tools/split-vo.js --refine"
+    "vo:refine": "node tools/split-vo.js --refine",
+    "vo:script": "node tools/vo-script.js",
+    "vo:align": "node tools/align-vo.js",
+    "build:hand": "node tools/build-hand.js"
   },
   "devDependencies": {
     "jsdom": "^24.0.0",
