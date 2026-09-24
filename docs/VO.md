@@ -44,7 +44,7 @@ Every line Swiftee says, **in the order a child hears it**, with the file the ga
 | 28 | 20 | concave | `assets/vo/p25i.mp3` | instruction | At least one diagonal outside means concave polygon. |  | screen 20, the instruction | an instruction: plain, steady, every word clear | — |
 | 29 | 21 | make-concave | `assets/vo/p26i.mp3` | instruction | Drag any vertex to make this polygon concave. |  | screen 21, the instruction | an instruction: plain, steady, every word clear | — |
 | 30 | 22 | sort-convex-concave | `assets/vo/p27.mp3` | say | Can you sort these polygons as convex or concave? |  | screen 22 | playful, inviting | — |
-| 31 | 23 | suspicious | `assets/vo/p28.mp3` | say | Hmm… The sides look suspiciously alike. Let’s check! | Hmm… The sides look / suspiciously alike. / Let’s check! | screen 23 | wondering aloud, a little slower | — |
+| 31 | 23 | suspicious | `assets/vo/p28.mp3` | say | Hmm… The sides look suspiciously alike. Let’s check! | Hmm… / The sides look suspiciously alike. / Let’s check! | screen 23 | wondering aloud, a little slower | — |
 | 32 | 24 | measure-sides | `assets/vo/p29i.mp3` | instruction | Tap the sides to measure them. |  | screen 24, the instruction | an instruction: plain, steady, every word clear | — |
 | 33 | 25 | sides-equal | `assets/vo/p30.mp3` | say | Every side is equal. But what about the angles? | Every side is equal. / But what about the angles? | screen 25 | asking: curious, open | — |
 | 34 | 26 | measure-angles | `assets/vo/p31i.mp3` | instruction | Tap the angles to measure them. |  | screen 26, the instruction | an instruction: plain, steady, every word clear | — |
