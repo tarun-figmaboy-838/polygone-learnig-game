@@ -1,9 +1,9 @@
 /*!
  * stage.js — everything the learner sees and touches, except Swiftee.
  *
- * One SVG, viewBox 1000×562, scaled by CSS. Six scene kinds and a set of
- * incremental ops from screens.js. Eleven interaction types, each returning
- * a promise the director awaits.
+ * One SVG, viewBox 1000×562, scaled by CSS. The scene kinds (BUILD) and a
+ * set of incremental ops from screens.js; the interaction types (INTERACT),
+ * each returning a promise the director awaits.
  *
  * Nothing here decides right or wrong. Every judgement is a call into
  * polygon-math.js on the live vertices, so the shape on screen and the
@@ -2324,8 +2324,424 @@
       // "Adjust the number of sides": the control arrives with the words
       // that tell the child to use it (not on a restored scene, which was seen)
       if (spec.stepper && spec.stepper.cue && !spec._panel) holdForWord(g, spec.stepper.cue);
+    },
+
+    /**
+     * THE END-GAME SUMMARY: everything the lesson taught, collected.
+     *
+     * One large card at a time in the middle, its idea shown by animating it
+     * — the polygon drawing itself, a corner lighting, a side drawing between
+     * two corners — with its name on a tag hung off its bottom edge. He rises
+     * from behind it to say what it is, sinks back, and the card shrinks away
+     * into the collection: the parts of a polygon down the left edge, the
+     * kinds of polygon down the right, so the middle is always clear for the
+     * card that is being shown. The screen's beats run it (screens.js
+     * summaryBeats); this only draws, and says which state it is in.
+     */
+    summary: function (spec) {
+      reset(); st.kind = 'summary';
+      st.summary = { concepts: (spec.concepts || []).slice(), cards: {}, collected: [], active: null, state: 'SUMMARY_START' };
+      evt('summary:state', { state: 'SUMMARY_START' });
     }
   };
+
+  /* ------------------------------------------------------------------ *
+   * The end-game summary's card
+   *
+   * ONE CARD, EIGHT IDEAS. Every concept is the same card — the display
+   * slab (a thing to look at, not the block of ice a thing is touched on),
+   * a tag hung off its bottom edge — and what differs is data: which corners
+   * light, which line draws, which corner moves (SUMMARY_VISUALS). It is
+   * drawn in stage coordinates with no transform of its own until it is
+   * collected, so the word cues can trace its lines (emphasize clones them
+   * onto the effects layer) and the juice that animates `transform` cannot
+   * throw it to the origin.
+   *
+   * THE STATES, one at a time, never two (Stage.summaryState()):
+   *   SUMMARY_START → CARD_ENTER → CONCEPT_REVEAL → SWIFTEE_ENTER →
+   *   EXPLANATION → READING_PAUSE → SWIFTEE_EXIT → CARD_COLLECT →
+   *   NEXT_CONCEPT → … → FINAL_SUMMARY
+   * The card's own states are set here; his rising, his line, its reading
+   * pause and his sinking are the screen's beats, and game.js passes on the
+   * director's word for when each begins (summaryPhase).
+   * ------------------------------------------------------------------ */
+  var SUM = {
+    // THE BIG CARD, IN THE CLEAR MIDDLE — and low enough that the band over
+    // it holds his line: he rises behind its top edge, and a card any higher
+    // left no room above his head, so each line went wherever there was room
+    // (top-left for one card, top-right for the next, a banner for a third)
+    card: { cx: 500, cy: 350, w: 280 },
+    shape: { cx: 500, cy: 354, r: 80 },            // the pentagon every idea is shown on
+    // THE COLLECTION: four down each edge, the parts of a polygon on the
+    // left and the kinds on the right, clear of the HUD above and of Back
+    // and Next below, each card's name with a clear gap under it
+    mini: { w: 76, x: [70, 930], y0: 94, pitch: 110 },
+    enterMs: 420, collectMs: 580
+  };
+
+  /* WHAT EACH CARD SHOWS, as data.
+   *   hi     the corners that light       line   a segment between two of them:
+   *   sides  the sides lit from a corner          'side' warm, 'diag' ice, 'out' violet
+   *   wedge  the corner whose angle fills  diags  every diagonal, in turn
+   *   move   a corner that travels, [index, x, y] in radii from the middle
+   *   marks  the lesson's own equal-side notation (shapeMarks options)
+   *   draw   the polygon draws itself first
+   * Every one is checked against polygon-math by the tests (summaryGeometry). */
+  var SUMMARY_VISUALS = {
+    vertex:    { draw: true, hi: [0], pulse: true, near: 0 },
+    side:      { hi: [0, 1], line: [0, 1, 'side'] },
+    angle:     { hi: [0], sides: [[0, 4], [0, 1]], wedge: 0 },
+    diagonal:  { hi: [0, 2], line: [0, 2, 'diag'] },
+    convex:    { tone: 'convex', diags: true },
+    concave:   { tone: 'concave', move: [0, 0, 0.08], line: [1, 4, 'out'] },
+    regular:   { tone: 'regular', marks: { all: true, degrees: false } },
+    irregular: { tone: 'irregular', move: [1, 1.273, -0.568], marks: {} }
+  };
+
+  /** The card's pentagon: as it starts, or as it ends once its corner has moved. */
+  function summaryVerts(id, final) {
+    var S = SUM.shape, V = SUMMARY_VISUALS[id] || {};
+    var v = global.Poly ? Poly.regular(5, S.r, S.cx, S.cy) : [];
+    if (final && V.move && v[V.move[0]]) v[V.move[0]] = { x: S.cx + V.move[1] * S.r, y: S.cy + V.move[2] * S.r };
+    return v;
+  }
+
+  function setSummary(state, id) {
+    var S = st.summary;
+    if (!S || S.state === state) return;
+    S.state = state;
+    evt('summary:state', { state: state, card: id || S.active || null });
+  }
+
+  /** A pause that belongs to the summary: resolves when it is up, or at once if the scene has gone. */
+  function sumHold(ms) { return reduced() ? Promise.resolve(true) : hold(ms); }
+
+  /** A line that grows from one end to the other, stepped on its own end point. */
+  function growLine(line, a, b, ms, delay) {
+    var set = function (t) { line.setAttribute('x2', (a.x + (b.x - a.x) * t).toFixed(1)); line.setAttribute('y2', (a.y + (b.y - a.y) * t).toFixed(1)); };
+    line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
+    if (reduced() || !global.requestAnimationFrame) { set(1); line.setAttribute('opacity', 1); return; }
+    set(0);
+    later(delay || 0, function () {
+      line.setAttribute('opacity', 1);
+      var g = sceneGen, t0 = null;
+      var step = function (now) {
+        if (g !== sceneGen) return;
+        if (t0 == null) t0 = now;
+        var t = Math.min(1, (now - t0) / ms);
+        set(1 - Math.pow(1 - t, 3));
+        if (t < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
+  /** A mark arrives: small, a touch past full size, settled. */
+  function sumPop(el, delay, big) {
+    el.setAttribute('opacity', 1);
+    if (reduced() || !el.animate) return;
+    el.style.transformBox = 'fill-box'; el.style.transformOrigin = 'center';
+    try {
+      el.animate([{ opacity: 0, scale: '.3' }, { opacity: 1, scale: big ? '1.35' : '1.2', offset: 0.6 }, { opacity: 1, scale: '1' }],
+                 { duration: 320, delay: delay || 0, easing: 'cubic-bezier(.3,1.3,.5,1)', fill: 'backwards' });
+    } catch (e) {}
+  }
+
+  /** A corner travels, and the outline (and its knob) go with it. */
+  function moveCorner(c, i, to, ms, delay, then) {
+    var from = { x: c._verts[i].x, y: c._verts[i].y };
+    var put = function (t) {
+      var e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      c._verts[i] = { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e };
+      c._outline.setAttribute('d', pathOf(c._verts));
+      if (c._mover) { c._mover.setAttribute('cx', c._verts[i].x.toFixed(1)); c._mover.setAttribute('cy', c._verts[i].y.toFixed(1)); }
+    };
+    if (reduced() || !global.requestAnimationFrame) { put(1); if (then) then(); return; }
+    later(delay || 0, function () {
+      var g = sceneGen, t0 = null;
+      var step = function (now) {
+        if (g !== sceneGen) return;
+        if (t0 == null) t0 = now;
+        var t = Math.min(1, (now - t0) / ms);
+        put(t);
+        if (t < 1) requestAnimationFrame(step); else if (then) then();
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
+  /** The one card: the slab, the pentagon on it (drawn in its starting state), the tag. */
+  function summaryCard(c) {
+    var id = c.id, V = SUMMARY_VISUALS[id] || {};
+    var F = global.CardFrame && CardFrame.panel;
+    var w = SUM.card.w, h = w * (F ? F.h / F.w : 0.96);
+    var x = SUM.card.cx - w / 2, y = SUM.card.cy - h / 2;
+    var g = mk('g', { 'class': 'summary-card', 'data-concept': id }, layers.ui);
+    g._rect = { x: x, y: y, w: w, h: h }; g._id = id;
+    // TWO GROUPS, ON PURPOSE. The outer one carries only the transform that
+    // puts the card in the collection; every animation of the card itself —
+    // its entrance, a word's pulse — runs on the inner one. An animation needs
+    // a transform-origin, and a transform-origin on the outer group moved the
+    // collect transform with it: the cards landed half a screen from their
+    // places and only their name tags arrived.
+    var pop = mk('g', { 'class': 'summary-pop' }, g);
+    g._pop = pop;
+    if (F) {
+      var img = mk('image', { x: x, y: y, width: w, height: h, preserveAspectRatio: 'none', 'pointer-events': 'none' }, pop);
+      img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', F.src); img.setAttribute('href', F.src);
+    } else {
+      mk('rect', { x: x, y: y, width: w, height: h, rx: 34, fill: '#f4fbff', stroke: '#a3d4ef', 'stroke-width': 3 }, pop);
+    }
+    var vis = mk('g', { 'class': 'summary-visual' }, pop);
+    g._vis = vis;
+    var tone = V.tone && CONCEPT[V.tone];
+    var v = summaryVerts(id, false);
+    g._verts = v;
+    g._outline = mk('path', { d: pathOf(v), fill: 'url(#' + candy(tone ? tone.face : SHAPE.fill) + ')',
+                              stroke: tone ? tone.deep : SHAPE.edge, 'stroke-width': SHAPE.edgeW, 'stroke-linejoin': 'round', opacity: 0 }, vis);
+    g._linesG = mk('g', {}, vis);               // under the knobs: a line starts under its corner
+    // the two sides that meet at a corner, for the word "sides" to light
+    // (drawn invisible; a trace copies their line, not their paint)
+    if (V.near != null) {
+      var n0 = V.near, nv = v.length;
+      g._near = [v[(n0 + nv - 1) % nv], v[(n0 + 1) % nv]].map(function (q) {
+        return mk('line', { x1: v[n0].x, y1: v[n0].y, x2: q.x, y2: q.y, stroke: 'none', opacity: 0 }, g._linesG);
+      });
+    }
+    g._knobs = (V.hi || []).map(function (i) {
+      return mk('circle', { cx: v[i].x, cy: v[i].y, r: 11, fill: HI.fill, stroke: HI.edge, 'stroke-width': 2.5, opacity: 0 }, vis);
+    });
+    if (V.move) g._mover = mk('circle', { cx: v[V.move[0]].x, cy: v[V.move[0]].y, r: 10, fill: HI.fill, stroke: HI.edge, 'stroke-width': 2.5, opacity: 0 }, vis);
+    // THE NAME, ON A TAG HUNG OFF THE BOTTOM EDGE: on the rim, below the
+    // glass, so it is attached to the card and never over what it shows
+    g._tag = nameTag(pop, SUM.card.cx, y + h + 4, c.label || id, V.tone || null);
+    g._tag.setAttribute('opacity', 0);
+    return g;
+  }
+
+  /* THE IDEA, SHOWN — in well under a second, and simply: each step is one
+     thing happening, in the order a teacher would draw it on a board. */
+  function summaryReveal(g) {
+    var id = g._id, V = SUMMARY_VISUALS[id] || {}, v = g._verts, t = 0;
+    var line = function (a, b, kind, dur, delay) {
+      var el = kind === 'side'
+        ? litLine(g._linesG, { x1: a.x, y1: a.y, x2: a.x, y2: a.y, 'stroke-width': 7, 'stroke-linecap': 'round', opacity: 0 }, { warm: true })[0]
+        : litLine(g._linesG, { x1: a.x, y1: a.y, x2: a.x, y2: a.y, 'stroke-width': kind === 'out' ? 5 : 4, 'stroke-dasharray': '10 8',
+                               'stroke-linecap': 'round', opacity: 0 }, { bad: kind === 'out' })[0];
+      growLine(el, a, b, dur, delay);
+      return el;
+    };
+    // the polygon: drawn round (the first card, where "a polygon" is the
+    // subject), faded up everywhere else
+    var out = g._outline;
+    out.setAttribute('opacity', 1);
+    if (V.draw && !reduced() && out.animate) {
+      out.setAttribute('pathLength', 1);
+      out.style.strokeDasharray = '1 1';
+      try {
+        out.animate([{ strokeDashoffset: 1, fillOpacity: 0 }, { strokeDashoffset: 0, fillOpacity: 0, offset: 0.55 }, { strokeDashoffset: 0, fillOpacity: 1 }],
+                    { duration: 560, easing: 'ease-in-out', fill: 'backwards' });
+      } catch (e) {}
+      later(600, function () { out.style.strokeDasharray = ''; out.removeAttribute('pathLength'); });
+      t = 480;
+    } else if (!reduced() && out.animate) {
+      try { out.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, fill: 'backwards' }); } catch (e) {}
+      t = 140;
+    }
+    // the corners it is about
+    g._knobs.forEach(function (k, j) { sumPop(k, t + j * 120, true); });
+    if (g._knobs.length) { later(reduced() ? 0 : t, function () { sfx('pop', { gain: 0.55 }); }); t += 120 * g._knobs.length + 120; }
+    if (V.pulse && g._knobs[0] && !reduced()) {
+      // a soft ring leaves the corner, twice: "this one"
+      var k0 = g._knobs[0];
+      var ring = mk('circle', { cx: k0.getAttribute('cx'), cy: k0.getAttribute('cy'), r: 12, fill: 'none', stroke: HI.fill, 'stroke-width': 3, opacity: 0 }, g._vis);
+      if (ring.animate) {
+        ring.style.transformBox = 'fill-box'; ring.style.transformOrigin = 'center';
+        try { ring.animate([{ opacity: 0.9, scale: '1' }, { opacity: 0, scale: '2.6' }], { duration: 640, delay: t - 60, iterations: 2, easing: 'ease-out' }); } catch (e) {}
+      }
+    }
+    // (a line that proves what a moved corner did waits for the corner: the
+    // concave card's violet diagonal is INSIDE the pentagon before the dent)
+    if (V.line && !V.move) {
+      var L = V.line;
+      g._line = line(v[L[0]], v[L[1]], L[2], 380, t); g._lineKind = L[2];
+      later(reduced() ? 0 : t, function () { sfx('zip', { gain: 0.6 }); });
+      t += 400;
+    }
+    if (V.sides) {
+      g._sideLines = V.sides.map(function (s) { return line(v[s[0]], v[s[1]], 'side', 300, t); });
+      later(reduced() ? 0 : t, function () { sfx('zip', { gain: 0.5 }); });
+      t += 320;
+    }
+    if (V.wedge != null) {
+      var p = v[V.wedge], q = v[(V.wedge + v.length - 1) % v.length], r2 = v[(V.wedge + 1) % v.length], rr = 26;
+      var a1 = Math.atan2(q.y - p.y, q.x - p.x), a2 = Math.atan2(r2.y - p.y, r2.x - p.x);
+      var sw = ((a2 - a1) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI), large = sw > Math.PI ? 1 : 0;
+      var inside = Poly.contains(v, { x: p.x + Math.cos(a1 + sw / 2) * 8, y: p.y + Math.sin(a1 + sw / 2) * 8 });
+      var flag = inside ? large : 1 - large, dir = inside ? 1 : 0;
+      g._wedge = mk('path', { d: 'M' + p.x + ' ' + p.y + ' L' + (p.x + Math.cos(a1) * rr) + ' ' + (p.y + Math.sin(a1) * rr) +
+                              ' A' + rr + ' ' + rr + ' 0 ' + flag + ' ' + dir + ' ' + (p.x + Math.cos(a2) * rr) + ' ' + (p.y + Math.sin(a2) * rr) + ' Z',
+                              fill: '#ffd24a', 'fill-opacity': 0.9, stroke: '#b07800', 'stroke-width': 2, 'stroke-linejoin': 'round', opacity: 0 }, g._linesG);
+      sumPop(g._wedge, t, true);
+      later(reduced() ? 0 : t, function () { sfx('tick', { gain: 0.7 }); });
+      t += 320;
+    }
+    if (V.diags) {
+      g._diags = Poly.allDiagonals(v.length).map(function (d, k) { return line(v[d[0]], v[d[1]], 'diag', 280, t + k * 110); });
+      later(reduced() ? 0 : t, function () { sfx('zip', { gain: 0.6 }); });
+      t += 110 * 4 + 280;
+    }
+    if (V.move) {
+      // the corner moves: in, into a dent; or out, and the sides stop matching
+      var M = V.move, to = summaryVerts(id, true)[M[0]];
+      sumPop(g._mover, Math.max(0, t - 60), true);
+      later(reduced() ? 0 : t + 120, function () { sfx(id === 'concave' ? 'boing' : 'slideWhistle', { gain: 0.6 }); });
+      moveCorner(g, M[0], to, 460, t + 120);
+      t += 120 + 480;
+      if (V.line) {
+        // the line that proves it, drawn once the dent is there
+        var L2 = V.line, fv = summaryVerts(id, true);
+        g._line = line(fv[L2[0]], fv[L2[1]], L2[2], 320, t); g._lineKind = L2[2];
+        if (L2[2] === 'out') g._line._out = true;
+        later(reduced() ? 0 : t, function () { sfx('zip', { gain: 0.6 }); });
+        t += 340;
+      }
+    }
+    if (V.marks) {
+      // THE LESSON'S OWN NOTATION, on the shape as it now is: equal sides
+      // take the same tick, equal corners the same wedge
+      var drawMarks = function () {
+        g._vis._verts = g._verts.map(function (q) { return { x: q.x, y: q.y }; });
+        var m = shapeMarks(g._vis, V.marks);
+        if (!m || !m.g) return;
+        var kids = [].slice.call(m.g.childNodes);
+        g._ticks = kids.filter(function (k) { return k.tagName === 'line'; });
+        g._wedges = kids.filter(function (k) { return k.tagName === 'path'; });
+        g._ticks.forEach(function (k, j) { sumPop(k, j * 80); });
+        g._wedges.forEach(function (k, j) { sumPop(k, g._ticks.length * 80 + 80 + j * 60); });
+        sfx('sparkle', { gain: 0.5 });
+      };
+      if (reduced()) drawMarks(); else later(t, drawMarks);
+      t += 80 * 5 + 380;
+    }
+    return t;
+  }
+
+  /* ONE CARD IN, AND ITS IDEA SHOWN. Resolves when the idea has been shown
+     and the name is on its tag — the moment he may rise to talk about it. */
+  function summaryShow(id) {
+    var S = st.summary;
+    if (!S) return Promise.resolve(false);
+    // never two at once: a card still in the middle is put away first
+    if (S.active && S.active !== id) summaryCollect(S.active, true);
+    var c = S.concepts.filter(function (k) { return k.id === id; })[0] || { id: id, label: id };
+    var g = S.cards[id] || (S.cards[id] = summaryCard(c));
+    S.active = id;
+    setSummary('CARD_ENTER', id);
+    sfx('menuWhoosh', { gain: 0.45 });
+    var pp = g._pop;
+    if (!reduced() && pp.animate) {
+      pp.style.transformBox = 'fill-box'; pp.style.transformOrigin = 'center';
+      try {
+        pp.animate([{ opacity: 0, scale: '.82', translate: '0 14px' }, { opacity: 1, scale: '1.03', translate: '0 0', offset: 0.62 }, { opacity: 1, scale: '1', translate: '0 0' }],
+                  { duration: SUM.enterMs, easing: 'cubic-bezier(.22,1,.36,1)' });
+      } catch (e) {}
+    }
+    return sumHold(SUM.enterMs).then(function (live) {
+      if (!live || S !== st.summary) return false;
+      setSummary('CONCEPT_REVEAL', id);
+      var ms = summaryReveal(g);
+      return sumHold(ms + 60).then(function (live2) {
+        if (!live2 || S !== st.summary) return false;
+        sumPop(g._tag, 0);
+        return sumHold(260);
+      });
+    });
+  }
+
+  /** Where a collected card lives: the first half of the lesson's order down the left, the rest down the right. */
+  function summarySlot(id) {
+    var S = st.summary, order = S ? S.concepts.map(function (k) { return k.id; }) : [];
+    var i = Math.max(0, order.indexOf(id)), half = Math.ceil(order.length / 2) || 4;
+    var col = i < half ? 0 : 1, row = col ? i - half : i;
+    return { x: SUM.mini.x[col], y: SUM.mini.y0 + row * SUM.mini.pitch, col: col, row: row };
+  }
+
+  /* THE CARD GOES INTO THE COLLECTION: its name lifts off, and it shrinks
+     and travels, on a slight arc, to its place at the edge, where it lands
+     with its name on a small tag of its own. Resolves once it is there. */
+  function summaryCollect(id, now) {
+    var S = st.summary, c = S && S.cards[id];
+    if (!c || c._collected) return Promise.resolve(true);
+    c._collected = true;
+    if (S.active === id) S.active = null;
+    setSummary('CARD_COLLECT', id);
+    var r = c._rect, cx0 = r.x + r.w / 2, cy0 = r.y + r.h / 2;
+    var slot = summarySlot(id), k = SUM.mini.w / r.w;
+    var land = function () {
+      c.setAttribute('transform', 'translate(' + slot.x + ',' + slot.y + ') scale(' + k.toFixed(4) + ') translate(' + (-cx0) + ',' + (-cy0) + ')');
+      c._rect = { x: slot.x - r.w * k / 2, y: slot.y - r.h * k / 2, w: r.w * k, h: r.h * k };
+      c._slot = slot;
+      var mini = nameTag(layers.ui, slot.x, slot.y + r.h * k / 2 + 13, (S.concepts.filter(function (q) { return q.id === id; })[0] || {}).label || id,
+                         (SUMMARY_VISUALS[id] || {}).tone || null, { h: 22, size: 13, pad: 18 });
+      mini.setAttribute('class', 'badge summary-tag');
+      c._mini = mini;
+      if (!now) sumPop(mini, 0);
+      if (S.collected.indexOf(id) < 0) S.collected.push(id);
+      setSummary('NEXT_CONCEPT', id);
+    };
+    // its big name lifts off first: at a quarter of the size it would be unreadable
+    if (!now && !reduced() && c._tag.animate) { try { c._tag.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150 }); } catch (e) {} }
+    c._tag.setAttribute('opacity', 0);
+    if (now || reduced() || !global.requestAnimationFrame) { land(); return Promise.resolve(true); }
+    sfx('menuWhoosh', { gain: 0.35 });
+    var g0 = sceneGen;
+    return new Promise(function (resolve) {
+      var t0 = null;
+      var step = function (ts) {
+        if (g0 !== sceneGen) { resolve(false); return; }
+        if (t0 == null) t0 = ts;
+        var t = Math.min(1, (ts - t0) / SUM.collectMs);
+        var e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        var s = 1 + (k - 1) * e;
+        var x = cx0 + (slot.x - cx0) * e, y = cy0 + (slot.y - cy0) * e - 40 * Math.sin(Math.PI * e);
+        c.setAttribute('transform', 'translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ') scale(' + s.toFixed(4) + ') translate(' + (-cx0) + ',' + (-cy0) + ')');
+        if (t < 1) { requestAnimationFrame(step); return; }
+        land(); sfx('pop', { gain: 0.45 });
+        resolve(true);
+      };
+      requestAnimationFrame(step);
+    });
+  }
+
+  /* ALL OF IT COLLECTED: the two columns gather in a little, each card
+     hopping into place in the order it was learned. Then he comes. */
+  function summaryFinal() {
+    var S = st.summary;
+    if (!S) return Promise.resolve(false);
+    if (S.active) summaryCollect(S.active, true);
+    setSummary('FINAL_SUMMARY');
+    sfx('sparkle', { gain: 0.6 });
+    S.collected.forEach(function (id, i) {
+      var c = S.cards[id], dx = c._slot && c._slot.col ? -16 : 16;
+      later(reduced() ? 0 : i * 70, function () {
+        [c, c._mini].forEach(function (el) {
+          if (!el) return;
+          if (reduced() || !el.animate) { el.style.translate = dx + 'px 0'; return; }
+          // the hop, and then its end written down and the animation let go,
+          // so sixteen finished animations are not held open to the end
+          try {
+            var hop = el.animate([{ translate: '0 0' }, { translate: (dx / 2) + 'px -12px', offset: 0.45 }, { translate: dx + 'px 0' }],
+                                 { duration: 440, easing: 'cubic-bezier(.3,1.2,.5,1)', fill: 'forwards' });
+            hop.finished.then(function () { el.style.translate = dx + 'px 0'; hop.cancel(); }, function () {});
+          } catch (e) { el.style.translate = dx + 'px 0'; }
+        });
+        c._rect = { x: c._rect.x + dx, y: c._rect.y, w: c._rect.w, h: c._rect.h };
+        if (c._mini && c._mini._rect) c._mini._rect = { x: c._mini._rect.x + dx, y: c._mini._rect.y, w: c._mini._rect.w, h: c._mini._rect.h };
+      });
+    });
+    return sumHold(S.collected.length * 70 + 460);
+  }
 
   /* ------------------------------------------------------------------ *
    * Swipe classification
@@ -2689,7 +3105,9 @@
       var tdx = (b.x - a.x) / sl, tdy = (b.y - a.y) / sl, tnx = -tdy, tny = tdx;
       var cnt = sideM.mark[i2] || 1;
       for (var k = 0; k < cnt; k++) {
-        var o = (k - (cnt - 1) / 2) * 6, cx = mx + tdx * o, cy = my + tdy * o;
+        // (`along`, not `o`: a var named o here overwrote the options object,
+        // so everything after the ticks forgot what it had been asked for)
+        var along = (k - (cnt - 1) / 2) * 6, cx = mx + tdx * along, cy = my + tdy * along;
         litLine(g, { x1: cx - tnx * 7, y1: cy - tny * 7, x2: cx + tnx * 7, y2: cy + tny * 7,
                      'stroke-width': 3, 'stroke-linecap': 'round' }, { warm: true });
       }
@@ -3100,15 +3518,16 @@
    * over it, which is what a caption does. A tone gives it the concept's
    * colours; without one it is warm ice.
    */
-  function nameTag(parent, x, y, text, tone) {
+  // `o` { h, size, pad }: a smaller plate, for a word on a card (the showdown)
+  function nameTag(parent, x, y, text, tone, o) {
     var c = CONCEPT[tone] || null;
     var g = mk('g', { 'class': 'badge' }, parent);
-    var H0 = 50;
-    var probe = mk('text', { x: x, y: y + 9, 'text-anchor': 'middle', 'font-size': 26, 'font-weight': 900,
+    var H0 = (o && o.h) || 50, fs = (o && o.size) || 26;
+    var probe = mk('text', { x: x, y: y + (o && o.size ? fs * 0.35 : 9), 'text-anchor': 'middle', 'font-size': fs, 'font-weight': 900,
                              fill: c ? c.ink : '#0b3f7a', text: text }, g);
     var w = 0; try { w = probe.getComputedTextLength ? probe.getComputedTextLength() : 0; } catch (e) { w = 0; }
-    if (!w) w = text.length * 14;
-    var bw = w + 52, bx = x - bw / 2, by = y - H0 / 2;
+    if (!w) w = text.length * (o && o.size ? fs * 0.54 : 14);
+    var bw = w + ((o && o.pad) || 52), bx = x - bw / 2, by = y - H0 / 2;
     var r = H0 * 0.44;
     // one face, one rim, no shadow and no gloss
     var face = mk('rect', { x: bx, y: by, width: bw, height: H0, rx: r,
@@ -4042,6 +4461,18 @@
                      { duration: 1100, delay: groups.length * STEP + 160, easing: 'ease-in-out', fill: 'both' })
           .finished.then(function () { glow.remove(); }, function () { glow.remove(); });
       } catch (e) { glow.remove(); }
+    },
+
+    /* THE END-GAME SUMMARY, driven by the screen's beats: `card` brings one
+       in and shows its idea, `collect` puts it away, `final` gathers the
+       collection. Each returns a promise the beat waits on, so no state of it
+       ever overlaps the next. */
+    summary: function (o) {
+      if (!o || st.kind !== 'summary') return null;
+      if (o.card) return summaryShow(o.card);
+      if (o.collect) return summaryCollect(o.collect);
+      if (o.final) return summaryFinal();
+      return null;
     }
   };
 
@@ -4131,6 +4562,7 @@
     if (spec.observe) op.observe(spec.observe);
     if (spec.returnItem && st.sort && st.sort.dragging) returnItem(st.sort.dragging);
     if (spec.kind) applySeat(false);
+    if (spec.summary) return op.summary(spec.summary);
   }
 
   /* ------------------------------------------------------------------ *
@@ -4156,6 +4588,8 @@
     if (ref.indexOf('compare.') === 0) { var c = st.compare && st.compare[ref.split('.')[1]]; return c ? [c.g, c.pg] : []; }
     if (ref === 'sort.tray' || ref === 'sort.item') return st.sort ? st.sort.items : [];
     if (ref === 'builder.stepper') return st.stepPlus ? [st.stepPlus] : [];
+    if (ref === 'summary') return st.summary ? Object.keys(st.summary.cards).map(function (k) { return st.summary.cards[k]; }) : [];
+    if (ref === 'summary.card') return st.summary && st.summary.active ? [st.summary.cards[st.summary.active]] : [];
     return [];
   }
 
@@ -4303,9 +4737,44 @@
     for (var i = 0; i < A.length; i++) if (A[i] > 180.5) out.push(i);
     return out;
   }
+  /* THE SUMMARY'S WORDS NAME WHAT IS ON ITS CARD. "Vertex" swells the corner
+     that lit, "sides" traces the sides that meet there, "angle" the wedge,
+     "diagonals" the lines drawn across; "inside" and "outside" glow the
+     shape; "equal" its marks; the kind of polygon, the card's own name. Only
+     the card in the middle answers — the collected ones have had their say —
+     except in the last line, where "polygon" is all of them. */
+  function summaryWord(term, line) {
+    void line;
+    var S = st.summary; if (!S) return 0;
+    var c = S.active ? S.cards[S.active] : null;
+    if (!c) return term === 'polygon' ? warmPulse(S.collected.map(function (k) { return S.cards[k]._pop; }), { together: true, peak: '1.05' }) : 0;
+    switch (term) {
+      case 'polygon': return warmPulse([c._outline], { peak: '1.04' });
+      case 'vertex': return c._knobs.length ? warmPulse(c._knobs, { peak: '1.5' }) : (c._mover ? warmPulse([c._mover], { peak: '1.5' }) : 0);
+      case 'side': {
+        var sl = c._sideLines || (c._line && c._lineKind === 'side' ? [c._line] : null) || c._near;
+        if (sl && sl.length) return trace(sl);
+        return c._ticks && c._ticks.length ? warmPulse(c._ticks, { peak: '1.5' }) : trace([c._outline]);
+      }
+      case 'angle':
+        if (c._wedge) return warmPulse([c._wedge], { peak: '1.25' });
+        return c._wedges && c._wedges.length ? warmPulse(c._wedges, { peak: '1.25' }) : 0;
+      case 'diagonal': {
+        var ds = (c._diags || []).concat(c._line && c._lineKind !== 'side' ? [c._line] : []);
+        return ds.length ? trace(ds) : 0;
+      }
+      case 'inside': return regionGlow(pathOf(c._verts));
+      case 'outside': return regionGlow(pathOf(c._verts), true);
+      case 'equal': { var eq = (c._ticks || []).concat(c._wedges || []); return eq.length ? warmPulse(eq, { peak: '1.3' }) : 0; }
+      case 'convex': case 'concave': case 'regular': case 'irregular':
+        return c._id === term ? warmPulse([c._tag], { peak: '1.08' }) : 0;
+      default: return 0;
+    }
+  }
   function emphasize(term, ctx) {
     if (!svg || reduced() || dragging()) return 0;
     var kind = st.kind, line = String((ctx && ctx.line) || '').toLowerCase();
+    if (kind === 'summary') return summaryWord(term, line);
     switch (term) {
       case 'polygon':
         if (kind === 'grid') return warmPulse(st.cards, { together: true, peak: '1.03' });   // every card, never the right ones
@@ -5836,7 +6305,7 @@
     // `glass`: the slab itself does not count, only what is drawn on it —
     // for a bird waiting INSIDE the card, whose words belong beside him on
     // the glass rather than banished above the rim.
-    var sel = ((opts && opts.glass) ? '' : '.panel, ') + '.polygon, .meas, .card, .sort-item, .bin, .choice, .stepper, .shape, .badge';
+    var sel = ((opts && opts.glass) ? '' : '.panel, ') + '.polygon, .meas, .card, .sort-item, .bin, .choice, .stepper, .shape, .badge, .summary-card';
     var out = [];
     var nodes = svg.querySelectorAll(sel);
     // Through the live matrix, as contentBox() does. Scaling by the svg box
@@ -5886,6 +6355,14 @@
                cx: SWIPE_HOME.x, cy: SWIPE_HOME.y + seatY };
     },
     peekAnchor: function (o) {
+      // THE SUMMARY: behind the card in the middle, at the middle of its top
+      // edge, the same place for every card — and nowhere while it travels
+      if (st.kind === 'summary') {
+        var sc = st.summary && st.summary.active ? st.summary.cards[st.summary.active] : null;
+        if (!sc || sc._collected) return null;
+        var sr = sc._rect;
+        return { frame: 'panel', at: 0.5, x: sr.x, y: sr.y + seatY, w: sr.w, h: sr.h };
+      }
       if (st.panel) return seatY ? Object.assign({}, st.panel, { y: st.panel.y + seatY }) : st.panel;
       if (st.compare) {
         // the card the lesson is looking at — the one glowing — else the left
@@ -5959,7 +6436,24 @@
     get staleSuppressed() { return staleSuppressed; },
     get pendingTimers() { return sceneTimers.length; },
     get svg() { return svg; }, get state() { return st; },
-    shapeVerts: shapeVerts
+    shapeVerts: shapeVerts,
+    /** Where the end-game summary is: its state, the card in the middle, what has been collected. */
+    summaryState: function () { var S = st.summary; return S && st.kind === 'summary' ? { state: S.state, active: S.active, collected: S.collected.slice() } : null; },
+    /* His part of it — rising, the line, its reading pause, sinking — is the
+       director's; game.js passes each on as it begins. */
+    summaryPhase: function (name) {
+      var S = st.summary;
+      if (st.kind !== 'summary' || !S || !S.active) return;
+      if (['SWIFTEE_ENTER', 'EXPLANATION', 'READING_PAUSE', 'SWIFTEE_EXIT'].indexOf(name) < 0) return;
+      setSummary(name, S.active);
+    },
+    /** What a summary card shows, as geometry, for the tests to check against polygon-math. */
+    summaryGeometry: function (id) {
+      var V = SUMMARY_VISUALS[id]; if (!V) return null;
+      return { start: summaryVerts(id, false), end: summaryVerts(id, true), hi: (V.hi || []).slice(), line: V.line ? V.line.slice() : null,
+               sides: V.sides ? V.sides.map(function (q) { return q.slice(); }) : null, wedge: V.wedge == null ? null : V.wedge,
+               diags: !!V.diags, move: V.move ? V.move.slice() : null, marks: V.marks || null, tone: V.tone || null };
+    }
   };
   global.Stage = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

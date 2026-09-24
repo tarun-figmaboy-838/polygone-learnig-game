@@ -151,9 +151,13 @@ async function act(spec){
   t('no runtime errors across the whole game', errors.length===0, errors.slice(0,3).join(' | '));
   t('all '+N+' screens were visited', screensSeen.size===N, screensSeen.size+'/'+N);
   const types=new Set(asked.map(a=>a.type));
-  // 11: the storyboard no longer drags a side's loose end (drag-endpoint)
-  t('all 11 interaction types were exercised', types.size===11, [...types].join(','));
+  // 10: the storyboard no longer drags a side's loose end (drag-endpoint),
+  // and the builder's stepper went with the builder
+  t('all 10 interaction types were exercised', types.size===10, [...types].join(','));
   t('the connect step went side, side, diagonal', Object.values(sideTries).some(k=>k===3), JSON.stringify(sideTries));
+  const SM=w.Stage.summaryState&&w.Stage.summaryState();
+  t('the summary collected all eight ideas, in order, and reached its finale', !!SM && SM.state==='FINAL_SUMMARY' && SM.collected.join(',')==='vertex,side,angle,diagonal,convex,concave,regular,irregular',
+    JSON.stringify(SM));
   // 7: the connect step judges nothing wrong (a neighbour is a side, not a
   // mistake), and the drag-a-side screen that had a wrong answer is gone
   t('a wrong answer was tried on every judged screen ('+wrongTried+' times)', wrongTried>=7, String(wrongTried));

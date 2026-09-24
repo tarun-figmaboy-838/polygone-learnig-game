@@ -203,6 +203,10 @@
   }
   function lineType(beats, i) {
     var list = beats || [];
+    // A RECAP LINE is said, held for a short breath and moved on from: the
+    // end-game summary has eight of them, and each is a reminder of a thing
+    // already learned, not a new thing to take in (finalPause 'recap').
+    if (list[i] && list[i].pace === 'recap') return 'recap';
     var own = lineText(list[i]);
     var answersToCome = false;
     for (var k = i + 1; k < list.length; k++) {
@@ -228,7 +232,9 @@
   }
 
   /** The beat after the last word, for a line of this kind. */
+  var RECAP_PAUSE = 550;   // the summary's reading pause: 0.4–0.7s, then the card moves on
   function finalPause(type, text, scale) {
+    if (type === 'recap') return Math.round(RECAP_PAUSE * (scale == null ? 1 : scale));
     return (type === 'action' || type === 'question-ready') ? interactionDelay(text, scale) : readingPause(text, scale);
   }
 

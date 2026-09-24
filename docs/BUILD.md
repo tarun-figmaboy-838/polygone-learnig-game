@@ -18,7 +18,7 @@ the correction, so nothing is changed silently.
 | **15** | **Answer leak.** "Your turn! Draw all the diagonals" — with all three answers drawn as dashed ghosts. The exercise can be done by tracing. Section 2 of the brief forbids exactly this. | Ghosts removed; label "Hexagon" stays |
 | **15** | **Sequence break.** Pentagon on pages 5–14, hexagon for one screen, pentagon again on 16–20. Reads as a mistake. | Encoded in place; **recommend moving it after page 17** or to the end of the diagonals unit. Client call |
 | **16** | **Stale card.** Instruction still reads "Draw another diagonal from the same vertex." while the dialogue is "Look at the diagonals." Look-only screen. | Card cleared |
-| **18, 20, 22, 24, 27, 32b** | **Same bug, six more times.** The deck drops the card on these pages, but a build that only *sets* cards would leave the previous one showing — "Drag the vertex inward" through "Whoa!" | Card explicitly cleared on each. A test simulates the card through all 34 screens and asserts it matches the deck on every one |
+| **18, 20, 22, 24, 27, 32b** | **Same bug, six more times.** The deck drops the card on these pages, but a build that only *sets* cards would leave the previous one showing — "Drag the vertex inward" through "Whoa!" | Card explicitly cleared on each. A test simulates the card through all 31 screens and asserts it matches the deck on every one |
 
 ### Fix at leisure
 
@@ -66,7 +66,7 @@ polygon-math.js ── every right/wrong judgement                  (truth)
 
 **`screens.js` is the single source of the storyboard.** Dialogue, cards,
 Swiftee state, stage setup, interaction spec and feedback branches for all
-34 screens. If a line of copy needs to change, it changes here and nowhere
+31 screens. If a line of copy needs to change, it changes here and nowhere
 else. `Screens.flags()` lists every deviation from the deck.
 `Screens.voScript()` emits the 36-line recording script with VO ids.
 
@@ -125,7 +125,7 @@ take `at:` (a stage target). `enter`/`exit` take `from:`/`to:`. `move` takes
 Only `enter`, `exit`, `move` and `celebrate` are awaited by the director.
 The rest are fire-and-forget so a reaction never delays the lesson.
 
-### Input types (11)
+### Input types (10 in use)
 
 | Type | Resolves with `{result}` when |
 | --- | --- |
@@ -139,11 +139,11 @@ The rest are fire-and-forget so a reaction never delays the lesson.
 | `tap-each` | Each of `count` targets tapped once, revealing `length` or `arc` |
 | `sort` | Each drop judged via `perTap` by `Poly.classify`; resolves when all placed correctly |
 | `swipe` | The card is flung, or its zone tapped, toward Regular or Irregular. A wrong side springs it back; resolves once every card is sorted (`until: 'all-classified'`) |
-| `stepper` | Stepper reaches `target`. Polygon morphs live |
+| `stepper` | Stepper reaches `target`. Polygon morphs live. (Still implemented; no screen uses it since the builder screens were replaced by the summary) |
 
-### Stage kinds (6)
+### Stage kinds (7 in use)
 
-`vista` `polygon` `choice-grid` `compare` `sort` `builder`
+`vista` `polygon` `choice-grid` `compare` `sort` `swipe-sort` `summary` (and `builder`, implemented, unused)
 
 Stage beats also carry incremental ops: `highlight`, `label`, `badge`,
 `ghost`, `draw`, `diagonals`, `choices`, `checklist`, `reveal`, `returnItem`.
@@ -199,7 +199,7 @@ Already written and passing; wire them into the Playwright run.
 | `polygon-math` (46 checks) | Every judgement the game makes |
 | `director` (14 checks) | Ordering, cancellation, never-stuck, skip safety, branching |
 | `screens` structural | Unique ids and VO ids; every line said in its beats; wrong paths present and non-verbal; no answer ghosts on "your turn"; the definition says *vertices* |
-| `screens` card simulation | Instruction card matches the deck on all 34 screens |
+| `screens` card simulation | Instruction card matches the deck on all 31 screens |
 | `screens` end-to-end | Every screen completes through the director; wrong answers re-open input |
 
 Add one in-page test: instrument `SFX.play` and `Juice.*` and assert that
@@ -250,7 +250,7 @@ there and the browser voice and the ElevenLabs render both follow.
 | Suite | Runs |
 | --- | --- |
 | `node smoke.js` | Boots the real page in jsdom, plays screens 1–11 with pointer events, checks skip vs advance, restarts |
-| `node playthrough.js` | A scripted child plays all 34 screens, tries a wrong answer first on every judged one, asserts one wrong cue per wrong attempt |
+| `node playthrough.js` | A scripted child plays all 31 screens, tries a wrong answer first on every judged one, asserts one wrong cue per wrong attempt |
 | `polygon-math`, `director`, `screens` | Unit suites described above |
 
 Both browser suites polyfill WAAPI, canvas and speech, so they prove

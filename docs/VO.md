@@ -10,7 +10,7 @@ Every line Swiftee says, **in the order a child hears it**, with the file the ga
 
 **Breaths:** record every line as ONE clip, read naturally, with a short breath at each `/` in the Breaths column. On screen each sentence is one bubble; the breaths are where the words pause inside it.
 
-## Lesson lines (46), in timeline order
+## Lesson lines (50), in timeline order
 
 | # | Screen | Screen id | File | Type | Line | Breaths | When | Delivery | Recorded |
 |---|--------|-----------|------|------|------|---------|------|----------|----------|
@@ -55,11 +55,15 @@ Every line Swiftee says, **in the order a child hears it**, with the file the ga
 | 39 | 28 | stayed-changed | `assets/vo/p32bi.mp3` | instruction | Are the sides and angles still equal? |  | screen 28, the instruction | an instruction: plain, steady, every word clear | — |
 | 40 | 29 | regular-vs-irregular | `assets/vo/p32c.mp3` | say | All sides AND all angles same: regular. Otherwise, it’s irregular. | All sides AND all angles same: / regular. / Otherwise, it’s irregular. | screen 29 | explaining, warm and clear | — |
 | 41 | 30 | sort-regular | `assets/vo/p33.mp3` | say | Where does this polygon belong? |  | screen 30 | asking: curious, open | — |
-| 42 | 31 | build-sides | `assets/vo/p35ai.mp3` | instruction | Set the number of sides. Make it a pentagon. | Set the number of sides. Make it a pentagon. | screen 31, the instruction | an instruction: plain, steady, every word clear | — |
-| 43 | 32 | build-pentagon | `assets/vo/p35b.mp3` | say | Great! Now you have a pentagon. |  | screen 32 | a cheer, delighted | — |
-| 44 | 33 | build-concave | `assets/vo/p35c.mp3` | say | Now drag a vertex inward to make it a concave pentagon. | Now drag a vertex inward / to make it a concave pentagon. | screen 33 | explaining, warm and clear | — |
-| 45 | 33 | build-concave | `assets/vo/p35ci.mp3` | instruction | Drag a vertex inward to make it a concave pentagon. |  | screen 33, the instruction | an instruction: plain, steady, every word clear | — |
-| 46 | 34 | build-done | `assets/vo/p35d.mp3` | say | Nice! You built a concave and irregular pentagon. | Nice! You built a concave / and irregular pentagon. | screen 34 | a cheer, delighted | — |
+| 42 | 31 | summary | `assets/vo/p37a.mp3` | say | A vertex is a corner where two sides meet. |  | screen 31 | explaining, warm and clear | — |
+| 43 | 31 | summary | `assets/vo/p37b.mp3` | say | A side is a straight line joining two vertices. |  | screen 31 | explaining, warm and clear | — |
+| 44 | 31 | summary | `assets/vo/p37c.mp3` | say | An angle is formed where two sides meet. |  | screen 31 | explaining, warm and clear | — |
+| 45 | 31 | summary | `assets/vo/p37d.mp3` | say | A diagonal joins two non-adjacent vertices. |  | screen 31 | explaining, warm and clear | — |
+| 46 | 31 | summary | `assets/vo/p37e.mp3` | say | In a convex polygon, all diagonals stay inside. |  | screen 31 | explaining, warm and clear | — |
+| 47 | 31 | summary | `assets/vo/p37f.mp3` | say | In a concave polygon, at least one diagonal goes outside. |  | screen 31 | explaining, warm and clear | — |
+| 48 | 31 | summary | `assets/vo/p37g.mp3` | say | A regular polygon has all sides and all angles equal. |  | screen 31 | explaining, warm and clear | — |
+| 49 | 31 | summary | `assets/vo/p37h.mp3` | say | If the sides or angles are not all equal, the polygon is irregular. |  | screen 31 | explaining, warm and clear | — |
+| 50 | 31 | summary | `assets/vo/p37i.mp3` | say | Amazing! You explored all these polygon ideas! |  | screen 31 | explaining, warm and clear | — |
 
 ## Answers (15), said when the child answers
 

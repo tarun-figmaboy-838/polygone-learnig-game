@@ -2,7 +2,7 @@
 /*!
  * playthrough.browser.js — the whole lesson, in a real browser, via Playwright.
  *
- *   node tests/playthrough.browser.js            full 34-screen play
+ *   node tests/playthrough.browser.js            full 31-screen play
  *   node tests/playthrough.browser.js --checks   render and layout only (fast)
  *   node tests/playthrough.browser.js --headed   watch it
  *   node tests/playthrough.browser.js --shots <dir>
@@ -262,8 +262,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // catch him mid-flight and a settling pause before them would let him land
   // first.
   await sleep(1200);
+  // (not the stage's scene layers: they are the scene on screen, emptied by
+  // every reset, and the lesson now ENDS on one that keeps its collection up)
   const baseline = await safe(() => page.evaluate(() => ({
-    nodes: document.getElementsByTagName('*').length,
+    nodes: document.getElementsByTagName('*').length -
+           document.querySelectorAll('.layer-panel *, .layer-poly *, .layer-ui *').length,
     anims: document.getAnimations().length
   })), { nodes: 0, anims: 0 });
 
@@ -514,6 +517,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         }
         return;
       }
+
     }
   }
 
@@ -724,8 +728,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     t('all ' + N + ' screens were visited', seen === N, seen + '/' + N);
     const buddy = await safe(() => page.evaluate(() => window.__buddy), []);
     t('Swiftee is on screen only where he has a purpose', buddy.length === 0, buddy.join(' '));
-    // 11: the storyboard no longer drags a side's loose end (drag-endpoint)
-    t('all 11 interaction types were exercised', new Set(asked).size === 11, [...new Set(asked)].join(','));
+    // 10: the storyboard no longer drags a side's loose end (drag-endpoint),
+    // and the builder's stepper went with the builder
+    t('all 10 interaction types were exercised', new Set(asked).size === 10, [...new Set(asked)].join(','));
     t('correct cues fired', cues.correct > 0, JSON.stringify(cues));
     t('never stalled on a screen', stalls === 0, stalled ? JSON.stringify(stalled) : '');
   }
@@ -739,7 +744,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   if (!CHECKS_ONLY) {
     const settled = await safe(() => page.evaluate(async () => {
       await new Promise((r) => setTimeout(r, 1500));
-      return { nodes: document.getElementsByTagName('*').length, anims: document.getAnimations().length };
+      // the scene on screen is not a leak — the end-game summary's eight
+      // collected cards are the point of it — and a reset empties those
+      // layers, so nothing can pile up in them from scene to scene. Everything
+      // else still counts: the effects layer, confetti, the transition, the bubble.
+      return { nodes: document.getElementsByTagName('*').length -
+                      document.querySelectorAll('.layer-panel *, .layer-poly *, .layer-ui *').length,
+               anims: document.getAnimations().length };
     }), { nodes: 1e9, anims: 1e9 });
     const grew = { nodes: settled.nodes - baseline.nodes, anims: settled.anims - baseline.anims };
     // The end screen legitimately adds a little furniture, hence a budget

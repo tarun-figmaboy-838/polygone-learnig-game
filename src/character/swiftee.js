@@ -674,7 +674,7 @@
         { translate: '0 5px', scale: '1.06 0.93', offset: o.quick ? 0.7 : 0.66, easing: 'cubic-bezier(.4,0,.6,1)' },
         { translate: '0 -3px', scale: '0.98 1.02', offset: 0.84, easing: 'ease-in-out' },
         { translate: '0 0', scale: '1 1', offset: 1 }
-      ], { duration: o.quick ? 520 : 640, easing: 'linear' });
+      ], { duration: o.ms || (o.quick ? 520 : 640), easing: 'linear' });   // o.ms: the summary's third-of-a-second rise
       clip('curious', 1);
     } else {
       // TWO HOPS IN, wings going: he comes on the way a small bird crosses

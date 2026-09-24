@@ -331,7 +331,7 @@ t('the game exposes its semantic state table', RIG && Object.keys(RIG).length >=
   });
   t('every storyboard intention resolves to a drawn state in every context', bad.length === 0, bad);
   t('the same screen always gets the same face (deterministic variety)', unstable.length === 0, unstable);
-  const faces = new Set(['which-polygons', 'drag-to-diagonal', 'another-diagonal', 'inside-or-outside', 'drag-inward', 'stayed-changed', 'build-sides', 'build-concave']
+  const faces = new Set(['which-polygons', 'connect', 'another-diagonal', 'inside-or-outside', 'drag-inward', 'stayed-changed', 'hexagon-your-turn', 'sort-convex-concave']
     .map((k) => Swiftee.resolve('happySmall', { key: k })));
   t('an ordinary right answer is not the same face on every screen', faces.size >= 2, [...faces]);
   t('a right answer after a miss is relief', Swiftee.resolve('happySmall', { key: 'x', after: 'miss' }) === 'phew');
@@ -351,7 +351,9 @@ t('the game exposes its semantic state table', RIG && Object.keys(RIG).length >=
       if (b.on) Object.keys(b.on).forEach((k) => walk(b.on[k]));
     });
   })(s.beats));
-  const fresh = ['reading', 'writing', 'learning', 'puzzleing', 'love', 'relieved', 'blinking'].filter((r) => !used.has(r));
+  // ('puzzleing', the puzzle pieces, was the builder's; the lesson no longer
+  // builds a shape — it ends on the showdown — so there is nowhere it fits)
+  const fresh = ['reading', 'writing', 'learning', 'love', 'relieved', 'blinking'].filter((r) => !used.has(r));
   t('the storyboard reaches the rig\'s unused drawings where they fit', fresh.length <= 1, fresh);   // blinking is reached by the game (watch), not a beat
 }
 

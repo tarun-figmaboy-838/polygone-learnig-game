@@ -1,6 +1,7 @@
 # Swiftee &amp; the Polygons
 
-A 34-screen guided lesson: diagonals, convex and concave, regular and irregular.
+A 31-screen guided lesson: diagonals, convex and concave, regular and irregular,
+ending on an animated end-game summary that collects every idea it taught.
 Plain scripts, no build step, no framework. Open it and it runs.
 
 ```
@@ -136,13 +137,37 @@ closing in rather than as an effect switching on.
 
 The wipe marks **a new level**, not a new page: it fires on the first screen
 of each quest chapter — Shape scout, Diagonal detective, Dent discoverer,
-Pattern pro, Polygon builder — and nowhere else. The screens inside a level
+Pattern pro, Polygon champion — and nowhere else. The screens inside a level
 step from each other with their own small entrances, which is what keeps a
 demonstration reading as one continuous thing.
 
 Before the crystals arrive, `Stage.flurry()` raises the scene's own snowfall:
 a reserve of bigger, faster flakes joins the calm ones and the calm ones speed
 up. The storm builds, then covers.
+
+---
+
+## The end-game summary
+
+The lesson ends by collecting what it taught: vertex, side, angle, diagonal,
+convex, concave, regular, irregular. Each idea is one row of data in
+`screens.js` (`SUMMARY`: id, label, one recap line, its animation and VO id),
+and `summaryBeats()` turns the list into the screen's beats, so every card runs
+the same sequence:
+
+```
+CARD_ENTER → CONCEPT_REVEAL → SWIFTEE_ENTER → EXPLANATION → READING_PAUSE
+  → SWIFTEE_EXIT → CARD_COLLECT → NEXT_CONCEPT … → FINAL_SUMMARY
+```
+
+One card component draws all eight (`stage.js`, `summaryCard` and the
+`SUMMARY_VISUALS` table: which corners light, which line draws, which corner
+moves). He rises from behind the middle of the card's top edge each time, and
+the card then shrinks into the collection: the parts down the left edge, the
+kinds down the right. Each beat waits for the one before it, so no two states
+overlap and no voice plays over another. `Stage.summaryState()` reports where
+it is; `tests/screens.test.js` checks each card's geometry against
+`polygon-math.js`.
 
 ---
 
@@ -175,9 +200,9 @@ one speech — no screen here says more than one line, so it could never have ru
 | --- | --- |
 | `tests/polygon-math.test.js` | 77 checks. Every geometric judgement, including page 21's rhombus and rectangle traps |
 | `tests/director.test.js` | 38 checks. Ordering, cancellation, never-stuck, skip safety, branching |
-| `tests/screens.test.js` | 55 checks. Unique ids and VO ids, the instruction card simulated across all 34 screens, no wrong path containing words, no answer ghosts |
+| `tests/screens.test.js` | 55 checks. Unique ids and VO ids, the instruction card simulated across all 31 screens, no wrong path containing words, no answer ghosts |
 | `tests/swiftee.test.js` | 26 checks. The frame table still matches the manifest, every grid can address every frame, every sheet exists, no reaction outruns the beat ceiling |
-| `tests/playthrough.jsdom.js` | A scripted child plays all 34 screens, trying a wrong answer first on every judged one |
+| `tests/playthrough.jsdom.js` | A scripted child plays all 31 screens, trying a wrong answer first on every judged one |
 | `tests/playthrough.browser.js` | The same lesson in a real Chrome, via Playwright — including a real pointer drag on the swipe practice, a twitch that must not classify, and a wrong swipe that must not advance |
 | `tests/qa.browser.js` | The same lesson played BADLY in Chrome — mashed buttons, taps on the scenery, resizes mid-screen — plus type size, contrast and touch-target measurements. See docs/QA.md |
 

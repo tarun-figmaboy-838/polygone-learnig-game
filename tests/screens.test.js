@@ -11,7 +11,7 @@
  *                ships the answer as a ghost; the definition on page 13 says
  *                vertices, not sides.
  *
- *   CARD         The instruction card is simulated through all 34 screens.
+ *   CARD         The instruction card is simulated through all 31 screens.
  *                The deck drops the card on pages 16, 18, 20, 22, 24, 27 and
  *                32b, and a build that only ever *sets* the card would leave
  *                the previous one showing. This walks the whole lesson and
@@ -82,9 +82,10 @@ function wrongBeats(screen) {
  * Structural
  * ------------------------------------------------------------------ */
 
-// 34: the diagonal chapter's six demonstration screens (pages 7–12) are one
-// screen now, where the child connects the corner and finds out.
-t('there are 34 screens', S.length === 34, S.length);
+// 31: the diagonal chapter's six demonstration screens (pages 7–12) are one
+// screen now, where the child connects the corner and finds out; and the
+// four builder screens that ended the lesson are one end-game summary.
+t('there are 31 screens', S.length === 31, S.length);
 
 const ids = S.map((s) => s.id);
 t('every screen id is unique', new Set(ids).size === ids.length,
@@ -177,7 +178,7 @@ t('no screen claims page 34 or 36', !S.some((s) => s.page === 34 || s.page === 3
  * from `choice` would otherwise hide behind these.
  */
 const JUDGING = ['draw-diagonal', 'draw-diagonals', 'choice', 'multi-select', 'sort', 'swipe'];
-const OPEN = ['vertex-pick', 'drag-vertex', 'tap-each', 'stepper', 'tap-anywhere'];
+const OPEN = ['vertex-pick', 'drag-vertex', 'tap-each', 'tap-anywhere'];
 
 const inputsOf = (s) => allBeats(s).filter((b) => b.input).map((b) => b.input.type);
 const judged = S.filter((s) => inputsOf(s).some((ty) => JUDGING.indexOf(ty) >= 0));
@@ -219,7 +220,7 @@ t('every wrong path re-opens the input or is judged per tap',
   judged.filter((s) => !(s.perTap && s.perTap.wrong) && !wrongBeats(s).some((b) => b.input)).map((s) => s.id));
 
 /* ------------------------------------------------------------------ *
- * The instruction card, simulated through all 34 screens
+ * The instruction card, simulated through all 31 screens
  * ------------------------------------------------------------------ */
 
 {
@@ -239,7 +240,7 @@ t('every wrong path re-opens the input or is judged per tap',
     const want = s.instruction === undefined ? shown : s.instruction;
     if (shown !== want) mismatches.push({ page: s.page, id: s.id, showing: shown, deck: want });
   });
-  t('the instruction card matches the deck on every one of the 34 screens',
+  t('the instruction card matches the deck on every one of the 31 screens',
     mismatches.length === 0, mismatches.slice(0, 4));
 }
 
@@ -265,8 +266,8 @@ t('every wrong path re-opens the input or is judged per tap',
 // it failed a test whose message said it was not implemented.
 const SWIFTEE = require('../src/character/swiftee.js').states;
 const INPUTS = ['tap-anywhere', 'vertex-pick', 'draw-diagonal', 'draw-diagonals',
-                'drag-vertex', 'choice', 'multi-select', 'tap-each', 'sort', 'stepper', 'swipe'];
-const KINDS = ['vista', 'polygon', 'choice-grid', 'compare', 'sort', 'builder', 'swipe-sort'];
+                'drag-vertex', 'choice', 'multi-select', 'tap-each', 'sort', 'swipe'];
+const KINDS = ['vista', 'polygon', 'choice-grid', 'compare', 'sort', 'swipe-sort', 'summary'];
 const SFX = ['boing', 'correct', 'honk', 'levelUp', 'menuWhoosh', 'pop', 'select', 'slice',
              'slideWhistle', 'sparkle', 'tick', 'wrong', 'zip', 'drumroll'];
 const JUICE = ['celebrate', 'collect', 'confetti', 'pop', 'refuse', 'wobble', 'flash', 'squash', 'tada'];
@@ -331,8 +332,70 @@ t('every juice effect referenced exists', unknown(used.juice, JUICE).length === 
 
 // 11: the drag-a-side's-end interaction (the old page 11) is gone — the child
 // now draws the diagonal from their own corner
-t('all 11 interaction types are actually used somewhere', used.input.size === INPUTS.length, [...used.input]);
+// 10: and the builder's stepper went with the builder
+t('all 10 interaction types are actually used somewhere', used.input.size === INPUTS.length, [...used.input]);
 t('all 7 stage kinds are actually used somewhere', used.kind.size === 7, [...used.kind]);
+
+/* ------------------------------------------------------------------ *
+ * The end-game summary: every idea, in order, shown truly
+ *
+ * The last screen recaps the lesson one card at a time. What each card shows
+ * is the evidence for its word, and that is invisible in a playthrough — a
+ * card animates whatever it is given — so it is checked from the geometry.
+ * ------------------------------------------------------------------ */
+{
+  const sm = Screens.byId.summary;
+  t('the summary ends the lesson', !!sm && S[S.length - 1] === sm);
+  if (sm) {
+    const want = ['vertex', 'side', 'angle', 'diagonal', 'convex', 'concave', 'regular', 'irregular'];
+    const cs = (sm.stage && sm.stage.concepts) || [];
+    t('it recaps the eight ideas in the order they were taught', cs.map((c) => c.id).join(',') === want.join(','), cs.map((c) => c.id));
+    const lines = {
+      vertex: 'A vertex is a corner where two sides meet.', side: 'A side is a straight line joining two vertices.',
+      angle: 'An angle is formed where two sides meet.', diagonal: 'A diagonal joins two non-adjacent vertices.',
+      convex: 'In a convex polygon, all diagonals stay inside.', concave: 'In a concave polygon, at least one diagonal goes outside.',
+      regular: 'A regular polygon has all sides and all angles equal.', irregular: 'If the sides or angles are not all equal, the polygon is irregular.'
+    };
+    const beats = sm.beats;
+    const at = (pred) => beats.findIndex(pred);
+    const orderOk = want.every((id) => {
+      const card = at((b) => b.stage && b.stage.summary && b.stage.summary.card === id);
+      const up = beats.findIndex((b, i) => i > card && b.swiftee === 'enter' && b.from === 'below');
+      const line = at((b) => b.say === lines[id]);
+      const down = beats.findIndex((b, i) => i > line && b.swiftee === 'exit' && b.to === 'below');
+      const collect = at((b) => b.stage && b.stage.summary && b.stage.summary.collect === id);
+      return card >= 0 && card < up && up < line && line < down && down < collect;
+    });
+    t('every card: in and shown, he rises, says it, sinks, and it is collected — in that order', orderOk);
+    t('every recap line is the supplied wording', want.every((id) => beats.some((b) => b.say === lines[id] && b.pace === 'recap')));
+    const nextStarts = want.slice(1).every((id, k) => at((b) => b.stage && b.stage.summary && b.stage.summary.collect === want[k]) <
+                                                       at((b) => b.stage && b.stage.summary && b.stage.summary.card === id));
+    t('a card only comes in once the one before it has been collected', nextStarts);
+    const fin = at((b) => b.stage && b.stage.summary && b.stage.summary.final);
+    const last = at((b) => b.stage && b.stage.summary && b.stage.summary.collect === 'irregular');
+    t('the finale comes after the last card is collected, and ends on Next', fin > last && beats[beats.length - 1].input && beats[beats.length - 1].input.type === 'tap-anywhere');
+    t('the completion line is said at the finale', beats.some((b, i) => i > fin && b.say === 'Amazing! You explored all these polygon ideas!'));
+
+    const G = (id) => Stage.summaryGeometry(id);
+    const n = 5, adj = (i, j) => Math.abs(i - j) === 1 || Math.abs(i - j) === n - 1;
+    t('the side card draws a SIDE: two neighbouring corners', !!G('side').line && adj(G('side').line[0], G('side').line[1]));
+    t('the diagonal card draws a DIAGONAL: two corners that are not neighbours', !!G('diagonal').line && !adj(G('diagonal').line[0], G('diagonal').line[1]));
+    t('the angle card lights the two sides that meet at its corner', G('angle').sides.every((q) => q[0] === G('angle').wedge && adj(q[0], q[1])));
+    t('the vertex card lights one corner', G('vertex').hi.length === 1);
+    const cv = G('convex').end;
+    t('the convex card is convex, and every diagonal it draws is inside', Poly.classify(cv).convex && Poly.allDiagonals(n).every((d) => Poly.isDiagonalInside(cv, d[0], d[1])));
+    const cc = G('concave');
+    t('the concave card starts convex and its corner moves in until it is concave', Poly.classify(cc.start).convex && Poly.classify(cc.end).concave);
+    t('...and the diagonal it draws is OUTSIDE the dented shape', !Poly.isDiagonalInside(cc.end, cc.line[0], cc.line[1]));
+    t('...and INSIDE the shape before the dent (so it is drawn only after)', Poly.isDiagonalInside(cc.start, cc.line[0], cc.line[1]));
+    t('the regular card is regular', Poly.isRegular(G('regular').end));
+    const ir = G('irregular');
+    t('the irregular card starts regular and ends irregular, sides unequal, still not concave',
+      Poly.isRegular(ir.start) && !Poly.isRegular(ir.end) && !Poly.isEquilateral(ir.end) && Poly.classify(ir.end).convex);
+    const L = Poly.sideLengths(ir.end).sort((p, q) => p - q);
+    t('...and its changed sides differ by more than a tick can blur (6 units)', L[L.length - 1] - L[L.length - 2] > 6 && L[L.length - 2] - L[0] > 6, L.map(Math.round));
+  }
+}
 
 /* ------------------------------------------------------------------ *
  * Shape of every screen
@@ -476,8 +539,9 @@ const levelOf = (st) => { const d = RIG[st]; return d ? (d.level || 1) : 0; };
     if (endBig && openBig) back2back.push(S[i - 1].id + '+' + S[i].id);
   }
   t('no celebration follows straight on from another', back2back.length === 0, back2back);
+  // (five: the builder's two answers went with the builder)
   t('ordinary right answers get the small face',
-    S.filter((s) => intentsIn(s.beats).indexOf('happySmall') >= 0).length >= 6);
+    S.filter((s) => intentsIn(s.beats).indexOf('happySmall') >= 0).length >= 5);
 }
 
 /* HE DOES NOT DO THE SAME THING SCREEN AFTER SCREEN. The gesture each screen

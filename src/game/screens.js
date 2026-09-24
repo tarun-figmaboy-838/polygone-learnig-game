@@ -81,6 +81,60 @@
   }
   function milestone(extra, face) { return correct(extra, face || 'celebrate'); }
 
+  /* ------------------------------------------------------------------ *
+   * THE END-GAME SUMMARY, as data
+   *
+   * Every idea the lesson taught, in the order it taught them, each with its
+   * name, its one recap line, and the animation that shows it (stage.js
+   * SUMMARY_VISUALS). summaryBeats() turns the list into the screen's beats,
+   * so every card runs the same sequence and none is written out by hand:
+   *
+   *   CARD_ENTER → CONCEPT_REVEAL   the card comes in and its idea is shown
+   *   SWIFTEE_ENTER                 he rises from behind it, presenting it
+   *   EXPLANATION → READING_PAUSE   one short line, and a breath after it
+   *   SWIFTEE_EXIT                  he sinks back behind it
+   *   CARD_COLLECT → NEXT_CONCEPT   it shrinks into the collection
+   *
+   * and, after the last, FINAL_SUMMARY. Each beat waits for the one before
+   * it — the voice, the words, the animation — so no two states overlap.
+   * ------------------------------------------------------------------ */
+  var SUMMARY = [
+    { id: 'vertex',    label: 'Vertex',    text: 'A vertex is a corner where two sides meet.',                          animation: 'vertex',    vo: 'p37a' },
+    { id: 'side',      label: 'Side',      text: 'A side is a straight line joining two vertices.',                     animation: 'side',      vo: 'p37b' },
+    { id: 'angle',     label: 'Angle',     text: 'An angle is formed where two sides meet.',                            animation: 'angle',     vo: 'p37c' },
+    { id: 'diagonal',  label: 'Diagonal',  text: 'A diagonal joins two non-adjacent vertices.',                         animation: 'diagonal',  vo: 'p37d' },
+    { id: 'convex',    label: 'Convex',    text: 'In a convex polygon, all diagonals stay inside.',                     animation: 'convex',    vo: 'p37e' },
+    { id: 'concave',   label: 'Concave',   text: 'In a concave polygon, at least one diagonal goes outside.',           animation: 'concave',   vo: 'p37f' },
+    { id: 'regular',   label: 'Regular',   text: 'A regular polygon has all sides and all angles equal.',               animation: 'regular',   vo: 'p37g' },
+    { id: 'irregular', label: 'Irregular', text: 'If the sides or angles are not all equal, the polygon is irregular.', animation: 'irregular', vo: 'p37h' }
+  ];
+  var SUMMARY_DONE = { text: 'Amazing! You explored all these polygon ideas!', vo: 'p37i' };
+
+  function summaryBeats(list) {
+    var out = [{ instruction: null }, { stage: { kind: 'summary' } }];
+    list.forEach(function (c) {
+      out.push(
+        { stage: { summary: { card: c.id } } },            // in, and its idea shown (the beat waits for it)
+        { swiftee: 'enter', from: 'below', ms: 320 },      // up from behind the card...
+        { swiftee: 'present', at: 'summary.card' },        // ...presenting it
+        { say: c.text, vo: c.vo, pace: 'recap' },          // the line, then a short reading pause
+        { swiftee: 'exit', to: 'below' },                  // back down behind it
+        { stage: { summary: { collect: c.id } } }          // into the collection; the next waits for it to land
+      );
+    });
+    out.push(
+      { wait: 400 },
+      { stage: { summary: { final: true } } },             // the collection gathers in
+      // up into the open middle, between the two columns, one last time
+      { swiftee: 'enter', from: 'below', quick: true, to: 'middle', size: 'medium' },
+      { swiftee: 'celebrate' },
+      { say: SUMMARY_DONE.text, vo: SUMMARY_DONE.vo },
+      // and the game's own ending follows on Next (game.js finish())
+      { input: { type: 'tap-anywhere' } }
+    );
+    return out;
+  }
+
   var SCREENS = [
 
     /* ================================================================ *
@@ -938,87 +992,30 @@
     },
 
     /* ================================================================ *
-     * BUILD YOUR OWN — page 35 (page 34 is a design reference card)
+     * THE END-GAME SUMMARY — everything the lesson taught, collected
+     *
+     * Not a page of the deck: the deck ends by having the child build a
+     * pentagon, and the lesson now ends on a recap instead, at the author's
+     * request. One large card at a time: the idea animates on it, he rises
+     * from behind it to say it in one short line, sinks back, and the card
+     * shrinks into the collection at the edge of the screen. After the
+     * eighth, the collection gathers in, he jumps into the open middle, and
+     * the lesson ends the way it always has (game.js finish()). The ideas
+     * are data (SUMMARY, above); summaryBeats() makes the beats.
      * ================================================================ */
 
     {
-      id: 'build-sides', page: 35, panel: 1,
-      swiftee: { pos: 'left-low', size: 'medium' },
-      // ONE SIDE TO BEGIN. A line, then a corner, then the third side closes
-      // a triangle, and on to five: the child builds the idea of a polygon
-      // side by side, rather than being handed a triangle to grow.
-      instruction: 'Set the number of sides. Make it a pentagon.',
-      // the stepper comes in with "...the number of sides"
-      stage: { kind: 'builder', sides: 1, stepper: { min: 1, max: 8, label: 'Number of sides', cue: 'sides' } },
-      beats: [
-        { stage: { kind: 'builder', sides: 1, enter: 'pop' } },
-        // BUILDING: out come the puzzle pieces — a shape made a side at a time
-        { swiftee: 'build' },
-        // SAID ONCE: the line that echoed the instruction ("Let’s start by making a pentagon. Adjust the number of sides.") went —
-        // the same request twice in a row read as a stutter, not a lesson.
-        // the two instructions for this control, kept up together while the
-        // child counts the sides up
-        { instruction: 'Set the number of sides. Make it a pentagon.', parts: ['Set the number of sides. Make it a pentagon.'], vo: 'p35ai' },
-        { swiftee: 'point', at: 'builder' },
-        { focus: 'builder.stepper', style: 'pulse' },
-        // The polygon morphs live as the stepper changes. Completes at 5.
-        { input: { type: 'stepper', target: 5 } },
-        // a small yes: the next screen's "Great!" is the celebration
-        { feedback: [{ sfx: 'correct' }, { juice: 'pop', target: 'polygon' }, { swiftee: 'happySmall' }] }
-      ],
-      perTap: { any: [{ sfx: 'select' }, { juice: 'pop', target: 'polygon', scale: 0.08 }] }
-    },
-
-    {
-      id: 'build-pentagon', page: 35, panel: 2,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      id: 'summary', page: 37,
+      // BEHIND THE CARD, AT THE MIDDLE OF ITS TOP EDGE — the same place for
+      // every card (game.js peeksBehind, Stage.peekAnchor), clear of what it shows
+      // small, as behind the swipe card: head and shoulders over the rim,
+      // and the band above him free for his line
+      swiftee: { pos: 'peek', size: 'small', purpose: 'celebrate' },
       instruction: null,
-      say: 'Great! Now you have a pentagon.',
-      beats: [
-        { instruction: null },
-        { swiftee: 'celebrate' },
-        { say: 'Great! Now you have a pentagon.', vo: 'p35b' },
-        { input: { type: 'tap-anywhere' } }
-      ]
-    },
-
-    {
-      id: 'build-concave', page: 35, panel: 3,
-      swiftee: { pos: 'left-low', size: 'medium' },
-      instruction: 'Drag a vertex inward to make it a concave pentagon.',
-      say: 'Now drag a vertex inward to make it a concave pentagon.',
-      stage: { highlight: { vertex: 0, color: 'orange' }, stepper: 'locked' },
-      beats: [
-        { stage: { stepper: 'locked', highlight: { vertex: 0, color: 'orange' } } },
-        { say: 'Now drag a vertex inward to make it a concave pentagon.', parts: ['Now drag a vertex inward', 'to make it a concave pentagon.'], vo: 'p35c' },
-        { instruction: 'Drag a vertex inward to make it a concave pentagon.', vo: 'p35ci' },
-        { focus: 'polygon.vertex.0', style: 'pulse' },
-        { swiftee: 'point', at: 'polygon.vertex.0' },
-        { input: { type: 'drag-vertex', vertex: 'any', until: 'concave', clamp: 'simple' } },
-        // a right answer that sounds like one; the finale is next
-        { feedback: [{ sfx: 'correct' }, { juice: 'wobble', target: 'polygon' }, { juice: 'confetti', target: 'vertex', count: 18 }, { swiftee: 'happySmall' }] }
-      ]
-    },
-
-    {
-      id: 'build-done', page: 35, panel: 4,
-      instruction: null,
-      // Medium. This screen uses the CENTRED slab, which starts at x 230 — at
-      // large he is 175 units across from x 62 and his wing is on the card.
-      // The finale is carried by the celebrate clip and the confetti.
-      swiftee: { pos: 'peek', size: 'small', purpose: 'celebrate'},
-      say: 'Nice! You built a concave and irregular pentagon.',
-      beats: [
-        // Ticks land one at a time, each verified by Poly.classify on the
-        // learner's actual shape, so the checklist can never lie.
-        { instruction: null },
-        { sfx: 'sparkle' },
-        // the thing they built: heart eyes, then the finale's own celebration
-        { swiftee: 'delight' },
-        { say: 'Nice! You built a concave and irregular pentagon.', parts: ['Nice! You built a concave', 'and irregular pentagon.'], vo: 'p35d' },
-        { feedback: [{ juice: 'confetti', target: 'stage' }, { sfx: 'levelUp' }] },
-        { input: { type: 'tap-anywhere' } }
-      ]
+      say: SUMMARY[0].text,
+      lines: SUMMARY.slice(1).map(function (c) { return c.text; }).concat([SUMMARY_DONE.text]),
+      stage: { kind: 'summary', concepts: SUMMARY.map(function (c) { return { id: c.id, label: c.label, animation: c.animation }; }) },
+      beats: summaryBeats(SUMMARY)
     }
   ];
 
@@ -1170,7 +1167,7 @@ function speaksAll(i) {
   var s = SCREENS[i];
   if (s && s.swiftee && s.swiftee.pos === 'off') return false;
   var kind = sceneKindAt(i);
-  return kind === 'polygon' || kind === 'compare' || kind === 'builder' || kind === 'sort';
+  return kind === 'polygon' || kind === 'compare' || kind === 'builder' || kind === 'sort' || kind === 'summary';
 }
 function wantsBuddyAt(i) {
   return wantsBuddy(SCREENS[i]) || speaksAll(i);

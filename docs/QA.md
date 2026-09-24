@@ -72,7 +72,7 @@ are meant to be read together.
 
 ```
 npm test              logic, storyboard, sprites, a full jsdom playthrough
-npm run test:browser  the lesson played properly in Chrome, all 34 screens
+npm run test:browser  the lesson played properly in Chrome, all 31 screens
 npm run test:qa       the lesson played badly in Chrome
 npm run test:all      all three
 ```

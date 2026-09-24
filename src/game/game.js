@@ -115,7 +115,10 @@
    * the wing, never a pop. One entrance per appearance, however many beats
    * ask for it while it is still running.
    */
+  // `quick` true, or { quick, ms } — the summary's rise is a third of a second
   function entrance(quick) {
+    var ms = quick && typeof quick === 'object' ? quick.ms : null;
+    if (quick && typeof quick === 'object') quick = !!quick.quick;
     if (!buddyOn || present || !global.Swiftee || !Swiftee.play) return Promise.resolve(false);
     if (entering) return entering;
     leaveGen++; leaving = false;   // any leave still running is overtaken (see leave())
@@ -132,7 +135,7 @@
     // Capped. The walk-on is under half a second; if the rig cannot finish
     // it — no animation support, a sheet that will not load — the lesson
     // must not wait on him. He is simply there.
-    var wing = wingFor('from'); if (quick) wing.quick = true;
+    var wing = wingFor('from'); if (quick) wing.quick = true; if (ms) wing.ms = ms;
     entering = Promise.race([Swiftee.play('enter', wing), pause(1500)]).then(done, done);
     syncPeekRim();   // the rim is up before he rises behind it
     return entering;
@@ -391,8 +394,11 @@
         rimEl.style.transform = 'translate(' + (off.dx * m.a).toFixed(1) + 'px,' + (off.dy * m.d).toFixed(1) + 'px) rotate(' + off.rot.toFixed(2) + 'deg)' +
                                 (Math.abs(off.scale - 1) > 1e-3 ? ' scale(' + off.scale.toFixed(4) + ')' : '');
       } else if (!off) {
-        // the card is gone (caught by a zone): nothing left to be behind
-        rimEl.style.display = 'none'; rimEl.style.transform = ''; return;
+        // the card is gone (caught by a zone): nothing left to be behind —
+        // on the swipe practice. A card that never moves while he is up (the
+        // summary's) has nothing to follow: the rim stays where it was put.
+        if (global.Stage && Stage.state && Stage.state.swipe) { rimEl.style.display = 'none'; rimEl.style.transform = ''; }
+        return;
       }
       rimRaf = global.requestAnimationFrame(step);
     };
@@ -434,8 +440,10 @@
   function peeksBehind(i) {
     // Only the swipe practice: he comes up from behind the card in hand, in
     // the middle (Stage.peekAnchor). Beside one card or two he STANDS on the
-    // ice at the left and instructs from there.
-    return sceneKindAt(i) === 'swipe-sort';
+    // ice at the left and instructs from there. And the end-game summary:
+    // he rises from behind each card to say what it is, and sinks back.
+    var k = sceneKindAt(i);
+    return k === 'swipe-sort' || k === 'summary';
   }
 
   /* HIS MARK ON SCREEN i, or null if the screen is not his.
@@ -2412,7 +2420,10 @@
         // control band of its own (the builder's stepper) keeps it
         if (spec && spec.kind && scr) spec = Object.assign({}, spec, { below: wantsRoomBelow(scr) }, wantsBand(scr) ? { controls: true } : {});
         var wasSolo = soloed();
-        Stage.apply(spec);
+        // (a stage op that runs for a while — the summary's card coming in,
+        // or going into the collection — hands back a promise: the beat is
+        // over when it is)
+        var applied = Stage.apply(spec);
         // Building or clearing a scene changes whether Swiftee is alone, and
         // "alone" is what decides between centre stage and off to one side.
         // Without this he stays centred over the cards the beat just dealt,
@@ -2427,6 +2438,7 @@
         clearTimeout(settleTimer);
         settleTimer = setTimeout(relayout, 620);
         void wasSolo;
+        if (applied && typeof applied.then === 'function') return applied;
         // THE SCENE ARRIVES, THEN HE SPEAKS OF IT. A beat that builds a scene
         // holds the director for the length of the entrance — the card rises,
         // the shape pops — so the line that follows is about something the
@@ -2452,6 +2464,19 @@
             if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(t); resolve(); });
           });
         }
+        // BEHIND THE CARD, UP AND DOWN. A rise from below a card and a sink
+        // back behind it go through entrance() and leave(), which lay the
+        // card's rim over him first and take it away last. Played bare, he
+        // would rise in front of the card cut off at its glass, and an exit
+        // would leave him counted as present with the rim still up over
+        // nothing. (An entrance with a `to` is a different move: the jump up
+        // into the open middle.)
+        if (state === 'enter' && opts && opts.from === 'below' && !opts.to) {
+          return entrance({ quick: !!opts.quick, ms: opts.ms }).then(function () { placeBubble(); });
+        }
+        // and his words go down with him: a line left up after he has gone
+        // is re-placed against nobody (the orphan bubble at the top-left)
+        if (state === 'exit' && opts && opts.to === 'below') { standing = null; say(null); return leave(); }
         // Not on yet? He comes in first, then does what the beat asked.
         if (state !== 'enter' && !present) {
           return entrance().then(function () { return handlerSwiftee(state, opts, ctx); });
@@ -2664,7 +2689,9 @@
          */
         var t0Line = Date.now();
         var clipSecs = (global.VO && VO.seconds && voId) ? VO.seconds(voId) : 0;
-        var reading = clipSecs ? Math.round(clipSecs * 1000) + 280
+        // (a recap line holds a touch longer after its voice: the summary's
+        // reading pause, then the card moves on)
+        var reading = clipSecs ? Math.round(clipSecs * 1000) + (lineType === 'recap' ? 550 : 280)
                     : (timed ? timed[timed.length - 1] + Timing.readingPause(parts[parts.length - 1], pace)
                              : (opts.reading || 1200));
         var wordAt = 0;
@@ -3323,7 +3350,8 @@
     // and Back stays: the last screen can be stepped back to from the end
     showBack(true);
     if (global.Music) Music.mood('win');   // the tune lifts for the last screen
-    sayLong('Honk-tastic! ' + quest.snapshot().xp + ' XP and ' + quest.snapshot().badges.length + ' badges. You are a polygon adventurer!', 'win', 3400);
+    var won = quest.snapshot();
+    sayLong('Honk-tastic! ' + won.xp + ' XP and ' + won.badges.length + (won.badges.length === 1 ? ' badge' : ' badges') + '. You are a polygon adventurer!', 'win', 3400);
     // one burst, wide, for the finale — two from different points read as a stutter
     if (global.Juice) Juice.confetti(Stage.svg, { count: 72, spread: 2.6 });
     if (global.SFX) SFX.sequence(['drumroll', 1.2, 'levelUp', 0.3, 'sparkle']);
@@ -3438,6 +3466,18 @@
       if (name === 'swipe:home') swipeHome();
       if (name === 'measurement:start' && payload && payload.what === 'side') tailWhenHome();
     });
+    // THE SUMMARY SAYS WHICH STATE IT IS IN (Stage.summaryState). The card's
+    // own states are the stage's; his rising, his line, its reading pause and
+    // his sinking are beats, and the director says when each begins.
+    if (Stage.summaryPhase) {
+      director.on('swiftee', function (e) {
+        var o = (e && e.opts) || {};
+        if (e && e.state === 'enter' && o.from === 'below' && !o.to) Stage.summaryPhase('SWIFTEE_ENTER');
+        if (e && e.state === 'exit' && o.to === 'below') Stage.summaryPhase('SWIFTEE_EXIT');
+      });
+      director.on('dialogue:start', function () { Stage.summaryPhase('EXPLANATION'); });
+      director.on('dialogue:complete', function () { Stage.summaryPhase('READING_PAUSE'); });
+    }
 
 
     // HUD wiring. Audio is optional at every call site: a build without

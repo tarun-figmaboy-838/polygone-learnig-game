@@ -7,7 +7,9 @@
     { end: 9, name: 'Diagonal detective', icon: '✦' },
     { end: 21, name: 'Dent discoverer', icon: '⌁' },
     { end: 29, name: 'Pattern pro', icon: '★' },
-    { end: 33, name: 'Polygon builder', icon: '⬟' }
+    // the last level is the end-game summary now, one screen where the four
+    // builder screens were
+    { end: 30, name: 'Polygon champion', icon: '⬟' }
   ];
   function create() {
     var xp = 0, won = {}, badges = [], streak = 0;
