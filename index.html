@@ -232,7 +232,9 @@
   /* WHILE HE IS OUT ON THE MEASURING WALK his words step aside (game.js
      tailWhenHome), and spring back when he is home — a line that is his,
      not a label left standing. */
-  #bubble.show.away { opacity: 0; transform: scale(.94); transition: opacity 200ms ease, transform 200ms ease; }
+  /* (.dim.away too: a press dims the bubble — "#bubble.show.dim", later in
+     this sheet — and the press is exactly what starts the walk) */
+  #bubble.show.away, #bubble.show.dim.away { opacity: 0; transform: scale(.94); transition: opacity 200ms ease, transform 200ms ease; }
   #bubble.show.back { animation: bubbleBack 460ms cubic-bezier(.3,1.5,.5,1); }
   @keyframes bubbleBack { 0% { opacity: 0; transform: scale(.9); } 60% { opacity: 1; transform: scale(1.03); } 100% { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { #bubble.show.back { animation: none; } #bubble.show.away { transition: none; } }
