@@ -378,7 +378,7 @@ t('all 7 stage kinds are actually used somewhere', used.kind.size === 7, [...use
     const lines = {
       vertex: 'A vertex is a corner where two sides meet.', side: 'A side is a straight line joining two vertices.',
       angle: 'An angle is formed where two sides meet.', diagonal: 'A diagonal joins two non-adjacent vertices.',
-      convex: 'In a convex polygon, all diagonals stay inside.', concave: 'In a concave polygon, at least one diagonal goes outside.',
+      convex: 'In a convex polygon, all diagonals stay inside.', concave: 'In a concave polygon, atleast one diagonal goes outside.',
       regular: 'A regular polygon has all sides and all angles equal.', irregular: 'If the sides or angles are not all equal, the polygon is irregular.'
     };
     const beats = sm.beats;

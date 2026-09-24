@@ -109,7 +109,7 @@
     { id: 'angle',     label: 'Angle',     text: 'An angle is formed where two sides meet.',                            animation: 'angle',     vo: 'p37c' },
     { id: 'diagonal',  label: 'Diagonal',  text: 'A diagonal joins two non-adjacent vertices.',                         animation: 'diagonal',  vo: 'p37d' },
     { id: 'convex',    label: 'Convex',    text: 'In a convex polygon, all diagonals stay inside.',                     animation: 'convex',    vo: 'p37e' },
-    { id: 'concave',   label: 'Concave',   text: 'In a concave polygon, at least one diagonal goes outside.',           animation: 'concave',   vo: 'p37f' },
+    { id: 'concave',   label: 'Concave',   text: 'In a concave polygon, atleast one diagonal goes outside.',           animation: 'concave',   vo: 'p37f' },
     { id: 'regular',   label: 'Regular',   text: 'A regular polygon has all sides and all angles equal.',               animation: 'regular',   vo: 'p37g' },
     { id: 'irregular', label: 'Irregular', text: 'If the sides or angles are not all equal, the polygon is irregular.', animation: 'irregular', vo: 'p37h' }
   ];
@@ -428,8 +428,8 @@
     {
       id: 'hexagon-your-turn', page: 15,
       swiftee: { pos: 'left-low', size: 'medium' },
-      instruction: 'Draw all the diagonals from this vertex.',
-      say: 'Your turn! Draw all the diagonals from this vertex.',
+      instruction: 'Let’s draw all the diagonals from this vertex.',
+      say: 'Your turn! Let’s draw all the diagonals from this vertex.',
       // FLAG: two problems on this page.
       //  (1) Sequence: the lesson is on a pentagon on pages 5–14 and 16–20,
       //      and this page cuts to a hexagon for one screen, then back. It
@@ -446,12 +446,12 @@
         { sfx: 'pop' },
         { wait: 400 },
         { swiftee: 'encourage' },
-        { say: 'Your turn! Draw all the diagonals from this vertex.', parts: ['Your turn!', 'Draw all the diagonals', 'from this vertex.'], vo: 'p15' },
+        { say: 'Your turn! Let’s draw all the diagonals from this vertex.', parts: ['Your turn!', 'Let’s draw all the diagonals', 'from this vertex.'], vo: 'p15' },
         // The instruction is the script's own last two bubbles, so it is not
         // said again: the line settles into the one sentence the child keeps
         // in view while they draw (game.js — an instruction that only repeats
         // what was just said is shown, not spoken).
-        { instruction: 'Draw all the diagonals from this vertex.', vo: 'p15i' },
+        { instruction: 'Let’s draw all the diagonals from this vertex.', vo: 'p15i' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
         { swiftee: 'step-back' },
         // Three diagonals from one hexagon vertex (n - 3). Each correct one
@@ -577,6 +577,30 @@
       ]
     },
 
+    /* ================================================================ *
+     * COMPARE THE DIAGONALS — pages 21–25, told as it is seen
+     *
+     * SEE → COMPARE → NOTICE → DISCOVER → NAME. Five lines, the author's
+     * own, one per screen, each said while the thing it is about happens:
+     *   1  "Let’s compare the diagonals in both the pentagons."  two bare
+     *      pentagons; both answer "pentagons"
+     *   2  "This one has all the diagonals inside."  the convex one's grow
+     *      one at a time; its inside glows on "inside"
+     *   3  "But this one has at least one diagonal outside."  the concave
+     *      one's grow, and the one that leaves the shape is drawn on
+     *      "outside" — lit, the part outside washed violet, a ring where it
+     *      leaves, a whoop, and he is surprised. Then both side by side with
+     *      a small INSIDE / OUTSIDE under each.
+     *   4  "All diagonals inside means convex polygon."  CONVEX on "convex",
+     *      in the INSIDE mark's place
+     *   5  "At least one diagonal outside means concave polygon."  CONCAVE
+     *      on "concave"; then the pair evenly, both names showing.
+     * No name is shown before its discovery. Every diagonal is a real
+     * vertex-to-non-adjacent-vertex segment, judged by polygon-math
+     * (stage.js op.grow). Each screen first draws whatever an earlier one
+     * would have (`instant`), so a jump or Back lands on the right picture.
+     * ================================================================ */
+
     {
       id: 'compare', page: 21,
       // Both panels sit across the middle and nothing is drawn under them on
@@ -584,21 +608,27 @@
       // with the line directly over his head in the band he leaves.
       // Small: at medium his head reaches 46 units up into the compare panels.
       swiftee: { pos: 'centre', size: 'small' },
-      instruction: 'Let’s compare the diagonals in both pentagons.',
-      say: 'Both are pentagons.',
+      instruction: null,
+      say: 'Let\u2019s compare the diagonals in both the pentagons.',
+      original: 'Both are pentagons.',
       // the concave one is the pentagon the child dented (made: stage.js
-      // keeps it); the stock dent stands in when the screen is reached without it
-      stage: { kind: 'compare', left: { sides: 5, diagonals: 'all' }, right: { sides: 5, dent: 0, made: 'concave', diagonals: 'all', outsideColor: 'red' } },
+      // keeps it); the stock dent stands in when the screen is reached without it.
+      // NO DIAGONALS YET: they are drawn as each card is talked about.
+      stage: { kind: 'compare', left: { sides: 5 }, right: { sides: 5, dent: 0, made: 'concave' } },
       beats: [
-        // THE PAIR ARRIVES, THEN HE SPEAKS OF IT: an instruction to compare
-        // two pentagons was being read over an empty stage.
+        { instruction: null },
+        // THE PAIR ARRIVES, THEN HE SPEAKS OF IT
         { stage: { kind: 'compare', enter: 'split' } },
         { sfx: 'menuWhoosh' },
         { wait: 400 },
-        // COMPARING: he looks at one, then the other
-        { swiftee: 'compare', at: ['compare.left', 'compare.right'] },
-        { say: 'Both are pentagons.', vo: 'p21' },
-        { instruction: 'Let’s compare the diagonals in both pentagons.', vo: 'p21i' },
+        // "both the pentagons": the two shapes answer the word
+        { stage: { onWord: { word: 'pentagons', pulse: 'both' } } },
+        { parallel: [
+          // COMPARING: he looks at one, then the other
+          { swiftee: 'compare', at: ['compare.left', 'compare.right'] },
+          { say: 'Let\u2019s compare the diagonals in both the pentagons.', vo: 'p21' }
+        ] },
+        { wait: 300 },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -609,89 +639,109 @@
       // its left is his, and the bubble sits by his head wherever he stands
       // (game.js placeBubble). Hovering him in the corner read as floating.
       swiftee: { pos: 'left-low', size: 'medium' },
-      say: 'This one has all diagonals inside.',
+      say: 'This one has all the diagonals inside.',
+      original: 'This one has all diagonals inside.',
       beats: [
         { instruction: null },
-        { focus: 'compare.left', style: 'dim-others' },
-        // He SHOWS this one rather than asking for it: 'point' is the
-        // leaning, winking 'your turn' pose, and a wink under a sentence that
-        // explains a card reads as a joke nobody made. 'look' is the same
-        // lean with his eyes on the card.
-        { swiftee: 'observe', at: 'compare.left' },
-        { say: 'This one has all diagonals inside.', vo: 'p22' },
+        // the other card steps back a little — still easy to see
+        { focus: 'compare.left', style: 'lean' },
+        // on "inside" its inside glows with its diagonals (emphasize), and a
+        // small bright chime says so
+        { stage: { onWord: { word: 'inside', sfx: 'sparkle', gain: 0.4 } } },
+        { parallel: [
+          // its diagonals grow one after another as he says it
+          { stage: { grow: { card: 'left', each: 430, ms: 540 } } },
+          { swiftee: 'observe', at: 'compare.left' },
+          { say: 'This one has all the diagonals inside.', vo: 'p22' }
+        ] },
+        { wait: 300 },
         { input: { type: 'tap-anywhere' } }
       ]
     },
 
     {
-      id: 'convex', page: 23,
-      // Above, like the rest of this run of compare screens: the pair fills
-      // the middle and Next reserves the foot, so a line placed near him at
-      // the bottom had a 54px band to live in and came out four rows deep.
-      swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
-      instruction: 'All diagonals inside means convex polygon.',
-      // FLAG: grammar. Deck: "That's convex polygon."
-      say: 'That\u2019s a convex polygon.',
-      original: 'That\u2019s convex polygon.',
-      stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex' } },
-      beats: [
-        // THE NAME APPEARS, THEN HE SAYS IT. The badge under the card is the
-        // picture of the word he is about to speak, and it arrived two beats
-        // later — so the child heard "that is a convex polygon" with nothing
-        // new on the screen, and the label turned up after the sentence had
-        // gone. The scene arrives, then he speaks of it, as everywhere else.
-        { stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex', enter: 'pop', cue: 'convex' } } },
-        { sfx: 'correct' },
-        // and he presents it: "ta-da — convex"
-        { swiftee: 'present', at: 'compare.left' },
-        { say: 'That\u2019s a convex polygon.', vo: 'p23' },
-        // then the rule, on the plank, once his line has been read
-        { instruction: 'All diagonals inside means convex polygon.', vo: 'p23i' },
-        { input: { type: 'tap-anywhere' } }
-      ]
-    },
-
-    {
-      id: 'one-outside', page: 24,
+      // page 24 in the deck, where it followed "convex"; the author moved it
+      // ahead of the names, so the pages are numbered in the order they are met
+      id: 'one-outside', page: 23,
       // On the ice at the left, like the screen before it.
       swiftee: { pos: 'left-low', size: 'medium' },
       // FLAG: punctuation. Deck line has no full stop.
-      say: 'This one has at least one diagonal outside.',
+      say: 'But this one has atleast one diagonal outside.',
       original: 'This one has at least one diagonal outside',
       beats: [
         { instruction: null },
-        { focus: 'compare.right', style: 'dim-others' },
-        { swiftee: 'observe', at: 'compare.right' },
-        { say: 'This one has at least one diagonal outside.', parts: ['This one has at least', 'one diagonal outside.'], vo: 'p24' },
+        { stage: { grow: { card: 'left', instant: true } } },
+        // the convex one back to normal, only less important
+        { focus: 'compare.right', style: 'lean' },
+        { parallel: [
+          // the ones that stay inside grow first; the one that leaves the
+          // shape waits for its word (and he is surprised when it does)
+          { stage: { grow: { card: 'right', each: 430, ms: 540, outsideOn: 'outside' } } },
+          { swiftee: 'look', at: 'compare.right' },
+          { say: 'But this one has atleast one diagonal outside.', vo: 'p23' }
+        ] },
+        // BOTH, SIDE BY SIDE: every diagonal still showing, a small mark
+        // under each, and a moment to look
+        { stage: { grow: { card: 'right', instant: true } } },
+        { focus: 'compare', style: 'even' },
+        { parallel: [
+          { stage: { marks: { left: 'Inside', right: 'Outside' } } },
+          { swiftee: 'compare', at: ['compare.left', 'compare.right'] }
+        ] },
+        { wait: 1000 },
+        { input: { type: 'tap-anywhere' } }
+      ]
+    },
+
+    {
+      id: 'convex', page: 24,
+      // On the ice at the left like the rest of the run (markFor): the pair
+      // fills the middle and his line sits by his head.
+      swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
+      instruction: null,
+      // FLAG: grammar. Deck: "That's convex polygon." The author's line
+      // for this step is the rule itself.
+      say: 'All diagonals inside means convex polygon.',
+      original: 'That\u2019s convex polygon.',
+      beats: [
+        { instruction: null },
+        { stage: { grow: { card: 'both', instant: true } } },
+        { focus: 'compare.left', style: 'lean' },
+        // THE NAME ARRIVES ON ITS WORD, in the INSIDE mark's place: a soft
+        // chime, a few sparkles, and his nod
+        { stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex', enter: 'pop', cue: 'convex', sfx: 'correct', sparkle: true, react: 'nod' } } },
+        { parallel: [
+          // stating the rule
+          { swiftee: 'explain', at: 'compare.left' },
+          { say: 'All diagonals inside means convex polygon.', vo: 'p24' }
+        ] },
+        { wait: 300 },
         { input: { type: 'tap-anywhere' } }
       ]
     },
 
     {
       id: 'concave', page: 25,
-      // Above, like the rest of this run of compare screens: the pair fills
-      // the middle and Next reserves the foot, so a line placed near him at
-      // the bottom had a 54px band to live in and came out four rows deep.
       swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
-      // FLAG: the deck card reads "At least  one" with a double space.
-      instruction: 'At least one diagonal outside means concave polygon.',
+      instruction: null,
       // FLAG: grammar and capitalisation. Deck: "So it is Concave polygon."
-      say: 'So it is a concave polygon.',
+      say: 'Atleast one diagonal outside means concave polygon.',
       original: 'So it is Concave polygon.',
-      stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'concave' } },
       beats: [
-        // THE NAME APPEARS, THEN HE SAYS IT. The badge under the card is the
-        // picture of the word he is about to speak, and it arrived two beats
-        // later — so the child heard "that is a convex polygon" with nothing
-        // new on the screen, and the label turned up after the sentence had
-        // gone. The scene arrives, then he speaks of it, as everywhere else.
-        { stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'concave', enter: 'pop', cue: 'concave' } } },
-        { sfx: 'correct' },
-        // the same flourish as "convex": the two names are a pair
-        { swiftee: 'present', at: 'compare.right' },
-        { say: 'So it is a concave polygon.', vo: 'p25' },
-        // then the rule, on the plank, once his line has been read
-        { instruction: 'At least one diagonal outside means concave polygon.', vo: 'p25i' },
+        { instruction: null },
+        { stage: { grow: { card: 'both', instant: true } } },
+        { focus: 'compare.right', style: 'lean' },
+        // on "outside" the diagonal that leaves lights again (emphasize);
+        // on "concave" the name, in the OUTSIDE mark's place, and his "got it!"
+        { stage: { badge: { under: 'compare.right', text: 'Concave', tone: 'concave', enter: 'pop', cue: 'concave', sfx: 'correct', sparkle: true, react: 'happySmall' } } },
+        { parallel: [
+          // he points at it
+          { swiftee: 'point', at: 'compare.right' },
+          { say: 'Atleast one diagonal outside means concave polygon.', parts: ['Atleast one diagonal outside', 'means concave polygon.'], vo: 'p25' }
+        ] },
+        // THE PAIR, EVENLY: both names showing, nothing more to read
+        { focus: 'compare', style: 'even' },
+        { wait: 700 },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -766,18 +816,35 @@
       id: 'suspicious', page: 28,
       // NOT polygon-top-right: that corner is inside the right-hand slab, so
       // the position cannot avoid the panel it is defined against.
-      swiftee: { pos: 'peek', size: 'small', purpose: 'hint'},
+      // arrive 'fly': he is not standing there when the screen begins; he
+      // flies in once the card has (game.js flyIn)
+      swiftee: { pos: 'peek', size: 'small', purpose: 'hint', arrive: 'fly' },
       // This wording follows the recorded master exactly. Extra copy here
       // makes the bubble reveal words that Swiftee never says.
       say: 'Hmm\u2026 The sides look suspiciously alike. Let\u2019s check!',
       stage: { kind: 'polygon', sides: 5, room: 'measure' },
       beats: [
-        { stage: { kind: 'polygon', sides: 5, room: 'measure', enter: 'pop' } },
+        /* THE THINKING COMES FROM WHAT HE DOES, THEN THE WORDS.
+         *   cardIntro          the card and its pentagon grow in (after the
+         *                      snow has melted off an empty stage, so it is seen)
+         *   swifteeEnter       a breath, then he flies in from the upper left
+         *   swifteeInspect     beside the shape, over its top corner, on its
+         *                      other side, under it — hovering to look each time
+         *   swifteeLand        down onto his own mark, a squash as he lands
+         *   swifteeIdleThink   he turns to the shape and thinks about it
+         *   showHmmDialogue    a small pause, and only then "Hmm…"
+         * Each waits for the one before (every beat is awaited). */
+        { stage: { kind: 'vista' } },
+        { stage: { kind: 'polygon', sides: 5, room: 'measure', enter: 'intro', afterReveal: true } },
+        { wait: 200 },
+        { swiftee: 'enter', from: 'air' },
+        { swiftee: 'curious', at: 'polygon' },
         // THREE BEATS, THE WAY A COMEDIAN WOULD SAY IT: "Hmm…" on its own,
         // squinting at the shape; then the suspicion, whole ("The sides look
         // suspiciously alike."); then "Let's check!" — and the magnifying
         // glass comes out ON those words (faces), not after the line.
         { swiftee: 'inspect' },
+        { wait: 400 },
         { say: 'Hmm\u2026 The sides look suspiciously alike. Let\u2019s check!', parts: ['Hmm\u2026', 'The sides look suspiciously alike.', 'Let\u2019s check!'], faces: [null, 'question', 'investigate'], vo: 'p28' },
         { input: { type: 'tap-anywhere' } }
       ]

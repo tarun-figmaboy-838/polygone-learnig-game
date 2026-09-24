@@ -233,13 +233,16 @@
     // same question gets his thinking face instead: working it out with them.
     oops:        { rig: 'confused',    brief: 4, cut: true, react: true, then: 'encourage', again: 'rethink', level: 2, tier: 'feedback' },
     rethink:     { rig: 'thinking',    brief: 6, cut: true, react: true, then: 'encourage', level: 2, tier: 'feedback' },
-    // an ordinary right answer: a small pleased face, not a party
+    // AN ORDINARY RIGHT ANSWER IS A CHEER: a happy face and a real hop (the
+    // user: "why swiftee not give cheer animation when user doing correct").
+    // Still level 2 — the full celebration is for milestones and for a run of
+    // right answers (game.js doingWell).
     happySmall:  { variants: ['nice', 'chuffed', 'wink'], recovered: 'phew', react: true, level: 2, tier: 'feedback' },
-    nice:        { rig: 'happy',       brief: 6, mood: 'glad', cut: true, react: true, body: 'notice', level: 2, tier: 'feedback' },
-    chuffed:     { rig: 'proud',       brief: 6, mood: 'glad', cut: true, react: true, body: 'notice', level: 2, tier: 'feedback' },
-    wink:        { rig: 'playful',     brief: 6, mood: 'glad', cut: true, react: true, body: 'notice', level: 2, tier: 'feedback' },
+    nice:        { rig: 'happy',       brief: 10, mood: 'glad', cut: true, react: true, body: 'cheer', level: 2, tier: 'feedback' },
+    chuffed:     { rig: 'proud',       brief: 10, mood: 'glad', cut: true, react: true, body: 'cheer', level: 2, tier: 'feedback' },
+    wink:        { rig: 'playful',     brief: 7, mood: 'glad', cut: true, react: true, body: 'cheer', level: 2, tier: 'feedback' },
     // right after a miss: relief, eyes shut — "phew, there it is"
-    phew:        { rig: 'relieved',    brief: 8, mood: 'glad', cut: true, react: true, body: 'notice', level: 2, tier: 'feedback' },
+    phew:        { rig: 'relieved',    brief: 8, mood: 'glad', cut: true, react: true, body: 'cheer', level: 2, tier: 'feedback' },
     // the shape did something: a quick "oh!" — smaller than a celebration
     discover:    { rig: 'surprised',   brief: 6, mood: 'amazed', cut: true, react: true, level: 2, tier: 'feedback' },
 
@@ -695,6 +698,149 @@
                            function () { return stale(g) ? null : rest(); });
   }
 
+  /**
+   * HE FLIES IN AND LOOKS THE SHAPE OVER BEFORE HE SAYS ANYTHING.
+   *
+   * `o.tour` is the flight, in page pixels, measured by the game from the
+   * card and the shape: each stop is where his body is centred, how small he
+   * is there (a bird further off), which way he tilts to look, and how long
+   * he hovers. He comes in from off the upper left on the one airborne loop
+   * the rig has ('flapping'), stops at each one, and comes down onto his own
+   * mark with the landing squash (BODY.land). No new drawings: the wings are
+   * the rig's, the path is this.
+   *
+   * Every keyframe is additive translate / scale / rotate over his placed
+   * mark, so the mark stays the truth and the bubble can be laid against it
+   * the moment this resolves.
+   */
+  function flyTour(o, g) {
+    place(pos, size);
+    stateName = 'enter';
+    var stops = (o.tour || []).filter(function (p) { return p && isFinite(p.x) && isFinite(p.y); });
+    if (reduced || !el.animate || !stops.length) { el.style.opacity = '1'; return rest(); }
+    cancelAll();
+    var b = api.bounds();
+    var home = { x: (b.left + b.right) / 2, y: (b.top + b.bottom) / 2 };
+    // The individual scale and rotate turn him about his transform-origin, not
+    // about his middle, so each stop's translate is corrected for where they
+    // carry the middle of him (v: the origin to his middle, in page pixels).
+    var r0 = el.getBoundingClientRect();
+    var ox = parseFloat((el.style.transformOrigin || '').split(' ')[0]);
+    el.style.transformOrigin = '50% ' + (F.baselineY * 100).toFixed(1) + '%';
+    void ox;
+    var foot = { x: r0.left + r0.width / 2, y: r0.top + r0.height * F.baselineY };
+    var v = { x: home.x - foot.x, y: home.y - foot.y };
+    var frame = function (p, extra) {
+      var s = p.scale || 1, a = (p.tilt || 0) * Math.PI / 180;
+      var rv = { x: (v.x * Math.cos(a) - v.y * Math.sin(a)) * s, y: (v.x * Math.sin(a) + v.y * Math.cos(a)) * s };
+      var tx = (p.x - home.x) + (v.x - rv.x), ty = (p.y - home.y) + (v.y - rv.y);
+      return Object.assign({ translate: tx.toFixed(1) + 'px ' + ty.toFixed(1) + 'px', scale: String(s), rotate: (p.tilt || 0) + 'deg' }, extra || {});
+    };
+    /* ONE FLIGHT, NOT A SET OF HOPS. A smooth curve through every stop
+       (Catmull-Rom), travelled at a speed that dips as he reaches each place
+       he looks at and never falls to nothing until he lands — so he slows to
+       look and drifts on, rather than braking, bobbing and setting off again.
+       He banks into the way he is going, grows as he comes nearer, bobs the
+       whole time a hovering bird bobs, and comes down onto his mark. */
+    // (o.from is the word 'air'; the start is off the upper left unless a point is given)
+    var start = (o.start && isFinite(o.start.x)) ? o.start : { x: -Math.max(160, b.width), y: Math.max(40, b.height * 0.5), scale: 0.6, tilt: 10 };
+    var land = { x: home.x, y: home.y, scale: 1, tilt: 0 };
+    var approach = { x: home.x - 10, y: home.y - 34, scale: 0.97, tilt: 0 };
+    var P = [start].concat(stops).concat([approach, land]);
+    var cr = function (p0, p1, p2, p3, u) {
+      var u2 = u * u, u3 = u2 * u;
+      var f = function (k) { return 0.5 * ((2 * p1[k]) + (-p0[k] + p2[k]) * u + (2 * p0[k] - 5 * p1[k] + 4 * p2[k] - p3[k]) * u2 + (-p0[k] + 3 * p1[k] - 3 * p2[k] + p3[k]) * u3); };
+      return { x: f('x'), y: f('y') };
+    };
+    // the curve, densely, with its length so far at every point
+    var path = [], knotAt = [0], lenSoFar = 0, STEPS = 40;
+    for (var i = 0; i < P.length - 1; i++) {
+      var p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+      for (var k = (i ? 1 : 0); k <= STEPS; k++) {
+        var u = k / STEPS, q = cr(p0, p1, p2, p3, u);
+        if (path.length) { var pr = path[path.length - 1]; lenSoFar += Math.hypot(q.x - pr.x, q.y - pr.y); }
+        path.push({ x: q.x, y: q.y, s: lenSoFar, seg: i, u: u });
+      }
+      knotAt.push(lenSoFar);
+    }
+    var pathLen = lenSoFar || 1;
+    // the speed along it: slow near each place he looks at (longer looks,
+    // slower), easing off the start and down to nothing at his mark
+    var smooth = function (x) { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+    var speed = function (sAt) {
+      var v = 1;
+      for (var j = 1; j <= stops.length; j++) {
+        var hold = stops[j - 1].hold || 0;
+        if (!hold) continue;                                        // a point he only passes by
+        var w = 46 + hold * 0.06, dip = Math.min(0.86, 0.45 + hold / 900);
+        var d = (sAt - knotAt[j]) / w;
+        v -= dip * Math.exp(-d * d);
+      }
+      v = Math.max(0.12, v);
+      v *= 0.55 + 0.45 * smooth(sAt / 120);                        // already flying as he comes on
+      v *= Math.max(0.05, smooth((pathLen - sAt) / 150));             // and down to nothing at his mark
+      return v;
+    };
+    // time as the distance divided by that speed, all the way along
+    var tAt = [0];
+    for (var m = 1; m < path.length; m++) {
+      var ds = path[m].s - path[m - 1].s, vm = speed((path[m].s + path[m - 1].s) / 2);
+      tAt.push(tAt[m - 1] + ds / vm);
+    }
+    var want = o.ms || 3100, scaleT = want / (tAt[tAt.length - 1] || 1);
+    var dur = Math.round(tAt[tAt.length - 1] * scaleT);
+    // what he is like at a place on the curve: its size and its look
+    var knotVal = function (key, seg, u) {
+      var a0 = P[seg][key] == null ? 1 : P[seg][key], a1 = P[seg + 1][key] == null ? 1 : P[seg + 1][key];
+      return a0 + (a1 - a0) * smooth(u);
+    };
+    var FRAMES = Math.max(40, Math.round(dur / 40)), keys = [], idx = 0, prevX = null, bank = 0;
+    for (var fN = 0; fN <= FRAMES; fN++) {
+      var tt = (fN / FRAMES) * tAt[tAt.length - 1];
+      while (idx < tAt.length - 2 && tAt[idx + 1] < tt) idx++;
+      var span = (tAt[idx + 1] - tAt[idx]) || 1, w0 = Math.max(0, Math.min(1, (tt - tAt[idx]) / span));
+      var A = path[idx], B = path[Math.min(path.length - 1, idx + 1)];
+      var x = A.x + (B.x - A.x) * w0, y = A.y + (B.y - A.y) * w0;
+      var seg = B.seg, uu = B.u;
+      var sc = knotVal('scale', seg, uu), look = knotVal('tilt', seg, uu);
+      // never out of the window (the curve bows out past its stops): off
+      // the left only where he comes in from
+      var halfH = b.height * sc / 2, halfW = b.width * sc / 2;
+      y = Math.max(halfH + 6, Math.min((global.innerHeight || 800) - halfH - 8, y));
+      x = Math.min((global.innerWidth || 1200) - halfW - 8, x);
+      // banking: into the way he is moving, softened frame to frame
+      var vx = prevX == null ? 0 : (x - prevX) / ((dur / FRAMES) || 1);
+      prevX = x;
+      bank += (Math.max(-9, Math.min(9, vx * 14)) - bank) * 0.35;
+      var landing = smooth((dur * fN / FRAMES - (dur - 420)) / 420);  // 0 in the air, 1 on his mark
+      // the lift of each wingbeat: a quick small rise and fall the whole way
+      var bob = Math.sin((fN / FRAMES) * dur / 380 * 2 * Math.PI) * 5 * (1 - landing);
+      var tilt = (bank * 0.7 + look * 0.5) * (1 - landing);
+      keys.push(frame({ x: x, y: y + bob, scale: sc, tilt: +tilt.toFixed(2) }, { offset: +(fN / FRAMES).toFixed(4) }));
+    }
+    keys[0].opacity = 0; keys[1].opacity = 1;
+    keys[keys.length - 1] = frame(land, { offset: 1 });
+    el.style.opacity = '1';
+    airborne = true;
+    if (shadowEl) shadowEl.style.opacity = '0';
+    clip('flapping', Infinity);
+    // the shadow comes back under him as his feet arrive, not after
+    setTimeout(function () {
+      if (!shadowEl || stale(g)) return;
+      shadowEl.style.opacity = '';
+      try { shadowEl.animate([{ opacity: 0, transform: 'translate(-50%,-35%) scale(.5)' }, { opacity: 1, transform: 'translate(-50%,-35%) scale(1)' }], { duration: 380, easing: 'ease-out' }); } catch (e) {}
+    }, Math.max(0, dur - 380));
+    var total = dur;
+    var a = anim(keys, { duration: total, easing: 'linear' });
+    // (the shadow has already come back under his feet, above)
+    var touchDown = function () { airborne = false; if (shadowEl) shadowEl.style.opacity = ''; };
+    return a.finished.then(function () {
+      touchDown();
+      if (stale(g)) return null;
+      return bounce('land').then(function () { return stale(g) ? null : rest(); });
+    }, function () { touchDown(); return stale(g) ? null : rest(); });
+  }
+
   function rest() {
     // A DEDICATED SEQUENCE OWNS HIM (the measuring walk): nothing, not even
     // the resting loop, changes his drawing until it lets go. unlock() rests.
@@ -1089,6 +1235,8 @@
        * seconds earlier.
        *
        * The journey is the opening. Coming back is a walk-on. */
+      // in by air, looking the shape over on the way (flyTour)
+      if (o && o.from === 'air') { arrived = true; return flyTour(o, g); }
       if (arrived) return slideIn(o, g);
       arrived = true;
 

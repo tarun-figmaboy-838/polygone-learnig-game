@@ -157,9 +157,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         if (s === 0 || performance.now() - (window.__startAt[s] || 0) < 500) return;
         const el = window.Swiftee && window.Swiftee.el; if (!el) return;
         const st = window.Swiftee.state;
-        // Coming in counts as on; going out counts as off.
-        const on = parseFloat(getComputedStyle(el).opacity) > 0.05 || st === 'enter';
         const scr = window.Screens.list[s];
+        // Coming in counts as on; going out counts as off. A screen he flies
+        // into (swiftee.arrive 'fly') shows its card first and brings him in
+        // after it: waiting in the wing for that counts as coming in.
+        const waitsToFly = !!(scr.swiftee && scr.swiftee.arrive === 'fly' && !window.Game.buddy.present);
+        const on = parseFloat(getComputedStyle(el).opacity) > 0.05 || st === 'enter' || waitsToFly;
         // A screen with a PURPOSE must have him; a screen he speaks on only
         // because a line addresses the child may have him or not — he comes
         // up for the line and drops back when the plank returns. Anywhere

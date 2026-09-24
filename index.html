@@ -483,6 +483,16 @@
   @media (prefers-reduced-motion: reduce) {
     #stage .knob.breathe { animation: none; filter: drop-shadow(0 0 4px rgba(75, 224, 255, .85)); }
   }
+  /* AN ANGLE STILL TO MEASURE breathes in outline (stage.js drawArc todo),
+     a beat apart round the shape, until it is tapped and fills. */
+  #stage .angle-todo { animation: angleTodo 1.7s ease-in-out infinite; }
+  #stage .angle-todo[data-todo="1"] { animation-delay: .22s; } #stage .angle-todo[data-todo="2"] { animation-delay: .44s; }
+  #stage .angle-todo[data-todo="3"] { animation-delay: .66s; } #stage .angle-todo[data-todo="4"] { animation-delay: .88s; }
+  @keyframes angleTodo {
+    0%, 100% { opacity: .55; filter: drop-shadow(0 0 0 rgba(255, 211, 90, 0)); }
+    50% { opacity: 1; filter: drop-shadow(0 0 5px rgba(255, 211, 90, .9)); }
+  }
+  @media (prefers-reduced-motion: reduce) { #stage .angle-todo { animation: none; opacity: .9; } }
   /* A drop zone breathes while a card is waiting for it, and flares once
      when a card lands. Both zones, always: the glow says "here is where
      things go", never which one is right. */

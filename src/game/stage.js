@@ -805,7 +805,10 @@
      aurora violet, which is the irregular concept's own colour and the one
      hue on this stage that is neither blue nor warm. Highlighted sides are
      ice-white over a deep-water under-edge, so they stand off the blue. */
-  var HI = { fill: '#4be0ff', edge: '#0b4f9e', line: '#eafcff', lit: '#4be0ff', hot: '#7ff0d0',
+  // fill: A CORNER THE LESSON MARKS — the one being dragged, the dent, the
+  // corner a line reached — is Swiftee's green like the picked one, never
+  // a cyan of its own (the user: "why this color not using swiftee color")
+  var HI = { fill: '#34b4a4', edge: '#0b4f9e', line: '#eafcff', lit: '#4be0ff', hot: '#7ff0d0',
              bad: '#b98cff', badLit: '#7a4cff', knob: '#eaf9ff', rim: '#4fb8ea',
              // THE CHILD'S OWN CORNER is Swiftee's green — his body colour,
              // measured off his sprite sheet — so "the one I picked" is the
@@ -1100,17 +1103,32 @@
 
   var heldForWord = [];
   function wordKey(w) { return String(w == null ? '' : w).toLowerCase().replace(/[^a-z0-9]+/g, ''); }
-  function holdForWord(el, words) {
+  // `onShow` runs as the thing appears (a name tag's chime, the card it replaces)
+  function holdForWord(el, words, onShow) {
     if (!el || !el.style || reduced()) return false;
     var list = (Array.isArray(words) ? words : [words]).map(wordKey).filter(Boolean);
     if (!list.length) return false;
     el.style.opacity = '0';
     el._heldEvents = el.style.pointerEvents || '';
     el.style.pointerEvents = 'none';
-    heldForWord.push({ words: list, el: el });
+    heldForWord.push({ words: list, el: el, onShow: onShow || null });
     return true;
   }
+  /* SOMETHING THAT HAPPENS ON A WORD, rather than a thing that appears on
+     one: the outside diagonal of the compare pair is drawn as "outside" is
+     said. Same queue, same guarantees — a line tapped through says every word
+     at once, and whatever is still waiting when the child is handed control
+     happens then (releaseHeld). Motion is the action's own business, so this
+     waits for the word even with reduced motion. */
+  function onWord(words, run) {
+    var list = (Array.isArray(words) ? words : [words]).map(wordKey).filter(Boolean);
+    if (!list.length || typeof run !== 'function') return false;
+    var h = { words: list, run: run };
+    heldForWord.push(h);
+    return h;
+  }
   function showHeld(h, delay) {
+    if (h.run) { try { h.run(); } catch (e) {} return; }
     var el = h.el;
     if (!el || !el.parentNode) return;
     var go = function () {
@@ -1118,6 +1136,7 @@
       el.style.opacity = '';
       el.style.pointerEvents = el._heldEvents || '';
       enter(el, 'ui');
+      if (h.onShow) { try { h.onShow(el); } catch (e) {} }
     };
     if (delay) later(delay, go); else go();
   }
@@ -1137,9 +1156,11 @@
   /** The line is over, or the child is about to act: show whatever is left. */
   function releaseHeld() {
     var all = heldForWord; heldForWord = [];
-    all.forEach(function (h, i) { showHeld(h, i * 90); });
+    all.forEach(function (h, i) { showHeld(h, h.run ? 0 : i * 90); });
     return all.length;
   }
+  /** Take a word's action off the queue without running it (it was done another way). */
+  function dropWord(h) { heldForWord = heldForWord.filter(function (x) { return x !== h; }); }
 
   var ENTER_MS = 380;
   function enter(el, kind) {
@@ -1150,10 +1171,16 @@
       ? [{ opacity: 0 }, { opacity: 1 }]
       : kind === 'ui'
       ? [{ scale: '.94', translate: '0 8px', opacity: 0 }, { scale: '1.02', translate: '0 0', opacity: 1, offset: .7 }, { scale: '1', translate: '0 0', opacity: 1 }]
+      // A CARD BEING INTRODUCED: it grows in from a little small and low,
+      // fading up, and eases to rest (a screen that shows the card first and
+      // only then brings him in)
+      : kind === 'intro'
+      ? [{ scale: '.9', translate: '0 22px', opacity: 0 }, { scale: '1.012', translate: '0 -2px', opacity: 1, offset: .72 }, { scale: '1', translate: '0 0', opacity: 1 }]
       : [{ scale: '.94', translate: '0 8px', opacity: 0 }, { scale: '1', translate: '0 0', opacity: 1 }];
     el.style.transformBox = 'fill-box'; el.style.transformOrigin = 'center';
-    el.animate(k, { duration: ENTER_MS, easing: 'cubic-bezier(.22,1,.36,1)' });
+    el.animate(k, { duration: kind === 'intro' ? INTRO_MS : ENTER_MS, easing: 'cubic-bezier(.22,1,.36,1)' });
   }
+  var INTRO_MS = 620;
 
   /**
    * Fit a polygon into the room its panel actually has.
@@ -1865,6 +1892,9 @@
       }
       // a live readout names each corner by its number, so no rings on top
       if (has(st.measure.angles, i)) drawArc(g, i, angleText ? A[i] : null, units ? 1 : (aMark.groups > 1 ? (aMark.mark[i] || 1) : 1));
+      // AN ANGLE STILL TO MEASURE SHOWS ITSELF, not a dot: its wedge in outline,
+      // breathing, is the thing to tap; the tap fills it and its degrees come
+      else if (st.angleTodo) drawArc(g, i, null, 1, true);
     }
   }
   /** Hold a point inside the card's glass, with room for a vertex knob. */
@@ -1875,7 +1905,8 @@
              y: Math.max(f.y + m, Math.min(f.y + f.h - m, p.y)) };
   }
 
-  function drawArc(g, i, deg, rings) {
+  // `todo`: the angle not measured yet — its wedge in outline, no number
+  function drawArc(g, i, deg, rings, todo) {
     // INTO THE MEASUREMENTS GROUP. This said `ag` — itself, before it
     // existed — so every arc and every number was parented to undefined and
     // landed in the ui layer instead, where renderPoly() never clears them.
@@ -1910,6 +1941,13 @@
       var rs = r * 0.7, ux = Math.cos(a1) * rs, uy = Math.sin(a1) * rs, wx = Math.cos(a2) * rs, wy = Math.sin(a2) * rs;
       d = 'M' + (p.x + ux) + ' ' + (p.y + uy) + ' L' + (p.x + ux + wx) + ' ' + (p.y + uy + wy) + ' L' + (p.x + wx) + ' ' + (p.y + wy);
       wedge = 'M' + p.x + ' ' + p.y + ' L' + (p.x + ux) + ' ' + (p.y + uy) + ' L' + (p.x + ux + wx) + ' ' + (p.y + uy + wy) + ' L' + (p.x + wx) + ' ' + (p.y + wy) + ' Z';
+    }
+    if (todo) {
+      ag.setAttribute('class', 'angle-todo');
+      ag.removeAttribute('data-angle'); ag.setAttribute('data-todo', i);
+      mk('path', { d: wedge, fill: '#ffd35a', 'fill-opacity': 0.16, stroke: '#ffd35a', 'stroke-width': 2.5,
+                     'stroke-dasharray': '4 3.5', 'stroke-linejoin': 'round', 'pointer-events': 'none' }, ag);
+      return ag;
     }
     // warm gold on the cool blue shape: the one mark on it that is an angle
     mk('path', { d: wedge, fill: '#ffd35a', 'fill-opacity': 0.82, stroke: 'none' }, ag);
@@ -2010,6 +2048,183 @@
    * Scene builders
    * ------------------------------------------------------------------ */
 
+  /* ------------------------------------------------------------------ *
+   * THE COMPARE PAIR, TOLD AS IT IS SEEN.
+   *
+   * Two pentagons, no diagonals; then the convex one's diagonals grow one
+   * at a time while he says they are all inside; then the concave one's, the
+   * one that leaves the shape last, on the word "outside"; then both side by
+   * side with a small INSIDE / OUTSIDE under each; then each card's name on
+   * its word, which takes the small tag's place. Every diagonal is a real
+   * vertex-to-non-adjacent-vertex segment, judged by polygon-math.
+   * ------------------------------------------------------------------ */
+  function compareLine(c, d, full) {
+    if (d.el) { if (full) finishLine(c, d); return d.el; }
+    var a = c.verts[d.a], b = c.verts[d.b];
+    var el = litLine(c.dg, { x1: a.x, y1: a.y, x2: full ? b.x : a.x, y2: full ? b.y : a.y,
+                             'stroke-width': d.out ? 5 : 4, 'stroke-dasharray': '10 9', 'stroke-linecap': 'round' }, { bad: d.out })[0];
+    el.setAttribute('class', d.out ? 'diag diag-out' : 'diag diag-in');
+    d.el = el; d.state = full ? 'drawn' : 'growing';
+    return el;
+  }
+  function finishLine(c, d) {
+    var b = c.verts[d.b];
+    if (d.el) { d.el.setAttribute('x2', b.x); d.el.setAttribute('y2', b.y); d.el.setAttribute('opacity', 1); }
+    if (d.tip) { d.tip.remove(); d.tip = null; }
+    d.state = 'drawn';
+    var done = d.done; d.done = null; d.wait = null;
+    if (done) done();
+  }
+  /* One diagonal grows from its first corner to its second, already dashed,
+     with a bright pen tip (the same hand as drawIn). Resolves when it lands,
+     or at once if the scene is taken down under it. */
+  function growDiag(c, d, ms, delay) {
+    if (d.state === 'drawn') return Promise.resolve();
+    if (d.state === 'growing' && d.wait) return d.wait;
+    var el = compareLine(c, d, false);
+    var a = c.verts[d.a], b = c.verts[d.b];
+    d.wait = new Promise(function (resolve) {
+      d.done = resolve;
+      if (reduced() || !global.requestAnimationFrame) { finishLine(c, d); return; }
+      el.setAttribute('opacity', 0);
+      var tip = mk('circle', { cx: a.x, cy: a.y, r: 5.5, fill: '#ffffff', 'fill-opacity': 0.95, 'pointer-events': 'none', opacity: 0 }, c.dg);
+      if (tip.style) tip.style.filter = 'drop-shadow(0 0 5px ' + (d.out ? 'rgba(160, 120, 255, .95)' : 'rgba(170, 240, 255, .95)') + ')';
+      d.tip = tip;
+      var gen = sceneGen, t0 = null;
+      var ease = function (k) { return k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; };
+      var step = function (now) {
+        if (d.state !== 'growing') return;                       // finished another way
+        if (gen !== sceneGen || !el.parentNode) { var r = d.done; d.done = null; if (r) r(); return; }
+        if (t0 == null) t0 = now;
+        var t = now - t0 - (delay || 0);
+        if (t < 0) { requestAnimationFrame(step); return; }
+        var k = Math.min(1, t / ms), e = ease(k);
+        var x = a.x + (b.x - a.x) * e, y = a.y + (b.y - a.y) * e;
+        el.setAttribute('opacity', 1); el.setAttribute('x2', x.toFixed(1)); el.setAttribute('y2', y.toFixed(1));
+        tip.setAttribute('cx', x.toFixed(1)); tip.setAttribute('cy', y.toFixed(1));
+        tip.setAttribute('opacity', k < 0.9 ? 1 : Math.max(0, (1 - k) * 10));
+        if (k < 1) requestAnimationFrame(step); else finishLine(c, d);
+      };
+      requestAnimationFrame(step);
+    });
+    return d.wait;
+  }
+  /* Where a diagonal is outside its polygon: the pieces of the segment, cut
+     wherever it crosses a side, whose middles are not inside. Their ends are
+     where it leaves the shape and comes back. */
+  function outsidePieces(v, i, j) {
+    var a = v[i], b = v[j], n = v.length, ts = [0, 1];
+    for (var k = 0; k < n; k++) {
+      var p = v[k], q = v[(k + 1) % n];
+      var rx = b.x - a.x, ry = b.y - a.y, sx = q.x - p.x, sy = q.y - p.y;
+      var den = rx * sy - ry * sx;
+      if (Math.abs(den) < 1e-9) continue;
+      var t = ((p.x - a.x) * sy - (p.y - a.y) * sx) / den;
+      var u = ((p.x - a.x) * ry - (p.y - a.y) * rx) / den;
+      if (u >= -1e-9 && u <= 1 + 1e-9 && t > 1e-6 && t < 1 - 1e-6) ts.push(t);
+    }
+    ts.sort(function (x, y) { return x - y; });
+    var at = function (t) { return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }; };
+    var out = [];
+    for (var m = 0; m + 1 < ts.length; m++) {
+      if (ts[m + 1] - ts[m] < 1e-6) continue;
+      if (Poly.contains(v, at((ts[m] + ts[m + 1]) / 2))) continue;
+      var last = out[out.length - 1];
+      if (last && Math.abs(last[1] - ts[m]) < 1e-6) last[1] = ts[m + 1]; else out.push([ts[m], ts[m + 1]]);
+    }
+    return out.map(function (r) { return [at(r[0]), at(r[1])]; });
+  }
+  /** A line's own glow, turned up for a moment and back. */
+  function liftLines(els, bad) {
+    var col = bad ? HI.badLit : HI.lit, n = 0;
+    (els || []).forEach(function (el, k) {
+      if (!el || !el.animate) return;
+      try {
+        el.animate([{ filter: 'brightness(1) drop-shadow(0 0 2px ' + col + ')' },
+                    { filter: 'brightness(1.6) drop-shadow(0 0 7px ' + col + ')', offset: 0.4 },
+                    { filter: 'brightness(1) drop-shadow(0 0 2px ' + col + ')' }],
+                   { duration: 620, delay: k * 90, easing: 'ease-in-out' });
+        n++;
+      } catch (e) {}
+    });
+    return n;
+  }
+  function drawnLines(c, out) {
+    return (c ? c.diags : []).filter(function (d) { return d.el && d.state === 'drawn' && (out == null || d.out === out); })
+                             .map(function (d) { return d.el; });
+  }
+  /* THE ONE THAT LEAVES. Its own violet glow, twice; the part of it that is
+     outside washed in violet for a moment; a small ring where it leaves the
+     shape; a whoop; and he is told (compare:outside), so he can be surprised. */
+  function discoverOutside(c, list, side) {
+    evt('compare:outside', { card: side });
+    sfx('slideWhistle');
+    if (reduced() || !layers.fx) return;
+    list.forEach(function (d, n) {
+      var el = d.el;
+      if (el && el.animate) {
+        try {
+          el.animate([{ filter: 'brightness(1) drop-shadow(0 0 2px ' + HI.badLit + ')' },
+                      { filter: 'brightness(1.45) drop-shadow(0 0 9px ' + HI.badLit + ')', offset: 0.35 },
+                      { filter: 'brightness(1) drop-shadow(0 0 2px ' + HI.badLit + ')' }],
+                     { duration: 760, iterations: 2, delay: n * 140, easing: 'ease-in-out' });
+        } catch (e) {}
+      }
+      outsidePieces(c.verts, d.a, d.b).forEach(function (seg) {
+        var g = mk('g', { 'class': 'outside-exit', 'pointer-events': 'none' }, layers.fx);
+        var gone = function () { if (g.parentNode) g.remove(); };
+        later(1900, gone);
+        var band = mk('line', { x1: seg[0].x, y1: seg[0].y, x2: seg[1].x, y2: seg[1].y, stroke: HI.bad,
+                                'stroke-width': 18, 'stroke-linecap': 'round', opacity: 0 }, g);
+        if (band.animate) {
+          try { band.animate([{ opacity: 0 }, { opacity: 0.42, offset: 0.3 }, { opacity: 0 }], { duration: 1400, delay: n * 140, easing: 'ease-in-out' }); } catch (e) {}
+        }
+        seg.forEach(function (p, k) {
+          var ring = mk('circle', { cx: p.x, cy: p.y, r: 10, fill: 'none', stroke: HI.badLit, 'stroke-width': 3, opacity: 0 }, g);
+          if (!ring.animate) return;
+          ring.style.transformBox = 'fill-box'; ring.style.transformOrigin = 'center';
+          try {
+            ring.animate([{ scale: '.4', opacity: 0.95 }, { scale: '2.1', opacity: 0 }],
+                         { duration: 820, delay: 180 + n * 140 + k * 120, iterations: 2, easing: 'cubic-bezier(.2,.7,.3,1)' });
+          } catch (e) {}
+        });
+      });
+    });
+  }
+  /* A small learning mark under a card — INSIDE, OUTSIDE — sat where its
+     name will go; the name takes its place when it is said. */
+  function compareMark(side, text) {
+    var c = st.compare && st.compare[side];
+    if (!c) return null;
+    st.compareMarks = st.compareMarks || {};
+    if (st.compareMarks[side]) st.compareMarks[side].remove();
+    var out = /out/i.test(text);
+    var x = c.panel.x + c.panel.w / 2, y = c.panel.y + c.panel.h + 46, h = 30;
+    var g = mk('g', { 'class': 'compare-mark', 'data-mark': out ? 'outside' : 'inside', 'pointer-events': 'none' }, layers.ui);
+    var t = mk('text', { x: x, y: y + 5.5, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 900, 'letter-spacing': 1.5,
+                         fill: out ? '#4b2aa8' : '#0b4f9e', text: String(text).toUpperCase() }, g);
+    var w = 0; try { w = t.getComputedTextLength ? t.getComputedTextLength() : 0; } catch (e) { w = 0; }
+    if (!w) w = String(text).length * 11.5;
+    var bw = w + 32;
+    var face = mk('rect', { x: x - bw / 2, y: y - h / 2, width: bw, height: h, rx: h / 2,
+                            fill: out ? '#f3ecff' : '#e9fbff', stroke: out ? HI.badLit : HI.rim, 'stroke-width': 2.5 }, g);
+    g.insertBefore(face, t);
+    g._rect = { x: x - bw / 2, y: y - h / 2, w: bw, h: h };
+    st.compareMarks[side] = g;
+    st.compareMarkSpec = st.compareMarkSpec || {};
+    st.compareMarkSpec[side] = text;
+    if (st.compareFocus && st.compareFocus !== side) dimTag(g, true, st.compareStyle === 'lean');
+    return g;
+  }
+  function dropMark(side, fade) {
+    var m = st.compareMarks && st.compareMarks[side];
+    if (st.compareMarkSpec) delete st.compareMarkSpec[side];
+    if (!m) return;
+    st.compareMarks[side] = null;
+    if (!fade || reduced() || !m.animate) { m.remove(); return; }
+    try { m.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' }).finished.then(function () { m.remove(); }, function () { m.remove(); }); }
+    catch (e) { m.remove(); }
+  }
   function reset() {
     dropTimers();
     alive(false);
@@ -2036,7 +2251,7 @@
       st.diagonals = [];
       renderPoly();
       if (morph && prev) morphFrom(prev);
-      else if (!reduced()) enter(st.polyG, 'pop');
+      else if (!reduced()) enter(st.polyG, spec.enter === 'intro' ? 'intro' : 'pop');
       if (spec.label) op.label(spec.label);
       if (spec.badge) op.badge(spec.badge);
       if (spec.diagonals) op.diagonals(spec);
@@ -2109,18 +2324,23 @@
         var markAt = mine ? mine.moved : cfg.dent;
         var pg = mk('g', {}, layers.poly);
         mk('path', { d: pathOf(P.verts), fill: 'url(#' + candy(SHAPE.fill) + ')', stroke: SHAPE.edge, 'stroke-width': SHAPE.edgeW, 'stroke-linejoin': 'round' }, pg);
-        if (cfg.diagonals === 'all') {
-          Poly.allDiagonals(P.verts.length).forEach(function (d) {
-            var a = P.verts[d[0]], b = P.verts[d[1]];
-            var out = !Poly.isDiagonalInside(P.verts, d[0], d[1]);
-            litLine(pg, { x1: a.x, y1: a.y, x2: b.x, y2: b.y, 'stroke-width': out ? 5 : 4, 'stroke-dasharray': '10 9', 'stroke-linecap': 'round' }, { bad: out });
-          });
-        }
-        if (markAt != null && P.verts[markAt] && (cfg.dent != null || mine)) mk('circle', { cx: P.verts[markAt].x, cy: P.verts[markAt].y, r: 9, fill: HI.fill, stroke: HI.edge, 'stroke-width': 2.5 }, pg);
+        /* THE DIAGONALS ARE KNOWN FROM THE START AND DRAWN WHEN THEY ARE
+           TALKED ABOUT. Every vertex-to-non-adjacent-vertex segment, each
+           judged inside or not by polygon-math; `diagonals: 'all'` draws them
+           at once, otherwise a beat grows them (op.grow) while the line that
+           names them is said. Their own group, under the moved corner's dot. */
+        var dg = mk('g', { 'class': 'compare-diagonals' }, pg);
+        var diags = Poly.allDiagonals(P.verts.length).map(function (d) {
+          return { a: d[0], b: d[1], out: !Poly.isDiagonalInside(P.verts, d[0], d[1]), el: null, state: 'hidden' };
+        });
+        // NO DOT ON THE MOVED CORNER. The dent is the mark; a knob on it read
+        // as something left over to press (the user: "why blue point not remove?")
+        void markAt;
         var tagEl = cfg.caption ? nameTag(layers.ui, pnl.x + pnl.w / 2, pnl.y + pnl.h + 38, cfg.caption, cfg.tone) : null;
         // a name that is spoken arrives when it is (holdForWord)
         if (tagEl && cfg.captionCue) holdForWord(tagEl, cfg.captionCue);
-        st.compare[s[0]] = { panel: pnl, g: g, pg: pg, verts: P.verts, tone: cfg.tone, tag: tagEl };
+        st.compare[s[0]] = { panel: pnl, g: g, pg: pg, dg: dg, diags: diags, verts: P.verts, tone: cfg.tone, tag: tagEl };
+        if (cfg.diagonals === 'all') diags.forEach(function (d) { compareLine(st.compare[s[0]], d, true); });
       });
     },
 
@@ -2349,6 +2569,7 @@
     summary: function (spec) {
       reset(); st.kind = 'summary';
       st.summary = { concepts: (spec.concepts || []).slice(), cards: {}, collected: [], active: null, state: 'SUMMARY_START' };
+      summaryShelf(st.summary);
       evt('summary:state', { state: 'SUMMARY_START' });
     }
   };
@@ -2383,7 +2604,9 @@
     // THE COLLECTION: four down each edge, the parts of a polygon on the
     // left and the kinds on the right, clear of the HUD above and of Back
     // and Next below, each card's name with a clear gap under it
-    mini: { w: 76, x: [70, 930], y0: 94, pitch: 110 },
+    // the name plate sits ON the card's bottom edge, half on it — one width
+    // for all eight, so each column reads as a set
+    mini: { w: 84, x: [72, 928], y0: 96, pitch: 110, plate: { w: 78, h: 22, size: 12.5, rim: 2 } },
     enterMs: 420, collectMs: 580
   };
 
@@ -2517,9 +2740,9 @@
       });
     }
     g._knobs = (V.hi || []).map(function (i) {
-      return mk('circle', { cx: v[i].x, cy: v[i].y, r: 11, fill: HI.fill, stroke: HI.edge, 'stroke-width': 2.5, opacity: 0 }, vis);
+      return mk('circle', { cx: v[i].x, cy: v[i].y, r: 11, fill: HI.fill, stroke: shade(HI.fill, -0.45), 'stroke-width': 3, opacity: 0 }, vis);
     });
-    if (V.move) g._mover = mk('circle', { cx: v[V.move[0]].x, cy: v[V.move[0]].y, r: 10, fill: HI.fill, stroke: HI.edge, 'stroke-width': 2.5, opacity: 0 }, vis);
+    if (V.move) g._mover = mk('circle', { cx: v[V.move[0]].x, cy: v[V.move[0]].y, r: 10, fill: HI.fill, stroke: shade(HI.fill, -0.45), 'stroke-width': 3, opacity: 0 }, vis);
     // THE NAME, ON A TAG HUNG OFF THE BOTTOM EDGE: on the rim, below the
     // glass, so it is attached to the card and never over what it shows
     g._tag = nameTag(pop, SUM.card.cx, y + h + 4, c.label || id, V.tone || null);
@@ -2604,7 +2827,17 @@
       var M = V.move, to = summaryVerts(id, true)[M[0]];
       sumPop(g._mover, Math.max(0, t - 60), true);
       later(reduced() ? 0 : t + 120, function () { sfx(id === 'concave' ? 'boing' : 'slideWhistle', { gain: 0.6 }); });
-      moveCorner(g, M[0], to, 460, t + 120);
+      // the dot shows the corner travelling, and goes once it is there: the
+      // new shape is the mark (the user: "why blue point not remove?")
+      moveCorner(g, M[0], to, 460, t + 120, function () {
+        var mv = g._mover;
+        if (!mv) return;
+        if (reduced() || !mv.animate) { mv.setAttribute('opacity', 0); return; }
+        try {
+          var fade = mv.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, delay: 220, fill: 'forwards' });
+          fade.finished.then(function () { mv.setAttribute('opacity', 0); fade.cancel(); }, function () {});
+        } catch (e) { mv.setAttribute('opacity', 0); }
+      });
       t += 120 + 480;
       if (V.line) {
         // the line that proves it, drawn once the dent is there
@@ -2667,6 +2900,32 @@
     });
   }
 
+  /* THE COLLECTION IS THERE FROM THE START, EMPTY. Eight frosted slots, four
+     down each edge, each with a "?" — the cards are collected INTO them, so
+     the screen is balanced from the first card and a child can see how many
+     are still to come. */
+  function summaryShelf(S) {
+    S.ghosts = {};
+    S.concepts.forEach(function (c) {
+      var slot = summarySlot(c.id), w = SUM.mini.w, h = w * 0.96;
+      var g = mk('g', { 'class': 'summary-ghost', 'pointer-events': 'none' }, layers.ui);
+      mk('rect', { x: slot.x - w / 2, y: slot.y - h / 2, width: w, height: h, rx: 16, fill: '#eefaff', 'fill-opacity': 0.55,
+                   stroke: '#8ccbed', 'stroke-width': 2.5, 'stroke-dasharray': '7 6' }, g);
+      mk('text', { x: slot.x, y: slot.y + 11, 'text-anchor': 'middle', 'font-size': 32, 'font-weight': 900, fill: '#7dbde0', opacity: 0.85, text: '?' }, g);
+      S.ghosts[c.id] = g;
+    });
+  }
+  /** A card has landed: its slot's "?" goes. */
+  function summaryTally(S, id) {
+    var ghost = S.ghosts && S.ghosts[id];
+    if (ghost) {
+      S.ghosts[id] = null;
+      if (reduced() || !ghost.animate) ghost.remove();
+      else { try { ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: 'forwards' }).finished.then(function () { ghost.remove(); }, function () { ghost.remove(); }); } catch (e) { ghost.remove(); } }
+    }
+    sfx('sparkle', { gain: 0.3 });
+  }
+
   /** Where a collected card lives: the first half of the lesson's order down the left, the rest down the right. */
   function summarySlot(id) {
     var S = st.summary, order = S ? S.concepts.map(function (k) { return k.id; }) : [];
@@ -2690,12 +2949,14 @@
       c.setAttribute('transform', 'translate(' + slot.x + ',' + slot.y + ') scale(' + k.toFixed(4) + ') translate(' + (-cx0) + ',' + (-cy0) + ')');
       c._rect = { x: slot.x - r.w * k / 2, y: slot.y - r.h * k / 2, w: r.w * k, h: r.h * k };
       c._slot = slot;
-      var mini = nameTag(layers.ui, slot.x, slot.y + r.h * k / 2 + 13, (S.concepts.filter(function (q) { return q.id === id; })[0] || {}).label || id,
-                         (SUMMARY_VISUALS[id] || {}).tone || null, { h: 22, size: 13, pad: 18 });
+      var PL = SUM.mini.plate;
+      var mini = nameTag(layers.ui, slot.x, slot.y + r.h * k / 2 + 1, (S.concepts.filter(function (q) { return q.id === id; })[0] || {}).label || id,
+                         (SUMMARY_VISUALS[id] || {}).tone || null, { h: PL.h, size: PL.size, w: PL.w, rim: PL.rim });
       mini.setAttribute('class', 'badge summary-tag');
       c._mini = mini;
       if (!now) sumPop(mini, 0);
       if (S.collected.indexOf(id) < 0) S.collected.push(id);
+      summaryTally(S, id);
       setSummary('NEXT_CONCEPT', id);
     };
     // its big name lifts off first: at a quarter of the size it would be unreadable
@@ -3526,7 +3787,8 @@
    * over it, which is what a caption does. A tone gives it the concept's
    * colours; without one it is warm ice.
    */
-  // `o` { h, size, pad }: a smaller plate, for a word on a card (the showdown)
+  // `o` { h, size, pad, w, rim }: a smaller plate, for a word on a card — `w`
+  // a fixed width (a column of them reads as one set), `rim` its line
   function nameTag(parent, x, y, text, tone, o) {
     var c = CONCEPT[tone] || null;
     var g = mk('g', { 'class': 'badge' }, parent);
@@ -3535,11 +3797,11 @@
                              fill: c ? c.ink : '#0b3f7a', text: text }, g);
     var w = 0; try { w = probe.getComputedTextLength ? probe.getComputedTextLength() : 0; } catch (e) { w = 0; }
     if (!w) w = text.length * (o && o.size ? fs * 0.54 : 14);
-    var bw = w + ((o && o.pad) || 52), bx = x - bw / 2, by = y - H0 / 2;
+    var bw = (o && o.w) || (w + ((o && o.pad) || 52)), bx = x - bw / 2, by = y - H0 / 2;
     var r = H0 * 0.44;
     // one face, one rim, no shadow and no gloss
     var face = mk('rect', { x: bx, y: by, width: bw, height: H0, rx: r,
-                            fill: c ? c.wash : '#f3fcff', stroke: c ? c.deep : HI.edge, 'stroke-width': 3 }, g);
+                            fill: c ? c.wash : '#f3fcff', stroke: c ? c.deep : HI.edge, 'stroke-width': (o && o.rim) || 3 }, g);
     g.insertBefore(face, probe);
     g._text = probe;
     g._rect = { x: bx, y: by, w: bw, h: H0 };
@@ -4376,9 +4638,82 @@
       });
       st.badges[key] = g; if (b.live) st.liveBadge = g;
       // a tag put under a card that has stepped back steps back too
-      if (b.under && st.compareFocus && b.under !== 'compare.' + st.compareFocus) dimTag(g, true);
-      if (b.cue && holdForWord(g, b.cue)) return;                // it arrives with its word
+      if (b.under && st.compareFocus && b.under !== 'compare.' + st.compareFocus) dimTag(g, true, st.compareStyle === 'lean');
+      /* AS IT APPEARS: the small learning mark in its place goes, and — when
+         it is being introduced, not put back — its chime, a few sparkles and
+         his nod (compare:react). */
+      var side = b.under && b.under.indexOf('compare.') === 0 ? b.under.split('.')[1] : null;
+      var shown = function () {
+        if (side) dropMark(side, true);
+        if (!b.enter) return;
+        if (b.sfx) sfx(b.sfx, { gain: 0.55 });
+        if (b.sparkle && global.Juice && Juice.sparkle && !reduced()) { try { Juice.sparkle(g); } catch (e) {} }
+        if (b.react) evt('compare:react', { state: b.react, card: side });
+      };
+      if (b.cue && holdForWord(g, b.cue, shown)) return;         // it arrives with its word
       if (b.enter && !reduced()) enter(g, 'ui');
+      shown();
+    },
+    /* The compare pair's diagonals: `card` left / right / both. They grow
+       one after another (`each` apart, `ms` each) and the beat lasts until
+       they have; `outsideOn` holds the ones that leave the shape for that
+       word; `instant` draws whatever is not drawn yet, at once (a screen
+       reached by a jump or by Back). */
+    grow: function (o) {
+      if (!o || !st.compare) return null;
+      var waits = [];
+      (o.card === 'both' ? ['left', 'right'] : [o.card]).forEach(function (side) {
+        var c = st.compare[side];
+        if (!c) return;
+        if (o.instant) {
+          c.diags.forEach(function (d) {
+            if (d.word) { dropWord(d.word); d.word = null; }
+            compareLine(c, d, true);
+          });
+          return;
+        }
+        var todo = c.diags.filter(function (d) { return d.state === 'hidden'; });
+        var byWord = o.outsideOn ? todo.filter(function (d) { return d.out; }) : [];
+        var each = o.each || 430, ms = o.ms || 540;
+        todo.filter(function (d) { return byWord.indexOf(d) < 0; })
+            .forEach(function (d, k) { waits.push(growDiag(c, d, ms, k * each)); });
+        if (!byWord.length) return;
+        var h = onWord(o.outsideOn, function () {
+          byWord.forEach(function (d) { d.word = null; });
+          Promise.all(byWord.map(function (d, k) { return growDiag(c, d, ms + 160, k * 260); })).then(function () {
+            if (st.compare && st.compare[side] === c) discoverOutside(c, byWord, side);
+          });
+        });
+        byWord.forEach(function (d) { d.state = 'waiting'; d.word = h; });
+      });
+      return waits.length ? Promise.all(waits) : null;
+    },
+    /* A word of the line and what answers it on the pair: `pulse` the named
+       card(s) (left / right / both), `lift` a card's inside diagonals, `sfx`. */
+    onWord: function (list) {
+      (Array.isArray(list) ? list : [list]).forEach(function (w) {
+        if (!w || !w.word) return;
+        onWord(w.word, function () {
+          if (w.sfx) sfx(w.sfx, { gain: w.gain || 0.5 });
+          if (reduced() || !st.compare) return;
+          if (w.pulse) {
+            var ks = w.pulse === 'both' ? ['left', 'right'] : [w.pulse];
+            warmPulse(ks.map(function (k) { return st.compare[k] && st.compare[k].pg; }), { together: true, peak: '1.04', ms: 560 });
+          }
+          if (w.lift && st.compare[w.lift]) liftLines(drawnLines(st.compare[w.lift], false));
+        });
+      });
+    },
+    /* The small learning marks, INSIDE and OUTSIDE, popped in one after the other. */
+    marks: function (m) {
+      if (!m || !st.compare) return;
+      ['left', 'right'].forEach(function (side, i) {
+        if (!m[side]) return;
+        var g = compareMark(side, m[side]);
+        if (!g || m.enter === false || reduced()) return;
+        g.style.opacity = 0;
+        later(i * 240, function () { g.style.opacity = ''; enter(g, 'ui'); sfx('pop', { gain: 0.35 }); });
+      });
     },
     ghost: function (gh) { st.ghost = gh ? { from: resolveVertex(gh.from), to: resolveVertex(gh.to) } : null; renderPoly(); },
     draw: function (d) {
@@ -4556,7 +4891,13 @@
       diagonals: (st.diagonals || []).map(function (d) { return { a: d[0], b: d[1], solid: !!d.solid }; }),
       measure: copy(st.measure), highlightOutside: !!st.highlightOutside, onlyOutside: !!st.onlyOutside,
       ghost: copy(st.ghost), label: copy(st.labelSpec), badges: copy(st.badgeSpecs),
-      compareFocus: st.compareFocus || null, stepLocked: !!st.stepLocked,
+      compareFocus: st.compareFocus || null, compareStyle: st.compareStyle || null, stepLocked: !!st.stepLocked,
+      // which of each card's diagonals are drawn, and the small marks under them
+      compareDrawn: st.compare ? Object.keys(st.compare).reduce(function (o, k) {
+        o[k] = st.compare[k].diags.map(function (d, i) { return d.state === 'drawn' || d.state === 'growing' ? i : -1; }).filter(function (i) { return i >= 0; });
+        return o;
+      }, {}) : null,
+      compareMarks: copy(st.compareMarkSpec),
       liveText: st.liveBadge && st.liveBadge._text ? st.liveBadge._text.textContent : null
     };
   }
@@ -4580,8 +4921,13 @@
       if (snap.stepLocked) op.stepper('locked');
       // put back as they were seen: shown, not waiting again for a word
       if (snap.label) op.label(Object.assign({}, snap.label, { cue: null, enter: false }));
-    } else if (snap.compareFocus) {
-      focus('compare.' + snap.compareFocus, 'dim-others');
+    } else {
+      Object.keys(snap.compareDrawn || {}).forEach(function (k) {
+        var c = st.compare && st.compare[k];
+        if (c) snap.compareDrawn[k].forEach(function (i) { if (c.diags[i]) compareLine(c, c.diags[i], true); });
+      });
+      if (snap.compareMarks) op.marks(Object.assign({}, snap.compareMarks, { enter: false }));
+      if (snap.compareFocus) focus('compare.' + snap.compareFocus, snap.compareStyle || 'dim-others');
     }
     Object.keys(snap.badges || {}).forEach(function (k) { op.badge(Object.assign({}, snap.badges[k], { cue: null, enter: false })); });
     if (snap.liveText && st.liveBadge && st.liveBadge._text) st.liveBadge._text.textContent = snap.liveText;
@@ -4607,8 +4953,14 @@
     if (spec.measurements) op.measurements(spec.measurements);
     if (spec.observe) op.observe(spec.observe);
     if (spec.returnItem && st.sort && st.sort.dragging) returnItem(st.sort.dragging);
+    // the compare sequence: words that answer, diagonals that grow (a beat
+    // that lasts until they have), and the small marks
+    if (spec.onWord) op.onWord(spec.onWord);
+    var growing = spec.grow ? op.grow(spec.grow) : null;
+    if (spec.marks) op.marks(spec.marks);
     if (spec.kind) applySeat(false);
     if (spec.summary) return op.summary(spec.summary);
+    return growing;
   }
 
   /* ------------------------------------------------------------------ *
@@ -4640,37 +4992,51 @@
   }
 
   /** A name tag goes with its card: faded and drained when the card is. */
-  function dimTag(el, dim) {
+  // `soft`: the lighter step back of the compare sequence ('lean')
+  function dimTag(el, dim, soft) {
     if (!el || !el.style) return;
     el.style.transition = 'opacity 320ms ease, filter 320ms ease';
-    el.style.opacity = dim ? .42 : '';
-    el.style.filter = dim ? 'saturate(.25) brightness(1.04)' : '';
+    el.style.opacity = dim ? (soft ? .6 : .42) : '';
+    el.style.filter = dim ? (soft ? 'saturate(.55) brightness(1.03)' : 'saturate(.25) brightness(1.04)') : '';
   }
 
   function focus(ref, style) {
     var els = targets(ref);
-    if (style === 'dim-others' && st.compare) {
+    // BOTH CARDS, EVENLY: the pair side by side again, nothing stepped back
+    if (style === 'even' && st.compare) {
+      st.compareFocus = null; st.compareStyle = null;
+      Object.keys(st.compare).forEach(function (k) {
+        var c = st.compare[k];
+        [c.g, c.pg].forEach(function (el) { el.style.transition = 'opacity 320ms ease, filter 320ms ease'; el.style.opacity = 1; el.style.filter = ''; });
+        [(st.badges || {})['compare.' + k], c.tag, (st.compareMarks || {})[k]].forEach(function (el) { dimTag(el, false); });
+      });
+      return;
+    }
+    if ((style === 'dim-others' || style === 'lean') && st.compare) {
       // The card not being talked about steps back — paler, drained of
       // colour — and the one that is comes forward with a soft glow, so the
       // eye has nowhere else to go. Remembered: Swiftee peeks from behind
       // the card in focus, not from behind the one that has stepped back.
-      st.compareFocus = ref.split('.')[1];
+      // 'lean' is the lighter step back of the compare sequence: the other
+      // card is still easy to see, only less important.
+      var soft = style === 'lean';
+      st.compareFocus = ref.split('.')[1]; st.compareStyle = style;
       Object.keys(st.compare).forEach(function (k) {
         var c = st.compare[k]; var dim = 'compare.' + k !== ref;
         [c.g, c.pg].forEach(function (el) {
-          el.style.opacity = dim ? .42 : 1;
-          el.style.filter = dim ? 'saturate(.25) brightness(1.04)' : '';
+          el.style.opacity = dim ? (soft ? .6 : .42) : 1;
+          el.style.filter = dim ? (soft ? 'saturate(.55) brightness(1.03)' : 'saturate(.25) brightness(1.04)') : '';
           el.style.transition = 'opacity 320ms ease, filter 320ms ease';
         });
         // No glow on the one in focus: the card's face is translucent glass,
         // and a drop-shadow showed through it as a pale line inside the rim.
         // The other card stepping back is the whole cue.
-        c.g.style.filter = dim ? 'saturate(.25) brightness(1.04)' : '';
         // AND ITS NAME TAG STEPS BACK WITH IT. "Convex" stayed full strength
         // under a card that had faded to grey, so the one bright thing on the
         // stepped-back side was a label for the card nobody was talking about.
-        dimTag((st.badges || {})['compare.' + k], dim);
-        dimTag(c.tag, dim);
+        dimTag((st.badges || {})['compare.' + k], dim, soft);
+        dimTag(c.tag, dim, soft);
+        dimTag((st.compareMarks || {})[k], dim, soft);
       });
       return;
     }
@@ -4824,7 +5190,9 @@
     switch (term) {
       case 'polygon':
         if (kind === 'grid') return warmPulse(st.cards, { together: true, peak: '1.03' });   // every card, never the right ones
-        if (kind === 'compare') return warmPulse(Object.keys(st.compare || {}).map(function (k) { return st.compare[k].pg; }), { together: true });
+        // "this one" is the card in focus; "both" and no focus, the pair
+        if (kind === 'compare') return warmPulse(Object.keys(st.compare || {}).filter(function (k) { return !st.compareFocus || /both/.test(line) || k === st.compareFocus; })
+                                                   .map(function (k) { return st.compare[k].pg; }), { together: true });
         if (kind === 'sort') return warmPulse(st.sort && st.sort.items, { together: true, peak: '1.06' });
         if (kind === 'swipe-sort') return warmPulse(st.swipe && st.swipe.card ? [st.swipe.card] : [], { peak: '1.03' });
         return warmPulse([st.polyG]);
@@ -4861,10 +5229,18 @@
         return wedges.length ? warmPulse(wedges, { peak: '1.15' }) : warmPulse(relevantKnobs());
       }
       case 'inside':
-        if (kind === 'compare') { var f1 = st.compareFocus ? st.compare[st.compareFocus] : null; return f1 ? regionGlow(pathOf(f1.verts)) : 0; }
+        // the inside of the card in focus glows, and its inside diagonals with it
+        if (kind === 'compare') {
+          var f1 = st.compareFocus ? st.compare[st.compareFocus] : null;
+          if (!f1) return 0;
+          liftLines(drawnLines(f1, false));
+          return regionGlow(pathOf(f1.verts));
+        }
         return regionGlow(outlineOf());
       case 'outside':
-        if (kind === 'compare') { var f2 = st.compareFocus ? st.compare[st.compareFocus] : null; return f2 ? regionGlow(pathOf(f2.verts), true) : 0; }
+        // the diagonal that leaves the card in focus, once it is drawn (the
+        // sequence draws it on this very word, and lights it itself)
+        if (kind === 'compare') { var f2 = st.compareFocus ? st.compare[st.compareFocus] : null; return f2 ? liftLines(drawnLines(f2, true), true) : 0; }
         return regionGlow(outlineOf(), true);
       case 'equal': {
         var ticks = st.measG ? [].slice.call(st.measG.querySelectorAll('.eq-tick')) : [];
@@ -5677,10 +6053,12 @@
         cleanup.push(function () {
           cancelled = true; queue.length = 0;
           // the to-do dots go with the interaction, whichever way it ends
-          if (st.sideTodo) { st.sideTodo = null; if (st.polyG) renderPoly(); }
+          if (st.sideTodo || st.angleTodo) { st.sideTodo = null; st.angleTodo = false; if (st.polyG) renderPoly(); }
         });
         st.measure = st.measure || {}; st.measure[isSides ? 'sides' : 'angles'] = [];
-        st.showVerts = !isSides; st.touchVerts = !isSides;
+        // the corners take the tap (touchVerts) but show no dot: each angle
+        // still to measure is drawn in outline instead (st.angleTodo)
+        st.showVerts = false; st.touchVerts = !isSides; st.angleTodo = !isSides;
         // every side starts on the to-do list, marked by a dot at its middle
         st.sideTodo = isSides ? st.verts.map(function (_, k) { return k; }) : null;
         renderPoly();
@@ -5700,7 +6078,7 @@
         // what is still to measure: the sides' dots and the corners breathe
         var todo = function () {
           return isSides ? (st.sideDotEls || []).filter(function (d, q) { return d && !seen[q]; })
-                         : (st.knobEls || []).filter(function (_, q) { return !seen[q]; });
+                         : (st.measG ? [].slice.call(st.measG.querySelectorAll('.angle-todo')) : []);
         };
         // every one of them is to be measured: the hand taps the next — from
         // the first idle hint, because "tap the sides" is a move no screen
@@ -5737,7 +6115,7 @@
             evt('measurement:complete', { what: isSides ? 'side' : 'angle', index: i });
             onTap('correct'); measuring = false;
             if (count >= need) {
-              st.sideTodo = null; renderPoly();
+              st.sideTodo = null; st.angleTodo = false; renderPoly();
               // THE LAST SIDE IS IN, AND NOW THE MARKS SAY IT: the equal-side
               // ticks are dealt in round the shape one after another — the
               // conclusion drawn when there is something to conclude

@@ -141,6 +141,45 @@
     return entering;
   }
 
+  /* HE FLIES IN AND LOOKS IT OVER FIRST (a screen's `swiftee.arrive: 'fly'`,
+     then a `{ swiftee: 'enter', from: 'air' }` beat). The card is already
+     there; he comes in from the upper left, stops beside the shape, over its
+     top corner, on its other side and under it, looking each time, and lands
+     on his own mark. Only then is he present — his first line waits for it. */
+  function tourStops() {
+    var S = global.Stage && Stage.state;
+    var card = S && S.panelEl, shape = S && S.polyG;
+    if (!card || !shape || !Swiftee.bounds) return null;
+    var c = card.getBoundingClientRect(), s = shape.getBoundingClientRect(), me = Swiftee.bounds();
+    if (!c.width || !s.width || !me || !me.height) return null;
+    var k = 0.72, bh = me.height * k;
+    var midY = s.top + s.height * 0.52;
+    var low = (global.innerHeight || 800) - bh / 2 - 24;
+    var over = Math.max(bh / 2 + 6, s.top - bh * 0.62), rim = s.top - bh * 0.18;
+    // the looks (hold) and, between them, points the path goes round by, so
+    // it curves AROUND the shape and not across it
+    return [
+      { x: (c.left + s.left) / 2, y: midY, scale: k, tilt: 7, hold: 260 },                          // beside it, looking in
+      { x: s.left + s.width * 0.1, y: rim, scale: k * 0.97, tilt: 4 },                                 // round its upper left
+      { x: s.left + s.width / 2, y: over, scale: k * 0.94, tilt: 0, hold: 300 },                      // over the top corner
+      { x: s.right - s.width * 0.1, y: rim, scale: k * 0.97, tilt: -4 },                               // round its upper right
+      { x: (s.right + c.right) / 2, y: midY, scale: k, tilt: -7, hold: 240 },                         // the other side
+      { x: s.right - s.width * 0.05, y: Math.min(low, s.bottom + bh * 0.1), scale: k * 0.94, tilt: -3 },   // round its lower right
+      { x: s.left + s.width * 0.4, y: Math.min(low, s.bottom + (c.bottom - s.bottom) * 0.4), scale: k * 0.9, tilt: 6 }   // under it, on the way down
+    ];
+  }
+  function flyIn() {
+    if (!buddyOn || !global.Swiftee || !Swiftee.play) return Promise.resolve(false);
+    if (present) return Promise.resolve(true);
+    if (entering) return entering;
+    leaveGen++; leaving = false;
+    var m = markFor(current, null, Swiftee.size);
+    if (m && m.pos !== 'off' && Swiftee.place) Swiftee.place(m.pos, m.size);
+    var done = function () { present = true; entering = null; syncPeekRim(); placeBubble(); return true; };
+    entering = Promise.race([Swiftee.play('enter', { from: 'air', tour: tourStops() || [], ms: 3300 }), pause(6000)]).then(done, done);
+    return entering;
+  }
+
   /** And he leaves before a screen that does not need him: a wave, and off to the wing. */
   var leaving = false, leaveGen = 0;
   function leave() {
@@ -497,6 +536,12 @@
      face for the second miss on one question. */
   var cheerUntil = 0;   // the lesson does not move on while he is still saying it
   var missesHere = 0;   // wrong answers on the screen that is up
+  /* DOING WELL. Right answers in a row with no miss between them, across
+     screens; every third one is met with his full celebration instead of the
+     ordinary cheer — once per run length (cheeredAt), however many faces the
+     answer asks for. A miss starts the count again. */
+  var streak = 0, cheeredAt = 0;
+  function doingWell() { return streak >= 3 && streak % 3 === 0 && cheeredAt !== streak; }
   var remindingUntil = 0;   // a reminder in the bubble (sayReminder) until then
   var hintedHere = false;
 
@@ -577,7 +622,8 @@
   // one only speaks — one face per answer, not two in a row.
   function react(kind, said, o) {
     o = o || {};
-    if (kind === 'wrong' && !o.late) { quest.mistake(); missesHere++; }
+    if (kind === 'wrong' && !o.late) { quest.mistake(); missesHere++; streak = 0; cheeredAt = 0; }
+    if (kind === 'correct' && !o.late) streak++;
     if (!buddyOn) return;   // the sound and the confetti carry the verdict
     if (!global.Swiftee || !Swiftee.play) return;
     if (!o.late) { var args = [kind, said, Object.assign({}, o, { late: true })]; afterVerdict(function () { react.apply(null, args); }); return; }
@@ -605,9 +651,9 @@
     var rem = kind === 'wrong' ? (Screens.list[current] || {}).remind : null;
     if (rem && (!rem.say || missesHere < (rem.after || 1))) rem = null;
     /* HIS FACE, when the storyboard has not already given one (o.face). A
-       right answer on its own gets the small pleased face the first time on a
-       screen and, after that, only the body's little dip — five right cards
-       are one "yes" and four nods, not five parties. A miss gets 'oops',
+       right answer gets a cheer — a happy face and a hop — the first time on
+       a screen, a happy nod after that, and his full celebration on every
+       third right answer in a row (doingWell). A miss gets 'oops',
        which recovers into encouragement by itself. No head-shake: the rig's
        own tilt says "hmm?" and a shake on top of it said "no". */
     var face = function () {
@@ -619,8 +665,10 @@
       try {
         if (kind === 'wrong') Swiftee.play('oops', direction());
         else if (kind === 'correct') {
-          if (pick) Swiftee.play('happySmall', direction());
-          else if (Swiftee.bounce) Swiftee.bounce('notice');
+          // a run of right answers: the full celebration; the first right
+          // answer here: the cheer; every one after it: a happy nod
+          if (doingWell()) { cheeredAt = streak; Swiftee.play('celebrate', direction()); }
+          else Swiftee.play(pick ? 'happySmall' : 'nod', direction());
         }
       } catch (e) {}
     };
@@ -2513,6 +2561,8 @@
         // would leave him counted as present with the rim still up over
         // nothing. (An entrance with a `to` is a different move: the jump up
         // into the open middle.)
+        // IN BY AIR, looking the shape over on the way (flyIn)
+        if (state === 'enter' && opts && opts.from === 'air') return flyIn();
         if (state === 'enter' && opts && opts.from === 'below' && !opts.to) {
           return entrance({ quick: !!opts.quick, ms: opts.ms }).then(function () { placeBubble(); });
         }
@@ -2553,6 +2603,14 @@
           standing = null; say(null);
           Swiftee.place(opts.to, opts.size || Swiftee.size);
           syncPeekRim();
+        }
+        // DOING WELL: the storyboard's ordinary cheer for a right answer
+        // becomes the full celebration on every third right answer in a row.
+        // It plays out, but the lesson waits no longer than the cheer would
+        // have held it — a run of right answers is never slowed by its reward.
+        if (state === 'happySmall' && doingWell()) {
+          cheeredAt = streak;
+          return Promise.race([Promise.resolve(Swiftee.play('celebrate', o, ctx)), pause(1100)]);
         }
         var p = Swiftee.play(state, o, ctx);
         if (state === 'enter') {
@@ -2884,7 +2942,7 @@
         Stage.focus(target, opts.style);
         // the card in focus is the one he peeks from: if he is waiting in
         // the wing for his cue, his mark moves with it
-        if (opts.style === 'dim-others' && global.Swiftee && Swiftee.pos === 'peek' && !present && !entering && Swiftee.place) {
+        if ((opts.style === 'dim-others' || opts.style === 'lean') && global.Swiftee && Swiftee.pos === 'peek' && !present && !entering && Swiftee.place) {
           Swiftee.place('peek', Swiftee.size); syncPeekRim(); placeBubble();
         }
       },
@@ -3152,6 +3210,9 @@
       // director abandoning a long beat — inherited a character four hundred
       // pixels off-stage with nothing left to bring him back. Placing him is
       // cheap and saying it twice costs a layout read.
+      // A SCREEN HE FLIES INTO starts without him: he is not standing there
+      // when the card arrives (flyIn brings him). Under the snow, so unseen.
+      if (s.swiftee.arrive === 'fly' && present) { present = false; say(null); }
       if (present && (wantPos !== Swiftee.pos || wantSize !== Swiftee.size) && Swiftee.play) {
         // ALREADY ON, ON A DIFFERENT MARK: he goes there, he does not jump
         // there. The move is a FLIP and lands on place(), so the bubble and
@@ -3360,6 +3421,14 @@
      glided home after a miss or a short drag — and he comes up behind it
      with the question, so there is never a bubble without him, and never him
      in the middle of the card's flight. */
+  /* A face for something the stage just did, when he is up and free to
+     make one — never over the measuring walk, an entrance or a move. */
+  function buddyReacts(state) {
+    if (!buddyOn || !present || entering || !global.Swiftee || Swiftee.locked) return;
+    // perform(): a reaction outranks a gesture still playing, never a bigger one
+    try { if (Swiftee.perform) Swiftee.perform(state, direction()); else if (Swiftee.play) Swiftee.play(state, direction()); } catch (e) {}
+  }
+
   function swipeHome() {
     if (!buddyOn || present || entering || !inputLive) return;
     if (!inputSpec || inputSpec.type !== 'swipe') return;
@@ -3507,6 +3576,10 @@
       if (name === 'hint:show') hintGesture(payload);
       if (name === 'swipe:home') swipeHome();
       if (name === 'measurement:start' && payload && payload.what === 'side') tailWhenHome();
+      // THE COMPARE PAIR TELLS HIM WHAT HAPPENED: a diagonal left the shape
+      // (surprised), a card was named (the badge's `react`)
+      if (name === 'compare:outside') buddyReacts('surprised');
+      if (name === 'compare:react' && payload && payload.state) buddyReacts(payload.state);
     });
     // THE SUMMARY SAYS WHICH STATE IT IS IN (Stage.summaryState). The card's
     // own states are the stage's; his rising, his line, its reading pause and
