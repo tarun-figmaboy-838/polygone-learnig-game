@@ -25,3 +25,6 @@ Thumbs.db
 # Raw voice takes cut by tools/split-vo.js. Source material: the per-line
 # clips that ship are assets/vo/<id>.mp3, placed by `node tools/split-vo.js --apply`.
 assets/vo/take/
+
+# a collaborator's local preview renders, not part of the game
+preview/
