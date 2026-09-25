@@ -818,7 +818,7 @@
       // the position cannot avoid the panel it is defined against.
       // arrive 'fly': he is not standing there when the screen begins; he
       // flies in once the card has (game.js flyIn)
-      swiftee: { pos: 'peek', size: 'small', purpose: 'hint', arrive: 'fly' },
+      swiftee: { pos: 'corner', size: 'small', purpose: 'hint', arrive: 'fly' },
       // This wording follows the recorded master exactly. Extra copy here
       // makes the bubble reveal words that Swiftee never says.
       say: 'Hmm\u2026 The sides look suspiciously alike. Let\u2019s check!',

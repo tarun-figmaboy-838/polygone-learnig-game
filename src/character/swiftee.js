@@ -3,9 +3,9 @@
  *
  * The vector placeholder is gone. This plays the rendered Rive rig from
  * `assets/swiftee/` through `swiftee-frames.js`, which is generated from
- * `atlas/swiftee.manifest.json` — nothing here hardcodes a frame count, a
- * grid, a sheet path or a state name, and `tools/build-swiftee-frames.js` fails
- * the build if the manifest and the files on disk ever disagree.
+ * `atlas/swiftee.manifest.json`; rig clips are resolved from that generated
+ * table. The stage-23 inspection flight also has a small, separate four-frame
+ * sheet so his eyes can follow the figure while his wings move.
  *
  * What makes the sheets work, and what this file must not break:
  *
@@ -312,7 +312,8 @@
    * Module state
    * ------------------------------------------------------------------ */
 
-  var el = null, cellEl = null, shadowEl = null;
+  var el = null, cellEl = null, shadowEl = null, flightEl = null;
+  var flightArt = null;
   var layout = null;                  // function(pos, size) -> { x, y, scale }
   var pos = 'left', size = 'medium';
   var scale = '1x';                   // which sheet resolution is being sampled
@@ -469,6 +470,19 @@
     var t = nowMs();
     var dt = lastT ? Math.min(250, t - lastT) : 0;
     lastT = t;
+    if (flightArt && flightEl) {
+      var frame = Math.floor((t - flightArt.start) / 110) % 4;
+      if (frame !== flightArt.frame) {
+        flightArt.frame = frame;
+        flightEl.style.backgroundPosition = (3 - frame * 250) + 'px -38px';
+        var r = el.getBoundingClientRect();
+        var dx = flightArt.target.x - (r.left + r.width / 2);
+        var dy = flightArt.target.y - (r.top + r.height / 2);
+        var facing = dx >= 0 ? 1 : -1;
+        var pitch = Math.max(-18, Math.min(18, dy * 0.08));
+        flightEl.style.transform = 'scaleX(' + facing + ') rotate(' + (pitch * facing).toFixed(1) + 'deg)';
+      }
+    }
     if (!active) return;
     active.acc += dt;
     var step = 1000 / F.fps;
@@ -709,11 +723,14 @@
    * mark with the landing squash (BODY.land). No new drawings: the wings are
    * the rig's, the path is this.
    *
-   * Every keyframe is additive translate / scale / rotate over his placed
-   * mark, so the mark stays the truth and the bubble can be laid against it
-   * the moment this resolves.
+   * Each keyframe includes the placed mark's base transform. Replacing that
+   * transform keeps page coordinates stable while he scales and banks; the
+   * bubble can be laid against his mark the moment this resolves.
    */
   function flyTour(o, g) {
+    try { return flyAround(o, g); } catch (e) { return slideIn({ from: 'left' }, g); }
+  }
+  function flyAround(o, g) {
     place(pos, size);
     stateName = 'enter';
     var stops = (o.tour || []).filter(function (p) { return p && isFinite(p.x) && isFinite(p.y); });
@@ -730,11 +747,12 @@
     void ox;
     var foot = { x: r0.left + r0.width / 2, y: r0.top + r0.height * F.baselineY };
     var v = { x: home.x - foot.x, y: home.y - foot.y };
+    var baseScale = parseFloat((el.style.transform.match(/scale\(([^)]+)\)/) || [])[1]) || 1;
     var frame = function (p, extra) {
       var s = p.scale || 1, a = (p.tilt || 0) * Math.PI / 180;
       var rv = { x: (v.x * Math.cos(a) - v.y * Math.sin(a)) * s, y: (v.x * Math.sin(a) + v.y * Math.cos(a)) * s };
       var tx = (p.x - home.x) + (v.x - rv.x), ty = (p.y - home.y) + (v.y - rv.y);
-      return Object.assign({ translate: tx.toFixed(1) + 'px ' + ty.toFixed(1) + 'px', scale: String(s), rotate: (p.tilt || 0) + 'deg' }, extra || {});
+      return Object.assign({ transform: 'translate(-50%,-' + (F.baselineY * 100).toFixed(1) + '%) translate(' + tx.toFixed(1) + 'px,' + ty.toFixed(1) + 'px) rotate(' + (p.tilt || 0) + 'deg) scale(' + (baseScale * s).toFixed(4) + ')' }, extra || {});
     };
     /* ONE FLIGHT, NOT A SET OF HOPS. A smooth curve through every stop
        (Catmull-Rom), travelled at a speed that dips as he reaches each place
@@ -772,7 +790,7 @@
       for (var j = 1; j <= stops.length; j++) {
         var hold = stops[j - 1].hold || 0;
         if (!hold) continue;                                        // a point he only passes by
-        var w = 46 + hold * 0.06, dip = Math.min(0.86, 0.45 + hold / 900);
+        var w = 34 + hold * 0.06, dip = Math.min(0.85, 0.5 + hold / 900);
         var d = (sAt - knotAt[j]) / w;
         v -= dip * Math.exp(-d * d);
       }
@@ -783,11 +801,23 @@
     };
     // time as the distance divided by that speed, all the way along
     var tAt = [0];
+    // each stop may carry a `pace` for the leg that arrives at it: the way in
+    // is brisker, the moves between his looks are slower
+    var paceAt = function (q) {
+      var p0 = P[q.seg].pace || 1, p1 = P[q.seg + 1].pace || 1;
+      return p0 + (p1 - p0) * smooth(q.u);
+    };
     for (var m = 1; m < path.length; m++) {
-      var ds = path[m].s - path[m - 1].s, vm = speed((path[m].s + path[m - 1].s) / 2);
+      var ds = path[m].s - path[m - 1].s, vm = speed((path[m].s + path[m - 1].s) / 2) * paceAt(path[m]);
       tAt.push(tAt[m - 1] + ds / vm);
     }
-    var want = o.ms || 3100, scaleT = want / (tAt[tAt.length - 1] || 1);
+    // A GENTLE CRUISE, IN REAL TIME: under half the window's width a second,
+    // so a child can follow him round the shape (the user: "slow, smooth,
+    // natural"); held to a sensible whole either way
+    var cruise = 0.42 * (global.innerWidth || 1200) / 1000;          // px per ms
+    var natural = tAt[tAt.length - 1] / cruise;
+    var want = o.ms || Math.max(3600, Math.min(5200, natural));
+    var scaleT = want / (tAt[tAt.length - 1] || 1);
     var dur = Math.round(tAt[tAt.length - 1] * scaleT);
     // what he is like at a place on the curve: its size and its look
     var knotVal = function (key, seg, u) {
@@ -811,19 +841,34 @@
       // banking: into the way he is moving, softened frame to frame
       var vx = prevX == null ? 0 : (x - prevX) / ((dur / FRAMES) || 1);
       prevX = x;
-      bank += (Math.max(-9, Math.min(9, vx * 14)) - bank) * 0.35;
+      bank += (Math.max(-14, Math.min(14, vx * 20)) - bank) * 0.3;
       var landing = smooth((dur * fN / FRAMES - (dur - 420)) / 420);  // 0 in the air, 1 on his mark
       // the lift of each wingbeat: a quick small rise and fall the whole way
-      var bob = Math.sin((fN / FRAMES) * dur / 380 * 2 * Math.PI) * 5 * (1 - landing);
-      var tilt = (bank * 0.7 + look * 0.5) * (1 - landing);
+      var bob = Math.sin((fN / FRAMES) * dur / 340 * 2 * Math.PI) * 6 * (1 - landing);
+      var tilt = (bank * 0.8 + look * 0.6) * (1 - landing);
       keys.push(frame({ x: x, y: y + bob, scale: sc, tilt: +tilt.toFixed(2) }, { offset: +(fN / FRAMES).toFixed(4) }));
     }
     keys[0].opacity = 0; keys[1].opacity = 1;
+    // a flight that cannot be computed is not played as a bird standing still
+    if (!isFinite(dur) || keys.some(function (k) { return /NaN/.test(k.transform); })) throw new Error('flight');
     keys[keys.length - 1] = frame(land, { offset: 1 });
     el.style.opacity = '1';
     airborne = true;
     if (shadowEl) shadowEl.style.opacity = '0';
     clip('flapping', Infinity);
+    startFlightArt(o.look || { x: stops[0].x, y: stops[0].y });
+    setTimeout(function () {
+      if (stale(g) || !flightArt || !cellEl || !flightEl) return;
+      cellEl.style.visibility = 'visible';
+      cellEl.style.opacity = '0';
+      cellEl.style.transition = 'opacity 230ms ease';
+      flightEl.style.transition = 'opacity 230ms ease';
+      (global.requestAnimationFrame || setTimeout)(function () {
+        if (!flightArt || stale(g)) return;
+        cellEl.style.opacity = '1';
+        flightEl.style.opacity = '0';
+      }, 16);
+    }, Math.max(0, dur - 270));
     // the shadow comes back under him as his feet arrive, not after
     setTimeout(function () {
       if (!shadowEl || stale(g)) return;
@@ -831,9 +876,9 @@
       try { shadowEl.animate([{ opacity: 0, transform: 'translate(-50%,-35%) scale(.5)' }, { opacity: 1, transform: 'translate(-50%,-35%) scale(1)' }], { duration: 380, easing: 'ease-out' }); } catch (e) {}
     }, Math.max(0, dur - 380));
     var total = dur;
-    var a = anim(keys, { duration: total, easing: 'linear' });
+    var a = anim(keys, { duration: total, easing: 'linear', composite: 'replace' });
     // (the shadow has already come back under his feet, above)
-    var touchDown = function () { airborne = false; if (shadowEl) shadowEl.style.opacity = ''; };
+    var touchDown = function () { airborne = false; if (shadowEl) shadowEl.style.opacity = ''; stopFlightArt(); };
     return a.finished.then(function () {
       touchDown();
       if (stale(g)) return null;
@@ -1012,6 +1057,22 @@
     live.slice().forEach(function (a) { try { a.cancel(); } catch (e) {} });
     live.length = 0;
     shiftAnim = null;
+    stopFlightArt();
+  }
+
+  function startFlightArt(target) {
+    if (!flightEl || !cellEl || reduced) return;
+    flightArt = { target: target, start: nowMs(), frame: -1 };
+    cellEl.style.visibility = 'hidden';
+    cellEl.style.opacity = '1';
+    flightEl.style.display = 'block';
+    flightEl.style.opacity = '1';
+  }
+
+  function stopFlightArt() {
+    flightArt = null;
+    if (flightEl) { flightEl.style.display = 'none'; flightEl.style.transition = ''; flightEl.style.opacity = '1'; }
+    if (cellEl) { cellEl.style.visibility = 'visible'; cellEl.style.transition = ''; cellEl.style.opacity = '1'; }
   }
 
   function centre(r) { return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
@@ -1608,6 +1669,7 @@
     var leftover = !!(busy && !stale(busy.g));
     busy = null;
     if (o.now) {
+      cancelAll();
       rigLoop = null;                                   // the owed stop is written off
       fresh();
       stateName = '';                                   // so rest() moves whatever he is in
@@ -1656,12 +1718,21 @@
       'position:absolute;inset:0;background-repeat:no-repeat;image-rendering:auto;' +
       'filter: drop-shadow(0 7px 11px rgba(24,52,96,.30));';
 
+    flightEl = document.createElement('div');
+    flightEl.style.cssText =
+      'position:absolute;inset:0;display:none;pointer-events:none;background-repeat:no-repeat;' +
+      'background-image:url("' + url('swiftee-inspect-flight.webp') + '");' +
+      'background-size:1000px 333px;background-position:3px -38px;transform-origin:50% 50%;' +
+      'filter:drop-shadow(0 7px 11px rgba(24,52,96,.24));';
+
     el.appendChild(shadowEl);
+    el.appendChild(flightEl);
     el.appendChild(cellEl);
     container.appendChild(el);
 
     if (opts.layout) layout = opts.layout;
     preload(PRELOAD);
+    if (global.Image) { var flightImage = new Image(); flightImage.src = url('swiftee-inspect-flight.webp'); }
     // Decode the one-off arrival art while the title screen is waiting. The
     // three large sheets used to start loading only after Start was pressed,
     // which presented an empty canvas as a visible pause before the sleigh.

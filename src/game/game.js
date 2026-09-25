@@ -28,7 +28,7 @@
      whether this screen wants him. They differ for the length of an
      entrance or an exit — and those two animations are what keep him from
      popping into a corner or vanishing out of one. */
-  var present = false, entering = null;
+  var present = false, entering = null, flightGen = 0;
   /* Bumped by every play(); a loop that wakes from an await and finds a
      newer one has started steps aside instead of running a screen over it. */
   var playGen = 0;
@@ -143,30 +143,38 @@
 
   /* HE FLIES IN AND LOOKS IT OVER FIRST (a screen's `swiftee.arrive: 'fly'`,
      then a `{ swiftee: 'enter', from: 'air' }` beat). The card is already
-     there; he comes in from the upper left, stops beside the shape, over its
-     top corner, on its other side and under it, looking each time, and lands
-     on his own mark. Only then is he present — his first line waits for it. */
+     there; he comes in from the upper left, makes one close circuit around
+     the shape, then lands on his mark. Only then is he present and speaks. */
   function tourStops() {
     var S = global.Stage && Stage.state;
     var card = S && S.panelEl, shape = S && S.polyG;
     if (!card || !shape || !Swiftee.bounds) return null;
     var c = card.getBoundingClientRect(), s = shape.getBoundingClientRect(), me = Swiftee.bounds();
     if (!c.width || !s.width || !me || !me.height) return null;
-    var k = 0.72, bh = me.height * k;
-    var midY = s.top + s.height * 0.52;
-    var low = (global.innerHeight || 800) - bh / 2 - 24;
-    var over = Math.max(bh / 2 + 6, s.top - bh * 0.62), rim = s.top - bh * 0.18;
-    // the looks (hold) and, between them, points the path goes round by, so
-    // it curves AROUND the shape and not across it
+    var k = 0.58, bh = me.height * k, bw = me.width * k;
+    var left = s.left - bw * 0.54, right = s.right + bw * 0.54;
+    var top = Math.max(bh * 0.5 + 30, s.top - bh * 0.2);
+    var bottom = Math.min((global.innerHeight || 800) - bh * 0.55 - 12, s.bottom + bh * 0.55);
+    // A complete close orbit: near side, above the point, far side, under
+    // the base, and back to the near side. The extra corners keep the smooth
+    // curve out of the pentagon rather than letting it cut across the face.
     return [
-      { x: (c.left + s.left) / 2, y: midY, scale: k, tilt: 7, hold: 260 },                          // beside it, looking in
-      { x: s.left + s.width * 0.1, y: rim, scale: k * 0.97, tilt: 4 },                                 // round its upper left
-      { x: s.left + s.width / 2, y: over, scale: k * 0.94, tilt: 0, hold: 300 },                      // over the top corner
-      { x: s.right - s.width * 0.1, y: rim, scale: k * 0.97, tilt: -4 },                               // round its upper right
-      { x: (s.right + c.right) / 2, y: midY, scale: k, tilt: -7, hold: 240 },                         // the other side
-      { x: s.right - s.width * 0.05, y: Math.min(low, s.bottom + bh * 0.1), scale: k * 0.94, tilt: -3 },   // round its lower right
-      { x: s.left + s.width * 0.4, y: Math.min(low, s.bottom + (c.bottom - s.bottom) * 0.4), scale: k * 0.9, tilt: 6 }   // under it, on the way down
+      { x: left, y: s.top + s.height * 0.46, scale: k, tilt: 7, hold: 180 },
+      { x: s.left + s.width * 0.12, y: top, scale: k, tilt: 4 },
+      { x: s.left + s.width * 0.5, y: top, scale: k * 0.96, tilt: 0, hold: 200 },
+      { x: s.right - s.width * 0.12, y: top, scale: k, tilt: -4 },
+      { x: right, y: s.top + s.height * 0.46, scale: k, tilt: -7, hold: 240 },
+      { x: s.right - s.width * 0.08, y: bottom, scale: k, tilt: -3 },
+      { x: s.left + s.width * 0.5, y: bottom, scale: k * 0.96, tilt: 0, hold: 200 },
+      { x: s.left + s.width * 0.08, y: bottom, scale: k, tilt: 3 },
+      { x: left, y: s.top + s.height * 0.46, scale: k, tilt: 7 }
     ];
+  }
+  /* he comes in from just off the upper left, already small and flying */
+  function tourStart() {
+    var me = Swiftee.bounds && Swiftee.bounds();
+    if (!me || !me.height) return null;
+    return { x: -me.width * 0.35, y: Math.max(me.height * 0.4, (global.innerHeight || 800) * 0.22), scale: 0.66, tilt: 12 };
   }
   function flyIn() {
     if (!buddyOn || !global.Swiftee || !Swiftee.play) return Promise.resolve(false);
@@ -175,8 +183,14 @@
     leaveGen++; leaving = false;
     var m = markFor(current, null, Swiftee.size);
     if (m && m.pos !== 'off' && Swiftee.place) Swiftee.place(m.pos, m.size);
-    var done = function () { present = true; entering = null; syncPeekRim(); placeBubble(); return true; };
-    entering = Promise.race([Swiftee.play('enter', { from: 'air', tour: tourStops() || [], ms: 3300 }), pause(6000)]).then(done, done);
+    var screen = current, generation = playGen, flight = ++flightGen;
+    var done = function () {
+      if (screen !== current || generation !== playGen || flight !== flightGen) return false;
+      present = true; entering = null; syncPeekRim(); placeBubble(); return true;
+    };
+    var shape = Stage.state.polyG && Stage.state.polyG.getBoundingClientRect();
+    var look = shape && { x: (shape.left + shape.right) / 2, y: (shape.top + shape.bottom) / 2 };
+    entering = Promise.race([Swiftee.play('enter', { from: 'air', tour: tourStops() || [], start: tourStart(), look: look, ms: 5400 }), pause(7500)]).then(done, done);
     return entering;
   }
 
@@ -3225,7 +3239,12 @@
       // cheap and saying it twice costs a layout read.
       // A SCREEN HE FLIES INTO starts without him: he is not standing there
       // when the card arrives (flyIn brings him). Under the snow, so unseen.
-      if (s.swiftee.arrive === 'fly' && present) { present = false; say(null); }
+      if (s.swiftee.arrive === 'fly') {
+        flightGen++;
+        entering = null;
+        present = false;
+        say(null);
+      }
       if (present && (wantPos !== Swiftee.pos || wantSize !== Swiftee.size) && Swiftee.play) {
         // ALREADY ON, ON A DIFFERENT MARK: he goes there, he does not jump
         // there. The move is a FLIP and lands on place(), so the bubble and
@@ -3487,6 +3506,7 @@
 
   function restart() {
     backGen++; goingBack = false;
+    flightGen++; entering = null; present = false;
     director.abort(); playing = false; showNext(false); showBack(false);
     if (global.Swiftee && Swiftee.settle) Swiftee.settle({ now: true });
     clearTimeout(rewardTimer);
@@ -3760,6 +3780,7 @@
    */
   function goTo(n) {
     if (!(n >= 0 && n < Screens.list.length)) return;
+    flightGen++; entering = null;
     director.abort();
     playing = false;
     showNext(false);
