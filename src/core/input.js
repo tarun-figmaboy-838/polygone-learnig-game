@@ -129,10 +129,6 @@
     /** True while stage drag handlers should ignore pointers. */
     get guarded() { return guarded(); },
 
-    /** Hold the guard open longer — used around scene transitions. */
-    guard: function (ms) { arm(ms); return true; },
-    release: function () { guardUntil = 0; return true; },
-
     on: function (name, fn) { (listeners[name] || (listeners[name] = [])).push(fn); return Input; },
     off: function (name, fn) {
       var l = listeners[name];
@@ -140,10 +136,7 @@
       if (!fn) { listeners[name] = []; return Input; }
       var i = l.indexOf(fn); if (i >= 0) l.splice(i, 1);
       return Input;
-    },
-
-    MODES: MODES,
-    get element() { return el; }
+    }
   };
 
   global.Input = Input;

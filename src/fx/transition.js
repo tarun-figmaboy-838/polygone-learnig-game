@@ -19,7 +19,7 @@
  *   Transition.wipe(fn)                 cover, run fn, reveal
  *   Transition.play(onMidpoint, onComplete)   the same, as two callbacks
  *
- * WHERE TO TUNE IT: CONFIG below, or Transition.configure({...}) at runtime.
+ * WHERE TO TUNE IT: CONFIG below.
  * Every number that matters to the feel is there — duration, count, size
  * range, fall speed, drift, rotation, glow, peak density — nothing is buried
  * in the code.
@@ -363,45 +363,15 @@
     });
   }
 
-  /** Cover, do the thing, reveal. */
-  function wipe(fn) {
-    return cover()
-      .then(function () { return fn ? fn() : null; })
-      .then(function (r) { return reveal().then(function () { return r; }); },
-            function (e) { return reveal().then(function () { throw e; }); });
-  }
-
-  /** The same, as callbacks: playSnowTransition(onMidpoint, onComplete). */
-  function play(onMidpoint, onComplete) {
-    return wipe(onMidpoint).then(function (r) { if (onComplete) onComplete(r); return r; });
-  }
-
   /** Is the screen hidden behind the snow right now? */
   function covered() { return !!host && host.style.visibility === 'visible'; }
-
-  /** Change any setting at runtime: Transition.configure({ count: 90, glow: 0.4 }). */
-  function configure(opts) {
-    Object.keys(opts || {}).forEach(function (k) {
-      if (k === 'sfx') CONFIG.sfx = Object.assign({}, CONFIG.sfx, opts.sfx || {});
-      else if (k in CONFIG) CONFIG[k] = opts[k];
-    });
-    return CONFIG;
-  }
 
   global.Transition = {
     mount: mount,
     covered: covered,
     cover: cover,
-    reveal: reveal,
-    wipe: wipe,
-    play: play,
-    configure: configure,
-    get config() { return CONFIG; },
-    get reducedMotion() { return reduced(); },
-    get COVER_MS() { return CONFIG.coverMs; },
-    get REVEAL_MS() { return CONFIG.revealMs; }
+    reveal: reveal
   };
-  global.playSnowTransition = play;
   if (typeof module !== 'undefined' && module.exports) module.exports = global.Transition;
 
 })(typeof window !== 'undefined' ? window : this);

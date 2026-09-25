@@ -104,14 +104,14 @@
    * it — the voice, the words, the animation — so no two states overlap.
    * ------------------------------------------------------------------ */
   var SUMMARY = [
-    { id: 'vertex',    label: 'Vertex',    text: 'A vertex is a corner where two sides meet.',                          animation: 'vertex',    vo: 'p37a' },
-    { id: 'side',      label: 'Side',      text: 'A side is a straight line joining two vertices.',                     animation: 'side',      vo: 'p37b' },
-    { id: 'angle',     label: 'Angle',     text: 'An angle is formed where two sides meet.',                            animation: 'angle',     vo: 'p37c' },
-    { id: 'diagonal',  label: 'Diagonal',  text: 'A diagonal joins two non-adjacent vertices.',                         animation: 'diagonal',  vo: 'p37d' },
-    { id: 'convex',    label: 'Convex',    text: 'In a convex polygon, all diagonals stay inside.',                     animation: 'convex',    vo: 'p37e' },
-    { id: 'concave',   label: 'Concave',   text: 'In a concave polygon, atleast one diagonal goes outside.',           animation: 'concave',   vo: 'p37f' },
-    { id: 'regular',   label: 'Regular',   text: 'A regular polygon has all sides and all angles equal.',               animation: 'regular',   vo: 'p37g' },
-    { id: 'irregular', label: 'Irregular', text: 'If the sides or angles are not all equal, the polygon is irregular.', animation: 'irregular', vo: 'p37h' }
+    { id: 'vertex',    label: 'Vertex',    text: 'A vertex is a corner where two sides meet.',                          vo: 'p37a' },
+    { id: 'side',      label: 'Side',      text: 'A side is a straight line joining two vertices.',                     vo: 'p37b' },
+    { id: 'angle',     label: 'Angle',     text: 'An angle is formed where two sides meet.',                            vo: 'p37c' },
+    { id: 'diagonal',  label: 'Diagonal',  text: 'A diagonal joins two non-adjacent vertices.',                         vo: 'p37d' },
+    { id: 'convex',    label: 'Convex',    text: 'In a convex polygon, all diagonals stay inside.',                     vo: 'p37e' },
+    { id: 'concave',   label: 'Concave',   text: 'In a concave polygon, atleast one diagonal goes outside.',           vo: 'p37f' },
+    { id: 'regular',   label: 'Regular',   text: 'A regular polygon has all sides and all angles equal.',               vo: 'p37g' },
+    { id: 'irregular', label: 'Irregular', text: 'If the sides or angles are not all equal, the polygon is irregular.', vo: 'p37h' }
   ];
   var SUMMARY_DONE = { text: 'Amazing! You explored all these polygon ideas!', vo: 'p37i' };
 
@@ -261,7 +261,7 @@
         { focus: 'polygon.vertices', style: 'pulse' },
         // any corner is right, so it is not praised as an answer: the pop,
         // the nod, and straight on to "Let’s connect it to another vertex."
-        { input: { type: 'vertex-pick', accept: 'any', praise: false } },
+        { input: { type: 'vertex-pick', praise: false } },
         // HE ANSWERS A RIGHT ANSWER. Six screens judged the child and then
         // said nothing with their face: the sound played, the shape moved,
         // and the friend who asked for it stood there.
@@ -310,7 +310,7 @@
         // pointing your-turn was the screen before's, and the same gesture
         // twice running is a loop, not a reaction)
         { swiftee: 'curious', at: 'picked' },
-        { input: { type: 'draw-diagonal', from: 'picked', sides: true, praise: false, accept: 'non-adjacent-unused' } },
+        { input: { type: 'draw-diagonal', from: 'picked', sides: true, praise: false } },
         { branch: true, until: 'correct',
           on: {
             // SIDE_FEEDBACK: kept a moment, named, and another try
@@ -324,7 +324,7 @@
               { stage: { side: null } },
               { instruction: 'Let’s connect it to a different vertex.', vo: 'p10i' },
               { swiftee: 'point', at: 'picked' },
-              { input: { type: 'draw-diagonal', from: 'picked', sides: true, praise: false, accept: 'non-adjacent-unused', retry: true } }
+              { input: { type: 'draw-diagonal', from: 'picked', sides: true, praise: false, retry: true } }
             ],
             // DIAGONAL_SUCCESS: the line is in and glowing (stage.js shimmer)
             correct: [
@@ -340,7 +340,7 @@
           // (nothing else can come back from this input — a line let go on no
           // corner goes home without a verdict — but if it did, it is asked
           // again, gently)
-          otherwise: [{ swiftee: 'hint' }, { input: { type: 'draw-diagonal', from: 'picked', sides: true, praise: false, accept: 'non-adjacent-unused', retry: true } }] },
+          otherwise: [{ swiftee: 'hint' }, { input: { type: 'draw-diagonal', from: 'picked', sides: true, praise: false, retry: true } }] },
         // (the success arm already took it down; said again so the card the
         // next screen inherits is plain from the storyboard)
         { instruction: null },
@@ -406,7 +406,7 @@
         // the same request twice in a row read as a stutter, not a lesson.
         { instruction: 'Let’s draw another diagonal from the same vertex.', vo: 'p14i' },
         { swiftee: 'point', at: 'picked' },
-        { input: { type: 'draw-diagonal', from: 'picked', accept: 'non-adjacent-unused' } },
+        { input: { type: 'draw-diagonal', from: 'picked' } },
         // until: the retry is branched on, so a right second try still gets
         // the observation below — it used to skip straight to the next screen
         { branch: true, until: 'correct',
@@ -418,7 +418,7 @@
               { say: 'All diagonals are still inside.', vo: 'p14b' }
             ] }
           ]) },
-          otherwise: WRONG.concat([{ input: { type: 'draw-diagonal', from: 'picked', accept: 'non-adjacent-unused', retry: true } }]) }
+          otherwise: WRONG.concat([{ input: { type: 'draw-diagonal', from: 'picked', retry: true } }]) }
       ]
     },
 
@@ -453,7 +453,7 @@
         { swiftee: 'step-back' },
         // Three diagonals from one hexagon vertex (n - 3). Each correct one
         // gets its own small reward; the screen completes on the third.
-        { input: { type: 'draw-diagonals', from: 0, count: 3, accept: 'non-adjacent-unused' } },
+        { input: { type: 'draw-diagonals', from: 0, count: 3 } },
         // EVERY DIAGONAL FROM ONE CORNER: a milestone, and the one place his
         // jumping-for-joy clip belongs
         { feedback: milestone([{ sfx: 'levelUp' }], 'excited') }
@@ -551,7 +551,7 @@
         // Complete when the polygon becomes concave (Poly.classify), not
         // when the vertex crosses a pixel line. The drag is clamped with
         // Poly.clampSimple so it cannot become a bowtie.
-        { input: { type: 'drag-vertex', vertex: 0, until: 'concave', clamp: 'simple', live: 'diagonals' } },
+        { input: { type: 'drag-vertex', vertex: 0, until: 'concave', live: 'diagonals' } },
         // A RIGHT ANSWER, AND IT SOUNDS LIKE ONE: the chime, the shape jiggles
         // into its dent, a burst from the corner that made it. The big "Whoa!"
         // is still the next screen's.
@@ -756,7 +756,7 @@
         { sfx: 'pop' },
         { instruction: 'Drag any vertex to make this polygon concave.', vo: 'p26i' },
         { focus: 'polygon.vertices', style: 'pulse' },
-        { input: { type: 'drag-vertex', vertex: 'any', until: 'concave', clamp: 'simple', live: 'badge' } },
+        { input: { type: 'drag-vertex', vertex: 'any', until: 'concave', live: 'badge' } },
         { feedback: [{ sfx: 'correct' }, { juice: 'celebrate', target: 'polygon' }] },
         { swiftee: 'enter', from: 'left' },
         { swiftee: 'celebrate' }
@@ -951,7 +951,7 @@
         { swiftee: 'curious', at: 'polygon.vertex.0' },
         // Completes once the shape is no longer regular by measurement,
         // with a minimum displacement so a nudge does not end the screen.
-        { input: { type: 'drag-vertex', vertex: 0, until: 'irregular', minMove: 24, clamp: 'simple', live: 'measurements' } },
+        { input: { type: 'drag-vertex', vertex: 0, until: 'irregular', minMove: 24, live: 'measurements' } },
         // the numbers changed: a quick "oh!" of discovery
         { feedback: [{ sfx: 'slideWhistle' }, { juice: 'wobble', target: 'polygon' }, { swiftee: 'discover' }] }
       ]
@@ -1110,7 +1110,7 @@
       instruction: null,
       say: SUMMARY[0].text,
       lines: SUMMARY.slice(1).map(function (c) { return c.text; }).concat([SUMMARY_DONE.text]),
-      stage: { kind: 'summary', concepts: SUMMARY.map(function (c) { return { id: c.id, label: c.label, animation: c.animation }; }) },
+      stage: { kind: 'summary', concepts: SUMMARY.map(function (c) { return { id: c.id, label: c.label }; }) },
       beats: summaryBeats(SUMMARY)
     }
   ];
@@ -1276,7 +1276,6 @@ function wantsBuddyAt(i) {
 }
 
 global.Screens = {
-  speaks: speaks,
   wantsBuddy: wantsBuddy,
   sceneKindAt: sceneKindAt,
   speaksAll: speaksAll,

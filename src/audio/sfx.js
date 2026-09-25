@@ -22,15 +22,23 @@
   'use strict';
 
   var SCALES = {
-    'C pentatonic':  [261.63, 293.66, 329.63, 392.00, 440.00],
-    'C major':       [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88],
-    'A minor':       [220.00, 246.94, 261.63, 293.66, 329.63, 349.23, 392.00]
+    'C pentatonic':  [261.63, 293.66, 329.63, 392.00, 440.00]
   };
 
   var ctx = null, master = null, buses = {}, comp = null;
   var scale = SCALES['C pentatonic'];
   var muted = false, volume = 0.85;
-  var ducks = 0, noiseBuf = null;
+  var noiseBuf = null;
+  /* A CALL'S OWN LEVEL. play(name, { level }) asks for a cue quieter than it
+     is written — the chime on a word he is saying, at half — as a scale on
+     everything that cue plays, for that one call. (`gain` is not it: the
+     sleigh's and the snow's cues pass `gain` as a level of their own.) */
+  var callScale = 1;
+  /* THE MUSIC UNDER HIS VOICE (vo.js calls voice(true/false)): a little
+     lower while he speaks, back up smoothly a breath after — not in the gap
+     between two lines, which read as a pump. */
+  var voiceOn = false, voiceTimer = null, VOICE_MUSIC = 0.6;
+  function musicBase() { return 0.45 * (voiceOn ? VOICE_MUSIC : 1); }
   var unlocked = false;
 
   /* ------------------------------------------------------------------ *
@@ -95,7 +103,7 @@
       if (o.glide === 'exp') osc.frequency.exponentialRampToValueAtTime(Math.max(1, o.to), t + dur);
       else osc.frequency.linearRampToValueAtTime(o.to, t + dur);
     }
-    var peak = (o.gain == null ? 0.22 : o.gain);
+    var peak = (o.gain == null ? 0.22 : o.gain) * callScale;
     var atk = o.attack == null ? 0.006 : o.attack;
     g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(peak, t + atk);
@@ -120,7 +128,7 @@
     if (o.to != null) f.frequency.exponentialRampToValueAtTime(Math.max(20, o.to), t + dur);
     f.Q.value = o.q == null ? 1 : o.q;
     var g = ctx.createGain();
-    var peak = o.gain == null ? 0.18 : o.gain;
+    var peak = (o.gain == null ? 0.18 : o.gain) * callScale;
     g.gain.setValueAtTime(0.0001, t);
     g.gain.linearRampToValueAtTime(peak, t + (o.attack == null ? 0.004 : o.attack));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -246,26 +254,6 @@
       noise({ f: 400, to: 3000, dur: 0.26, q: 0.8, filter: 'bandpass', gain: 0.13 });
     },
 
-    /** Ice giving way: one sharp report, then the fracture running out. */
-    crack: function () {
-      noise({ f: 5200, to: 1500, dur: 0.055, q: 3.2, gain: 0.16 });
-      tone({ f: note(11, 2), to: note(2, 1), dur: 0.1, type: 'square', gain: 0.05, glide: 'exp' });
-      // the split travelling outward, three quick ticks at falling pitch
-      for (var i = 0; i < 3; i++) {
-        noise({ f: 3800 - i * 700, to: 900, dur: 0.05, q: 2.4,
-                gain: 0.09 - i * 0.02, delay: 0.045 + i * 0.038 });
-      }
-    },
-
-    /** And the pieces coming down. */
-    shatter: function () {
-      for (var i = 0; i < 7; i++) {
-        noise({ f: 2600 + Math.random() * 2200, to: 700, dur: 0.07, q: 2.8,
-                gain: 0.055 + Math.random() * 0.03, delay: Math.random() * 0.26 });
-      }
-      tone({ f: note(7, 1), to: note(0, 0), dur: 0.34, type: 'triangle', gain: 0.04, glide: 'exp', delay: 0.04 });
-    },
-
     /** A line being drawn — the diagonal cue. */
     slice: function () {
       noise({ f: 3400, to: 900, dur: 0.15, q: 2.5, gain: 0.12 });
@@ -302,7 +290,9 @@
     if (!cue) { if (global.console) console.warn('SFX: no cue "' + name + '"'); return false; }
     if (!build()) return false;
     resume();
+    callScale = (opts && typeof opts.level === 'number') ? Math.max(0, Math.min(1, opts.level)) : 1;
     try { cue(opts || {}); } catch (e) { if (global.console) console.warn('SFX: cue "' + name + '" failed', e); }
+    callScale = 1;
     return true;
   }
 
@@ -341,23 +331,18 @@
     });
   }
 
-  /**
-   * Pull effects and music down for a moment. Returns the release; call it
-   * when whatever needed the foreground is done. Nested ducks are counted,
-   * so two overlapping holds do not restore the level early.
-   */
-  function duck(amount) {
-    if (!build()) return function () {};
-    var target = amount == null ? 0.28 : amount;
-    ducks++;
-    ramp(buses.sfx.gain, target, 0.12);
-    ramp(buses.music.gain, target * 0.6, 0.12);
-    var released = false;
-    return function () {
-      if (released) return; released = true;
-      ducks = Math.max(0, ducks - 1);
-      if (ducks === 0) { ramp(buses.sfx.gain, 1, 0.3); ramp(buses.music.gain, 0.45, 0.3); }
-    };
+  function voice(on) {
+    if (!build()) return;
+    clearTimeout(voiceTimer); voiceTimer = null;
+    if (on) {
+      if (!voiceOn) { voiceOn = true; ramp(buses.music.gain, musicBase(), 0.25); }
+      return;
+    }
+    if (!voiceOn) return;
+    voiceTimer = setTimeout(function () {
+      voiceTimer = null; voiceOn = false;
+      ramp(buses.music.gain, musicBase(), 0.6);
+    }, 450);
   }
 
   function ramp(param, to, secs) {
@@ -396,24 +381,16 @@
     },
     isMuted: function () { return muted; },
 
-    volume: function (v) {
-      if (v != null) { volume = Math.max(0, Math.min(1, v)); applyMaster(); }
-      return volume;
-    },
-
     /** Set the key every pitched cue quantises to. */
     key: function (name) {
       if (SCALES[name]) scale = SCALES[name];
       else if (Array.isArray(name)) scale = name.slice();
       return scale;
     },
-    keys: Object.keys(SCALES),
-
-    duck: duck,
+    voice: voice,
 
     /** Bus nodes, for anything that wants to route its own audio. */
     musicBus: function () { build(); return buses.music || null; },
-    sfxBus: function () { build(); return buses.sfx || null; },
     context: function () { return build(); },
 
     /** Persistence — game.js owns the storage key, not this module. */
@@ -423,9 +400,7 @@
       if (typeof s.muted === 'boolean') muted = s.muted;
       if (typeof s.volume === 'number') volume = Math.max(0, Math.min(1, s.volume));
       applyMaster();
-    },
-
-    cues: Object.keys(CUES)
+    }
   };
 
   global.SFX = SFX;

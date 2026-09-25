@@ -426,9 +426,8 @@
   }
 
   global.TitleFx = {
-    mount: mount, stop: stop, placePlay: placePlay, press: press,
-    pressDown: pressDown, pressUp: pressUp,
-    get running() { return anims.length > 0; }
+    mount: mount, stop: stop, press: press,
+    pressDown: pressDown, pressUp: pressUp
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.TitleFx;
 

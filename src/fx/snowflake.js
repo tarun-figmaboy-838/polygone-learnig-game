@@ -115,7 +115,7 @@
            '</svg>';
   }
 
-  global.Snowflake = { path: path, svg: svg, BUILDS: BUILDS.length };
+  global.Snowflake = { path: path, svg: svg };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.Snowflake;
 
 })(typeof window !== 'undefined' ? window : this);

@@ -164,11 +164,7 @@
     // Over a card the card IS the thing he is peering round; what the head
     // needs is the calm attentive face this comment always asked for.
     peek:        { rig: 'blinking',    hold: true, level: 1, tier: 'idle' },
-    // ('puzzled' was listed here as the puzzle rig AND below as a mood; the
-    // second silently won, so the first was never reachable. It is the mood.)
-    relieved:    { rig: 'relieved',    brief: 8, cut: true, react: true, level: 2, tier: 'feedback' },
     excited:     { rig: 'excited',     loops: 1, mood: 'glad', cut: true, react: true, body: 'cheer', level: 3, tier: 'feedback' },
-    stuck:       { rig: 'thinking',    loops: 2 },
     happy:       { rig: 'happy',       brief: 6, mood: 'glad', cut: true, react: true, body: 'notice', level: 2, tier: 'feedback' },
     daydream:    { rig: 'curious',     hold: true },   // a look around, not a doze: the child is thinking, not gone
     // IN THE AIR: wings going, for as long as he is on a mark with no
@@ -189,7 +185,6 @@
     // moods: what a line is spoken in when it follows a reaction
     glad:        { rig: 'happy',       hold: true },
     amazed:      { rig: 'surprised',   hold: true },
-    puzzled:     { rig: 'confused',    hold: true },
 
     /* THE DIRECTION VOCABULARY — what the storyboard asks for now. Every one
      * is an intention ("he is asking", "he is watching the child work"), and
@@ -318,7 +313,6 @@
   var pos = 'left', size = 'medium';
   var scale = '1x';                   // which sheet resolution is being sampled
   var reduced = false;
-  var ready = false;
 
   var live = [];                      // WAAPI animations on the wrapper
   var shiftAnim = null;               // the one animation allowed to persist
@@ -742,9 +736,7 @@
     // about his middle, so each stop's translate is corrected for where they
     // carry the middle of him (v: the origin to his middle, in page pixels).
     var r0 = el.getBoundingClientRect();
-    var ox = parseFloat((el.style.transformOrigin || '').split(' ')[0]);
     el.style.transformOrigin = '50% ' + (F.baselineY * 100).toFixed(1) + '%';
-    void ox;
     var foot = { x: r0.left + r0.width / 2, y: r0.top + r0.height * F.baselineY };
     var v = { x: home.x - foot.x, y: home.y - foot.y };
     var baseScale = parseFloat((el.style.transform.match(/scale\(([^)]+)\)/) || [])[1]) || 1;
@@ -921,7 +913,7 @@
 
   function isResting() {
     return stateName === 'idle' || stateName === 'daydream' || stateName === 'sleep' || stateName === 'explain'
-        || stateName === 'glad' || stateName === 'amazed' || stateName === 'puzzled'
+        || stateName === 'glad' || stateName === 'amazed'
         || (stance != null && stateName === stance);
   }
 
@@ -1134,46 +1126,6 @@
    * ------------------------------------------------------------------ */
 
   /**
-   * Hop down onto the spot and settle.
-   *
-   * The cart intro calls this at the hand-off: the painted Swiftee leaves with
-   * the cart, this one takes over from the seat and jumps clear. `from` is how
-   * far left of the landing spot the seat was, `lift` how high the arc goes —
-   * both in page pixels, so the caller can match them to the cart's own size
-   * rather than guessing at this module's scale.
-   *
-   * Used on its own it is just a hop in place, which is why `enter` falls back
-   * to it when the intro art is missing.
-   */
-  function land(o) {
-    o = o || {};
-    if (!el) return Promise.resolve();
-    var from = o.from || 0, lift = o.lift || 56;
-    var g = fresh(); stateName = 'enter'; rigLoop = null;
-    el.style.opacity = '1';
-
-    // Arms out on the way down reads as a jump; blinking would read as a
-    // teleport. `flapping` is the rig's only airborne loop.
-    clip('flapping', Infinity);
-    liftShadow(HOP_MS);
-    if (global.SFX) SFX.play('boing');
-
-    var a = anim([
-      { transform: 'translate(' + from + 'px, 0) scale(1,1)' },
-      { transform: 'translate(' + (from * 0.55) + 'px, ' + (-lift) + 'px) scale(.94,1.08)', offset: 0.45 },
-      { transform: 'translate(0, 0) scale(1.14,.86)', offset: 0.84 },
-      { transform: 'translate(0, 0) scale(1,1)' }
-    ], { duration: HOP_MS, easing: 'cubic-bezier(.3,.85,.4,1)' });
-
-    return a.finished.then(function () {
-      bounce('land');
-      if (global.SFX) SFX.play('pop');
-      if (stale(g)) return;
-      return rest();
-    });
-  }
-
-  /**
    * WHAT HIS BODY DOES, on top of what his face does.
    *
    * The rig carries the expression and nothing else: 'happy' changes a face
@@ -1205,14 +1157,6 @@
       { transform: 'translate(0,0) scale(1.04,.97)', offset: 0.82 },
       { transform: 'translate(0,0) scale(1,1)' }
     ] },
-    // a head-shake, not a wobble: small, level, and over quickly
-    no: { ms: 380, easing: 'ease-in-out', frames: [
-      { transform: 'translate(0,0) rotate(0deg)' },
-      { transform: 'translate(-7px,0) rotate(-3deg)', offset: 0.25 },
-      { transform: 'translate(7px,0) rotate(3deg)', offset: 0.55 },
-      { transform: 'translate(-4px,0) rotate(-1.5deg)', offset: 0.8 },
-      { transform: 'translate(0,0) rotate(0deg)' }
-    ] },
     // the smallest thing that reads as 'I saw that': a dip and back,
     // fired on the press so the touch itself gets an answer
     notice: { ms: 210, easing: 'cubic-bezier(.3,1.2,.5,1)', frames: [
@@ -1240,8 +1184,6 @@
     // airborne loop.
     return anim(b.frames, { duration: b.ms, easing: b.easing }).finished || Promise.resolve();
   }
-
-  var HOP_MS = 620;      // the hop in land()
 
   var MOVES = {
 
@@ -1759,7 +1701,6 @@
     // three large sheets used to start loading only after Start was pressed,
     // which presented an empty canvas as a visible pause before the sleigh.
     if (global.SleighIntro) SleighIntro.preload().catch(function () {});
-    ready = true;
 
     // Park on the idle loop immediately so there is never an empty cell.
     rest();
@@ -1787,8 +1728,6 @@
     settle: settleScreen,
     /** Which concrete state an intention becomes, without playing it. */
     resolve: function (state, opts) { return resolve(state, opts || {}); },
-    /** 1 micro, 2 response, 3 celebration. */
-    levelOf: function (state) { var d = STATES[resolve(state, {})]; return d ? (d.level || 1) : 0; },
     /** Does this state answer the child (and so wait for the answer to land)? */
     isReaction: function (state) { var d = STATES[state]; return !!(d && d.react); },
     get locked() { return lockedBy(); },
@@ -1849,15 +1788,8 @@
     /** Show or hide without moving him. Safe before mount(). */
     visible: function (v) { if (el && !lockedBy()) el.style.opacity = v ? '1' : '0'; return !!v; },
     relayout: function () { place(pos, size); },
-    setLayout: function (fn) { layout = fn; place(pos, size); },
 
-    /** Stop every WAAPI move. The sprite keeps animating; only travel stops. */
-    cancel: cancelAll,
-
-    /** Hop down onto the spot. See land() above; the cart intro drives it. */
-    land: land,
-
-    /** A beat of body language: 'cheer', 'no' or 'land'. See BODY. */
+    /** A beat of body language: 'cheer', 'notice' or 'land'. See BODY. */
     bounce: bounce,
 
     /** Fetch and decode the sheets a clip needs, ahead of needing them.
@@ -1865,19 +1797,13 @@
         warms the reaction set — what a tap can reach. */
     warm: function (names) { preload(names || REACTIONS); },
 
-    /** Hard reset to the rig's 3-frame neutral pose. */
-    reset: function () { fresh(); rigLoop = null; stateName = 'idle'; return clip('reset', 1).then(rest); },
-
     get el() { return el; },
     get pos() { return pos; },
     /** Has the sleigh been? Read by the suites and probes. */
     get arrived() { return arrived; },
-    /** The page-y below which he is clipped (peeking over a card), or null. */
-    get clipY() { return clipY; },
     get size() { return size; },
     get state() { return stateName; },
     get scale() { return scale; },
-    get ready() { return ready; },
     states: Object.keys(STATES),
     rig: STATES
   };

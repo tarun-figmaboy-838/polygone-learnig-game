@@ -16,7 +16,6 @@
  * else in the game has to know which.
  *
  *   Timing.cues(text)                 -> [0, 150, 310, ...] one offset per word
- *   Timing.speakMs(text)              -> how long the whole line takes to arrive
  *   Timing.readingPause(text)         -> the beat after the last word of a line that is read
  *   Timing.interactionDelay(text)     -> the beat after the last word of a line that asks for something
  *   Timing.lineType(beats, i)         -> 'narration' | 'action' | 'question' | 'question-ready'
@@ -104,12 +103,6 @@
       if (breaks && breaks.indexOf(i) >= 0 && !/[.!?…,;:]["”’)]*$/.test(ws[i])) at += FRAGMENT_GAP;
     }
     return out;
-  }
-
-  /** From the first word appearing to the last one having appeared. */
-  function speakMs(text, scale) {
-    var c = cues(text, scale);
-    return c.length ? c[c.length - 1] : 0;
   }
 
   /* AFTER THE LAST WORD, BEFORE ANYTHING ELSE MOVES.
@@ -273,19 +266,13 @@
 
   global.Timing = {
     cues: cues,
-    speakMs: speakMs,
     readingPause: readingPause,
-    interactionDelay: interactionDelay,
-    finalPause: finalPause,
     lineType: lineType,
     repeats: repeats,
     endsSentence: endsSentence,
     schedule: schedule,
-    words: words,
-    FRAGMENT_GAP: FRAGMENT_GAP,
-    PANEL_MS: PANEL_MS, PANEL_LEAD: PANEL_LEAD, SWAP_OUT: SWAP_OUT, SWAP_IN: SWAP_IN, SWAP_LEAD: SWAP_LEAD,
-    scaleOf: scaleOf,
-    WORD_MS: WORD_MS
+    PANEL_LEAD: PANEL_LEAD, SWAP_OUT: SWAP_OUT, SWAP_IN: SWAP_IN, SWAP_LEAD: SWAP_LEAD,
+    scaleOf: scaleOf
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.Timing;
 

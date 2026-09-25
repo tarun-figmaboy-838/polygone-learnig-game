@@ -529,7 +529,6 @@
       emit: function (name, payload) { emit(name, payload); return api; },
 
       get running() { return !!current; },
-      get skippable() { return !!skipRequested; },
       get state() { return state; },
 
       on: function (name, fn) { (listeners[name] || (listeners[name] = [])).push(fn); return api; },
@@ -538,14 +537,12 @@
         var i = l.indexOf(fn); if (i >= 0) l.splice(i, 1); return api;
       },
 
-      configure: function (o) { for (var k in o) if (k in cfg) cfg[k] = o[k]; return cfg; },
-      CANCELLED: CANCELLED,
-      STATES: STATES
+      configure: function (o) { for (var k in o) if (k in cfg) cfg[k] = o[k]; return cfg; }
     };
     return api;
   }
 
-  global.Director = { create: create, CANCELLED: CANCELLED, DEFAULTS: DEFAULTS, STATES: STATES };
+  global.Director = { create: create, CANCELLED: CANCELLED, STATES: STATES };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.Director;
 
 })(typeof window !== 'undefined' ? window : this);

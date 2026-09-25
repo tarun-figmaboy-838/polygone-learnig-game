@@ -16,12 +16,10 @@
  * the scene and never the thing being listened to.
  *
  *   Music.start()          begin, if it is not already going
- *   Music.stop()           stop and forget the timer
  *   Music.mood('win')      'play' (default), 'win', 'think'
- *   Music.level(0.8)       scale the whole thing, 0..1
  *
  * It rides the music bus (SFX.musicBus()), so muting the game mutes it and
- * SFX.duck() pulls it down under anything that needs the foreground.
+ * SFX.voice() steps it back while Swiftee speaks.
  */
 (function (global) {
   'use strict';
@@ -108,18 +106,10 @@
     schedule();
   }
 
-  function stop() {
-    running = false;
-    if (timer) { clearTimeout(timer); timer = null; }
-  }
-
   global.Music = {
     start: start,
-    stop: stop,
     /** 'play' under the lesson, 'win' for a celebration, 'think' while working. */
-    mood: function (m) { if (m) mood = m; return mood; },
-    level: function (v) { if (v != null) level = Math.max(0, Math.min(1, v)); return level; },
-    get playing() { return running; }
+    mood: function (m) { if (m) mood = m; return mood; }
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.Music;
 })(typeof window !== 'undefined' ? window : this);

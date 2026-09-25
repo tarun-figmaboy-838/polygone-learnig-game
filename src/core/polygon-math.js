@@ -351,7 +351,6 @@
   }
 
   global.Poly = {
-    TOL: TOL,
     isSimple: isSimple,
     isConvex: isConvex,
     reflexVertices: reflexVertices,

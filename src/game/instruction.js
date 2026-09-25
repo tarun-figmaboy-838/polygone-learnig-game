@@ -66,7 +66,6 @@
        stylesheet has to know how tall a line is. */
     var publish = function () {
       var h = el.classList.contains('show') ? Math.ceil(el.getBoundingClientRect().height) : 0;
-      global.document.documentElement.style.setProperty('--instruction-h', h + 'px');
       if (global.Game && Game.relayout) Game.relayout();
     };
     if (global.ResizeObserver) {
@@ -97,9 +96,9 @@
     el.classList.remove('fading');
 
     if (!text) {
+      stopVoice();
       current = null;
       el.classList.remove('show');
-      el.classList.add('out');
       swapTimer = setTimeout(function () {
         if (!current && textEl) textEl.innerHTML = '';
         el.__publish();
@@ -107,20 +106,23 @@
       return;
     }
     if (text === current) return;
+    stopVoice();
 
     var write = function () {
       if (global.DualCode && DualCode.markup) textEl.innerHTML = DualCode.markup(text);
       else textEl.textContent = text;
-      el.classList.remove('out');
       el.classList.add('show');
       fit();
       el.__publish();
+      writing = false;
+      if (pendingVoice) applyVoice();
     };
 
     if (current) {
       // out, then in — so the two sentences are never on the plank together
       el.classList.add('fading');
       current = text;
+      writing = true;
       swapTimer = setTimeout(function () {
         el.classList.remove('fading');
         write();
@@ -131,6 +133,59 @@
     }
   }
 
+  /* ITS WORDS ARRIVE WITH THE VOICE (game.js plankVoice), as his bubble's
+     do: hidden as the sentence is written, each shown as the recording says
+     it — a chip ("line segment") waits for its own first word — and all of
+     them at once if the voice is not there to follow. */
+  var pendingVoice = null, writing = false, voiceRaf = 0, voiceUnits = null;
+  function stopVoice() {
+    pendingVoice = null;
+    if (voiceRaf) { (global.cancelAnimationFrame || clearTimeout)(voiceRaf); voiceRaf = 0; }
+    if (voiceUnits) { voiceUnits.forEach(function (u) { u.classList.add('in'); }); voiceUnits = null; }
+  }
+  function voice(clock, cues) {
+    mount();
+    pendingVoice = { clock: clock, cues: cues };
+    if (!writing) applyVoice();
+  }
+  function applyVoice() {
+    var v = pendingVoice; pendingVoice = null;
+    if (!v || !textEl || !current) return;
+    // (reduced motion: the sentence stays whole, as his bubble's does)
+    if (global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var doc = textEl.ownerDocument, units = [];
+    [].slice.call(textEl.childNodes).forEach(function (n) {
+      if (n.nodeType === 3) {
+        var frag = doc.createDocumentFragment();
+        n.textContent.split(/(\s+)/).forEach(function (p) {
+          if (!p) return;
+          if (/^\s+$/.test(p)) { frag.appendChild(doc.createTextNode(p)); return; }
+          var s = doc.createElement('span'); s.className = 'pw'; s.textContent = p; frag.appendChild(s); units.push(s);
+        });
+        textEl.replaceChild(frag, n);
+      } else if (n.nodeType === 1) { n.classList.add('pw'); units.push(n); }
+    });
+    if (!units.length) return;
+    voiceUnits = units;
+    var first = [], nw = 0;
+    units.forEach(function (u) { first.push(nw); nw += Math.max(1, String(u.textContent).trim().split(/\s+/).length); });
+    var byCue = !!(v.cues && v.cues.length === nw);
+    var i = 0, t0 = Date.now();
+    // a clip that stalls on the air without ever failing must not keep the
+    // sentence hidden: after the last word's moment and a margin, it all shows
+    var ceil = (byCue && v.cues.length ? v.cues[v.cues.length - 1] : units.length * 320) + 2500;
+    var raf = global.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    var tick = function () {
+      voiceRaf = 0;
+      var t = v.clock ? v.clock() : null;
+      if ((t == null && Date.now() - t0 > 600) || Date.now() - t0 > ceil) { stopVoice(); return; }
+      while (i < units.length && t != null && t >= (byCue ? v.cues[first[i]] : i * 320)) { units[i].classList.add('in'); i++; }
+      if (i >= units.length) { voiceUnits = null; return; }
+      voiceRaf = raf(tick);
+    };
+    tick();
+  }
+
   /* THE PLANK TAKES A SENTENCE, NOT A KEY. There was a second way in — a
      lookup table built from the whole deck at runtime, a set(screenId) that
      read it, a refresh() that threw it away and a global setInstruction —
@@ -139,10 +194,9 @@
      in step for nothing. */
   global.Instruction = {
     show: show,
+    voice: voice,
     /** The sentence on the plank right now, or null. */
-    current: function () { return current; },
-    get text() { return current; },
-    get el() { return mount(); }
+    current: function () { return current; }
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = global.Instruction;

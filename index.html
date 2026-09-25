@@ -16,30 +16,15 @@
 <style>
   :root {
     --ink: #1c2a4a;
-    --sky: #bfe3fb;
-    --bubble: #ffffff;
-    --bubble-edge: #9fd6fb;
-    --card: #fffdf4;
-    /* the instruction card's own rim: teal, so it is never mistaken for the
-       speech bubble's orange one */
-    --card-rim: #35a9ba;
-    --card-rim-dark: #16808f;
-    --text-ink: #064d68;
     --sans: "Nunito", "Segoe UI", system-ui, sans-serif;
     /* Comic ink: one outline weight and one hard offset shadow, reused by the
        bubble, the card and every button, so they read as one drawn set
        instead of three unrelated widgets. */
     --ink-w: 3px;
-    --ink-shadow: 4px 5px 0 rgba(28, 42, 74, .85);
-    --tail-h: 18px;
     /* THE LESSON'S TOKENS, one place for what every screen shares: the ink of
-       an instruction, the accent its key words are set in, the motion of an
-       arrival. */
+       an instruction and the accent its key words are set in. */
     --instruction-text: #174D59;
     --instruction-accent: #ff7a0e;
-    --ease-out: cubic-bezier(.22, 1, .36, 1);
-    --dur-bubble: 220ms;
-    --dur-word: 200ms;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
@@ -95,46 +80,6 @@
   /* Swiftee is an HTML/SVG overlay positioned by game.js */
   .swiftee { z-index: 3; }
 
-  /* ---- speech bubble --------------------------------------------------
-     The shape and the motion are the supplied design; the colours are the
-     game's own. Four parts make it, and each is doing a job:
-
-       the sheen   a catch-light in the top-left corner, so the panel reads as
-                   something with a surface rather than as a fill
-       the marks   two short strokes either side converging on the box — the
-                   comic-book "said with feeling"
-       the horn    a curved tail off whichever edge faces Swiftee, FILLED
-                   first so it covers the body's own border at the join and
-                   then stroked along its two free edges only, so one unbroken
-                   outline runs round body and horn together
-       the pop     it grows out of the horn. aimTail() sets the origin to
-                   wherever the horn ended up, so the bubble springs from
-                   Swiftee rather than from an arbitrary corner
-
-     EVERYTHING IS SIZED IN em, off one clamped font-size on #bubble itself.
-     Padding, radius, horn, sheen and marks then scale together, and the phone
-     breakpoints only have to change one number.
-
-     THREE DEPARTURES from the supplied file, each for a reason:
-
-       NO GHOST COPY. It reserved the final width with a hidden duplicate of
-       the line while the live copy sat absolutely on top of it. That is what
-       you need when text is typed a character at a time and grows. Here every
-       word is laid out from the first frame and hidden with opacity, so the
-       box is already its final size and the duplicate has nothing to reserve
-       — it only doubled the DOM and left wrapped text left-aligned inside a
-       centred box.
-
-       NO 10px TEXT OFFSET. `.type-wrap { margin-left: 10px }` pushed the line
-       ten pixels right of centre against em-based padding: measured at 1280,
-       800 and 390, a constant 10px, which on a phone is nearly half an em.
-
-       THE MARKS SIT INSIDE THE PADDING, not outside the box. The bubble's
-       position is measured against the lesson so it never covers the polygon,
-       and anything painted outside its border box is invisible to that
-       measurement — the marks would be the one part of the bubble free to
-       land on the shape.
-  */
   /* ---- THE SPEECH BUBBLE ----
      A bordered box of paper with a tail that is ONE SILHOUETTE with it.
 
@@ -268,15 +213,6 @@
        empty paper. */
     text-wrap: balance;
   }
-  /* Screens with nothing else on them get room to breathe. */
-  /* (.solo, .tight and .tighter no longer change the size: one size, always) */
-  /* ONE step down, and only one: used when a sentence would otherwise run
-     past two rows in the space it has. Two sizes are a decision. */
-  /* A SECOND STEP, for the crowded scenes only. The first one is enough
-     almost everywhere; where the shape, the plank and the bird between them
-     leave a column, one step down still wrapped to four rows — a paragraph
-     in a speech bubble. This is the floor, and fitLine only reaches it when
-     three rows have already been exceeded. */
 
   /* ONE BUBBLE, ONE LOOK. Praise, hints and questions all come in the same
      teal-and-cream bubble; a bubble that changed colour with its mood read
@@ -402,16 +338,13 @@
     .bubble-line.revealing .dc-term.in { animation: none; }
   }
   /* A tinted term and the punctuation that follows it, held together — see
-     the note in dual-coding.js. The negative margin closes the gap the chip's
-     right padding would otherwise open in front of the mark. */
+     the note in dual-coding.js. */
   /* ON THE PLANK, BLUE. Warm ink on warm wood was the one place the key
      word did not stand out; against the brown lettering a deep glacier
      blue is the coldest thing on the board, and reads at a glance. The
      bubble is white, and keeps the warm ink. */
   #instruction .dc-ink { color: #0f4fc0; background: none; -webkit-text-fill-color: currentColor; filter: none; }
-  #instruction .dc-term::before { display: none; }
   .dc-keep { white-space: nowrap; }
-  .dc-keep > .w { margin-left: 0; }
 
   /* ---- the interaction language ------------------------------------------
      One rule for the whole game: anything the child can touch right now is
@@ -474,7 +407,6 @@
     transform-box: fill-box; transform-origin: center;
     filter: drop-shadow(0 0 4px rgba(75, 224, 255, .85));
   }
-  @keyframes hintGlow { 0%, 100% { stroke-opacity: .16; } 50% { stroke-opacity: .58; } }
   /* "SELECT ANY VERTEX": every corner breathes, a beat apart round the shape,
      until one is picked (stage.js st.breathe) — soft, a swell and a glow,
      never a flash. Still and glowing under reduced motion. */
@@ -532,19 +464,12 @@
   }
   #stage .zone.hint { filter: drop-shadow(0 0 8px rgba(255, 255, 255, .6)); }
   #stage .zone.landed { animation: zoneLand .65s ease-out; }
-  @keyframes zoneGlow {
-    0%, 100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); }
-    50% { filter: drop-shadow(0 0 14px rgba(255,255,255,.85)); }
-  }
   @keyframes zoneLand {
     0% { filter: drop-shadow(0 0 0 #fff) brightness(1); }
     30% { filter: drop-shadow(0 0 24px #fff) brightness(1.2); }
     100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)) brightness(1); }
   }
-  @keyframes hintBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.22); } }
   @media (prefers-reduced-motion: reduce) {
-    #stage .edge.hint { animation: none; stroke-opacity: .4; }
-    #stage .knob.hint { animation: none; }
     .swiftee.air { animation: none; }
     #stage .zone.hint, #stage .zone.landed { animation: none; }
   }
@@ -647,6 +572,9 @@
      all round, behind the words: its joins fall one pixel away from the
      first's, so wherever one layer has a hairline the other is solid. */
   #instruction { isolation: isolate; }
+  /* the plank's words arriving with its voice (instruction.js voice) */
+  #instruction .pw { opacity: 0; transition: opacity .16s ease; }
+  #instruction .pw.in { opacity: 1; }
   #instruction::before {
     content: ''; position: absolute; z-index: -1; pointer-events: none;
     top: calc(-1 * clamp(26px, calc(3.4 * var(--svw, 1vw)), 62px) - 1px); bottom: calc(-1 * clamp(18px, calc(2.4 * var(--svw, 1vw)), 44px) - 1px);
@@ -859,7 +787,7 @@
   .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
   @media (prefers-reduced-motion: reduce) {
-    #bubble, #card, #progress, #next, #hud button { transition: none; }
+    #bubble, #progress, #next, #hud button { transition: none; }
     #next.show { animation: none; }
   }
 

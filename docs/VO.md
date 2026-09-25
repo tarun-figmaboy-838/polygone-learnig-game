@@ -65,7 +65,7 @@ Every line Swiftee says, **in the order a child hears it**, with the file the ga
 | 49 | 31 | summary | `assets/vo/p37h.mp3` | say | If the sides or angles are not all equal, the polygon is irregular. |  | screen 31 | explaining, warm and clear | yes |
 | 50 | 31 | summary | `assets/vo/p37i.mp3` | say | Amazing! You explored all these polygon ideas! |  | screen 31 | explaining, warm and clear | yes |
 
-## Answers (26), said when the child answers
+## Answers (28), said when the child answers
 
 | File | Line | When | Delivery | Recorded |
 |------|------|------|----------|----------|
@@ -88,6 +88,8 @@ Every line Swiftee says, **in the order a child hears it**, with the file the ga
 | `assets/vo/fb29.mp3` | Try once more. | a try that falls short, with the reason | explaining, warm and clear | yes |
 | `assets/vo/fb30.mp3` | Take another look. | a try that falls short, with the reason | explaining, warm and clear | yes |
 | `assets/vo/fb31.mp3` | Not quite. | a try that falls short, with the reason | explaining, warm and clear | yes |
+| `assets/vo/p38a.mp3` | Honk-tastic! 350 XP and 5 badges. | a try that falls short, with the reason | explaining, warm and clear | yes |
+| `assets/vo/p38b.mp3` | You are a polygon adventurer! | a try that falls short, with the reason | explaining, warm and clear | yes |
 | `assets/vo/fb10.mp3` | Not that one. | a wrong answer (rotates, at most every 3 s) | gentle and encouraging, never disappointed | yes |
 | `assets/vo/fb15.mp3` | Drop it on a corner! | a try that falls short, with the reason | gentle and encouraging, never disappointed | yes |
 | `assets/vo/fb11.mp3` | Pull it in more! | a try that falls short, with the reason | gentle and encouraging, never disappointed | yes |

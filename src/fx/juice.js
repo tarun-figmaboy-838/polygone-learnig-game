@@ -17,7 +17,6 @@
  *   Juice.pop(el, { scale })
  *   Juice.wobble(el) / refuse(el)           // "not that one"
  *   Juice.collect(el) / celebrate(el)       // "yes"
- *   Juice.tada(el, { angle })
  *   Juice.flash(el)
  *   Juice.confetti(near, { count, offsetX })   // a burst, from a place
  *   Juice.sparkle(el)                          // a small glint, for an ordinary right answer
@@ -226,21 +225,6 @@
         { transform: 'translateY(-6px) rotate(4deg) scale(1.02)', offset: 0.6 },
         { transform: 'translateY(0) rotate(0deg) scale(1)' }
       ], { duration: o.duration || 700, easing: 'cubic-bezier(.22,1,.36,1)' }).finished;
-    },
-
-    /** Landing weight. Used after an entrance. */
-    /** Attention, with rotation. */
-    tada: function (el, o) {
-      o = o || {};
-      var deg = o.angle == null ? 5 : o.angle;
-      return run(el, [
-        { transform: 'scale(1) rotate(0deg)' },
-        { transform: 'scale(0.94) rotate(' + -deg + 'deg)', offset: 0.15 },
-        { transform: 'scale(1.1) rotate(' + deg + 'deg)', offset: 0.35 },
-        { transform: 'scale(1.1) rotate(' + -deg + 'deg)', offset: 0.55 },
-        { transform: 'scale(1.06) rotate(' + deg + 'deg)', offset: 0.75 },
-        { transform: 'scale(1) rotate(0deg)' }
-      ], { duration: o.duration || 820, easing: 'ease-in-out' }).finished;
     },
 
     /**

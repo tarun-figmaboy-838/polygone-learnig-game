@@ -83,6 +83,10 @@
   }
 
   function muted() { return !!(global.SFX && SFX.isMuted && SFX.isMuted()); }
+  /* THE MUSIC STEPS BACK WHILE HE SPEAKS (sfx.js voice: a smooth dip, and a
+     smooth return a breath after the line). Every line goes through play(),
+     so this is the one place that knows a voice is on air. */
+  function voiceBus(on) { try { if (global.SFX && SFX.voice) SFX.voice(on); } catch (e) {} }
 
   /* WAITING FOR THE VOICE.
    *
@@ -180,6 +184,7 @@
     if (!current) { done(); return; }
     try { current.pause(); current.currentTime = 0; } catch (e) {}
     current = null;
+    voiceBus(false);
     done();                          // anything waiting on it is released now
   }
 
@@ -204,19 +209,21 @@
     }
     a.preload = 'auto';
     a.volume = 0.95;
+    if (hiddenNow()) a.muted = true;
     a.addEventListener('error', function () {
       known[id] = false;
       if (global.console) console.warn('[VO] missing or failed: ' + url(id));
-      if (current === a) { current = null; liveId = null; done(); }
+      if (current === a) { current = null; liveId = null; voiceBus(false); done(); }
     });
-    a.addEventListener('ended', function () { if (current === a) { current = null; liveId = null; done(); } });
+    a.addEventListener('ended', function () { if (current === a) { current = null; liveId = null; voiceBus(false); done(); } });
     current = a;
     liveId = id;
+    voiceBus(true);
     var p = a.play();
     if (p && p.catch) p.catch(function () {
       // refused (autoplay policy) or failed: release anything waiting on it
       if (global.console) console.warn('[VO] could not play ' + id);
-      if (current === a) { current = null; liveId = null; done(); }
+      if (current === a) { current = null; liveId = null; voiceBus(false); done(); }
     });
     return a;
   }
@@ -240,7 +247,7 @@
    * next screen's, so it holds a handful at a time.
    */
   var warm = {}, warmOrder = [];
-  var WARM_MAX = 8;
+  var WARM_MAX = 48;   // clips are 10-17 KB; the replies alone are ~27 (game.js warmVoice)
   function preload(ids) {
     (ids || []).forEach(function (id) {
       if (!id || warm[id] || known[id] === false) return;
@@ -253,6 +260,21 @@
         warmOrder.push(id);
         while (warmOrder.length > WARM_MAX) { var old = warmOrder.shift(); if (old !== id) delete warm[old]; }
       } catch (e) {}
+    });
+  }
+
+  /* A HIDDEN TAB IS SILENT FOR HIM TOO. sfx.js suspends the music and the
+     cues when the page is hidden, and his line went on talking to nobody.
+     It is SILENCED, not paused: the lesson's own clock goes on while the tab
+     is away (the director, the reply ceilings), and a paused clip fell out of
+     step with it — the next line then played aloud in the background. Muted,
+     nothing is heard and nothing is out of step; a clip started while the
+     tab is hidden starts muted too. */
+  function hiddenNow() { try { return !!(global.document && global.document.hidden); } catch (e) { return false; } }
+  if (global.document && global.document.addEventListener) {
+    global.document.addEventListener('visibilitychange', function () {
+      if (!current) return;
+      try { current.muted = hiddenNow() || muted(); } catch (e) {}
     });
   }
 

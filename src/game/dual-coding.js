@@ -211,12 +211,8 @@
   function cueTerm(term, ctx) {
     var def = TERMS[term];
     if (!def || !global.Stage) return false;
-    if (Stage.emphasizeConcept) {
-      try { return Stage.emphasizeConcept(term, ctx) > 0; } catch (e) { return false; }
-    }
-    if (!Stage.halo) return false;
-    try { Stage.halo(def.target, def.color, def.mode); } catch (e) {}
-    return true;
+    if (!Stage.emphasizeConcept) return false;
+    try { return Stage.emphasizeConcept(term, ctx) > 0; } catch (e) { return false; }
   }
 
   global.DualCode = {

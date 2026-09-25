@@ -50,7 +50,6 @@ const WHY = {
   'step-back': 'stepping aside to give the child room',
   proud:       'held in reserve',
   excited:     'the finale, the biggest reaction in the game',
-  stuck:       'held in reserve',
   happy:       'pleased — a right answer that has already been scored',
   daydream:    'the long idle, after thirty seconds of nothing',
   sleep:       'the longer idle, after seventy-five',

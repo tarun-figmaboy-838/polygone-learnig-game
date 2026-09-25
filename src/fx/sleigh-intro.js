@@ -66,7 +66,6 @@
     b.dismount = b.brake    + T.brake;
     b.land     = b.dismount + T.dismount;
     b.exit     = b.land     + T.land;
-    b.end      = b.exit     + T.exit + T.beat;
     return b;
   }
 
@@ -617,10 +616,7 @@
     timeline: timeline,
     play: play,
     cancel: cancel,
-    preload: preload,
-    get durationMs() {
-      return T.enter + T.cruise + T.brake + T.dismount + T.land + T.exit + T.beat;
-    }
+    preload: preload
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.SleighIntro;
 

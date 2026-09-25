@@ -126,7 +126,7 @@
     if (reduced() || !svg) return;
     var show = opts.demo || opts.pulse || null;
     var type = opts.type || hintType;
-    var stop = null, t = null, live = true, pressing = false, lastMove = 0;
+    var stop = null, t = null, live = true, pressing = false, lastMove = 0, blocked = false;
     var hide = function () { if (stop) { try { stop(); } catch (e) {} stop = null; } };
     var arm = function (ms) {
       clearTimeout(t);
@@ -135,7 +135,15 @@
         if (!live || pressing) return;
         // the lesson must be doing nothing but waiting for the child
         var open = true; try { open = hintGate() !== false; } catch (e) { open = true; }
-        if (!open) { t = setTimeout(tick, 250); return; }
+        if (!open) { blocked = true; t = setTimeout(tick, 250); return; }
+        // IDLE MEANS IDLE SINCE THE LESSON HANDED BACK (the user: after the
+        // first tap, the hand comes only after 3 s of the child being idle).
+        // A wait that ran out while he was busy — the measuring walk, his
+        // reply to an answer — starts again, in full, from the moment he is
+        // done: the child has not been idle at all yet. Only a gesture's very
+        // first demonstration goes as soon as the lesson is free.
+        if (blocked && hintSeen[type]) { blocked = false; arm(HINT_IDLE_MS); return; }
+        blocked = false;
         var first = !hintSeen[type];
         hintSeen[type] = true;
         hide();
@@ -146,7 +154,10 @@
         arm(HINT_SHOW_MS + HINT_IDLE_MS);    // another 3 s of stillness after this one
       }, ms);
     };
-    on(svg, 'pointerdown', function () { pressing = true; hide(); clearTimeout(t); });
+    // (a child who has pressed has used the gesture: its first-time
+    // demonstration is no longer owed, and every hint from now on waits for
+    // 3 s of stillness)
+    on(svg, 'pointerdown', function () { pressing = true; hintSeen[type] = true; hide(); clearTimeout(t); });
     var release = function () { pressing = false; arm(HINT_IDLE_MS); };
     on(svg, 'pointerup', release);
     on(svg, 'pointercancel', release);
@@ -158,7 +169,7 @@
       arm(HINT_IDLE_MS);
     });
     cleanup.push(function () { live = false; hide(); clearTimeout(t); hintRearm = null; });
-    hintRearm = function (ms) { if (!pressing) arm(ms != null ? ms : (hintSeen[type] ? HINT_IDLE_MS : HINT_FIRST_MS)); };
+    hintRearm = function () { if (!pressing) arm(hintSeen[type] ? HINT_IDLE_MS : HINT_FIRST_MS); };
     arm(hintSeen[type] ? HINT_IDLE_MS : HINT_FIRST_MS);
   }
 
@@ -366,7 +377,6 @@
      * press takes it down (hide -> stop), and so does the interaction ending.
      * Not a moving hint: a mark. */
     var ms = opts.duration || 3200;
-    var ringR = opts.endR || ((opts.r || 11) + 9);
     var endG = mk('g', { 'class': 'gesture-ghost-end', 'pointer-events': 'none',
                          transform: 'translate(' + to.x + ',' + to.y + ')' }, layers.fx);
     // A SOFT PATCH OF LIGHT, NOT A RING. It was a dashed ice ring with a dot
@@ -378,7 +388,6 @@
     // to stretch). The ghost and the hand show the move; a mark left behind
     // after them read as a stray spot. The group stays, empty, so the timing
     // and the clean-up below are unchanged.
-    void ringR;
     endG.style.opacity = '0';
 
     var anims = [];
@@ -454,7 +463,11 @@
   }
   /** The visible knob at vertex i (the touch disc over it is st.vertEls[i]). */
   function knobOf(i) { return (st.knobEls && st.knobEls[i]) || null; }
-  function sfx(name, o) { if (global.SFX) SFX.play(name, o); }
+  // (the stage's `gain` is how loud this cue is to be, 0..1 of itself: SFX's `level`)
+  function sfx(name, o) {
+    if (!global.SFX) return;
+    SFX.play(name, (o && typeof o.gain === 'number') ? Object.assign({}, o, { level: o.gain }) : o);
+  }
   /* ------------------------------------------------------------------ *
    * Scene generation
    *
@@ -780,9 +793,8 @@
      checklist, a tag — from each inventing a radius and a rim. */
   var UI = {
     radius: 18, rim: 2.5,
-    ink: '#1c2a4a', muted: '#5a6a8a',
     paper: '#fff8ee', paperRim: '#d9bd92',        // warm, so the ice is the only blue
-    title: 22, body: 17
+    title: 22
   };
 
   /* The learning object. One blue, used for nothing else on the stage, with
@@ -1166,8 +1178,6 @@
     if (reduced() || !el.animate) return;
     var k = kind === 'rise'
       ? [{ translate: '0 12px', opacity: 0 }, { translate: '0 0', opacity: 1 }]
-      : kind === 'fade'
-      ? [{ opacity: 0 }, { opacity: 1 }]
       : kind === 'ui'
       ? [{ scale: '.94', translate: '0 8px', opacity: 0 }, { scale: '1.02', translate: '0 0', opacity: 1, offset: .7 }, { scale: '1', translate: '0 0', opacity: 1 }]
       // A CARD BEING INTRODUCED: it grows in from a little small and low,
@@ -1978,17 +1988,6 @@
       case 'hexagon':   return Poly.regular(6, r, cx, cy);
       case 'octagon':   return Poly.regular(8, r, cx, cy);
       case 'rhombus':   return [{ x: cx, y: cy - r * 0.6 }, { x: cx + r, y: cy }, { x: cx, y: cy + r * 0.6 }, { x: cx - r, y: cy }];
-      // A quadrilateral with no two sides the same and no two angles the
-      // same. The deck's second classification case wants "both sides AND
-      // angles unequal", and a rhombus is the wrong shape for it: its sides
-      // ARE all equal, which is the fifth case's property, not the second's.
-      // Two cards teaching the same fact leaves one of the five facts untaught.
-      case 'irregular-quad': return [
-        { x: cx - r * 0.58, y: cy - r * 0.92 },
-        { x: cx + r * 1.02, y: cy - r * 0.10 },
-        { x: cx + r * 0.22, y: cy + r * 0.48 },
-        { x: cx - r * 0.98, y: cy + r * 0.94 }
-      ];
       case 'chevron':   return [{ x: cx - r, y: cy + r * .7 }, { x: cx, y: cy - r * .8 }, { x: cx + r, y: cy + r * .7 }, { x: cx, y: cy + r * .1 }];
       case 'l-shape':   return [{ x: cx - r * .8, y: cy - r * .8 }, { x: cx - r * .1, y: cy - r * .8 }, { x: cx - r * .1, y: cy + r * .1 }, { x: cx + r * .8, y: cy + r * .1 }, { x: cx + r * .8, y: cy + r * .8 }, { x: cx - r * .8, y: cy + r * .8 }];
       // A RECTANGLE: every angle the same, the sides not — irregular for the
@@ -1996,19 +1995,6 @@
       case 'rectangle': return [{ x: cx - r, y: cy - r * 0.58 }, { x: cx + r, y: cy - r * 0.58 }, { x: cx + r, y: cy + r * 0.58 }, { x: cx - r, y: cy + r * 0.58 }];
       case 'star': { var o = []; for (var i = 0; i < 10; i++) { var a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .42 : r; o.push({ x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr }); } return o; }
       case 'stretched-hexagon': { var h = Poly.regular(6, r, cx, cy); return h.map(function (p) { return { x: cx + (p.x - cx) * 1.35, y: p.y }; }); }
-      case 'equilateral-concave-hexagon': {
-        // Regular hexagon with one vertex reflected across the chord of its
-        // two neighbours. Both adjacent sides keep their length exactly, so
-        // all six sides stay equal while one angle becomes reflex — the
-        // deck's "angles unequal, sides same length" case.
-        var h6 = Poly.regular(6, r, cx, cy);
-        var a = h6[5], b = h6[1], m = h6[0];
-        var dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy || 1;
-        var t = ((m.x - a.x) * dx + (m.y - a.y) * dy) / len2;
-        var fx = a.x + t * dx, fy = a.y + t * dy;
-        h6[0] = { x: 2 * fx - m.x, y: 2 * fy - m.y };
-        return h6;
-      }
       default: return Poly.regular(5, r, cx, cy);
     }
   }
@@ -2020,7 +2006,7 @@
   // tells the cards apart.
   var COLORS = { triangle: '#a97bff', square: '#2fd6c8', pentagon: '#ff7a91', hexagon: '#45bdff', octagon: '#4c8fe8',
                  rhombus: '#f06cff', chevron: '#35b06a', 'l-shape': '#ffc93c', star: '#ff9f5a', 'stretched-hexagon': '#6f8cff',
-                 'irregular-quad': '#ffb27a', 'equilateral-concave-hexagon': '#a97bff', rectangle: '#ff9f5a' };
+                 rectangle: '#ff9f5a' };
 
   function drawShape(name, r, cx, cy, parent) {
     var g = mk('g', { 'class': 'shape', 'data-shape': name }, parent);
@@ -2470,8 +2456,7 @@
         if (spec.enter && !reduced()) enter(g, 'rise');
       });
       var items = spec.items || [];
-      var visible = spec.oneAtATime ? [items[0]] : items;
-      st.sort.queue = spec.oneAtATime ? items.slice(1) : [];
+      var visible = items;
       st.sort.total = items.length;
       // The tray has to fit the stage whatever the screen asks for. A fixed
       // 132px pitch put the sixth of six shapes at x = 1005 in a 1000-wide
@@ -2484,8 +2469,8 @@
       visible.forEach(function (name, i) {
         st.sort.items.push(makeSortItem(
           name,
-          spec.oneAtATime ? W / 2 + 120 : ix0 + i * pitch,
-          spec.oneAtATime ? 210 : TOP + 58,           // clear of the plank
+          ix0 + i * pitch,
+          TOP + 58,           // clear of the plank
           i
         ));
       });
@@ -3387,12 +3372,11 @@
           // and checked like the lengths: clear of the sides, the wedges and
           // every number already down — along the bisector, nearer or further
           if (card._labelSpace) {
-            var bxl = cen.x - p.x, byl = cen.y - p.y, bll = Math.hypot(bxl, byl) || 1;
+            var bxl = cen.x - p.x, byl = cen.y - p.y;
             var dw = String(Math.round(A2[j])).length * 7 + 12, dh = 14, dc = [{ x: dtx, y: dty }];
             [0.24, 0.36, 0.42, 0.18, 0.5].forEach(function (f) { dc.push({ x: p.x + bxl * f, y: p.y + byl * f }); });
             var da = card._labelSpace.fit(dc, dw, dh, true);
             if (da) { dtx = da.x; dty = da.y; }
-            void bll;
           }
           mk('text', { x: dtx, y: dty + 4, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 800,
                        fill: o.ink || '#0f3f8f', stroke: '#ffffff', 'stroke-width': 2.8,
@@ -3691,7 +3675,6 @@
 
   /* [face, lip, ink] — ink optional, white when absent. */
   var PILL_TONES = {
-    sun:       ['#ffc53d', '#c07a00', '#5a3400'],
     blue:      ['#4f9df5', '#2b6fc4'],
     // the new kit's tones, drawn the same colours if the art is missing
     uiPrimary: ['#ffc53d', '#c07a00', '#5a3400'],
@@ -3832,41 +3815,12 @@
     var g = mk('g', o.attrs || {}, parent);
     var art = null, drawn = null;
 
-    // A GLYPH BUTTON IS ONE PICTURE. The stepper's minus and plus are cut
-    // whole from the kit — snow-capped ice cubes with the sign already on
-    // them — so they are drawn at their own proportions, and there is no
-    // word to fit.
-    var G = o.glyph && global.ButtonFrame && ButtonFrame[o.glyph];
-    if (G && G.glyph) {
-      var gw = h * (G.w / G.h);
-      var gx = x + (w - gw) / 2;
-      var im = mk('image', { x: gx, y: top, width: gw, height: h, preserveAspectRatio: 'none', 'pointer-events': 'none' }, g);
-      im.setAttributeNS('http://www.w3.org/1999/xlink', 'href', G.src);
-      im.setAttribute('href', G.src);
-      // a wide invisible target, so a small picture is still an easy tap
-      mk('rect', { x: x, y: top - 4, width: w, height: h + 8, fill: 'transparent' }, g);
-      g._rect = { x: gx, y: top, w: gw, h: h };
-      g._text = null; g._retint = function () {};
-      if (o.press) g.style.cursor = 'pointer';
-      return g;
-    }
-
     var B = global.ButtonFrame && ButtonFrame[o.tone];
 
     // THE WORD FILLS THE PILL. A pill was 150 wide whatever it said, so
     // "Inside" swam in it and a long word crowded it. Measured first, the
     // pill is as wide as its word plus the two round caps — no empty face.
     var size = o.size || Math.round(h * 0.52);
-    var probe = mk('text', { x: 0, y: 0, 'font-size': size, 'font-weight': 800, text: o.label, opacity: 0 }, g);
-    var tw = 0;
-    try { tw = probe.getComputedTextLength ? probe.getComputedTextLength() : 0; } catch (e) { tw = 0; }
-    g.removeChild(probe);
-    if (o.fit && tw > 0) {
-      var want = Math.ceil(tw + h * 0.95);
-      var nw = Math.max(o.minW || Math.round(h * 1.9), want);
-      x = x + (w - nw) / 2;          // keep the centre where the caller put it
-      w = nw;
-    }
 
     if (B) {
       art = sliced(g, B, x, top, w, h);
@@ -3876,7 +3830,7 @@
 
     // FLAT AND BOLD. No shadow under the word: on a matte pill a shadow
     // read as a smear. Dark ink on the light pills, white on the dark ones.
-    var DARK_ON = { sun: 1, uiPrimary: 1 };
+    var DARK_ON = { uiPrimary: 1 };
     var ink = o.ink || (DARK_ON[o.tone] ? '#3a2410' : '#ffffff');
     var t = mk('text', {
       x: x + w / 2, y: y + h * 0.18,
@@ -4262,8 +4216,7 @@
     // Resample both outlines to a common count so the path can tween.
     var from = resample(prev, 60), to = resample(st.verts, 60);
     var f = st.fill;
-    var a = f.animate([{ d: 'path("' + pathOf(from) + '")' }, { d: 'path("' + pathOf(to) + '")' }], { duration: 640, easing: 'cubic-bezier(.22,1,.36,1)' });
-    void a;
+    f.animate([{ d: 'path("' + pathOf(from) + '")' }, { d: 'path("' + pathOf(to) + '")' }], { duration: 640, easing: 'cubic-bezier(.22,1,.36,1)' });
   }
   function resample(v, count) {
     var n = v.length, out = [], per = count / n;
@@ -4608,7 +4561,6 @@
             var ks = w.pulse === 'both' ? ['left', 'right'] : [w.pulse];
             warmPulse(ks.map(function (k) { return st.compare[k] && st.compare[k].pg; }), { together: true, peak: '1.04', ms: 560 });
           }
-          if (w.lift && st.compare[w.lift]) liftLines(drawnLines(st.compare[w.lift], false));
         });
       });
     },
@@ -4624,15 +4576,6 @@
       });
     },
     ghost: function (gh) { st.ghost = gh ? { from: resolveVertex(gh.from), to: resolveVertex(gh.to) } : null; renderPoly(); },
-    draw: function (d) {
-      st.segment = [resolveVertex(d.segment[0]), resolveVertex(d.segment[1])];
-      renderPoly();
-      if (d.animate && st.segLine && !reduced()) {
-        var a = st.verts[st.segment[0]], b = st.verts[st.segment[1]], len = Math.hypot(b.x - a.x, b.y - a.y);
-        st.segLine.style.strokeDasharray = len; st.segLine.style.strokeDashoffset = len;
-        st.segLine.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: d.animate, fill: 'forwards' });
-      }
-    },
     diagonals: function (d) {
       if (d.diagonals === 'all') {
         st.diagonals = Poly.allDiagonals(st.n).map(function (pair, k) { return Object.assign(pair, { animate: d.animate === 'sequential', delay: k * (d.each || 200), each: d.each }); });
@@ -4843,7 +4786,6 @@
     if (!spec) return;
     if (spec.kind) BUILD[spec.kind] && BUILD[spec.kind](spec);
     if (spec.highlight) op.highlight(spec.highlight);
-    if (spec.draw) op.draw(spec.draw);
     if (spec.diagonals && !spec.kind) op.diagonals(spec);
     if ('ghost' in spec && !spec.kind) op.ghost(spec.ghost);
     if (spec.label && !spec.kind) op.label(spec.label);
@@ -5189,60 +5131,6 @@
   /** A finger is on the glass moving something: the board is the child's. */
   var pressed = false;
   function dragging() { return pressed; }
-
-  function halo(ref, color, mode) {
-    void color;   // the theme decides every colour on the stage; kept for the API
-    if (!svg || reduced()) return 0;
-    var els = targets(ref).filter(Boolean);
-    if (!els.length) return 0;
-    // A ring is the right mark for a thing with an area — a vertex, the whole
-    // shape. It is the wrong mark for a set of lines: the bounding box of a
-    // pentagon's diagonals is the pentagon, so the ring says "the shape"
-    // exactly when the word said "the diagonals". Trace the strokes instead.
-    if (mode === 'none') return 0;
-    if (mode === 'trace') return trace(els, color);
-    /* 'pop': THE THING ITSELF ANSWERS THE WORD.
-     *
-     * reveal() lets the words of a line arrive one at a time and fires this
-     * on the word that names something — so this is the one moment in the
-     * game where a cue can be exactly in time with the voice. A ring drawn
-     * round the shape was refused, and rightly: it is a second object. The
-     * shape swells a little and settles instead, on the syllable, which is
-     * the same signal with nothing added to the picture. */
-    if (mode === 'pop') {
-      var popped = 0;
-      els.slice(0, 10).forEach(function (e, i) {
-        if (!e.animate) return;
-        e.style.transformBox = 'fill-box'; e.style.transformOrigin = 'center';
-        try {
-          e.animate([{ scale: '1' }, { scale: e.classList && e.classList.contains('knob') ? '1.55' : '1.05' }, { scale: '1' }],
-                    { duration: 460, delay: i * 55, easing: 'cubic-bezier(.3,1.3,.4,1)' });
-          popped++;
-        } catch (x) {}
-      });
-      return popped;
-    }
-    var drawn = 0;
-    els.slice(0, 12).forEach(function (e, i) {
-      // A KNOB SWELLS, IT IS NOT RINGED: a ring round a corner read as a
-      // second circle on the shape. The knob itself grows and settles.
-      if (e.classList && e.classList.contains('knob')) {
-        if (e.animate) {
-          e.style.transformBox = 'fill-box'; e.style.transformOrigin = 'center';
-          e.animate([{ scale: '1' }, { scale: '1.9', offset: 0.35 }, { scale: '1' }],
-                    { duration: 900, delay: i * 70, easing: 'cubic-bezier(.3,1.2,.4,1)' });
-        }
-        drawn++;
-        return;
-      }
-      // NO RING ROUND A SHAPE OR A CARD. A rounded frame used to pop around
-      // the polygon's box when a word for the whole shape was said, and it
-      // read as a second card drawn over the first. A word for the whole
-      // shape leaves the picture as it is; the knobs above are the only
-      // thing that moves for a term.
-    });
-    return drawn;
-  }
 
   /**
    * Re-draw the geometry of `els` in `color`, over the top, then fade it.
@@ -5689,7 +5577,6 @@
           st.lastEl = card;
           var right = Poly.isRegular(card._verts) ? 'regular' : 'irregular';
           var ok = answer === right;
-          var dir = answer === 'regular' ? -1 : 1;
 
           if (ok) {
             var zone = sw.zones[answer];
@@ -5758,7 +5645,6 @@
               });
             };
             flyCard(card, { x: SWIPE_HOME.x + pulled, y: SWIPE_HOME.y, rot: tilt, s: 1 }, { x: tx, y: ty, rot: 0, s: k }, 560, 46, after);
-            if (ctx && ctx.onCorrect) ctx.onCorrect();
           } else {
             sfx('wrong');
             juice('refuse', card);
@@ -5775,11 +5661,9 @@
               z.animate([{ translate: '0 0' }, { translate: '-6px 0' }, { translate: '6px 0' }, { translate: '0 0' }],
                         { duration: 260, easing: 'ease-in-out' });
             }
-            if (ctx && ctx.onWrong) ctx.onWrong();
             // NOT A SWING AND A SPRING: it glides back to the middle, where the
             // marks on it say why (whyShape), and waits for another try
             var pulledBack = dx, tiltBack = tiltOf(dx);
-            void dir;
             var reset2 = function () {
               dx = 0; place(card, 0, 0);
               leanZone(null, false);
@@ -6099,7 +5983,6 @@
               bin._items.push(item);
               packBin(bin);
               onTap('correct');
-              if (S.queue && S.queue.length) { var next = makeSortItem(S.queue.shift(), W / 2 + 120, 210, 0); S.items.push(next); armItem(next); }
               if (S.placed >= S.total) { endInteraction(); resolve({ result: 'correct' }); }
             } else {
               // WRONG 1 is a word; WRONG 2 is the shape taught up close
@@ -6833,7 +6716,7 @@
   }
 
   var api = {
-    mount: mount, apply: apply, focus: focus, waitFor: waitFor, element: element, halo: halo,
+    mount: mount, apply: apply, focus: focus, waitFor: waitFor, element: element,
     snapshot: snapshot, restore: restore,
     isEmpty: isEmpty, contentBox: contentBox, contentParts: contentParts,
     /** The card's face and the shape's box, in page pixels: the nook beside
@@ -6919,7 +6802,7 @@
     onTap: function (fn) { onTap = fn || function () {}; },
     /** game.js: the input has just been handed back (after he popped down) —
         the stillness a hint waits for starts now, not from before he spoke */
-    hintRestart: function (ms) { if (hintRearm) hintRearm(ms); },
+    hintRestart: function () { if (hintRearm) hintRearm(); },
     /** game.js: hold the stage's input while he speaks (see holdOn) */
     hold: function (on) { holdOn = !!on; },
     /** game.js: lift a card out and teach it (see teachShape) */
@@ -6942,13 +6825,11 @@
     releaseHeld: releaseHeld,
     /** The board answers a vocabulary word (see THE WORD, SHOWN ON THE BOARD). */
     emphasizeConcept: emphasize,
-    get heldCount() { return heldForWord.length; },
     /** The child's own shapes, from the start again (Restart). */
     forgetMade: function () { made = {}; },
-    madeShape: madeShape,
     /** Where the pick → connect step is (setConnect), or null off it. */
     connectState: function () { return st.connect || null; },
-    flurry: flurry, alive: alive,
+    flurry: flurry,
     /* How many delayed callbacks from a finished scene have been refused.
        A test reads this: a suppression mechanism that never suppresses
        anything looks exactly like one that was never wired up. */
