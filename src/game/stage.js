@@ -1266,6 +1266,14 @@
      * around it is only what the marks actually occupy. */
     if (opts.room === 'measure') { mx = Math.max(face.w * 0.045, 32); mt = Math.max(face.h * 0.04, 30); mb = Math.max(mb, face.h * 0.07, 32); }
     var box = { x: face.x + mx, y: face.y + mt, w: face.w - mx * 2, h: face.h - mt - mb };
+    /* STEPPED RIGHT, AWAY FROM HIS BUBBLE. On the measuring card the left
+       side's reading ('6 cm') sits outside the shape — exactly where his
+       standing line lives, and the two crowded each other (the user:
+       'the 6cm not look visible due to dialouge box, shift the shape on
+       right side'). The shape is fitted into the right of the card's face
+       instead of its middle; the readings on the right still keep their
+       margin from the rim (the fit below works inside this box). */
+    if (opts.room === 'measure') { var stepR = Math.min(56, box.w * 0.08); box.x += stepR; box.w -= stepR; }
 
     // Built at unit size WITH its deformations, so what gets measured is what
     // gets drawn: a dented or stretched shape has a different bounding box
@@ -1324,7 +1332,7 @@
     var tip = mk('circle', { cx: a.x, cy: a.y, r: 5.5, fill: '#ffffff', 'fill-opacity': 0.95, 'pointer-events': 'none' }, dg);
     if (tip.style) tip.style.filter = 'drop-shadow(0 0 5px rgba(170, 240, 255, .95))';
     tip.setAttribute('opacity', 0);
-    lines.forEach(function (ln) { ln.setAttribute('x2', a.x); ln.setAttribute('y2', a.y); ln.setAttribute('opacity', 0); });
+    lines.forEach(function (ln) { ln.setAttribute('x2', a.x); ln.setAttribute('y2', a.y); ln.setAttribute('opacity', 0); ln.__drawing = true; });
     var t0 = null;
     var frame = global.requestAnimationFrame || function (f) { return setTimeout(function () { f(Date.now()); }, 16); };
     var ease = function (k) { return k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; };
@@ -1339,7 +1347,7 @@
       tip.setAttribute('cx', x); tip.setAttribute('cy', y);
       tip.setAttribute('opacity', k < 0.9 ? 1 : Math.max(0, (1 - k) * 10));
       if (k < 1) frame(step);
-      else { lines.forEach(function (ln) { ln.setAttribute('x2', b.x); ln.setAttribute('y2', b.y); }); tip.remove(); }
+      else { lines.forEach(function (ln) { ln.setAttribute('x2', b.x); ln.setAttribute('y2', b.y); ln.__drawing = false; }); tip.remove(); }
     };
     frame(step);
   }
@@ -5151,6 +5159,14 @@
     if (!lines.length) return 0;
     var drawn = 0;
     lines.slice(0, 24).forEach(function (src, i) {
+      /* A LINE STILL DRAWING ITSELF IN IS NOT TRACED. On the screens where
+         the diagonals arrive while he talks about them, the clone froze the
+         line at whatever length the word caught it — a fat frost band
+         stopping in the middle of the shape (the user: "a light glow look
+         croped") — and a line not yet begun gave no band at all. The ones
+         already drawn carry the emphasis; the ones still arriving are
+         already the brightest thing on the card. */
+      if (src.__drawing) return;
       var copy;
       try { copy = src.cloneNode(false); } catch (e) { return; }
       // renderPoly() sets the dash pattern as an inline *style* while a
@@ -5168,6 +5184,9 @@
       copy.setAttribute('fill', 'none');
       copy.removeAttribute('stroke-dasharray');
       copy.setAttribute('opacity', 0);
+      // never under a finger: a nine-pixel stroke over the shape swallowed
+      // taps aimed at what it was emphasizing
+      copy.setAttribute('pointer-events', 'none');
       layers.fx.appendChild(copy);
       drawn++;
       if (!copy.animate) { copy.remove(); return; }
@@ -6327,7 +6346,9 @@
    *                                 T.show('notch' | 'outside' | 'corners' | 'inside')
    *                                 T.close() → Promise (back, sheet gone)
    * ------------------------------------------------------------------ */
-  var TEACH = { scale: 2.3, flyMs: 620, backMs: 520, out: '#7a4cff', warm: '#ffc83d' };
+  // scale 3: at 2.3 the lifted card read as one of the tray ("the size of
+  // the card not look big?") — three times the tray card fills the middle
+  var TEACH = { scale: 3, flyMs: 620, backMs: 520, out: '#7a4cff', warm: '#ffc83d' };
   function teachShape(item) {
     if (!svg || !item || !item._verts || !svg.parentNode) return null;
     var doc = svg.ownerDocument, host = svg.parentNode;
@@ -6342,11 +6363,12 @@
       var m = a.inverse().multiply(b);
       return { x: m.e, y: m.f, s: Math.sqrt(m.a * m.a + m.b * m.b) || 1 };
     };
-    var mid = { x: W / 2, y: H * 0.54, s: TEACH.scale };
+    var mid = { x: W / 2 + 40, y: H * 0.52, s: TEACH.scale };   // a touch right: he stands at its left
     var from = toStage(item) || { x: mid.x, y: mid.y, s: 1 };
     // the copy, and a layer on it for what lights up (in the card's own units,
     // so it grows with the card)
     var copy = item.cloneNode(true);
+    st.teachCopy = copy;
     copy.removeAttribute('style'); copy.setAttribute('class', 'teach-card');
     tsvg.appendChild(copy);
     var fx = mk('g', { 'class': 'teach-fx', 'pointer-events': 'none' }, copy);
@@ -6392,7 +6414,9 @@
       });
     };
     var grow = function (a, b, delay, bad) {
-      var l = litLine(fx, { x1: a.x, y1: a.y, x2: a.x, y2: a.y, 'stroke-width': bad ? 2.3 : 1.9, 'stroke-linecap': 'round',
+      // butt caps: a round cap reached a few pixels past the corner it ends
+      // on — a white nub outside the shape, inside the corner's ring
+      var l = litLine(fx, { x1: a.x, y1: a.y, x2: a.x, y2: a.y, 'stroke-width': bad ? 2.3 : 1.9, 'stroke-linecap': 'butt',
                             'stroke-dasharray': bad ? 'none' : '4.2 3.4' }, { bad: bad })[0];
       later(delay || 0, function () {
         if (reduced() || !global.requestAnimationFrame) { l.setAttribute('x2', b.x); l.setAttribute('y2', b.y); return; }
@@ -6454,6 +6478,7 @@
         fx.style.transition = 'opacity .25s ease'; fx.style.opacity = '0';
         sheet.classList.remove('on');
         return fly(now, home, TEACH.backMs, false).then(function () {
+          if (st.teachCopy === copy) st.teachCopy = null;
           item.style.visibility = '';
           if (sheet.parentNode) sheet.parentNode.removeChild(sheet);
           juice('pop', item);
@@ -6461,7 +6486,7 @@
       }
     };
     // a screen change or the end of the question takes it all away
-    cleanup.push(function () { item.style.visibility = ''; if (sheet.parentNode) sheet.parentNode.removeChild(sheet); });
+    cleanup.push(function () { if (st.teachCopy === copy) st.teachCopy = null; item.style.visibility = ''; if (sheet.parentNode) sheet.parentNode.removeChild(sheet); });
     return api;
   }
 
@@ -6805,6 +6830,9 @@
     hintRestart: function () { if (hintRearm) hintRearm(); },
     /** game.js: hold the stage's input while he speaks (see holdOn) */
     hold: function (on) { holdOn = !!on; },
+    /** game.js: while a card is being taught, IT is the content the bubble
+        keeps clear of — everything else is dimmed scenery under the sheet */
+    teachBox: function () { return st.teachCopy && st.teachCopy.parentNode ? st.teachCopy.getBoundingClientRect() : null; },
     /** game.js: lift a card out and teach it (see teachShape) */
     teach: function (el) { return teachShape(el); },
     /** game.js: may a hint play now? (only while the lesson is only waiting) */

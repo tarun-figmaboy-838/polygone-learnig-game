@@ -685,18 +685,33 @@
      card put back before the child may go on. Not a telling-off: he
      presents the shape, he does not say "oops" at it. */
   function teachHooks(t) {
-    var T = null;
+    var T = null, wasAt = null;
     return {
       open: function () {
         say(null);
         T = Stage.teach(t.el);
         if (!T) return Promise.resolve();
-        return T.open().then(function () {
+        // he goes to the card he is about to explain: a walk to its side
+        // while it flies up, and the presenting flourish once both arrive
+        var walked = null;
+        if (buddyOn && present && global.Swiftee && Swiftee.play) {
+          wasAt = { pos: Swiftee.pos, size: Swiftee.size };
+          try { walked = Swiftee.play('move', { to: 'teach', size: 'medium' }); } catch (e) {}
+        }
+        return Promise.all([T.open(), Promise.resolve(walked)]).then(function () {
+          placeBubble();
           if (buddyOn && present && global.Swiftee && Swiftee.play) { try { Swiftee.play('present', direction()); } catch (e) {} }
         });
       },
       cue: function (what) { if (T) T.show(what); },
-      close: function () { return T ? T.close() : Promise.resolve(); }
+      close: function () {
+        var back = T ? T.close() : Promise.resolve();
+        // and back to his corner as the card goes home
+        if (wasAt && buddyOn && present && global.Swiftee && Swiftee.play) {
+          try { back = Promise.all([back, Swiftee.play('move', { to: wasAt.pos, size: wasAt.size })]); } catch (e) {}
+        }
+        return Promise.resolve(back).then(function () { placeBubble(); });
+      }
     };
   }
 
@@ -916,6 +931,10 @@
       // it: the swipe practice's finale, where the card he peeked from has
       // gone and he jumps up into the empty middle between the two piles.
       'middle':             { x: 0.50, y: 0.80 },
+      // BESIDE THE TEACHING CARD (the sort's second miss): on the dim sheet,
+      // at the enlarged card's lower-left, presenting it — not stranded in
+      // the far corner talking across the screen (teachHooks).
+      'teach':              { x: 0.17, y: 0.82 },
       'centre':             { x: 0.50, y: 0.93 },
       'off':                { x: -0.3, y: 0.9 }
     };
@@ -940,7 +959,12 @@
       var paneY = (PF && PF.pane) ? PF.pane.y : 0.082;
       // The cut sits a little ABOVE the glass line, well under the opaque
       // part of the rim copy, so no edge of his ever shows through the fade.
-      var rim = anchor.y + anchor.h * (paneY - 0.012);
+      // 0.03, not 0.012: the cut travels with his pop (pinClip), but the
+      // squash-and-stretch is not in that arithmetic, so mid-rise the cut
+      // drifts up to a dozen pixels — and at 0.012 a sliver of his body
+      // showed over the glass ("swiftee bottom part overlap on card"). The
+      // extra margin keeps the drift under the band the rim copy paints.
+      var rim = anchor.y + anchor.h * (paneY - 0.03);
       var birdH = f.h * (BIRD_H[size] || BIRD_H.small);     // his drawn height on this screen
       // His feet are 42% of his height below the card's TOP, so head and
       // shoulders stand above the rim whatever the card's height; the rim
@@ -1538,7 +1562,7 @@
     bubble.style.marginLeft = '0px';
 
     // Everything the bubble must stay out of.
-    var content = Stage.contentBox && Stage.contentBox();
+    var content = (Stage.teachBox && Stage.teachBox()) || (Stage.contentBox && Stage.contentBox());
     var cardBox = instruction && instruction.classList.contains('show')
       ? instruction.getBoundingClientRect() : null;
     var hudBox = hud.getBoundingClientRect();
@@ -1621,7 +1645,13 @@
         var aw = bubble.offsetWidth, ah = bubble.offsetHeight;
         var atop = overHead.top - ABOVE_GAP - ah;
         var acx = (overHead.left + overHead.right) / 2;
-        var aparts = Stage.contentParts ? Stage.contentParts({}) : [];
+        // while a card is being taught, the tray and the bins sit under the
+        // dim sheet: the lifted card is the only thing to keep clear of. With
+        // the bins counted, the Convex bin he stands on blocked every spot
+        // over his head and the line went to the top of the screen, its tail
+        // aimed at the tray ("dialouge box placement not currect?")
+        var teachOn = Stage.teachBox && Stage.teachBox();
+        var aparts = teachOn ? [teachOn] : (Stage.contentParts ? Stage.contentParts({}) : []);
         var ablocks = [hudBox, nextBox].filter(function (b) { return b && b.width; });
         var aclear = function (x, y) {
           var box = { left: x, right: x + aw, top: y, bottom: y + ah };
