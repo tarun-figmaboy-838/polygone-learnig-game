@@ -12,7 +12,7 @@
   'use strict';
 
   var $ = function (s) { return document.querySelector(s); };
-  var root, stageEl, hud, bubble, instruction, progress, loadEl, nextBtn, backBtn;
+  var root, stageEl, hud, bubble, instruction, progress, loadEl, nextBtn;
   var director, current = -1, playing = false, settleTimer = null, mouthTimer = null, bubbleTimer = null;
   /* Whether Swiftee is on this screen at all. Set per screen from its
      `purpose`; when false, his lines go to the plank and his beats are
@@ -550,13 +550,33 @@
      answer is not met with the same word as the first. */
   // Each carries the id of its voice clip (assets/vo/<id>.mp3), listed in
   // docs/VO.md with everything else he says.
+  // A CHEER THAT SAYS SO (the user's QA spec): warm and clear, and never the
+  // same one twice running. "Yes!" and "That's it!" were half of these and
+  // told a child little; they are gone from the round.
   var PRAISE = [
-    { t: 'Nice!', vo: 'fb01' }, { t: 'That\u2019s it!', vo: 'fb02' }, { t: 'Great job!', vo: 'fb03' },
-    { t: 'You got it!', vo: 'fb04' }, { t: 'Yes!', vo: 'fb05' }, { t: 'Well done!', vo: 'fb06' }
+    { t: 'Great job!', vo: 'fb03' }, { t: 'Nice!', vo: 'fb01' }, { t: 'Well done!', vo: 'fb06' },
+    { t: 'You got it!', vo: 'fb04' }, { t: 'Perfect!', vo: 'fb17' }, { t: 'Yay!', vo: 'fb18' },
+    { t: 'That\u2019s right!', vo: 'fb19' }, { t: 'Awesome!', vo: 'fb20' }, { t: 'Great thinking!', vo: 'fb21' },
+    { t: 'Exactly!', vo: 'fb22' }
   ];
+  // ...and where what was done has words of its own, those (replyFor)
+  var PRAISE_FOR = {
+    sorted:   { t: 'Great! That belongs here.', vo: 'fb23' },
+    diagonal: { t: 'Nice! That\u2019s a diagonal.', vo: 'fb24' },
+    allFound: { t: 'Great job! You found them all.', vo: 'fb25' },
+    measured: { t: 'Well done!', vo: 'fb06' },
+    fixed:    { t: 'Yes! You got it!', vo: 'fb26' }
+  };
+  /* HIS FACE GOES WITH THE WORD — each cheer its own drawing from the rig:
+     a hop with happy eyes, the wings up, a proud little nod, a point at the
+     answer, relief after a miss. */
+  var EMOTE = { fb03: 'nice', fb01: 'happy', fb06: 'chuffed', fb04: 'point', fb17: 'celebrate', fb18: 'celebrate',
+                fb19: 'nod', fb20: 'wink', fb21: 'chuffed', fb22: 'nod', fb23: 'nice', fb24: 'happy', fb25: 'celebrate',
+                fb26: 'phew' };
+  // A MISS IS MET GENTLY, and says to look again rather than only "no"
   var NUDGE = [
-    { t: 'Hmm, not quite.', vo: 'fb07' }, { t: 'Try again!', vo: 'fb08' },
-    { t: 'Almost! Have another go.', vo: 'fb09' }, { t: 'Not that one.', vo: 'fb10' }
+    { t: 'Hmm, look again.', vo: 'fb27' }, { t: 'Almost!', vo: 'fb28' }, { t: 'Try once more.', vo: 'fb29' },
+    { t: 'Take another look.', vo: 'fb30' }, { t: 'Not quite.', vo: 'fb31' }
   ];
   var praiseN = 0, nudgeN = 0, lastFeedbackAt = 0, feedbackScreen = -1;
   /* THE FACE HE ANSWERS WITH, ROTATED.
@@ -703,14 +723,44 @@
       try {
         if (kind === 'wrong') Swiftee.play('oops', direction());
         else if (kind === 'correct') {
+          var emote = reply && reply.lines[0] && reply.lines[0].emote;
           if (doingWell()) { cheeredAt = streak; Swiftee.play('celebrate', direction()); }
-          else Swiftee.play(reply ? 'happySmall' : 'nod', direction());
+          else if (emote === 'point') {
+            // "You got it!" — at the thing that was got
+            var at = global.Stage && Stage.element && (Stage.element('answer') || Stage.element('polygon'));
+            Swiftee.play('point', direction(at ? { at: at } : null));
+          } else Swiftee.play(emote || (reply ? 'happySmall' : 'nod'), direction());
+          // "Perfect!" — and a glint on it
+          if (reply && reply.lines[0] && reply.lines[0].vo === 'fb17' && global.Juice && Juice.sparkle && Stage.element) {
+            try { Juice.sparkle(Stage.element('answer') || Stage.element('polygon')); } catch (e) {}
+          }
         }
       } catch (e) {}
     };
     if (!reply) { face(); return; }
+    if (reply.teach) { pop(reply.lines, teachHooks(reply.teach)); return; }
     reply.lines[0].face = face;
     pop(reply.lines);
+  }
+
+  /* THE TEACHING MOMENT'S SHAPE (pop hooks): the card lifted to the middle
+     before he speaks, the part each line names lit on its word, and the
+     card put back before the child may go on. Not a telling-off: he
+     presents the shape, he does not say "oops" at it. */
+  function teachHooks(t) {
+    var T = null;
+    return {
+      open: function () {
+        say(null);
+        T = Stage.teach(t.el);
+        if (!T) return Promise.resolve();
+        return T.open().then(function () {
+          if (buddyOn && present && global.Swiftee && Swiftee.play) { try { Swiftee.play('present', direction()); } catch (e) {} }
+        });
+      },
+      cue: function (what) { if (T) T.show(what); },
+      close: function () { return T ? T.close() : Promise.resolve(); }
+    };
   }
 
   /* WHAT HE SAYS BACK, IF ANYTHING: the lines, in order.
@@ -729,29 +779,66 @@
    * one it is due on (`after` misses on the screen, or on the card:
    * `perCard`). */
   var inputSeq = 0, praisedInput = -1, lastPraiseAt = 0;
-  var NUDGE_GENTLE = NUDGE.filter(function (n) { return n.vo !== 'fb10'; });
+  var NUDGE_GENTLE = NUDGE;
   var NUDGE_STRONG = { t: 'Not that one.', vo: 'fb10' };
+  var wrongSinceRight = false;        // a miss on this screen since the last right answer
+  /* the next cheer in the round, never the one just said */
+  var lastPraise = null;
+  function nextPraise() {
+    var p = PRAISE[praiseN++ % PRAISE.length];
+    if (lastPraise && p.vo === lastPraise) p = PRAISE[praiseN++ % PRAISE.length];
+    lastPraise = p.vo;
+    return p;
+  }
+  /* the cheer for THIS right answer: its own words where the action has
+     them, else the round */
+  function praiseFor(o) {
+    var type = o.type || (inputSpec && inputSpec.type);
+    var pick = wrongSinceRight ? PRAISE_FOR.fixed
+             : (!o.final && type === 'sort') ? PRAISE_FOR.sorted
+             : (/^draw-diagonals?$/.test(type || '')) && !o.final ? PRAISE_FOR.diagonal
+             : (type === 'draw-diagonal' && o.final) ? PRAISE_FOR.diagonal
+             : (o.final && type === 'multi-select') ? PRAISE_FOR.allFound
+             : (o.final && type === 'tap-each') ? PRAISE_FOR.measured
+             : null;
+    if (pick && pick.vo === lastPraise) pick = null;
+    if (!pick) return nextPraise();
+    lastPraise = pick.vo;
+    return pick;
+  }
   function replyFor(kind, said, o) {
     if (o.walked) return null;
     var now = Date.now(), lines = [], pick = null;
     if (current !== feedbackScreen) { feedbackScreen = current; lastPraiseAt = 0; }
     if (kind === 'correct') {
-      if (o.quiet || o.face === 'dip') return null;
+      if (o.quiet || o.face === 'dip') { if (o.final) wrongSinceRight = false; return null; }
       if (!o.final && inputSpec && inputSpec.praise === false) return null;
       var due = o.final ? now - lastPraiseAt > 1500 : praisedInput !== inputSeq;
       if (!due) return null;
       praisedInput = inputSeq; lastPraiseAt = now;
-      pick = PRAISE[praiseN++ % PRAISE.length];
-      lines.push({ t: pick.t, vo: pick.vo, mood: 'win' });
+      pick = praiseFor(o);
+      wrongSinceRight = false;
+      lines.push({ t: pick.t, vo: pick.vo, mood: 'win', emote: EMOTE[pick.vo] });
     } else if (kind === 'wrong') {
       // (the question's own verdict straight after the tap's is the same miss)
       if (!inputLive && now - lastFeedbackAt < 3000) return null;
+      // THE SHAPE TAUGHT UP CLOSE (the sort's second miss): the screen's own
+      // lines for a concave or a convex shape, each lighting its part on the
+      // card as the word is said (teachHooks)
+      var lesson = o.teach && (Screens.list[current] || {}).teach;
+      var set = lesson && (o.teach.concave ? lesson.concave : lesson.convex);
+      if (set && set.length && global.Stage && Stage.teach) {
+        lastFeedbackAt = now; wrongSinceRight = true;
+        return { lines: set.map(function (b) { return { t: b.say, vo: b.vo, mood: 'hint', show: b.show, on: b.on || 0 }; }),
+                 teach: o.teach };
+      }
       if (said && said.t) pick = said;
       else if (o.tries >= 2) pick = NUDGE_STRONG;
       else if (o.tries === 1) pick = NUDGE_GENTLE[nudgeN++ % NUDGE_GENTLE.length];
       else pick = NUDGE[nudgeN++ % NUDGE.length];
       lastFeedbackAt = now;
-      lines.push({ t: pick.t, vo: pick.vo, mood: 'hint' });
+      wrongSinceRight = true;
+      lines.push({ t: pick.t, vo: pick.vo, mood: 'hint', miss: true });
       var rem = (Screens.list[current] || {}).remind;
       var count = rem && rem.perCard ? (o.tries || 0) : missesHere;
       if (rem && rem.say && count >= (rem.after || 1)) lines.push({ t: rem.say, vo: rem.vo, mood: 'hint' });
@@ -782,6 +869,18 @@
     var padY = Math.max(0, Math.round((r.height - 562 * s) / 2));
     var g0 = document.getElementById('game');
     if (g0) { g0.style.setProperty('--band-x', padX + 'px'); g0.style.setProperty('--band-y', padY + 'px'); }
+    /* ONE SCALE FOR EVERYTHING OVER THE STAGE (the user's QA spec: the same
+       16:9 composition on every screen). --svw is a hundredth of the stage's
+       width: the words and the plank are sized in it, not in the window's
+       vw, so a window wider or narrower than 16:9 changes nothing on the
+       stage. --u is the stage against the 1920 it was designed at: the HUD
+       and Next are drawn at 1920 and scaled whole by it — never under 0.7,
+       where a button would drop below a fingertip. */
+    if (g0) {
+      var sw = 1000 * s;
+      g0.style.setProperty('--svw', (sw / 100).toFixed(3) + 'px');
+      g0.style.setProperty('--u', Math.max(0.7, Math.min(1.4, sw / 1920)).toFixed(4));
+    }
   }
 
   function frame() {
@@ -990,16 +1089,6 @@
     if (pos !== 'off' && soloed()) { m = map['centre']; }
 
     var x = f.x + m.x * f.w;
-    // CLEAR OF BACK. Back mirrors Next in the bottom-left corner, and that is
-    // where he stands on every card screen, so the pill sat on his feet. On
-    // the two ground marks at the left he steps right until his drawn box
-    // clears it. The pill's width is fixed in px while he scales with the
-    // stage, so the step is measured, not guessed: small on a wide window,
-    // more on a tablet. It is capped so he never walks into the lesson.
-    if (!f.portrait && (m === map['left-low'] || m === map['left'])) {
-      var edge = backEdge();
-      if (edge != null) x = Math.min(Math.max(x, edge + f.h * want * 0.46), x + f.w * 0.12);
-    }
 
     var y = f.y + m.y * f.h;
 
@@ -1018,16 +1107,6 @@
     return L;
   }
 
-  /* Back's right edge plus a gap, in page px, or null. The button keeps its
-     box while it is hidden (visibility, not display), so he stands in the
-     same place whether it is showing or not and never shuffles when it
-     appears. Read by id: layout() runs before boot() has wired the HUD. */
-  function backEdge() {
-    var b = document.getElementById('back');
-    if (!b || !b.getBoundingClientRect) return null;
-    var r = b.getBoundingClientRect();
-    return r.width ? r.right + 14 : null;
-  }
 
   /**
    * Nudge the anchor so the whole sprite cell stays on screen.
@@ -1044,6 +1123,13 @@
     if (pos === 'off') return L;
     var vw = window.innerWidth || document.documentElement.clientWidth;
     var vh = window.innerHeight || document.documentElement.clientHeight;
+    // THE STAGE BOX IS THE EDGE, not the window: on a screen that is not
+    // 16:9 the band around the stage is scenery, and a bird held off the
+    // window's edge stood lower on a tablet than on a laptop. (In portrait
+    // he stands in the strip below the stage, so the window it is.)
+    var fb = frame();
+    var X0 = fb.portrait ? 0 : fb.x, Y0 = fb.portrait ? 0 : fb.y;
+    if (!fb.portrait) { vw = fb.x + fb.w; vh = fb.y + fb.h; }
     var cell = 256 * L.scale;
     var top = L.y - 0.877 * cell, bottom = L.y + 0.123 * cell;
     var left = L.x - cell / 2, right = L.x + cell / 2;
@@ -1054,8 +1140,8 @@
     // (CONTENT_FRAC), and holding that air off the window edge kept him a
     // head's worth lower than he had to be — onto the swipe zones' rims.
     if (bottom > vh - EDGE) L.y -= (bottom - (vh - EDGE));
-    if (L.y - CONTENT_FRAC * cell < EDGE) L.y = EDGE + CONTENT_FRAC * cell;
-    if (left < EDGE) L.x += EDGE - left;
+    if (L.y - CONTENT_FRAC * cell < Y0 + EDGE) L.y = Y0 + EDGE + CONTENT_FRAC * cell;
+    if (left < X0 + EDGE) L.x += X0 + EDGE - left;
     if (right > vw - EDGE) L.x -= right - (vw - EDGE);
     return L;
   }
@@ -1518,8 +1604,10 @@
     var L = layout(Swiftee.pos, Swiftee.size || 'medium');
     var f = frame();
     var solo = soloed();
-    var vw = window.innerWidth || document.documentElement.clientWidth;
-    var vh = window.innerHeight || document.documentElement.clientHeight;
+    // (the stage box, not the window: see fit())
+    var vw = f.portrait ? (window.innerWidth || document.documentElement.clientWidth) : f.x + f.w;
+    var vh = f.portrait ? (window.innerHeight || document.documentElement.clientHeight) : f.y + f.h;
+    var X0 = f.portrait ? 0 : f.x, Y0 = f.portrait ? 0 : f.y;
     // MIN_W is the narrowest the bubble can actually render: min-width 170,
     // plus 22px padding and a 3px border on each side. Asking for less than
     // that does not produce a narrower bubble, it produces one that hangs out
@@ -1558,7 +1646,6 @@
       ? instruction.getBoundingClientRect() : null;
     var hudBox = hud.getBoundingClientRect();
     var nextBox = nextBtn && nextBtn.classList.contains('show') ? nextBtn.getBoundingClientRect() : null;
-    var backBox = backBtn && backBtn.classList.contains('show') ? backBtn.getBoundingClientRect() : null;
 
     // With nothing on stage he simply speaks over the middle of the screen.
     if (solo || !content) {
@@ -1607,7 +1694,7 @@
         var top2 = headBox.top - TAIL_GAP - bh2;
         if (top2 >= roomTop) {
           var left2 = (headBox.left + headBox.right) / 2 - bw2 / 2;
-          left2 = Math.max(GAP, Math.min(vw - bw2 - GAP, left2));
+          left2 = Math.max(X0 + GAP, Math.min(vw - bw2 - GAP, left2));
           bubble.style.left = left2 + 'px';
           bubble.style.top = top2 + 'px';
           paintSkin();
@@ -1638,7 +1725,7 @@
         var atop = overHead.top - ABOVE_GAP - ah;
         var acx = (overHead.left + overHead.right) / 2;
         var aparts = Stage.contentParts ? Stage.contentParts({}) : [];
-        var ablocks = [hudBox, nextBox, backBox].filter(function (b) { return b && b.width; });
+        var ablocks = [hudBox, nextBox].filter(function (b) { return b && b.width; });
         var aclear = function (x, y) {
           var box = { left: x, right: x + aw, top: y, bottom: y + ah };
           var hit = function (p, pad) {
@@ -1773,7 +1860,7 @@
     // half-width slot, over the corner of the panel. A debug control must not
     // be able to change how the game lays itself out.
     var blocks = [birdBox];
-    [hudBox, nextBox, backBox].forEach(function (b) {
+    [hudBox, nextBox].forEach(function (b) {
       if (!b || !b.width) return;
       // A wide margin: the bubble bounces in at 103% and carries a shadow,
       // and eight pixels from the HUD read as touching it.
@@ -1844,7 +1931,7 @@
     }
 
     // Prefer the side he is standing on, then the roomiest.
-    var onLeft = L.x < vw / 2;
+    var onLeft = L.x < (X0 + vw) / 2;
     // Peeking over a card, the place for his words is straight above his
     // head — the band over the card is his, the plank is not up while he
     // speaks — so the band above is preferred and the bubble is centred on
@@ -2111,8 +2198,8 @@
       fin = { w: nowW, h: bubble.offsetHeight };
     }
     var lx = parseFloat(bubble.style.left) || 0, ly = parseFloat(bubble.style.top) || 0;
-    bubble.style.left = Math.max(GAP, Math.min(lx, vw - fin.w - GAP)) + 'px';
-    bubble.style.top = Math.max(GAP, Math.min(ly, vh - fin.h - GAP)) + 'px';
+    bubble.style.left = Math.max(X0 + GAP, Math.min(lx, vw - fin.w - GAP)) + 'px';
+    bubble.style.top = Math.max(Y0 + GAP, Math.min(ly, vh - fin.h - GAP)) + 'px';
 
     paintSkin();
   }
@@ -2294,17 +2381,6 @@
     if (!nextBtn) return;
     nextBtn.classList.toggle('show', !!on);
     nextBtn.disabled = !on;
-  }
-
-  /* BACK IS OFFERED WHENEVER THE CHILD IS IN CONTROL, and never while
-     something is still being said: a control that appears mid-sentence is a
-     control that invites a child to leave before they have heard the line.
-     Not on the first screen, because there is nowhere to go. */
-  function showBack(on) {
-    if (!backBtn) return;
-    var can = !!on && current > 0;
-    backBtn.classList.toggle('show', can);
-    backBtn.disabled = !can;
   }
 
   function setProgress(i) {
@@ -3021,7 +3097,6 @@
 
         var waiting = spec.type === 'tap-anywhere';
         showNext(waiting);
-        showBack(true);
         if (ctx && ctx.onCancel) ctx.onCancel(function () { showNext(false); });
         if (ctx && ctx.onCancel) ctx.onCancel(function () { inputLive = false; inputSpec = null; });
 
@@ -3058,7 +3133,7 @@
             // and he says so, whether or not there was XP in it: react() is
             // the one place his word on an answer comes from. His FACE is the
             // screen's own feedback beat, a moment later — one reaction, not two.
-            react('correct', null, { face: false, quiet: spec.praise === false, final: true });
+            react('correct', null, { face: false, quiet: spec.praise === false, final: true, type: spec.type });
           } else if (r && r.result === 'wrong') react('wrong', null, { face: false, final: true });
           return r;
         }, function (e) { showNext(false); throw e; });
@@ -3174,7 +3249,7 @@
     // from the screen before plays its stop and he rests; the new screen's
     // count of misses and its one hint start again.
     if (global.Swiftee && Swiftee.settle) Swiftee.settle();
-    missesHere = 0; hintedHere = false; inputSpec = null;
+    missesHere = 0; hintedHere = false; inputSpec = null; wrongSinceRight = false;
     // whatever he was still saying back on the screen before is over, and
     // nothing of it holds the new screen's input
     popGen++; popping = false; clearTimeout(popDue); popDue = null; riseWait = false; cheerUntil = 0;
@@ -3280,10 +3355,6 @@
     }
 
     current = i; setProgress(i);
-    // BACK IS THERE FOR THE WHOLE SCREEN, on every screen after the first —
-    // not only once a task has armed, which left it missing through every
-    // line of narration and on the screens that play themselves through.
-    showBack(i > 0);
     // A carried card rides up when this screen has no plank, and eases back
     // under the band when it has; a scene built by this screen's beats is
     // seated as it is built.
@@ -3303,11 +3374,11 @@
       var walked = !!(inputSpec && inputSpec.type === 'tap-each' && inputSpec.targets === 'sides');
       var dip = !!(inputSpec && inputSpec.type === 'tap-each');
       react(kind, said, { face: dip ? 'dip' : !(list && list.some(function (b) { return b && b.swiftee; })), walked: walked,
-                          tries: info && info.tries });
+                          tries: info && info.tries, teach: info && info.teach });
     });
     if (global.Input) Input.mode('locked');
     // WRITTEN DOWN AS IT BEGINS: the scene exactly as the child found it on
-    // this screen, so Back can put it back (Stage.snapshot / restore).
+    // this screen, so the review picker can put it back (Stage.snapshot / restore).
     try { snaps[i] = Stage.snapshot ? Stage.snapshot() : null; } catch (e) { snaps[i] = null; }
     return director.run(s.beats);
   }
@@ -3489,9 +3560,11 @@
      brings nobody up. */
   function swipeHome(p) {
     if (!p || !p.dealt || !popsHere()) return;
-    var pick = PRAISE[praiseN++ % PRAISE.length];
+    var pick = wrongSinceRight ? PRAISE_FOR.fixed : nextPraise();
+    wrongSinceRight = false;
     lastPraiseAt = Date.now();
-    pop([{ t: pick.t, vo: pick.vo, mood: 'win', face: 'happySmall' }]);
+    // (a head over the card: his small happy face, not a whole-body move)
+    pop([{ t: pick.t, vo: pick.vo, mood: 'win', face: pick.vo === 'fb26' ? 'phew' : 'happySmall' }]);
   }
 
   /* HIS REPLY — every word he says back to an answer (react(), swipeHome).
@@ -3567,7 +3640,7 @@
   /* One line of his, voiced when it has a clip and paced by the clip. It
      resolves once it has been said and taken in: a cheer briefly (the game
      goes on), a reason for a little longer (it is read). */
-  function popLine(ln) {
+  function popLine(ln, hooks) {
     var text = ln.t, k = paceScale(), T = global.Timing || {};
     var vid = (global.VO && ln.vo && VO.play && VO.play(ln.vo)) ? ln.vo : null;
     var clock = vid ? function () { return (global.VO && VO.id === vid && VO.at) ? VO.at() : null; } : null;
@@ -3586,28 +3659,52 @@
     var hold = voiced ? voiced + after : lastWord + after + Math.round(400 * k);
     say(text, ln.mood || null, hold, clock, cues);
     cheerUntil = Math.max(cheerUntil, Date.now() + hold);
+    // ON ITS WORD: what the line names lights up as it is said — on the
+    // voice's own clock when there is a voice, else when the word appears
+    if (hooks && hooks.cue && ln.show) {
+      var g = popGen, cueMs = cues && cues[ln.on || 0] != null ? cues[ln.on || 0] : 0, t0 = Date.now(), fired = false;
+      var fire = function () { if (!fired && g === popGen) { fired = true; hooks.cue(ln.show); } };
+      if (vid) {
+        (function wait() {
+          if (fired || g !== popGen) return;
+          var at = (VO.id === vid && VO.at) ? VO.at() : null;
+          if ((at != null && at >= cueMs) || (at == null && Date.now() - t0 > 400) || Date.now() - t0 > cueMs + 1500) { fire(); return; }
+          setTimeout(wait, 25);
+        })();
+      } else setTimeout(fire, cueMs + Math.round((T.PANEL_LEAD || 120) * k));
+    }
     return pause(hold);
   }
-  function pop(lines) {
+  function pop(lines, hooks) {
     var gen = ++popGen, screen = current;
     var behind = behindCard(), held = inputLive;
     popping = true;
     if (held) holdInput(true);
     clearTimeout(bubbleTimer);
     var alive = function () { return gen === popGen && screen === current; };
+    var missed = lines.some(function (ln) { return ln.miss || ln.show; });
     var finish = function () {
       if (gen !== popGen) return;
       popping = false; cheerUntil = Date.now();
-      if (screen === current && held) holdInput(false);
+      if (screen === current && held) {
+        holdInput(false);
+        // A MISS IS FOLLOWED BY A LOOK: the screen's own hint — the things
+        // to touch breathe, or the gesture's ghost — once, as soon as the
+        // child has it back (never the answer; hintLadder)
+        if (missed && Stage.hintRestart) Stage.hintRestart(450);
+      }
     };
     return (present ? Promise.resolve(true) : entrance(behind ? undefined : true)).then(function () {
+      if (!alive() || !present) return;
+      return hooks && hooks.open ? hooks.open() : null;
+    }).then(function () {
       if (!alive() || !present) return;
       return lines.reduce(function (chain, ln) {
         return chain.then(function () {
           if (!alive()) return;
           if (typeof ln.face === 'function') ln.face();
           else if (ln.face && Swiftee.play) { try { Swiftee.play(ln.face, direction()); } catch (e) {} }
-          return popLine(ln);
+          return popLine(ln, hooks);
         });
       }, Promise.resolve());
     }).then(function () {
@@ -3616,7 +3713,10 @@
       // THE INSTRUCTION COMES BACK: the child is still working, and the words
       // they are working to return in place — not a blank bubble, and not
       // the whole line replayed. (With the question over, the bubble goes.)
-      if (!showStanding()) say(null);
+      if (!hooks || !hooks.close) { if (!showStanding()) say(null); return; }
+      // a teaching moment ends with the card back in its place first
+      say(null);
+      return hooks.close().then(function () { if (alive()) showStanding(); });
     }).then(finish, finish);
   }
   /* Is he still saying something back? The lesson's next line, and the next
@@ -3653,8 +3753,6 @@
 
   function finish() {
     say(null); setCard(null); showNext(false);
-    // and Back stays: the last screen can be stepped back to from the end
-    showBack(true);
     if (global.Music) Music.mood('win');   // the tune lifts for the last screen
     var won = quest.snapshot();
     sayLong('Honk-tastic! ' + won.xp + ' XP and ' + won.badges.length + (won.badges.length === 1 ? ' badge' : ' badges') + '. You are a polygon adventurer!', 'win', 3400);
@@ -3668,9 +3766,8 @@
   }
 
   function restart() {
-    backGen++; goingBack = false;
     flightGen++; entering = null; present = false;
-    director.abort(); playing = false; showNext(false); showBack(false);
+    director.abort(); playing = false; showNext(false);
     if (global.Swiftee && Swiftee.settle) Swiftee.settle({ now: true });
     clearTimeout(rewardTimer);
     quest = Quest.create(); say(null); snaps = [];
@@ -3813,13 +3910,6 @@
 
     // HUD wiring. Audio is optional at every call site: a build without
     // sfx.js should still teach the lesson silently rather than die on boot.
-    // Back is Next's twin. Where it lands and how is goBack()'s business.
-    backBtn = $('#back');
-    if (backBtn) backBtn.addEventListener('click', function () {
-      if (backBtn.disabled) return;
-      backBtn.blur();   // or the next Space / Enter would press Back again
-      goBack();
-    });
     var muteBtn = hud.querySelector('.mute');
     muteBtn.addEventListener('click', function () {
       var m = global.SFX ? SFX.mute() : true;
@@ -3849,6 +3939,7 @@
     bubble.addEventListener('pointerdown', function () { tapLine(); });
 
     window.addEventListener('resize', relayout);
+    seatFurniture();   // the stage's scale is known before anything is placed against it
 
     // Everything positioned from a measurement has to be measured again once
     // the real font is in. Until Nunito loads, the bubble is laid out in the
@@ -3944,8 +4035,7 @@
    * first. The layout reads where he stands, so he is put on the target
    * screen's mark before its stage is built.
    *
-   * This was the screen picker's change handler. Back needs every line of it,
-   * and two copies of this would drift.
+   * The screen picker's change handler (?dev=1).
    */
   function goTo(n) {
     if (!(n >= 0 && n < Screens.list.length)) return;
@@ -3953,7 +4043,6 @@
     director.abort();
     playing = false;
     showNext(false);
-    showBack(false);
     cancelScreenLine(); clearLineTimers(); clearTimeout(bubbleTimer); say(null);
     // a jump drops whatever he was doing, at once (and anything a sequence was
     // holding for him: the rebuild below lets go of the measuring walk)
@@ -3995,101 +4084,10 @@
     setTimeout(function () { play(n); }, 80);
   }
 
-  /* WHERE BACK GOES.
-   *
-   * The screen before, whenever that screen can be put back exactly as the
-   * child first saw it. goTo() can rebuild a screen's scene, but not what the
-   * child did to it. "Yay! You made a diagonal." rebuilt from the stage it
-   * inherits is a pentagon with no diagonal on it, and "Whoa! One of the
-   * diagonals went outside." is a convex shape. So a screen is a fair place to
-   * land only if nothing between the scene being built and that screen
-   * changed the scene: no beat added to it, and no input that moved or marked
-   * it. When the screen before fails that test, Back keeps going to the
-   * nearest earlier screen that passes. In the sequences built on one shape,
-   * that is the step where the child last changed it, so the lesson replays
-   * from there with their own hands in it.
-   *
-   * Read from the storyboard, like wipesAt(), so it is the same every time. */
-  var CHANGES_SCENE = /^(vertex-pick|draw-diagonals?|drag-vertex|tap-each|sort|swipe|multi-select)$/;
-  function scriptOf(i) {
-    var s = Screens.list[i], edits = 0, moves = false;
-    (function walk(b) {
-      if (!b || typeof b !== 'object') return;
-      if (Array.isArray(b)) { b.forEach(walk); return; }
-      if (b.stage && typeof b.stage === 'object' && !b.stage.kind) edits++;
-      if (b.input && CHANGES_SCENE.test(b.input.type)) moves = true;
-      for (var k in b) if (k !== 'stage' && b[k] && typeof b[k] === 'object') walk(b[k]);
-    })(s && s.beats);
-    return { builds: !!(s && s.stage && s.stage.kind), changes: edits > 0 || moves };
-  }
-  function landable(t) {
-    var b = t;
-    while (b > 0 && !scriptOf(b).builds) b--;
-    for (var k = b; k < t; k++) if (scriptOf(k).changes) return false;
-    return true;
-  }
-  /* ONE SCREEN BACK, like Next is one screen on.
-   *
-   * Every screen is written down as the child reaches it (snaps), so the one
-   * before can be put back exactly — their corner, their diagonal, their
-   * dent — and Back is a step, not a jump to wherever the scene was last
-   * built. Two exceptions. A screen with nothing for the child to do (the
-   * side being drawn) plays itself through, so landing on it would carry
-   * them straight back here: Back steps over it. And a screen arrived at
-   * without being passed through (the review picker) has nothing written
-   * down, so it falls back to the nearest screen the storyboard alone can
-   * rebuild (landable). */
+  /* EVERY SCREEN WRITTEN DOWN AS IT IS REACHED (runScreen), so the review
+     picker (?dev=1) can put a screen it jumps back to exactly as the child
+     left it — their corner, their diagonal, their dent (goTo). */
   var snaps = [];
-  function hasInput(i) {
-    var found = false;
-    (function walk(b) {
-      if (found || !b || typeof b !== 'object') return;
-      if (Array.isArray(b)) { b.forEach(walk); return; }
-      if (b.input) { found = true; return; }
-      for (var k in b) if (b[k] && typeof b[k] === 'object') walk(b[k]);
-    })(Screens.list[i] && Screens.list[i].beats);
-    return found;
-  }
-  function backTarget(c) {
-    var t = c - 1;
-    while (t > 0 && !hasInput(t)) t--;
-    if (snaps[t] !== undefined) return t;
-    while (t > 0 && !landable(t)) t--;
-    return t;
-  }
-  function chapterOf(i) {
-    var ch = (global.Quest && Quest.chapters) || [];
-    for (var k = 0; k < ch.length; k++) if (i <= ch[k].end) return k;
-    return ch.length;
-  }
-
-  /* BACK, AS A CHILD SEES IT. Back is the same screen change as the picker
-     (goTo), with the arrival done properly. Into another level, the snow
-     comes down first, the same page-turn as going forward. Onto a screen
-     where he stands somewhere else, he hops off and comes back in with the
-     screen's first line, rather than jumping across the ice. Everywhere
-     else he stays where he is and the scene is rebuilt around him. */
-  var goingBack = false, backGen = 0;
-  function goBack() {
-    if (goingBack || !(current > 0)) return;
-    var t = backTarget(current);
-    if (!(t >= 0 && t < current)) return;
-    goingBack = true;
-    var gen = ++backGen;
-    if (global.SFX) SFX.play('select');
-    director.abort(); playing = false;
-    showNext(false); showBack(false);
-    cancelScreenLine(); clearLineTimers(); clearTimeout(bubbleTimer); say(null);
-    if (global.Input) Input.mode('locked');
-
-    var mark = wantsBuddy(t) ? markFor(t, Swiftee.pos, Swiftee.size) : null;
-    var moves = present && (!mark || mark.pos !== Swiftee.pos || mark.size !== Swiftee.size);
-    var levels = chapterOf(t) !== chapterOf(current) && global.Transition && Transition.cover;
-    var ready = levels ? Transition.cover() : (moves ? leave() : Promise.resolve());
-    // A Restart pressed while he was hopping off wins.
-    var go = function () { if (gen !== backGen) return; goingBack = false; goTo(t); };
-    Promise.resolve(ready).then(go, go);
-  }
 
   function wireJump() {
     var box = $('#jump-sel');

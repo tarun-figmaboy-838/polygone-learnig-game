@@ -75,4 +75,9 @@ npm test              logic, storyboard, sprites, a full jsdom playthrough
 npm run test:browser  the lesson played properly in Chrome, all 31 screens
 npm run test:qa       the lesson played badly in Chrome
 npm run test:all      all three
+VOICED=1 node tests/playthrough.browser.js
+                      the same playthrough at the real pace with the voice on
+                      (slow — the whole lesson, spoken): one voice at a time,
+                      no line cut off, no input open while he speaks, no hint
+                      over his voice, nothing on the page twice
 ```

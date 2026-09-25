@@ -10,7 +10,7 @@ Every line Swiftee says, **in the order a child hears it**, with the file the ga
 
 **Breaths:** record every line as ONE clip, read naturally, with a short breath at each `/` in the Breaths column. On screen each sentence is one bubble; the breaths are where the words pause inside it.
 
-## Lesson lines (48), in timeline order
+## Lesson lines (50), in timeline order
 
 | # | Screen | Screen id | File | Type | Line | Breaths | When | Delivery | Recorded |
 |---|--------|-----------|------|------|------|---------|------|----------|----------|
@@ -42,40 +42,52 @@ Every line Swiftee says, **in the order a child hears it**, with the file the ga
 | 26 | 20 | concave | `assets/vo/p25.mp3` | say | Atleast one diagonal outside means concave polygon. | Atleast one diagonal outside / means concave polygon. | screen 20 | explaining, warm and clear | yes |
 | 27 | 21 | make-concave | `assets/vo/p26i.mp3` | instruction | Drag any vertex to make this polygon concave. |  | screen 21, the instruction | an instruction: plain, steady, every word clear | yes |
 | 28 | 22 | sort-convex-concave | `assets/vo/p27.mp3` | say | Can you sort these polygons as convex or concave? |  | screen 22 | playful, inviting | yes |
-| 29 | 23 | suspicious | `assets/vo/p28.mp3` | say | Hmm… The sides look suspiciously alike. Let’s check! | Hmm… / The sides look suspiciously alike. / Let’s check! | screen 23 | wondering aloud, a little slower | yes |
-| 30 | 24 | measure-sides | `assets/vo/p29i.mp3` | instruction | Tap the sides to measure them. |  | screen 24, the instruction | an instruction: plain, steady, every word clear | yes |
-| 31 | 25 | sides-equal | `assets/vo/p30.mp3` | say | Every side is equal. But what about the angles? | Every side is equal. / But what about the angles? | screen 25 | asking: curious, open | yes |
-| 32 | 26 | measure-angles | `assets/vo/p31i.mp3` | instruction | Tap the angles to measure them. |  | screen 26, the instruction | an instruction: plain, steady, every word clear | yes |
-| 33 | 26 | measure-angles | `assets/vo/p31.mp3` | say | The angles match too! |  | screen 26 | explaining, warm and clear | yes |
-| 34 | 27 | distort | `assets/vo/p32a.mp3` | say | Help me stretch this corner. Let’s see what happens to the sides and angles. | Help me stretch this corner. / Let’s see what happens / to the sides and angles. | screen 27 | playful, inviting | yes |
-| 35 | 27 | distort | `assets/vo/p32ai.mp3` | instruction | Drag the highlighted vertex. |  | screen 27, the instruction | an instruction: plain, steady, every word clear | yes |
-| 36 | 28 | stayed-changed | `assets/vo/p32b.mp3` | say | It’s still a pentagon. But are the sides and angles still equal? | It’s still a pentagon. / But are the sides / and angles still equal? | screen 28 | asking: curious, open | yes |
-| 37 | 28 | stayed-changed | `assets/vo/p32bi.mp3` | instruction | Are the sides and angles still equal? |  | screen 28, the instruction | an instruction: plain, steady, every word clear | yes |
-| 38 | 29 | regular-vs-irregular | `assets/vo/p32c.mp3` | say | All sides AND all angles same: regular. Otherwise, it’s irregular. | All sides AND all angles same: / regular. / Otherwise, it’s irregular. | screen 29 | explaining, warm and clear | yes |
-| 39 | 30 | sort-regular | `assets/vo/p33.mp3` | say | Where does this polygon belong? |  | screen 30 | asking: curious, open | yes |
-| 40 | 31 | summary | `assets/vo/p37a.mp3` | say | A vertex is a corner where two sides meet. |  | screen 31 | explaining, warm and clear | yes |
-| 41 | 31 | summary | `assets/vo/p37b.mp3` | say | A side is a straight line joining two vertices. |  | screen 31 | explaining, warm and clear | yes |
-| 42 | 31 | summary | `assets/vo/p37c.mp3` | say | An angle is formed where two sides meet. |  | screen 31 | explaining, warm and clear | yes |
-| 43 | 31 | summary | `assets/vo/p37d.mp3` | say | A diagonal joins two non-adjacent vertices. |  | screen 31 | explaining, warm and clear | yes |
-| 44 | 31 | summary | `assets/vo/p37e.mp3` | say | In a convex polygon, all diagonals stay inside. |  | screen 31 | explaining, warm and clear | yes |
-| 45 | 31 | summary | `assets/vo/p37f.mp3` | say | In a concave polygon, atleast one diagonal goes outside. |  | screen 31 | explaining, warm and clear | yes |
-| 46 | 31 | summary | `assets/vo/p37g.mp3` | say | A regular polygon has all sides and all angles equal. |  | screen 31 | explaining, warm and clear | yes |
-| 47 | 31 | summary | `assets/vo/p37h.mp3` | say | If the sides or angles are not all equal, the polygon is irregular. |  | screen 31 | explaining, warm and clear | yes |
-| 48 | 31 | summary | `assets/vo/p37i.mp3` | say | Amazing! You explored all these polygon ideas! |  | screen 31 | explaining, warm and clear | yes |
+| 29 |  |  | `assets/vo/p27c.mp3` | say | Look! This corner goes inward. |  | screen undefined | explaining, warm and clear | yes |
+| 30 |  |  | `assets/vo/p27v.mp3` | say | Look! No corner goes inward. |  | screen undefined | explaining, warm and clear | yes |
+| 31 | 23 | suspicious | `assets/vo/p28.mp3` | say | Hmm… The sides look suspiciously alike. Let’s check! | Hmm… / The sides look suspiciously alike. / Let’s check! | screen 23 | wondering aloud, a little slower | yes |
+| 32 | 24 | measure-sides | `assets/vo/p29i.mp3` | instruction | Tap the sides to measure them. |  | screen 24, the instruction | an instruction: plain, steady, every word clear | yes |
+| 33 | 25 | sides-equal | `assets/vo/p30.mp3` | say | Every side is equal. But what about the angles? | Every side is equal. / But what about the angles? | screen 25 | asking: curious, open | yes |
+| 34 | 26 | measure-angles | `assets/vo/p31i.mp3` | instruction | Tap the angles to measure them. |  | screen 26, the instruction | an instruction: plain, steady, every word clear | yes |
+| 35 | 26 | measure-angles | `assets/vo/p31.mp3` | say | The angles match too! |  | screen 26 | explaining, warm and clear | yes |
+| 36 | 27 | distort | `assets/vo/p32a.mp3` | say | Help me stretch this corner. Let’s see what happens to the sides and angles. | Help me stretch this corner. / Let’s see what happens / to the sides and angles. | screen 27 | playful, inviting | yes |
+| 37 | 27 | distort | `assets/vo/p32ai.mp3` | instruction | Drag the highlighted vertex. |  | screen 27, the instruction | an instruction: plain, steady, every word clear | yes |
+| 38 | 28 | stayed-changed | `assets/vo/p32b.mp3` | say | It’s still a pentagon. But are the sides and angles still equal? | It’s still a pentagon. / But are the sides / and angles still equal? | screen 28 | asking: curious, open | yes |
+| 39 | 28 | stayed-changed | `assets/vo/p32bi.mp3` | instruction | Are the sides and angles still equal? |  | screen 28, the instruction | an instruction: plain, steady, every word clear | yes |
+| 40 | 29 | regular-vs-irregular | `assets/vo/p32c.mp3` | say | All sides AND all angles same: regular. Otherwise, it’s irregular. | All sides AND all angles same: / regular. / Otherwise, it’s irregular. | screen 29 | explaining, warm and clear | yes |
+| 41 | 30 | sort-regular | `assets/vo/p33.mp3` | say | Where does this polygon belong? |  | screen 30 | asking: curious, open | yes |
+| 42 | 31 | summary | `assets/vo/p37a.mp3` | say | A vertex is a corner where two sides meet. |  | screen 31 | explaining, warm and clear | yes |
+| 43 | 31 | summary | `assets/vo/p37b.mp3` | say | A side is a straight line joining two vertices. |  | screen 31 | explaining, warm and clear | yes |
+| 44 | 31 | summary | `assets/vo/p37c.mp3` | say | An angle is formed where two sides meet. |  | screen 31 | explaining, warm and clear | yes |
+| 45 | 31 | summary | `assets/vo/p37d.mp3` | say | A diagonal joins two non-adjacent vertices. |  | screen 31 | explaining, warm and clear | yes |
+| 46 | 31 | summary | `assets/vo/p37e.mp3` | say | In a convex polygon, all diagonals stay inside. |  | screen 31 | explaining, warm and clear | yes |
+| 47 | 31 | summary | `assets/vo/p37f.mp3` | say | In a concave polygon, atleast one diagonal goes outside. |  | screen 31 | explaining, warm and clear | yes |
+| 48 | 31 | summary | `assets/vo/p37g.mp3` | say | A regular polygon has all sides and all angles equal. |  | screen 31 | explaining, warm and clear | yes |
+| 49 | 31 | summary | `assets/vo/p37h.mp3` | say | If the sides or angles are not all equal, the polygon is irregular. |  | screen 31 | explaining, warm and clear | yes |
+| 50 | 31 | summary | `assets/vo/p37i.mp3` | say | Amazing! You explored all these polygon ideas! |  | screen 31 | explaining, warm and clear | yes |
 
-## Answers (16), said when the child answers
+## Answers (26), said when the child answers
 
 | File | Line | When | Delivery | Recorded |
 |------|------|------|----------|----------|
-| `assets/vo/fb01.mp3` | Nice! | the first right answer on a screen (rotates) | a cheer, delighted | yes |
-| `assets/vo/fb02.mp3` | That’s it! | the first right answer on a screen (rotates) | a cheer, delighted | yes |
 | `assets/vo/fb03.mp3` | Great job! | the first right answer on a screen (rotates) | a cheer, delighted | yes |
-| `assets/vo/fb04.mp3` | You got it! | the first right answer on a screen (rotates) | a cheer, delighted | yes |
-| `assets/vo/fb05.mp3` | Yes! | the first right answer on a screen (rotates) | a cheer, delighted | yes |
+| `assets/vo/fb01.mp3` | Nice! | the first right answer on a screen (rotates) | a cheer, delighted | yes |
 | `assets/vo/fb06.mp3` | Well done! | the first right answer on a screen (rotates) | a cheer, delighted | yes |
-| `assets/vo/fb07.mp3` | Hmm, not quite. | a wrong answer (rotates, at most every 3 s) | gentle and encouraging, never disappointed | yes |
-| `assets/vo/fb08.mp3` | Try again! | a wrong answer (rotates, at most every 3 s) | gentle and encouraging, never disappointed | yes |
-| `assets/vo/fb09.mp3` | Almost! Have another go. | a wrong answer (rotates, at most every 3 s) | gentle and encouraging, never disappointed | yes |
+| `assets/vo/fb04.mp3` | You got it! | the first right answer on a screen (rotates) | a cheer, delighted | yes |
+| `assets/vo/fb17.mp3` | Perfect! | a try that falls short, with the reason | gentle and encouraging, never disappointed | yes |
+| `assets/vo/fb18.mp3` | Yay! | a try that falls short, with the reason | gentle and encouraging, never disappointed | yes |
+| `assets/vo/fb19.mp3` | That’s right! | a try that falls short, with the reason | gentle and encouraging, never disappointed | yes |
+| `assets/vo/fb20.mp3` | Awesome! | a try that falls short, with the reason | explaining, warm and clear | yes |
+| `assets/vo/fb21.mp3` | Great thinking! | a try that falls short, with the reason | a cheer, delighted | yes |
+| `assets/vo/fb22.mp3` | Exactly! | a try that falls short, with the reason | explaining, warm and clear | yes |
+| `assets/vo/fb23.mp3` | Great! That belongs here. | a try that falls short, with the reason | a cheer, delighted | yes |
+| `assets/vo/fb24.mp3` | Nice! That’s a diagonal. | a try that falls short, with the reason | a cheer, delighted | yes |
+| `assets/vo/fb25.mp3` | Great job! You found them all. | a try that falls short, with the reason | a cheer, delighted | yes |
+| `assets/vo/fb26.mp3` | Yes! You got it! | a try that falls short, with the reason | a cheer, delighted | yes |
+| `assets/vo/fb27.mp3` | Hmm, look again. | a try that falls short, with the reason | wondering aloud, a little slower | yes |
+| `assets/vo/fb28.mp3` | Almost! | a try that falls short, with the reason | explaining, warm and clear | yes |
+| `assets/vo/fb29.mp3` | Try once more. | a try that falls short, with the reason | explaining, warm and clear | yes |
+| `assets/vo/fb30.mp3` | Take another look. | a try that falls short, with the reason | explaining, warm and clear | yes |
+| `assets/vo/fb31.mp3` | Not quite. | a try that falls short, with the reason | explaining, warm and clear | yes |
 | `assets/vo/fb10.mp3` | Not that one. | a wrong answer (rotates, at most every 3 s) | gentle and encouraging, never disappointed | yes |
 | `assets/vo/fb15.mp3` | Drop it on a corner! | a try that falls short, with the reason | gentle and encouraging, never disappointed | yes |
 | `assets/vo/fb11.mp3` | Pull it in more! | a try that falls short, with the reason | gentle and encouraging, never disappointed | yes |

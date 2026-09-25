@@ -777,6 +777,19 @@
       // shadow while he is up (swiftee.js), so nothing says he is standing.
       swiftee: { pos: 'top-left', size: 'small' },
       say: 'Can you sort these polygons as convex or concave?',
+      // TWO MISSES AND THE SHAPE IS TAUGHT (the user's spec). The first wrong
+      // drop is answered in a word; the second lifts that card out of the
+      // tray under a dim sheet, large, and he says what it shows while each
+      // part lights on it on its word (`show`, on word `on`): stage.js
+      // teachShape, game.js teachHooks. Then it goes back to the tray and the
+      // same question goes on. The rule is the lesson's own two lines, in
+      // their own voices; the "Look!" line points at the shape.
+      teach: {
+        concave: [{ say: 'Look! This corner goes inward.', vo: 'p27c', show: 'notch' },
+                  { say: 'Atleast one diagonal outside means concave polygon.', vo: 'p25', show: 'outside', on: 2 }],
+        convex:  [{ say: 'Look! No corner goes inward.', vo: 'p27v', show: 'corners' },
+                  { say: 'All diagonals inside means convex polygon.', vo: 'p24', show: 'inside', on: 1 }]
+      },
       stage: {
         kind: 'sort',
         bins: [{ id: 'convex', label: 'Convex', tone: 'convex' }, { id: 'concave', label: 'Concave', tone: 'concave' }],
@@ -797,7 +810,7 @@
         { wait: 300 },
         { say: 'Can you sort these polygons as convex or concave?', vo: 'p27' },
         { swiftee: 'observe', at: 'sort.tray' },
-        { input: { type: 'sort', until: 'all-placed-correctly' } },
+        { input: { type: 'sort', until: 'all-placed-correctly', teach: 2 } },
         // a finished sort is a milestone
         { feedback: milestone([{ sfx: 'levelUp' }, { juice: 'confetti', target: 'stage' }]) }
       ],

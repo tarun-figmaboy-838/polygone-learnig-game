@@ -102,6 +102,7 @@
     pick:      { target: null, mode: 'none' },
     inside:    { target: null, mode: 'none' },
     outside:   { target: null, mode: 'none' },
+    inward:    { target: null, mode: 'none' },
     equal:     { target: null, mode: 'none' }
   };
 
@@ -120,7 +121,7 @@
     ['regular', 'regular'],
     ['line segment', 'line segment'],
     ['drag', 'drag'], ['draw', 'draw'], ['tap', 'tap'], ['pick', 'pick'],
-    ['outside', 'outside'], ['inside', 'inside'],
+    ['outside', 'outside'], ['inside', 'inside'], ['inward', 'inward'],
     ['equal', 'equal']
   ];
 

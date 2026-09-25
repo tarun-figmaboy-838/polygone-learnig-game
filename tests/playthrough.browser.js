@@ -28,6 +28,13 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const CHECKS_ONLY = process.argv.includes('--checks');
 const HEADED = process.argv.includes('--headed');
+/* VOICED=1 (or --voiced): the lesson at its real pace with the voice on —
+   nothing fast-forwarded — and every frame watched for the things only a
+   voiced run shows: one voice at a time and none cut off, the input never
+   open while he is still speaking or before the lesson is waiting for the
+   child, no hint over his voice, and nothing on the page twice. Slow (the
+   whole lesson, spoken); the default run stays the fast one. */
+const VOICED = process.env.VOICED === '1' || process.argv.includes('--voiced');
 const SHOT_DIR = (() => { const i = process.argv.indexOf('--shots'); return i > 0 ? process.argv[i + 1] : null; })();
 
 const TYPES = {
@@ -80,6 +87,45 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   });
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
   const page = await context.newPage();
+  if (VOICED) await page.addInitScript(() => {
+    const V = window.__voiced = { clips: [], openWhileSpeaking: [], openNotWaiting: [], hintOverVoice: [], dupes: [] };
+    const P = HTMLMediaElement.prototype, play = P.play, pause = P.pause;
+    const idOf = (el) => (el.currentSrc || el.src || '').split('/').pop().split('?')[0].replace(/\.(ogg|mp3)$/, '');
+    P.play = function () {
+      const rec = { id: idOf(this), at: Math.round(performance.now()), end: null, screen: window.Game && window.Game.screen };
+      V.clips.push(rec); this.__rec = rec;
+      this.addEventListener('ended', () => { if (!rec.end) { rec.end = 'ended'; rec.endAt = Math.round(performance.now()); } }, { once: true });
+      return play.apply(this, arguments);
+    };
+    P.pause = function () {
+      const rec = this.__rec;
+      if (rec && !rec.end && this.currentTime > 0 && this.duration && this.currentTime < this.duration - 0.05) {
+        const said = window.VO && window.VO.spoken ? window.VO.spoken(rec.id) : 0;
+        rec.end = said && this.currentTime * 1000 >= said - 20 ? 'ended' : 'CUT at ' + this.currentTime.toFixed(2) + 's';
+        rec.endAt = Math.round(performance.now());
+      }
+      return pause.apply(this, arguments);
+    };
+    const note = (list, what) => { const last = list[list.length - 1]; if (!last || last.what !== what) list.push({ what, n: 1 }); else last.n++; };
+    (function watch() {
+      try {
+        const G = window.Game, VO = window.VO, In = window.Input;
+        if (G && G.director && VO && In) {
+          const id = VO.id, at = VO.at ? VO.at() : null;
+          const speaking = id && at != null && at < ((VO.spoken && VO.spoken(id)) || 99999);
+          const open = In.mode() === 'polygon' && G.director.state === 'WAITING_FOR_USER';
+          const scr = G.screen + ' ' + ((window.Screens.list[G.screen] || {}).id || '');
+          if (open && speaking) note(V.openWhileSpeaking, scr + ' (' + id + ')');
+          const hinting = document.querySelector('.gesture-ghost, .hand-hint, .swipe-ghost');
+          if (hinting && speaking) note(V.hintOverVoice, scr + ' (' + id + ')');
+          const n = (sel) => document.querySelectorAll(sel).length;
+          const d = [['.swiftee', 1], ['#bubble', 1], ['.teach-sheet', 1], ['.peek-rim', 1]].filter(([sel, max]) => n(sel) > max).map(([sel]) => sel + ' x' + n(sel));
+          if (d.length) note(V.dupes, scr + ' ' + d.join(' '));
+        }
+      } catch (e) {}
+      requestAnimationFrame(watch);
+    })();
+  });
 
   const errors = [], missing = [];
   const starved = [];   // the host ran out of memory; see the note on HOST_LIMIT
@@ -143,11 +189,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // fires for the right verdict, not that a headless box makes a noise.
     window.SFX.play = (n) => { if (n === 'correct') window.__cues.correct++; if (n === 'wrong') window.__cues.wrong++; return true; };
     window.SFX.sequence = () => 0;
-    window.Game.director.configure({ sayMinMs: 120, msPerWord: 8, feedbackSettleMs: 40, beatCeilingMs: 6000, readablePauseMs: 60 });
-    // A FAST RUN IS A SILENT RUN. Every line here is fast-forwarded; a real
-    // voice would hold each one for its whole clip (the voiced timing is
-    // checked on its own, word by word), so the game's sound is muted.
-    if (window.SFX && SFX.isMuted && !SFX.isMuted()) SFX.mute();
+    if (!window.__voiced) {
+      window.Game.director.configure({ sayMinMs: 120, msPerWord: 8, feedbackSettleMs: 40, beatCeilingMs: 6000, readablePauseMs: 60 });
+      // A FAST RUN IS A SILENT RUN. Every line here is fast-forwarded; a real
+      // voice would hold each one for its whole clip (the voiced timing is
+      // checked on its own, word by word), so the game's sound is muted.
+      if (window.SFX && SFX.isMuted && !SFX.isMuted()) SFX.mute();
+    }
     window.Game.director.on('start', () => window.__seen.add(window.Game.screen));
     // SWIFTEE IS ON SCREEN ONLY WHERE HE HAS A PURPOSE. Sampled a beat after
     // each screen opens, against whichever screen is up at that moment; the
@@ -538,13 +586,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const t0 = Date.now();
   let stalls = 0, lastScreen = -1, lastChange = Date.now(), stalled = null;
 
-  while (!CHECKS_ONLY && Date.now() - t0 < 360000 && !crashed) {
+  while (!CHECKS_ONLY && Date.now() - t0 < (VOICED ? 1500000 : 360000) && !crashed) {
     const done = await safe(() => page.evaluate(() => !!document.querySelector('#hud .replay.show')), true);
     if (done || crashed) break;
 
     const screen = await safe(() => page.evaluate(() => window.Game.screen), lastScreen);
     if (screen !== lastScreen) { lastScreen = screen; lastChange = Date.now(); }
-    else if (Date.now() - lastChange > 60000) {
+    else if (Date.now() - lastChange > (VOICED ? 180000 : 60000)) {
       // Say what the game was waiting for; "stopped at screen 26" alone sends
       // you back to the browser to find out why.
       stalled = await safe(() => page.evaluate(() => {
@@ -746,6 +794,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     t('all 10 interaction types were exercised', new Set(asked).size === 10, [...new Set(asked)].join(','));
     t('correct cues fired', cues.correct > 0, JSON.stringify(cues));
     t('never stalled on a screen', stalls === 0, stalled ? JSON.stringify(stalled) : '');
+    if (VOICED) {
+      const V = await safe(() => page.evaluate(() => window.__voiced), null);
+      if (V) {
+        const cut = V.clips.filter((c) => /CUT/.test(c.end || ''));
+        const over = [];
+        for (let i = 1; i < V.clips.length; i++) { const a = V.clips[i - 1], b = V.clips[i]; if (a.endAt && b.at < a.endAt - 40) over.push(b.id + ' over ' + a.id); }
+        console.log('  note  voiced: ' + V.clips.length + ' clips played');
+        t('voiced: no line cut off before its last word', cut.length === 0, cut.map((c) => c.id + ' ' + c.end + ' (screen ' + c.screen + ')').join('; '));
+        t('voiced: one voice at a time', over.length === 0, over.join('; '));
+        t('voiced: no input open while he is speaking', V.openWhileSpeaking.length === 0, JSON.stringify(V.openWhileSpeaking.slice(0, 6)));
+        t('voiced: no hint over his voice', V.hintOverVoice.length === 0, JSON.stringify(V.hintOverVoice.slice(0, 6)));
+        t('voiced: nothing on the page twice', V.dupes.length === 0, JSON.stringify(V.dupes.slice(0, 6)));
+      }
+    }
   }
   // Nothing may accumulate over a whole lesson. Every effect in the game is
   // short-lived — confetti, the transition's crystals, the title screen's

@@ -158,7 +158,7 @@
       arm(HINT_IDLE_MS);
     });
     cleanup.push(function () { live = false; hide(); clearTimeout(t); hintRearm = null; });
-    hintRearm = function () { if (!pressing) arm(hintSeen[type] ? HINT_IDLE_MS : HINT_FIRST_MS); };
+    hintRearm = function (ms) { if (!pressing) arm(ms != null ? ms : (hintSeen[type] ? HINT_IDLE_MS : HINT_FIRST_MS)); };
     arm(hintSeen[type] ? HINT_IDLE_MS : HINT_FIRST_MS);
   }
 
@@ -373,8 +373,12 @@
     // at its heart, and on a corner it read as a target painted over the knob
     // (the user: "remove dashes ring, it look odd"). The light is the same
     // mark without the drawing; a corner's own knob is its heart (endDot).
-    mk('circle', { r: ringR, fill: HI.lit, 'fill-opacity': 0.3, stroke: 'none' }, endG);
-    if (opts.endDot !== false) mk('circle', { r: 4.5, fill: HI.knob, stroke: HI.edge, 'stroke-width': 1.5 }, endG);
+    // NO MARK WHERE THE MOVE ENDS (the user, twice: "remove this" — the glow
+    // and dot left on the snow between the sorting bins, and over the corner
+    // to stretch). The ghost and the hand show the move; a mark left behind
+    // after them read as a stray spot. The group stays, empty, so the timing
+    // and the clean-up below are unchanged.
+    void ringR;
     endG.style.opacity = '0';
 
     var anims = [];
@@ -1498,7 +1502,7 @@
         fill: col || (touch ? HI.knob : SHAPE.edge),
         stroke: col ? shade(col, -0.45) : (touch ? HI.edge : 'none'),
         'stroke-width': col ? 3 : (touch ? 2.5 : 2),
-        'class': 'knob' + (st.breathe && !col && touch ? ' breathe' : ''), 'data-i': j,
+        'class': 'knob' + ((st.breathe && !col && touch) || (st.breatheAt && st.breatheAt[j]) ? ' breathe' : ''), 'data-i': j,
         opacity: shown ? 1 : 0,
         'pointer-events': 'none'
       }, g);
@@ -5495,10 +5499,20 @@
         };
         // a single named vertex wears its knob from the start; when any may
         // be taken they all show as handles and the one in hand lights on touch
+        // THE ONE TO DRAG BREATHES ("Drag the highlighted vertex." — the user:
+        // "I want to pulse the dot"): a swell and a glow until it is taken,
+        // again if it is let go short of the answer, and not once it is done
         if (spec.vertex !== 'any') {
           idxs.forEach(function (i) { st.vcolor = st.vcolor || {}; if (!st.vcolor[i]) st.vcolor[i] = HI.fill; });
+          st.breatheAt = {}; idxs.forEach(function (i) { st.breatheAt[i] = true; });
+          cleanup.push(function () { st.breatheAt = null; });
           renderPoly();
         }
+        var breathe = function (i, on) {
+          if (spec.vertex === 'any') return;
+          st.breatheAt = on ? {} : null; if (on) st.breatheAt[i] = true;
+          var k = knobOf(i); if (k && k.classList) k.classList.toggle('breathe', !!on);
+        };
         dragVertices(idxs, function (p, i) {
             if (done) return;
             if (held !== i) {
@@ -5506,6 +5520,7 @@
               // the point in hand lit, so the child sees which one they hold.
               held = i; grabAt = { x: st.verts[i].x, y: st.verts[i].y };
               if (!start) start = grabAt;
+              breathe(i, false);
               st.vcolor = st.vcolor || {}; st.vcolor[i] = HI.fill;
               var hk = knobOf(i);
               if (hk) { hk.setAttribute('fill', HI.fill); hk.setAttribute('stroke', shade(HI.fill, -0.45)); hk.setAttribute('stroke-width', 3); hk.setAttribute('r', 10); }
@@ -5537,6 +5552,7 @@
             if (done) return;
             var from = grabAt || st.verts[i]; held = -1; grabAt = null;
             evt('vertex:dragged', { vertex: i });
+            if (!judge(i)) breathe(i, true);
             if (judge(i)) {
               done = true; st.lastEl = st.polyG; endInteraction();
               // the vertex they moved keeps its knob: the dent IS a vertex
@@ -6085,7 +6101,15 @@
               onTap('correct');
               if (S.queue && S.queue.length) { var next = makeSortItem(S.queue.shift(), W / 2 + 120, 210, 0); S.items.push(next); armItem(next); }
               if (S.placed >= S.total) { endInteraction(); resolve({ result: 'correct' }); }
-            } else { onTap('wrong'); returnItem(item); }
+            } else {
+              // WRONG 1 is a word; WRONG 2 is the shape taught up close
+              // (spec.teach: every that-many misses; game.js lifts the card
+              // with Stage.teach and explains it). The card goes home first.
+              S.misses = (S.misses || 0) + 1;
+              var teachIt = spec.teach && S.misses % spec.teach === 0;
+              onTap('wrong', null, teachIt ? { teach: { el: item, concave: !!c.concave } } : null);
+              returnItem(item);
+            }
           });
         }
         S.items.forEach(armItem);
@@ -6403,6 +6427,159 @@
       });
       if (ctx && ctx.onCancel) ctx.onCancel(function () { if (line) line.remove(); endInteraction(); });
     });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * A SHAPE TAUGHT UP CLOSE — the convex/concave sort's second miss (the
+   * user's spec). The play steps back under a dim, soft sheet; the card
+   * that went in the wrong bin comes up out of the tray to the middle,
+   * large, with a small breath; the part he names lights on it as he says
+   * it — the corner that goes inward and the diagonal that leaves the
+   * shape, or every corner pointing out and the diagonals staying inside —
+   * and then it flies back to its place in the tray and the sheet lifts.
+   * Nothing is sorted for the child, and nothing of the play is touched: a
+   * copy is lifted, on a layer of its own, and the card waits hidden.
+   *
+   *   var T = Stage.teach(item)     T.open()  → Promise (up and in)
+   *                                 T.show('notch' | 'outside' | 'corners' | 'inside')
+   *                                 T.close() → Promise (back, sheet gone)
+   * ------------------------------------------------------------------ */
+  var TEACH = { scale: 2.3, flyMs: 620, backMs: 520, out: '#7a4cff', warm: '#ffc83d' };
+  function teachShape(item) {
+    if (!svg || !item || !item._verts || !svg.parentNode) return null;
+    var doc = svg.ownerDocument, host = svg.parentNode;
+    var sheet = doc.createElement('div'); sheet.className = 'teach-sheet';
+    var tsvg = doc.createElementNS(NS, 'svg');
+    tsvg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    tsvg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    sheet.appendChild(tsvg); host.appendChild(sheet);
+    var toStage = function (el) {
+      var a = svg.getScreenCTM && svg.getScreenCTM(), b = el.getScreenCTM && el.getScreenCTM();
+      if (!a || !b) return null;
+      var m = a.inverse().multiply(b);
+      return { x: m.e, y: m.f, s: Math.sqrt(m.a * m.a + m.b * m.b) || 1 };
+    };
+    var mid = { x: W / 2, y: H * 0.54, s: TEACH.scale };
+    var from = toStage(item) || { x: mid.x, y: mid.y, s: 1 };
+    // the copy, and a layer on it for what lights up (in the card's own units,
+    // so it grows with the card)
+    var copy = item.cloneNode(true);
+    copy.removeAttribute('style'); copy.setAttribute('class', 'teach-card');
+    tsvg.appendChild(copy);
+    var fx = mk('g', { 'class': 'teach-fx', 'pointer-events': 'none' }, copy);
+    item.style.visibility = 'hidden';
+    var now = { x: from.x, y: from.y, s: from.s };
+    var set = function (p) { now = p; copy.setAttribute('transform', 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ') scale(' + p.s.toFixed(4) + ')'); };
+    set(from);
+    var fly = function (a, b, ms, pop) {
+      return new Promise(function (res) {
+        if (reduced() || !global.requestAnimationFrame) { set(b); res(); return; }
+        var t0 = null;
+        var step = function (tn) {
+          if (!copy.parentNode) { res(); return; }
+          if (t0 == null) t0 = tn;
+          var k = Math.min(1, (tn - t0) / ms);
+          var e = 1 - Math.pow(1 - k, 3);
+          // a little past the size and back: it arrives, it does not slide in
+          var sk = pop ? 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2) : e;
+          set({ x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e - (pop ? 26 * Math.sin(Math.PI * k) : 0), s: a.s + (b.s - a.s) * sk });
+          if (k < 1) global.requestAnimationFrame(step); else res();
+        };
+        global.requestAnimationFrame(step);
+      });
+    };
+    var v = item._verts, n = v.length, A = Poly.interiorAngles(v);
+    // the corner that goes inward: the most reflex one, the highest of equals
+    var dent = -1;
+    A.forEach(function (a, i) { if (a > 180.5 && (dent < 0 || a > A[dent] + 0.5 || (Math.abs(a - A[dent]) <= 0.5 && v[i].y < v[dent].y))) dent = i; });
+    var sw = 1.9;                                       // local units: ~4-5 stage units once grown
+    var ring = function (p, delay, col) {
+      var r = mk('circle', { cx: p.x, cy: p.y, r: 5.2, fill: 'none', stroke: col || TEACH.warm, 'stroke-width': sw, 'class': 'teach-ring' }, fx);
+      r.style.animationDelay = (delay || 0) + 'ms';
+      mk('circle', { cx: p.x, cy: p.y, r: 2.4, fill: col || TEACH.warm }, fx);
+      return r;
+    };
+    var sparkle = function (p) {
+      [[-9, -7], [8, -9], [10, 6]].forEach(function (d, i) {
+        var sx = p.x + d[0], sy = p.y + d[1], z = 2.3;
+        var s = mk('path', { d: 'M' + sx + ' ' + (sy - z) + ' L' + (sx + z * 0.3) + ' ' + (sy - z * 0.3) + ' L' + (sx + z) + ' ' + sy + ' L' + (sx + z * 0.3) + ' ' + (sy + z * 0.3) +
+                                ' L' + sx + ' ' + (sy + z) + ' L' + (sx - z * 0.3) + ' ' + (sy + z * 0.3) + ' L' + (sx - z) + ' ' + sy + ' L' + (sx - z * 0.3) + ' ' + (sy - z * 0.3) + ' Z',
+                             fill: '#fff6c8', 'class': 'teach-spark' }, fx);
+        s.style.animationDelay = (i * 140) + 'ms';
+      });
+    };
+    var grow = function (a, b, delay, bad) {
+      var l = litLine(fx, { x1: a.x, y1: a.y, x2: a.x, y2: a.y, 'stroke-width': bad ? 2.3 : 1.9, 'stroke-linecap': 'round',
+                            'stroke-dasharray': bad ? 'none' : '4.2 3.4' }, { bad: bad })[0];
+      later(delay || 0, function () {
+        if (reduced() || !global.requestAnimationFrame) { l.setAttribute('x2', b.x); l.setAttribute('y2', b.y); return; }
+        var t0 = null;
+        var step = function (tn) {
+          if (!l.parentNode) return;
+          if (t0 == null) t0 = tn;
+          var k = Math.min(1, (tn - t0) / 460), e = 1 - Math.pow(1 - k, 3);
+          l.setAttribute('x2', a.x + (b.x - a.x) * e); l.setAttribute('y2', a.y + (b.y - a.y) * e);
+          if (k < 1) global.requestAnimationFrame(step);
+        };
+        global.requestAnimationFrame(step);
+      });
+      return l;
+    };
+    var breathe = function () {
+      if (reduced() || !copy.animate) return;
+      copy.style.transformBox = 'fill-box'; copy.style.transformOrigin = 'center';
+      try { copy.animate([{ scale: '1' }, { scale: '1.05' }, { scale: '1' }], { duration: 900, easing: 'ease-in-out' }); } catch (e) {}
+    };
+    var api = {
+      concave: dent >= 0,
+      open: function () {
+        global.requestAnimationFrame ? global.requestAnimationFrame(function () { sheet.classList.add('on'); }) : sheet.classList.add('on');
+        sfx('menuWhoosh', { gain: 0.5 });
+        return fly(from, mid, TEACH.flyMs, true).then(breathe);
+      },
+      show: function (what) {
+        if (!copy.parentNode) return;
+        if (what === 'notch' && dent >= 0) {
+          // the dent itself, tinted, and its corner ringed
+          var a = v[(dent + n - 1) % n], b = v[(dent + 1) % n], p = v[dent];
+          var tri = mk('path', { d: 'M' + a.x + ' ' + a.y + ' L' + p.x + ' ' + p.y + ' L' + b.x + ' ' + b.y + ' Z',
+                                 fill: TEACH.out, 'fill-opacity': 0.28, stroke: 'none', 'class': 'teach-fade' }, fx);
+          void tri;
+          ring(p, 0, TEACH.warm); sparkle(p); sfx('tick', { gain: 0.6 }); breathe();
+        } else if (what === 'outside' && dent >= 0) {
+          // the diagonal across the dent: out of the shape, violet
+          var a2 = v[(dent + n - 1) % n], b2 = v[(dent + 1) % n];
+          grow(a2, b2, 0, true); ring(a2, 0, TEACH.out); ring(b2, 120, TEACH.out);
+          later(420, function () { sparkle({ x: (a2.x + b2.x) / 2, y: (a2.y + b2.y) / 2 }); });
+          sfx('zip', { gain: 0.5 });
+        } else if (what === 'corners') {
+          // every corner points out: each is ringed, one after another
+          v.forEach(function (p, i) { later(i * 110, function () { if (copy.parentNode) ring(p, 0, TEACH.warm); }); });
+          sfx('tick', { gain: 0.6 }); breathe();
+        } else if (what === 'inside') {
+          // the diagonals from one corner (both, on a four-sided shape) stay inside
+          var pairs = [];
+          for (var j = 2; j <= n - 2; j++) pairs.push([0, j]);
+          if (n === 4) pairs.push([1, 3]);
+          pairs.forEach(function (q, i) { grow(v[q[0]], v[q[1]], i * 260, false); });
+          later(pairs.length * 260 + 200, function () { if (copy.parentNode) sparkle(Poly.centroid(v)); });
+          sfx('zip', { gain: 0.5 });
+        }
+      },
+      close: function () {
+        var home = toStage(item) || from;
+        fx.style.transition = 'opacity .25s ease'; fx.style.opacity = '0';
+        sheet.classList.remove('on');
+        return fly(now, home, TEACH.backMs, false).then(function () {
+          item.style.visibility = '';
+          if (sheet.parentNode) sheet.parentNode.removeChild(sheet);
+          juice('pop', item);
+        });
+      }
+    };
+    // a screen change or the end of the question takes it all away
+    cleanup.push(function () { item.style.visibility = ''; if (sheet.parentNode) sheet.parentNode.removeChild(sheet); });
+    return api;
   }
 
   function returnItem(item) {
@@ -6742,9 +6919,11 @@
     onTap: function (fn) { onTap = fn || function () {}; },
     /** game.js: the input has just been handed back (after he popped down) —
         the stillness a hint waits for starts now, not from before he spoke */
-    hintRestart: function () { if (hintRearm) hintRearm(); },
+    hintRestart: function (ms) { if (hintRearm) hintRearm(ms); },
     /** game.js: hold the stage's input while he speaks (see holdOn) */
     hold: function (on) { holdOn = !!on; },
+    /** game.js: lift a card out and teach it (see teachShape) */
+    teach: function (el) { return teachShape(el); },
     /** game.js: may a hint play now? (only while the lesson is only waiting) */
     hintGate: function (fn) { hintGate = typeof fn === 'function' ? fn : function () { return true; }; },
     /** Forget which interactions have been demonstrated (Restart). */
