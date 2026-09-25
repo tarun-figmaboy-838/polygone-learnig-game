@@ -51,13 +51,6 @@ const OUT_JS = path.join(ROOT, 'src/game/button-frame.js');
    being drawn: the stepper keys are their own pictures and categories are
    never buttons.) */
 const SHEETS = [
-  // THE STEPPER'S KEYS: the supplied pair of glossy gold keys, minus and plus,
-  // on transparency (assets/source/new plus-minus.png). Cut whole, sign and all.
-  { src: 'assets/source/new plus-minus.png', want: [
-    { cell: 0,  tone: 'stepMinus', role: 'Stepper', glyph: true },
-    { cell: 1,  tone: 'stepPlus',  role: 'Stepper', glyph: true }
-  ] },
-
   /* THE SUPPLIED UI KIT — twenty glossy capsules, five across and four down,
      cut by what each colour is FOR rather than by what it is: an answer, the
      button that moves you on, and the two verdicts an answer turns into. The

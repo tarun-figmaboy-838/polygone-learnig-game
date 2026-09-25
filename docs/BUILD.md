@@ -139,11 +139,10 @@ The rest are fire-and-forget so a reaction never delays the lesson.
 | `tap-each` | Each of `count` targets tapped once, revealing `length` or `arc` |
 | `sort` | Each drop judged via `perTap` by `Poly.classify`; resolves when all placed correctly |
 | `swipe` | The card is flung, or its zone tapped, toward Regular or Irregular. A wrong side springs it back; resolves once every card is sorted (`until: 'all-classified'`) |
-| `stepper` | Stepper reaches `target`. Polygon morphs live. (Still implemented; no screen uses it since the builder screens were replaced by the summary) |
 
 ### Stage kinds (7 in use)
 
-`vista` `polygon` `choice-grid` `compare` `sort` `swipe-sort` `summary` (and `builder`, implemented, unused)
+`vista` `polygon` `choice-grid` `compare` `sort` `swipe-sort` `summary` (the builder and its stepper were removed with the builder screens)
 
 Stage beats also carry incremental ops: `highlight`, `label`, `badge`,
 `ghost`, `draw`, `diagonals`, `choices`, `checklist`, `reveal`, `returnItem`.

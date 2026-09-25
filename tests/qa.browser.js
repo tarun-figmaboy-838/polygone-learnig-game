@@ -241,8 +241,6 @@ const LUM = `(function (c) {
         const z = document.querySelector('.zone[data-zone="' + right + '"]');
         if (z) { z.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); return 'swipe'; }
       }
-      // the stepper
-      if (st.stepPlus && st.n < 5) { st.stepPlus.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); return 'step'; }
       // picking cards out of a grid
       var cards = [].slice.call(document.querySelectorAll('.card'));
       if (cards.length) {

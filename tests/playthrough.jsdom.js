@@ -126,7 +126,6 @@ async function act(spec){
       }
       return;
     }
-    case 'stepper': { await until(()=>!!St().stepPlus); while(St().n<spec.target){ tapEl(St().stepPlus); await sleep(30);} return; }
   }
 }
 

@@ -66,7 +66,7 @@ something right now" is not.
 
 It stops around screen 11. The driver taps and does a crude drag; it does not
 know how to draw a diagonal between two specific vertices, sort six shapes into
-bins, or step a builder to a target. `npm run test:browser` does all of that and
+bins, or swipe a card to a side. `npm run test:browser` does all of that and
 plays to the end — this suite exists to be **rough**, not thorough, and the two
 are meant to be read together.
 

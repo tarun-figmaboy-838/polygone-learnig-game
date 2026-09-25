@@ -10,20 +10,6 @@
 (function (global) {
   'use strict';
   var F = {
-    "stepMinus": {
-      "src": "assets/ui/btn-stepMinus.webp?v=6579f323",
-      "w": 258,
-      "h": 240,
-      "cap": 0,
-      "glyph": true
-    },
-    "stepPlus": {
-      "src": "assets/ui/btn-stepPlus.webp?v=e45dda01",
-      "w": 257,
-      "h": 240,
-      "cap": 0,
-      "glyph": true
-    },
     "uiPrimary": {
       "src": "assets/ui/btn-uiPrimary.webp?v=d8ec3af2",
       "w": 405,

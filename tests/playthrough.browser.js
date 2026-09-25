@@ -507,20 +507,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         return;
       }
 
-      case 'stepper': {
-        for (let k = 0; k < 12; k++) {
-          const n = await page.evaluate(() => window.Stage.state.n);
-          if (n >= spec.target) return;
-          const box = await page.evaluate(() => {
-            const r = window.Stage.state.stepPlus.getBoundingClientRect();
-            return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-          });
-          await page.mouse.click(box.x, box.y);
-          await sleep(180);
-        }
-        return;
-      }
-
     }
   }
 

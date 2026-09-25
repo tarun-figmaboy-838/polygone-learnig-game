@@ -172,7 +172,6 @@ t('no screen claims page 34 or 36', !S.some((s) => s.page === 34 || s.page === 3
  *                 unfinished gesture, and the clamp keeps it legal throughout
  *   tap-each      each target reveals its own measurement; there is nothing
  *                 to get wrong
- *   stepper       counts to a target; over-stepping just steps back
  *   swipe         left or right; the wrong side keeps the same shape
  *
  * Splitting them is the point: a build that quietly dropped the wrong path
@@ -618,7 +617,6 @@ const levelOf = (st) => { const d = RIG[st]; return d ? (d.level || 1) : 0; };
       });
       if (sp.label && sp.label.cue) need(sp.label.cue, 'the tag');
       if (sp.badge && sp.badge.cue) need(sp.badge.cue, 'the badge');
-      if (sp.stepper && sp.stepper.cue) need(sp.stepper.cue, 'the stepper');
       if (sp.binsCue) (sp.bins || []).forEach((b) => need(b.cueWord || b.id, 'the ' + b.id + ' bin'));
       ['left', 'right'].forEach((k) => { if (sp[k] && sp[k].captionCue) need(sp[k].captionCue, 'the ' + k + ' name tag'); });
     });
