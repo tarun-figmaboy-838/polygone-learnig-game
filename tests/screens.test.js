@@ -138,11 +138,13 @@ t('page 13 exists', !!p13);
  * The gate is kept rather than deleted so the line cannot drift again without
  * somebody choosing to, and the objection is kept in screens.js beside the
  * line itself. "vertices" remains the correct word. */
-t('the definition line carries the supplied wording, not a silent correction',
-  /non-adjacent sides/i.test(p13.say), p13.say);
+// 2026-09-25: the author asked for "vertices" — the correct word — in place of
+// the "sides" they had supplied before. The gate now holds that wording.
+t('the definition line says what a diagonal joins: two non-adjacent VERTICES (the author, 2026-09-25)',
+  /non-adjacent vertices is a diagonal/i.test(p13.say) && !/non-adjacent sides/i.test(p13.say), p13.say);
 t('the definition line is split where the script splits it',
   (p13.beats.filter((b) => b && b.parts)[0] || {}).parts + '' ===
-  ['A line segment joining', 'two non-adjacent sides', 'is a diagonal.'] + '',
+  ['A line segment joining', 'two non-adjacent vertices', 'is a diagonal.'] + '',
   (p13.beats.filter((b) => b && b.parts)[0] || {}).parts);
 
 const p15 = Screens.byId['hexagon-your-turn'];
@@ -222,9 +224,11 @@ t('no wrong path ever contains words — the deck has no wrong-answer copy and t
     if (!earlier && !own) bad.push(s.id);
   });
   t('a reminder is a line already taught in its own voice, or its own line in the VO script', bad.length === 0, bad);
-  t('the first question reminds the child what a polygon is, on the first miss',
+  // (the user's per-card rule: the first miss on a card is a short nudge; the
+  // second on the SAME card is the stronger word, then what a polygon is)
+  t('the first question reminds the child what a polygon is, on the second miss of the same card',
     !!Screens.byId['which-polygons'].remind && /closed shapes made from straight lines/.test(Screens.byId['which-polygons'].remind.say) &&
-    (Screens.byId['which-polygons'].remind.after || 1) === 1);
+    Screens.byId['which-polygons'].remind.perCard === true && Screens.byId['which-polygons'].remind.after === 2);
   const diag = ['another-diagonal', 'hexagon-your-turn'].map((id) => Screens.byId[id].remind || {});
   t('both screens where the child draws diagonals say what a diagonal is, from the second miss',
     diag.every((r) => r.say === 'A diagonal connects non-adjacent vertices.' && r.after === 2 && r.vo === 'p14r'), diag);

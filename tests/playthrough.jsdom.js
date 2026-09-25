@@ -44,6 +44,9 @@ let cues={correct:0,wrong:0}; const origPlay=w.SFX.play.bind(w.SFX); w.SFX.play=
 
 let wrongTried=0, screensSeen=new Set(), asked=[], sideTries={};
 
+// HANDED BACK: while he replies to an answer the stage takes nothing (game.js
+// pop(): lock, his line, unlock), and a child cannot answer again in that time
+const free=()=>until(()=>w.Input.mode()!=='locked',8000);
 async function act(spec){
   const s=St(), v=()=>St().verts, P=w.Poly;
   await until(()=>!w.Input.guarded);
@@ -70,14 +73,14 @@ async function act(spec){
         await drag(hnd(), lerp(V[from],V[to],5)); await sleep(60); return;
       }
       if(!spec.retry){ await drag(hnd(), lerp(V[from],V[(from+1)%n],5)); wrongTried++; await sleep(60); if(spec.type==='draw-diagonal') return; }   // wrong: adjacent
-      for(let k=0;k<cnt;k++){ await drag(hnd(), lerp(V[from],V[targets[k]],5)); await sleep(60); }
+      for(let k=0;k<cnt;k++){ await free(); await drag(hnd(), lerp(V[from],V[targets[k]],5)); await sleep(60); }
       return;
     }
     case 'drag-vertex': {
       const V=v(); const i=spec.vertex==='any'?0:spec.vertex; const c=P.centroid(V);
       const target=spec.until==='concave'?{x:V[i].x+(c.x-V[i].x)*0.85,y:V[i].y+(c.y-V[i].y)*0.85}:{x:V[i].x,y:V[i].y-70};
       // first: grab, move a little, RELEASE early (the bug we fixed), then grab again and finish
-      await drag(svg().querySelectorAll('.vertex')[i], lerp(V[i],target,10).slice(0,2)); await sleep(40);
+      await drag(svg().querySelectorAll('.vertex')[i], lerp(V[i],target,10).slice(0,2)); await sleep(40); await free();
       const V2=v(); await drag(svg().querySelectorAll('.vertex')[i], lerp(V2[i],target,14)); return;
     }
     case 'choice': {
@@ -86,7 +89,8 @@ async function act(spec){
       if(!spec.retry){ tapEl(els.find(e=>e.getAttribute('data-label')!==spec.correct)); wrongTried++; return; }
       tapEl(els.find(e=>e.getAttribute('data-label')===spec.correct)); return;
     }
-    case 'multi-select': { const cards=[...svg().querySelectorAll('.card')]; tapEl(cards.find(c=>c.getAttribute('data-id')==='circle')); wrongTried++; await sleep(30); cards.filter(c=>['pentagon','octagon'].includes(c.getAttribute('data-id'))).forEach(tapEl); return; }
+    case 'multi-select': { const cards=[...svg().querySelectorAll('.card')]; tapEl(cards.find(c=>c.getAttribute('data-id')==='circle')); wrongTried++; await sleep(30);
+      for(const c of cards.filter(c=>['pentagon','octagon'].includes(c.getAttribute('data-id')))){ await free(); tapEl(c); await sleep(30); } return; }
     case 'tap-each': { const sel=spec.targets==='sides'?'.edge':'.vertex'; for(let k=0;k<(spec.count||5);k++){ tapEl(svg().querySelectorAll(sel)[k]); await sleep(30);} return; }
     case 'sort': {
       const S=St().sort; let first=true;
@@ -96,7 +100,8 @@ async function act(spec){
         const right=bins.find(b=>({convex:c.convex,concave:c.concave,regular:c.regular,irregular:c.irregular})[b._bin.id]);
         const wrong=bins.find(b=>b!==right);
         const home=item._pos||item._home; const to=b=>({x:b._rect.x+b._rect.w/2,y:b._rect.y+b._rect.h/2});
-        if(first){ await drag(item, lerp(home,to(wrong),6)); wrongTried++; first=false; await sleep(40); }
+        await free();
+        if(first){ await drag(item, lerp(home,to(wrong),6)); wrongTried++; first=false; await sleep(40); await free(); }
         await drag(item, lerp(item._pos||item._home,to(right),6)); await sleep(40);
       }
       return;

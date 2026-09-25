@@ -34,7 +34,7 @@
   // a 404 in the console for every line — noise a child never hears but a
   // test gate counts as an error. tools/build-vo-index.js writes the index
   // from the folder; until it is fetched, or if it is missing, nothing plays.
-  var index = null, secs = {}, revs = {}, wordMs = {};
+  var index = null, secs = {}, revs = {}, wordMs = {}, spokenMs = {};
   var indexWait = null, indexSettled = false;
   /* OPENED STRAIGHT OFF THE DISK, THERE IS NO LIST TO READ. A file:// page
      may not fetch a sibling file — Chrome blocks it as a cross-origin read —
@@ -61,6 +61,7 @@
       secs = (j && j.seconds) || {};
       revs = (j && j.rev) || {};
       wordMs = (j && j.words) || {};
+      spokenMs = (j && j.spoken) || {};
     }).catch(function () {}).then(function () { indexSettled = true; });
     return indexWait;
   }
@@ -263,7 +264,11 @@
   /** Start of each spoken word, in milliseconds from the clip start. */
   function words(id) { return (id && wordMs[id]) || null; }
 
-  global.VO = { play: play, stop: stop, finished: finished, preload: preload, seconds: seconds, words: words, at: at,
+  /** When the last word has been SAID, in milliseconds from the clip start —
+      before the silence every recording runs on with — or 0 if not known. */
+  function spoken(id) { return (id && spokenMs[id]) || 0; }
+
+  global.VO = { play: play, stop: stop, finished: finished, preload: preload, seconds: seconds, words: words, spoken: spoken, at: at,
                 ready: ready,
                 get isReady() { return indexSettled; },
                 get playing() { return current; },

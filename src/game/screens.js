@@ -198,11 +198,12 @@
       // options simply appear on his right and he asks about them.
       swiftee: { pos: 'left', size: 'large', purpose: 'ask' },
       say: 'Which of these are polygons?',
-      // A MISS IS ANSWERED WITH THE DEFINITION. After "Try again!" he reminds
-      // the child what a polygon is — the line from the screen before, in its
-      // own voice, not new words — and the question comes back (game.js
-      // sayReminder). The user asked for it on this screen.
-      remind: { say: 'Polygons are closed shapes made from straight lines.', vo: 'p03' },
+      // A MISS IS ANSWERED CARD BY CARD (the user's spec). The first miss on
+      // a card is a gentle nudge; the second on that SAME card is the
+      // stronger "Not that one." and then what a polygon is — the line from
+      // the screen before, in its own voice, not new words — and that card is
+      // put out (stage.js multi-select). Then the question comes back.
+      remind: { say: 'Polygons are closed shapes made from straight lines.', vo: 'p03', perCard: true, after: 2 },
       stage: {
         kind: 'choice-grid',
         options: [
@@ -282,7 +283,7 @@
        *
        *   SIDE      the side lights, its tag pops on the word "side", and he
        *             says so in full; a readable pause; the side and the tag
-       *             fade; "Connect it to a different vertex." — and the same
+       *             fade; "Let’s connect it to a different vertex." — and the same
        *             corner is theirs to try again. As often as they like: the
        *             other neighbour is a side too. It is not a wrong answer —
        *             it is the first thing there is to learn — so no wrong
@@ -321,7 +322,7 @@
               { say: 'This is a side of the polygon.', vo: 'p09' },
               { wait: 1200 },
               { stage: { side: null } },
-              { instruction: 'Connect it to a different vertex.', vo: 'p10i' },
+              { instruction: 'Let’s connect it to a different vertex.', vo: 'p10i' },
               { swiftee: 'point', at: 'picked' },
               { input: { type: 'draw-diagonal', from: 'picked', sides: true, praise: false, accept: 'non-adjacent-unused', retry: true } }
             ],
@@ -356,21 +357,17 @@
       // A diagonal joins two non-adjacent VERTICES. It does not join sides —
       // the segment this very screen draws runs corner to corner, and the
       // child is watching it do so while the sentence says otherwise. This
-      // was corrected to "vertices" once and the author has since supplied
-      // "sides" twice, in writing, with "do not modify my dialogue wording".
-      // So it says sides.
-      //
-      // It is left here rather than quietly fixed again because it is the one
-      // line in the lesson that DEFINES the term, and a wrong definition is
-      // the most expensive kind of error in a teaching script: everything
-      // after it is built on it. If this is ever revisited, "vertices" is the
-      // correct word and screens.test.js is where the decision is recorded.
-      say: 'A line segment joining two non-adjacent sides is a diagonal.',
+      // was corrected to "vertices" once and the author then supplied "sides"
+      // twice, in writing, with "do not modify my dialogue wording" — so it
+      // said sides. On 2026-09-25 the author asked for "vertices" ("instead of
+      // side, add vertices"), the word that is right: a diagonal joins two
+      // corners. screens.test.js records the decision.
+      say: 'A line segment joining two non-adjacent vertices is a diagonal.',
       beats: [
         // A DEFINITION IS WRITTEN DOWN: book and quill, the rig's 'writing'
         { swiftee: 'note' },
         { focus: 'diagonal.endpoints', style: 'pulse' },
-        { say: 'A line segment joining two non-adjacent sides is a diagonal.', parts: ['A line segment joining', 'two non-adjacent sides', 'is a diagonal.'], vo: 'p13' },
+        { say: 'A line segment joining two non-adjacent vertices is a diagonal.', parts: ['A line segment joining', 'two non-adjacent vertices', 'is a diagonal.'], vo: 'p13' },
         { input: { type: 'tap-anywhere' } }
       ]
     },

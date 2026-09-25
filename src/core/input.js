@@ -26,6 +26,9 @@
  *   Input.attach(el)
  *   Input.mode()            -> current mode
  *   Input.mode('dialogue')  -> set
+ *   Input.mode('polygon', { unguarded: true })  -> set, without the guard
+ *                           (the input handed back after he has replied: the
+ *                           child's next touch is meant for the screen)
  *   Input.on('advance', fn) / Input.off('advance', fn)
  *   Input.guarded           -> boolean
  */
@@ -101,12 +104,12 @@
      * the mode does not actually change — two consecutive dialogue screens
      * each deserve their own protected window.
      */
-    mode: function (m) {
+    mode: function (m, o) {
       if (m == null) return mode;
       if (MODES.indexOf(m) < 0) { if (global.console) console.warn('Input: unknown mode "' + m + '"'); return mode; }
       mode = m;
       down = null;
-      arm();
+      if (!(o && o.unguarded)) arm();
       emit('mode', m);
       return mode;
     },

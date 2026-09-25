@@ -116,6 +116,12 @@
   var hintType = 'input';                    // the type the current interaction is (waitFor)
   var hintGate = function () { return true; };
   var hintRearm = null;                      // the live ladder's clock (hintRestart)
+  /* HELD WHILE HE SPEAKS (game.js holdInput → Stage.hold). While he is saying
+     something back to an answer, or popping up or down behind the swipe
+     card, nothing on the stage can be touched — no card, corner, line, zone
+     or key. Stopped once, at the top of the stage (mount), so no interaction
+     has to know about it. */
+  var holdOn = false;
   function hintLadder(opts) {
     if (reduced() || !svg) return;
     var show = opts.demo || opts.pulse || null;
@@ -515,6 +521,7 @@
     container.appendChild(svg);
     // a finger on the glass: while it is down the board is the child's, and
     // a vocabulary word does not light anything under their hand (emphasize)
+    svg.addEventListener('pointerdown', function (e) { if (holdOn) { e.stopPropagation(); e.preventDefault(); } }, true);
     svg.addEventListener('pointerdown', function () { pressed = true; });
     var lift = function () { pressed = false; };
     (container.ownerDocument && container.ownerDocument.defaultView || global).addEventListener('pointerup', lift);
@@ -2745,9 +2752,15 @@
       var sw = ((a2 - a1) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI), large = sw > Math.PI ? 1 : 0;
       var inside = Poly.contains(v, { x: p.x + Math.cos(a1 + sw / 2) * 8, y: p.y + Math.sin(a1 + sw / 2) * 8 });
       var flag = inside ? large : 1 - large, dir = inside ? 1 : 0;
-      g._wedge = mk('path', { d: 'M' + p.x + ' ' + p.y + ' L' + (p.x + Math.cos(a1) * rr) + ' ' + (p.y + Math.sin(a1) * rr) +
-                              ' A' + rr + ' ' + rr + ' 0 ' + flag + ' ' + dir + ' ' + (p.x + Math.cos(a2) * rr) + ' ' + (p.y + Math.sin(a2) * rr) + ' Z',
-                              fill: '#ffd24a', 'fill-opacity': 0.9, stroke: '#b07800', 'stroke-width': 2, 'stroke-linejoin': 'round', opacity: 0 }, g._linesG);
+      var arc = 'M' + (p.x + Math.cos(a1) * rr) + ' ' + (p.y + Math.sin(a1) * rr) +
+                ' A' + rr + ' ' + rr + ' 0 ' + flag + ' ' + dir + ' ' + (p.x + Math.cos(a2) * rr) + ' ' + (p.y + Math.sin(a2) * rr);
+      /* THE ANGLE AS THE MEASURING SCREENS DRAW IT: the corner filled, and
+         only its curve traced, in cream. It had a dark outline all the way
+         round, so two brown lines ran down the middle of the two glowing
+         sides and met under the corner's dot — the "angle stroke looks odd". */
+      g._wedge = mk('g', { opacity: 0 }, g._linesG);
+      mk('path', { d: 'M' + p.x + ' ' + p.y + ' L' + arc.slice(1) + ' Z', fill: '#ffd24a', 'fill-opacity': 0.9, stroke: 'none' }, g._wedge);
+      mk('path', { d: arc, fill: 'none', stroke: '#fff4c9', 'stroke-width': 2.5, 'stroke-linecap': 'round' }, g._wedge);
       sumPop(g._wedge, t, true);
       later(reduced() ? 0 : t, function () { sfx('tick', { gain: 0.7 }); });
       t += 320;
@@ -3108,10 +3121,16 @@
    * a child comparing has to see that the sides DO match before "but look at
    * the corners" means anything.
    */
+  // what makes it irregular: the sides, the angles — or, as often as not,
+  // BOTH (it used to say "the sides" whenever the sides differed, even on a
+  // card whose angles differed too). The angles are compared as the card
+  // prints them, to the degree.
   function verdictOf(v) {
     var ix = []; for (var q = 0; q < v.length; q++) ix.push(q);
     if (Poly.isRegular(v)) return 'regular';
-    return marksBy(Poly.sideLengths(v), ix, 6).groups > 1 ? 'sides' : 'angles';
+    var sides = marksBy(Poly.sideLengths(v), ix, 6).groups > 1;
+    var angles = marksBy(Poly.interiorAngles(v), ix, 1).groups > 1;
+    return sides && angles ? 'both' : sides ? 'sides' : 'angles';
   }
 
   /* WHERE A FIGURE MAY GO ON A CARD: inside the glass by a margin, clear of
@@ -5608,11 +5627,9 @@
         var THRESHOLD = W_CARD * 0.2;
         var resolving = false, dragging = false, demo = null;
         var startX = 0, startY = 0, dx = 0, pid = null;
-        // HELD WHILE HE IS UP. game.js locks the input while he pops up to
-        // ask about a card or to say why an answer was not it, and unlocks it
-        // once he is back down: until then the card cannot be taken hold of,
-        // and a zone or an arrow key does nothing.
-        function held() { return !!(global.Input && Input.mode && Input.mode() === 'locked'); }
+        // HELD WHILE HE IS UP (Stage.hold): the card cannot be taken hold of,
+        // and a zone or an arrow key does nothing, until he is back down
+        function held() { return holdOn; }
 
         function place(card, x, rot, scale) {
           card.setAttribute('transform',
@@ -5732,9 +5749,11 @@
             // the marks go on the card and he names what they show
             var why = whyShape(card);
             onTap('wrong',
-              why === 'regular' ? { t: 'Every side AND every angle matches \u2014 regular!', vo: 'fb12' } :
+              // (never the answer itself: "regular" is the child's to say)
+              why === 'regular' ? { t: 'Every side AND every angle matches!', vo: 'fb12' } :
               why === 'sides'   ? { t: 'Look \u2014 the sides are different lengths.', vo: 'fb13' } :
-              why === 'angles'  ? { t: 'Equal sides, but look at the corners!', vo: 'fb14' } : null);
+              why === 'angles'  ? { t: 'Equal sides, but look at the corners!', vo: 'fb14' } :
+              why === 'both'    ? { t: 'Look \u2014 the sides and the angles are different.', vo: 'fb16' } : null);
             var z = sw.zones[answer];
             if (z && !reduced() && z.animate) {
               z.animate([{ translate: '0 0' }, { translate: '-6px 0' }, { translate: '6px 0' }, { translate: '0 0' }],
@@ -5905,14 +5924,15 @@
         // EVERY card still in play, not the correct ones. The hint used to
         // pick the first unfound answer and pulse that, which is the whole
         // exercise given away to anyone who waited six seconds.
+        var inPlay = function () { return st.cards.filter(function (c) { return !c._done && !c._off; }); };
         hintLadder({
-          pulse: function () { return pulseHint(st.cards.filter(function (c) { return !c._done; })); },
-          demo: function () { return pulseHint(st.cards.filter(function (c) { return !c._done; }), { strong: true }); }
+          pulse: function () { return pulseHint(inPlay()); },
+          demo: function () { return pulseHint(inPlay(), { strong: true }); }
         });
         st.cards.forEach(function (c) {
           c.style.cursor = 'pointer';
           on(c, 'pointerdown', function (e) {
-            e.preventDefault(); if (c._done) return; st.lastEl = c;
+            e.preventDefault(); if (c._done || c._off) return; st.lastEl = c;
             evt('answer:selected', { option: c._opt.id, correct: !!c._opt.correct });
             if (c._opt.correct) {
               c._done = true; got++; c.style.cursor = '';
@@ -5920,9 +5940,23 @@
               onTap('correct');
               if (got >= need) { endInteraction(); resolve({ result: 'correct' }); }
             } else {
+              /* EACH WRONG CARD KEEPS ITS OWN COUNT (the user's spec). The
+                 first miss on it is a short hint and it stays in play; the
+                 second on that SAME card is the stronger word, and the card
+                 is put out — dimmed, still readable, no longer touchable —
+                 for the rest of this question. The right cards and the other
+                 wrong one are never touched by it, and nothing is revealed.
+                 A new question builds new cards, so nothing carries over. */
+              c._misses = (c._misses || 0) + 1;
+              var out = c._misses >= 2;
               if (c._card) c._card._mark('wrong');
-              later(500, function () { if (c._card) c._card._mark(null); });
-              onTap('wrong');
+              if (out) { c._off = true; c.style.cursor = ''; c.style.pointerEvents = 'none'; }
+              later(500, function () {
+                if (c._card) c._card._mark(null);
+                // (the entrance left an inline opacity on it; the class decides now)
+                if (out && c.classList) { c.style.opacity = ''; c.classList.add('card-off'); }
+              });
+              onTap('wrong', null, { card: c._opt.id, tries: c._misses, out: out });
             }
           });
         });
@@ -6697,10 +6731,9 @@
         // peeked over near its corner cap; a card the whole screen is about
         // is peeked over in the MIDDLE, so he and the shape and the question
         // line up as one column instead of leaning off to one side.
-        // `stand`: when he is up he is WHOLE, standing on the card's top
-        // edge, not a head over its rim (game.js layout). The card hides him
-        // only on the way up and on the way down.
-        return { frame: 'option', at: 0.5, stand: true,
+        // `pops`: he pops up and down behind it — head over the rim — and
+        // game.js measures the rise so that, down, nothing of him shows.
+        return { frame: 'option', at: 0.5, pops: true,
                  x: SWIPE_HOME.x - SWIPE_HALF, y: SWIPE_HOME.y - ch + seatY,
                  w: SWIPE_HALF * 2, h: ch * 2 };
       }
@@ -6710,6 +6743,8 @@
     /** game.js: the input has just been handed back (after he popped down) —
         the stillness a hint waits for starts now, not from before he spoke */
     hintRestart: function () { if (hintRearm) hintRearm(); },
+    /** game.js: hold the stage's input while he speaks (see holdOn) */
+    hold: function (on) { holdOn = !!on; },
     /** game.js: may a hint play now? (only while the lesson is only waiting) */
     hintGate: function (fn) { hintGate = typeof fn === 'function' ? fn : function () { return true; }; },
     /** Forget which interactions have been demonstrated (Restart). */

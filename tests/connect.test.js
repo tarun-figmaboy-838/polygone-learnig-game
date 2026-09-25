@@ -20,7 +20,7 @@
  *   - nothing can be drawn while feedback is on (the stage state machine)
  *   - the lines come in the spec's order, each heard out:
  *       Select any vertex. / Let’s connect it to another vertex. /
- *       This is a side of the polygon. / Connect it to a different vertex. /
+ *       This is a side of the polygon. / Let’s connect it to a different vertex. /
  *       (again) / Yay! You made a diagonal!
  *   - one voice at a time, none cut off, no stock "Nice!" over the cheer
  *   - the diagonal glows only once it is made, and it stays
@@ -201,7 +201,7 @@ async function play(k, { w, d, errors, voice }) {
   sp = await next();
   t('k=' + k + ': asked again with the same corner', sp && sp.retry && St().picked === k, { retry: sp && sp.retry, picked: St().picked });
   t('k=' + k + ': the side and its tag are gone before the next try', !St().segment && !St().labelEl);
-  t('k=' + k + ': the retry waits for "Connect it to a different vertex." to be heard', !voice.current && lines[lines.length - 1] === 'Connect it to a different vertex.', { last: lines.slice(-3) });
+  t('k=' + k + ': the retry waits for "Let’s connect it to a different vertex." to be heard', !voice.current && lines[lines.length - 1] === 'Let’s connect it to a different vertex.', { last: lines.slice(-3) });
   await drag(from(), lerp(V()[k], V()[left], 6));
   await sleep(30);
   t('k=' + k + ': neighbour ' + left + ' is a SIDE too' + (k === 0 || k === 4 ? ' (the wrap-around)' : ''), w.Stage.connectState() === 'SIDE_FEEDBACK' && St().segment && St().segment[1] === left, St().segment);
@@ -229,8 +229,8 @@ async function play(k, { w, d, errors, voice }) {
 
   // the words, in the spec's order
   const want = ['Select any vertex.', 'Let’s connect it to another vertex.',
-                'This is a side of the polygon.', 'Connect it to a different vertex.',
-                'This is a side of the polygon.', 'Connect it to a different vertex.',
+                'This is a side of the polygon.', 'Let’s connect it to a different vertex.',
+                'This is a side of the polygon.', 'Let’s connect it to a different vertex.',
                 'Yay! You made a diagonal!'];
   const got = lines.slice(lines.indexOf('Select any vertex.'));
   t('k=' + k + ': the lines come in the order the spec gives', JSON.stringify(got) === JSON.stringify(want), got);

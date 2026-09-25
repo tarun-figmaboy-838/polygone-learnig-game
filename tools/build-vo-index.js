@@ -54,6 +54,23 @@ const revOf = (id) => {
 
 const seconds = {};
 const rev = {};
+/* WHERE THE SPEECH ENDS. Every recording runs on for most of a second of
+   silence after its last word ("Nice!" is spoken by 1.08 s of a 1.87 s
+   clip). A line's reading time is still the whole clip; a short cheer that
+   holds the child's input only needs the words (game.js popLine). Measured
+   with ffmpeg's silencedetect: the start of the silence that runs to the end. */
+const spoken = {};
+const speechEnd = (file, total) => {
+  const r = spawnSync('ffmpeg', ['-hide_banner', '-i', file, '-af', 'silencedetect=noise=-40dB:d=0.15', '-f', 'null', '-'], { encoding: 'utf8' });
+  const log = (r.stderr || '') + (r.stdout || '');
+  const starts = [...log.matchAll(/silence_start: ([\d.]+)/g)].map((m) => parseFloat(m[1]));
+  const ends = [...log.matchAll(/silence_end: ([\d.]+)/g)].map((m) => parseFloat(m[1]));
+  if (!starts.length) return null;
+  const last = starts[starts.length - 1];
+  // the last silence reaches the end of the clip (it has no end, or ends there)
+  const trailing = ends.length < starts.length || Math.abs(ends[ends.length - 1] - total) < 0.05;
+  return trailing && last > 0.1 ? Math.round(last * 1000) : null;
+};
 const wordMs = (() => {
   try { return JSON.parse(fs.readFileSync(path.join(dir, 'word-timings.json'), 'utf8')); }
   catch (e) { return {}; }
@@ -63,13 +80,17 @@ clips.forEach((id) => {
   const r = spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0',
                                   path.join(dir, id + '.mp3')], { encoding: 'utf8' });
   const d = parseFloat((r.stdout || '').trim());
-  if (d > 0) { seconds[id] = Math.round(d * 100) / 100; probed++; }
+  if (d > 0) {
+    seconds[id] = Math.round(d * 100) / 100; probed++;
+    const e = speechEnd(path.join(dir, id + '.mp3'), d);
+    if (e) spoken[id] = e;
+  }
   const v = revOf(id);
   if (v) rev[id] = v;
 });
 
 const words = {};
 clips.forEach((id) => { if (Array.isArray(wordMs[id])) words[id] = wordMs[id]; });
-fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify({ clips, seconds, rev, words }, null, 2) + '\n');
+fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify({ clips, seconds, rev, words, spoken }, null, 2) + '\n');
 console.log('assets/vo/index.json  ' + clips.length + ' clip' + (clips.length === 1 ? '' : 's') +
             (probed ? ', ' + probed + ' timed' : ', no ffprobe — lengths unknown'));

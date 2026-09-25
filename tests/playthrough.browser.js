@@ -366,6 +366,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // screen cannot start something on this one. A child takes longer than
     // that to reach; a script does not.
     await page.waitForFunction(() => !window.Input.guarded, null, { timeout: 6000 }).catch(() => {});
+    // HANDED BACK: while he replies to an answer the stage takes nothing
+    // (game.js pop(): lock, his line, unlock) — nor does a child answer again
+    const free = () => page.waitForFunction(() => window.Input.mode() !== 'locked', null, { timeout: 15000 }).catch(() => {});
 
     switch (spec.type) {
       case 'tap-anywhere':
@@ -394,6 +397,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
           targets.push(j);
         }
         for (let k = 0; k < (spec.count || 1) && k < targets.length; k++) {
+          await free();
           const cur = await st();
           await dragPath(cur.verts[from], cur.verts[targets[k]]);
           await sleep(140);
@@ -423,7 +427,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       case 'multi-select': {
         await page.waitForFunction(() => window.Stage.svg.querySelectorAll('.card').length > 0, null, { timeout: 8000 });
         const flags = await page.evaluate(() => [...window.Stage.svg.querySelectorAll('.card')].map((c) => !!(c._opt && c._opt.correct)));
-        for (let i = 0; i < flags.length; i++) if (flags[i]) { await tapNth('.card', i); await sleep(150); }
+        for (let i = 0; i < flags.length; i++) if (flags[i]) { await free(); await tapNth('.card', i); await sleep(150); }
         return;
       }
 
@@ -520,6 +524,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
           });
           if (move === null) return;
           if (move === 'wait') { await sleep(150); continue; }
+          await free();
           await dragPath(move.from, move.to, 8);
           await sleep(180);
         }
