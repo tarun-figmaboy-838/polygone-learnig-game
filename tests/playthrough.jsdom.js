@@ -118,7 +118,10 @@ async function act(spec){
         if(!card){ await sleep(40); continue; }
         const right=P.isRegular(card._verts)?'regular':'irregular';
         const wrong=right==='regular'?'irregular':'regular';
-        if(first){ tapEl(zoneOf(wrong)); wrongTried++; first=false; await sleep(120); }
+        // he pops up behind each card to ask about it, and after a wrong answer
+        // to say why; the zones answer nothing until he is down (game.js pop())
+        await until(()=>!St().swipe || w.Input.mode()!=='locked', 8000);
+        if(first){ tapEl(zoneOf(wrong)); wrongTried++; first=false; await sleep(120); await until(()=>!St().swipe || w.Input.mode()!=='locked', 8000); }
         const before=St().swipe.i;
         tapEl(zoneOf(right));
         await until(()=>!St().swipe || St().swipe.i>before, 1500).catch(()=>{});

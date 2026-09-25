@@ -115,6 +115,7 @@
   var hintSeen = {};                         // interaction types already demonstrated
   var hintType = 'input';                    // the type the current interaction is (waitFor)
   var hintGate = function () { return true; };
+  var hintRearm = null;                      // the live ladder's clock (hintRestart)
   function hintLadder(opts) {
     if (reduced() || !svg) return;
     var show = opts.demo || opts.pulse || null;
@@ -150,7 +151,8 @@
       lastMove = now;
       arm(HINT_IDLE_MS);
     });
-    cleanup.push(function () { live = false; hide(); clearTimeout(t); });
+    cleanup.push(function () { live = false; hide(); clearTimeout(t); hintRearm = null; });
+    hintRearm = function () { if (!pressing) arm(hintSeen[type] ? HINT_IDLE_MS : HINT_FIRST_MS); };
     arm(hintSeen[type] ? HINT_IDLE_MS : HINT_FIRST_MS);
   }
 
@@ -3398,11 +3400,17 @@
     var r = already ? null : shapeMarks(card);
     if (!already && !r) return null;
     if (r) verdict = r.verdict;
+    // FORWARD, THEN STILL, BEFORE HE COMES UP. It was held forward for two
+    // seconds, and he rose to explain while it was: the copy of its rim laid
+    // over him stayed the card's resting size, so there were two card edges,
+    // one inside the other — and as it shrank back he was left standing on
+    // air. Now it comes forward and settles first; he pops up onto a card at
+    // rest and names what its marks show (game.js pop()).
     if (card.animate) {
       card.style.transformBox = 'fill-box'; card.style.transformOrigin = 'center';
       try {
-        card.animate([{ scale: '1' }, { scale: '1.14', offset: 0.12 }, { scale: '1.14', offset: 0.82 }, { scale: '1' }],
-                     { duration: 2100, easing: 'cubic-bezier(.3,1.2,.4,1)' });
+        card.animate([{ scale: '1' }, { scale: '1.14', offset: 0.3 }, { scale: '1.14', offset: 0.6 }, { scale: '1' }],
+                     { duration: 900, easing: 'cubic-bezier(.3,1.2,.4,1)' });
       } catch (x) {}
     }
     if (!already && r) {
@@ -5600,6 +5608,11 @@
         var THRESHOLD = W_CARD * 0.2;
         var resolving = false, dragging = false, demo = null;
         var startX = 0, startY = 0, dx = 0, pid = null;
+        // HELD WHILE HE IS UP. game.js locks the input while he pops up to
+        // ask about a card or to say why an answer was not it, and unlocks it
+        // once he is back down: until then the card cannot be taken hold of,
+        // and a zone or an arrow key does nothing.
+        function held() { return !!(global.Input && Input.mode && Input.mode() === 'locked'); }
 
         function place(card, x, rot, scale) {
           card.setAttribute('transform',
@@ -5706,8 +5719,9 @@
                 dealCard();
                 arm();
                 resolving = false;
-                // the next card is on the table (game.js brings him back up behind it)
-                later(420, function () { if (st.swipe && sw.card && !dragging) evt('swipe:home', { i: sw.i }); });
+                // the next card is on the table: game.js brings him up behind
+                // it to ask about it, and down again before it can be taken
+                later(420, function () { if (st.swipe && sw.card && !dragging) evt('swipe:home', { i: sw.i, dealt: true }); });
               });
             };
             flyCard(card, { x: SWIPE_HOME.x + pulled, y: SWIPE_HOME.y, rot: tilt, s: 1 }, { x: tx, y: ty, rot: 0, s: k }, 560, 46, after);
@@ -5735,7 +5749,7 @@
               dx = 0; place(card, 0, 0);
               leanZone(null, false);
               resolving = false;
-              evt('swipe:home', { i: sw.i });
+              evt('swipe:home', { i: sw.i, back: true });
             };
             flyCard(card, { x: SWIPE_HOME.x + pulledBack, y: SWIPE_HOME.y, rot: tiltBack, s: 1 }, { x: SWIPE_HOME.x, y: SWIPE_HOME.y, rot: 0, s: 1 }, 260, 0, reset2);
           }
@@ -5793,7 +5807,7 @@
 
         /* ---- pointer, the only input path that needs geometry ---- */
         function onDown(e) {
-          if (resolving || !sw.card) return;
+          if (resolving || !sw.card || held()) return;
           stopDemo();
           dragging = true; pid = e.pointerId;
           startX = e.clientX; startY = e.clientY; dx = 0;
@@ -5837,6 +5851,7 @@
         }
 
         function onKey(e) {
+          if (held()) return;
           if (e.key === 'ArrowLeft') { classify('regular'); e.preventDefault(); }
           else if (e.key === 'ArrowRight') { classify('irregular'); e.preventDefault(); }
         }
@@ -5870,7 +5885,7 @@
         Object.keys(sw.zones).forEach(function (id) {
           var g = sw.zones[id];
           g.style.cursor = 'pointer';
-          on(g, 'pointerdown', function (e) { e.preventDefault(); stopDemo(); classify(id); });
+          on(g, 'pointerdown', function (e) { e.preventDefault(); if (held()) return; stopDemo(); classify(id); });
         });
         on(svg.ownerDocument, 'keydown', onKey);
 
@@ -6682,13 +6697,19 @@
         // peeked over near its corner cap; a card the whole screen is about
         // is peeked over in the MIDDLE, so he and the shape and the question
         // line up as one column instead of leaning off to one side.
-        return { frame: 'option', at: 0.5,
+        // `stand`: when he is up he is WHOLE, standing on the card's top
+        // edge, not a head over its rim (game.js layout). The card hides him
+        // only on the way up and on the way down.
+        return { frame: 'option', at: 0.5, stand: true,
                  x: SWIPE_HOME.x - SWIPE_HALF, y: SWIPE_HOME.y - ch + seatY,
                  w: SWIPE_HALF * 2, h: ch * 2 };
       }
       return null;
     },
     onTap: function (fn) { onTap = fn || function () {}; },
+    /** game.js: the input has just been handed back (after he popped down) —
+        the stillness a hint waits for starts now, not from before he spoke */
+    hintRestart: function () { if (hintRearm) hintRearm(); },
     /** game.js: may a hint play now? (only while the lesson is only waiting) */
     hintGate: function (fn) { hintGate = typeof fn === 'function' ? fn : function () { return true; }; },
     /** Forget which interactions have been demonstrated (Restart). */

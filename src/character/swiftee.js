@@ -950,9 +950,18 @@
      where a pixel count would not. */
   var clipY = null;
   var airborne = false;
+  var clipOwed = false;
   function applyClip() {
     if (!el) return;
-    if (clipY == null) { el.style.clipPath = ''; return; }
+    if (clipY == null) { el.style.clipPath = ''; clipOwed = false; return; }
+    // NOT MID-MOVE. The cut is turned into a fraction of his box, and a box
+    // read while a rise or a hop has him displaced and stretched puts the cut
+    // that far up his body: a relayout during his pop up from behind the
+    // swipe card left him cut in half, hanging in the air over it. While he
+    // moves, each move carries its own cut (pinClip); the resting one is
+    // owed until the move is over (anim(), cancelAll()).
+    if (moving()) { clipOwed = true; return; }
+    clipOwed = false;
     var r = el.getBoundingClientRect();
     if (!r.height) return;
     var frac = Math.max(0, Math.min(1, (clipY - r.top) / r.height));
@@ -1032,6 +1041,17 @@
     });
   }
 
+  /* A move of his still running — a finite one: a loop that never ends is
+     not a move the clip can wait for. */
+  function moving() {
+    return live.some(function (a) {
+      try {
+        var t = a.effect && a.effect.getTiming ? a.effect.getTiming() : null;
+        return a.playState === 'running' && !!t && t.iterations !== Infinity;
+      } catch (e) { return false; }
+    });
+  }
+
   function anim(keyframes, opts) {
     if (!el || !el.animate || reduced) return { finished: Promise.resolve(), cancel: function () {} };
     var a, c = null;
@@ -1049,6 +1069,7 @@
     function drop() {
       var i = live.indexOf(a); if (i >= 0) live.splice(i, 1);
       if (c) { try { c.cancel(); } catch (e) {} var j = live.indexOf(c); if (j >= 0) live.splice(j, 1); }
+      if (clipOwed && !moving()) applyClip();
     }
     return a;
   }
@@ -1056,6 +1077,7 @@
   function cancelAll() {
     live.slice().forEach(function (a) { try { a.cancel(); } catch (e) {} });
     live.length = 0;
+    if (clipOwed) applyClip();
     shiftAnim = null;
     stopFlightArt();
   }
@@ -1371,7 +1393,7 @@
           { translate: '0 3px', scale: '1.05 0.95', offset: 0.18, easing: 'ease-out' },
           { translate: '0 -10px', scale: '0.96 1.05', offset: 0.4, easing: 'cubic-bezier(.3,.6,.4,1)' },
           { translate: '0 ' + (o.rise || 200) + 'px', scale: '0.94 1.06', offset: 1, easing: 'cubic-bezier(.55,0,.85,.4)' }
-        ], { duration: 280 });
+        ], { duration: o.ms || 280 });   // o.ms: the swipe card's unhurried sink
       } else {
         // and two hops off, the same way, fading as he goes
         clip('flapping', Infinity);

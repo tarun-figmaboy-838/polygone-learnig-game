@@ -29,6 +29,7 @@
      entrance or an exit — and those two animations are what keep him from
      popping into a corner or vanishing out of one. */
   var present = false, entering = null, flightGen = 0;
+  var riseWait = false;          // an entrance waiting for the swipe card to settle (entrance)
   /* Bumped by every play(); a loop that wakes from an await and finds a
      newer one has started steps aside instead of running a screen over it. */
   var playGen = 0;
@@ -116,7 +117,8 @@
    * ask for it while it is still running.
    */
   // `quick` true, or { quick, ms } — the summary's rise is a third of a second
-  function entrance(quick) {
+  // (`settled`: the swipe card has already been waited for, below)
+  function entrance(quick, settled) {
     var ms = quick && typeof quick === 'object' ? quick.ms : null;
     if (quick && typeof quick === 'object') quick = !!quick.quick;
     if (!buddyOn || present || !global.Swiftee || !Swiftee.play) return Promise.resolve(false);
@@ -130,6 +132,25 @@
     if (Swiftee.pos === 'off' && Swiftee.place) {
       var back = markFor(current, null, Swiftee.size);
       if (back && back.pos !== 'off') Swiftee.place(back.pos, back.size);
+    }
+    // UP FROM BEHIND THE SWIPE CARD ONLY ONCE IT IS HOME AND STILL. Rising
+    // while it was still being dealt, or still gliding back from a wrong
+    // swipe, the copy of its rim laid over him sat where the card was going
+    // to be: a second card edge hanging in the air.
+    if (!settled && swipeCardMoving()) {
+      var screenAt = current, q = { quick: quick, ms: ms };
+      riseWait = true;
+      // out of sight while he waits: put back on his mark he is whole there,
+      // standing on a card that is still on its way
+      if (Swiftee.visible) Swiftee.visible(false);
+      var waited = cardSettled().then(function () {
+        // (a screen change since has its own entrance: this one is over)
+        if (entering !== waited) return false;
+        riseWait = false; entering = null;
+        return screenAt === current ? entrance(q, true) : false;
+      });
+      entering = waited;
+      return waited;
     }
     var done = function () { present = true; entering = null; syncPeekRim(); return true; };
     // Capped. The walk-on is under half a second; if the rig cannot finish
@@ -391,7 +412,7 @@
    */
   var rimEl = null;
   function syncPeekRim() {
-    var want = global.Swiftee && Swiftee.pos === 'peek' && (present || entering || leaving) &&
+    var want = !riseWait && global.Swiftee && Swiftee.pos === 'peek' && (present || entering || leaving) &&
                global.Stage && Stage.peekAnchor && Stage.peekAnchor({ home: true }) &&
                global.CardFrame && CardFrame.panel && Stage.svg && Stage.svg.getScreenCTM;
     if (!want) { if (rimEl) rimEl.style.display = 'none'; rimFollow(false); return; }
@@ -464,6 +485,10 @@
     if (Swiftee.pos === 'peek') {
       o[key] = 'below';
       o.rise = Math.round(frame().h * (BIRD_H[Swiftee.size] || BIRD_H.small) * 0.8);
+      // ON THE SWIPE CARD (standRise, from layout): far enough that at the
+      // bottom of it the top of his head is under the glass line — down, not
+      // an eye or a wing tip shows — and the sink is unhurried, not a dive
+      if (standRise) { o.rise = standRise; if (key === 'to') o.ms = 420; }
     } else {
       o[key] = 'left';
     }
@@ -600,7 +625,9 @@
   var HOLDS_A_QUESTION = /^(think|question|examine|inspect)$/;
   var WATCHED = /^(draw-diagonals?|drag-vertex|sort|swipe)$/;
   function showStanding() {
-    if (!standing || standing.screen !== current || !inputLive) return false;
+    // (and never with nobody under it: he ducked, or popped down, while the
+    // timer that brings it back was running — a caption pointing at snow)
+    if (!standing || standing.screen !== current || !inputLive || !present) return false;
     say(standing.full, null, 0, null, null, { instant: true, passive: true });
     return true;
   }
@@ -664,6 +691,19 @@
     // comes on the first)
     var rem = kind === 'wrong' ? (Screens.list[current] || {}).remind : null;
     if (rem && (!rem.say || missesHere < (rem.after || 1))) rem = null;
+    // THE SWIPE: WRONG → LOCK → POP UP → WHY → POP DOWN → RETRY (pop()).
+    // The input was locked the moment the answer was given (answer:selected);
+    // every wrong answer gets its reason, since the child cannot answer
+    // again until he has said it and gone.
+    if (popsHere()) {
+      if (kind !== 'wrong') return;
+      if (!pick) pick = (said && said.t) ? said : NUDGE[nudgeN++ % NUDGE.length];
+      lastFeedbackAt = now;
+      var popLines = [{ t: pick.t, vo: pick.vo, mood: 'hint', face: o.face === false ? null : 'oops' }];
+      if (rem) popLines.push({ t: rem.say, vo: rem.vo, mood: 'hint' });
+      pop(popLines);
+      return;
+    }
     /* HIS FACE, when the storyboard has not already given one (o.face). A
        right answer gets a cheer — a happy face and a hop — the first time on
        a screen, a happy nod after that, and his full celebration on every
@@ -824,6 +864,7 @@
   // corner, or peeking over a rim, is a smaller thing than one standing on
   // the ice beside it.
   var BIRD_H = { tiny: 0.16, small: 0.22, medium: 0.28, large: 0.28 };   // tiny: inside the card's corner, the shape is the big thing
+  var standRise = null;          // px: the rise that hides him whole behind a card he stands on (layout)
   var CONTENT_FRAC = 0.764;      // (449 - 58) / 512, from the manifest bounds
   var EDGE = 8;                  // px of breathing room at the viewport edge
 
@@ -961,6 +1002,18 @@
       var peekAt = anchor.at == null ? 0.24 : anchor.at;      // corner cap, or wherever the card asks
       var peekX = Math.max(anchor.x + anchor.w * peekAt, (peekHalfW / f.w) * 1000 + 14);
       map['peek'] = { x: ax(peekX), y: ay(anchor.y) + (0.47 * birdH) / f.h };
+      /* STANDING ON THE CARD (anchor.stand: the swipe practice). The user's
+       * spec: when he is up he is ABOVE the card, whole — not a head over its
+       * rim with the rest of him cut off by the glass. His feet are on the
+       * card's top edge; the card hides him only on the way up and down, and
+       * the rise that brings him (wingFor) starts with the top of his head
+       * under the glass line, so down, nothing of him shows. */
+      standRise = null;
+      if (anchor.stand) {
+        map['peek'] = { x: ax(peekX), y: ay(anchor.y) + (0.02 * birdH) / f.h };
+        var feetPx = f.y + map['peek'].y * f.h, cutPx = f.y + ay(rim) * f.h;
+        standRise = Math.round(birdH + (cutPx - feetPx) + 14);
+      }
       // INSIDE THE CARD, on the glass at its bottom-left: the measurer waits
       // on the sheet he measures, and flies from there to each side.
       var paneH = (global.CardFrame && CardFrame.panel && CardFrame.panel.pane) ? CardFrame.panel.pane.h : 0.85;
@@ -973,6 +1026,7 @@
     } else {
       map['peek'] = map['top-left'];
       map['corner'] = map['left-low'];
+      standRise = null;
     }
     if (f.portrait) {
       // Stage letterboxes; put Swiftee below the box so he never covers it.
@@ -2768,7 +2822,7 @@
            also, from now until the next line, the one the child is working
            to — see standing. */
         var lineType = (opts && opts.type) || 'narration';
-        lessonLine = { full: parts.join(' '), screen: current, type: lineType };
+        lessonLine = { full: parts.join(' '), screen: current, type: lineType, vo: voId };
         if (director) director.emit('dialogue:start', { text: lessonLine.full, type: lineType, parts: parts.length });
         var clip0 = (global.VO && VO.seconds && voId) ? VO.seconds(voId) : 0;
         if (!clip0 && global.Timing && Timing.schedule) return speakLine(sentences, lineType, ctx, held, faceAt);
@@ -3165,6 +3219,7 @@
     // count of misses and its one hint start again.
     if (global.Swiftee && Swiftee.settle) Swiftee.settle();
     missesHere = 0; remindingUntil = 0; hintedHere = false; inputSpec = null;
+    popGen++; popping = false; clearTimeout(popDue); popDue = null; riseWait = false;
     // THE CARD IS CLEARED, NOT INHERITED.
     //
     // It was only ever replaced — set by a screen that has an instruction,
@@ -3244,6 +3299,12 @@
         entering = null;
         present = false;
         say(null);
+      }
+      // BEHIND THE SWIPE CARD HE STARTS DOWN, out of sight: he comes up from
+      // behind it for his question (the say beat's entrance), not slid across
+      // onto it — and is not standing there while the deck is dealt.
+      if (present && wantPos === 'peek' && sceneKindAt(i) === 'swipe-sort') {
+        leaveGen++; leaving = false; present = false; entering = null; say(null);
       }
       if (present && (wantPos !== Swiftee.pos || wantSize !== Swiftee.size) && Swiftee.play) {
         // ALREADY ON, ON A DIFFERENT MARK: he goes there, he does not jump
@@ -3461,12 +3522,120 @@
     try { if (Swiftee.perform) Swiftee.perform(state, direction()); else if (Swiftee.play) Swiftee.play(state, direction()); } catch (e) {}
   }
 
-  function swipeHome() {
-    if (!buddyOn || present || entering || !inputLive) return;
-    if (!inputSpec || inputSpec.type !== 'swipe') return;
+  /* A NEW CARD IS ON THE TABLE (after a right answer): he pops up — glad —
+     asks about it, and pops down before it can be taken. A card that came
+     back (a wrong answer, answered by its own pop in react(); a pull let go
+     short of a zone) brings nobody up. */
+  function swipeHome(p) {
+    if (!p || !p.dealt || !popsHere()) return;
+    var q = standing && standing.screen === current ? standing : lessonLine;
+    if (!q || !q.full) { holdInput(false); return; }
+    pop([{ t: q.full, vo: q.vo, ask: true, face: 'happySmall' }]);
+  }
+
+  /* THE POP — the swipe practice (the user's spec).
+   *
+   * He is never up while the child can take hold of the card. Whenever he
+   * has something to say about it — the question when a new card is dealt,
+   * the reason after a wrong answer — it is the same steps, each waiting for
+   * the one before:
+   *
+   *   LOCK the input → POP UP from behind the card, whole, standing on it →
+   *   the LINE, voiced, word by word → POP DOWN until nothing of him shows →
+   *   UNLOCK.
+   *
+   * The screen's first question is the storyboard's own (a say, then an exit
+   * below, then the input). One pop at a time: a newer one, a screen change
+   * or the end of the input retires an older one, and only the newest
+   * unlocks. */
+  var popGen = 0, popping = false, popDue = null;
+  function popsHere() {
+    if (!buddyOn || !inputLive || !inputSpec || inputSpec.type !== 'swipe' || !global.Swiftee) return false;
     var m = markFor(current, null, Swiftee.size);
-    if (!m || m.pos !== 'peek') return;
-    entrance().then(function (ok) { if (ok && inputLive) { showStanding(); placeBubble(); } });
+    return !!(m && m.pos === 'peek');
+  }
+  function holdInput(on) {
+    clearTimeout(popDue); popDue = null;
+    if (!global.Input || !Input.mode) return;
+    if (on) {
+      if (Input.mode() !== 'locked') Input.mode('locked');
+      // never stuck: an answer that no pop follows (the last card, a jump)
+      // gives the card back by itself
+      popDue = setTimeout(function () { if (!popping) holdInput(false); }, 3000);
+    } else if (inputLive && Input.mode() === 'locked') {
+      Input.mode('polygon');
+      // the 3 s of stillness before a hint count from the hand-over
+      if (Stage.hintRestart) Stage.hintRestart();
+    }
+  }
+  /* The swipe card he stands on: still on its way (being dealt, gliding
+     back, or not dealt yet)? Answered from the card itself. */
+  function swipeCardMoving() {
+    var S = global.Stage && Stage.state && Stage.state.swipe;
+    if (!S || !global.Swiftee || Swiftee.pos !== 'peek') return false;
+    var card = S.card;
+    if (!card) return true;
+    if (Stage.peekAnchor && !Stage.peekAnchor()) return true;          // not at home
+    return !!(card.getAnimations && card.getAnimations().some(function (a) { return a.playState === 'running'; }));
+  }
+  function cardSettled() {
+    var until = Date.now() + 1200;
+    return new Promise(function (res) {
+      (function check() {
+        if (!swipeCardMoving() || Date.now() > until) { res(); return; }
+        setTimeout(check, 40);
+      })();
+    });
+  }
+  /* The pace the director is running at (a harness runs the lesson fast). */
+  function paceScale() {
+    var cfg = director && director.configure ? director.configure({}) : null;
+    return (global.Timing && Timing.scaleOf && cfg) ? Timing.scaleOf(cfg.msPerWord) : 1;
+  }
+  /* One line of his, voiced when it has a clip and paced by the clip; it
+     resolves once it has been said and taken in — a question briefly (it is
+     obeyed, not re-read), a reason for a little longer. */
+  function popLine(ln) {
+    var text = ln.t, k = paceScale();
+    var vid = (global.VO && ln.vo && VO.play && VO.play(ln.vo)) ? ln.vo : null;
+    var clock = vid ? function () { return (global.VO && VO.id === vid && VO.at) ? VO.at() : null; } : null;
+    var cues = null;
+    if (vid && VO.words) { var rec = VO.words(vid); if (rec && rec.length === String(text).trim().split(/\s+/).length) cues = rec; }
+    if (!cues && global.Timing && Timing.cues) cues = Timing.cues(text, vid ? 1 : k);
+    var len = vid && VO.seconds ? VO.seconds(vid) : 0;
+    var lastWord = cues && cues.length ? cues[cues.length - 1] : Math.round(1500 * k);
+    var T = global.Timing || {};
+    var after = ln.ask ? (T.interactionDelay ? T.interactionDelay(text, k) : 400)
+                       : (T.readingPause ? Math.round(T.readingPause(text, k) * (vid ? 0.45 : 1)) : 900);
+    var hold = len ? Math.round(len * 1000) + after : lastWord + after + Math.round(400 * k);
+    say(text, ln.mood || null, hold, clock, cues);
+    return pause(hold);
+  }
+  function pop(lines) {
+    var gen = ++popGen, screen = current;
+    popping = true;
+    holdInput(true);
+    clearTimeout(bubbleTimer);
+    var alive = function () { return gen === popGen && screen === current && inputLive; };
+    var finish = function () {
+      if (gen !== popGen) return;
+      popping = false;
+      if (screen === current) holdInput(false);
+    };
+    return (present ? Promise.resolve(true) : entrance()).then(function () {
+      if (!alive() || !present) return;
+      return lines.reduce(function (chain, ln) {
+        return chain.then(function () {
+          if (!alive()) return;
+          if (ln.face && Swiftee.play) { try { Swiftee.play(ln.face, direction()); } catch (e) {} }
+          return popLine(ln);
+        });
+      }, Promise.resolve());
+    }).then(function () {
+      if (!alive()) return;
+      say(null);
+      return leave();
+    }).then(finish, finish);
   }
 
   /* THE IDLE HINT, IN HIM TOO — ONCE. When the stage's hint ladder first
@@ -3567,7 +3736,8 @@
          child trying: the state says so, the event says so, and the
          instruction steps back a little — still readable, not in the way. */
       Input.on('down', function () {
-        if (!inputLive) return;
+        // held (he is up, or about to be): nothing the child does here counts
+        if (!inputLive || popping || Input.mode() === 'locked') return;
         if (director) { director.mark(Director.STATES ? Director.STATES.USER_INTERACTING : 'USER_INTERACTING'); director.emit('interaction:start', {}); }
         if (bubble.classList.contains('show')) bubble.classList.add('dim');
         // THE CHILD'S HAND IS THE ANIMATION NOW. A drag gets his quiet,
@@ -3590,7 +3760,7 @@
       Input.on('down', function () {
         var t = Date.now();
         if (t - lastNoticed < 400) return;
-        if (!buddyOn || !present || entering) return;
+        if (!buddyOn || !present || entering || popping) return;
         if (!global.Swiftee || !Swiftee.bounce) return;
         if (Date.now() < cheerUntil) return;       // he is already saying something
         lastNoticed = t;
@@ -3608,7 +3778,11 @@
     if (Stage.onEvent) Stage.onEvent(function (name, payload) {
       director.emit(name, payload);
       if (name === 'hint:show') hintGesture(payload);
-      if (name === 'swipe:home') swipeHome();
+      if (name === 'swipe:home') swipeHome(payload);
+      // THE ANSWER IS GIVEN: nothing more can be done to the card until he
+      // has answered it (react(): the reason) or asked about the next one
+      // (swipeHome) and gone back down
+      if (name === 'answer:selected' && popsHere()) holdInput(true);
       if (name === 'measurement:start' && payload && payload.what === 'side') tailWhenHome();
       // THE COMPARE PAIR TELLS HIM WHAT HAPPENED: a diagonal left the shape
       // (surprised), a card was named (the badge's `react`)
@@ -3622,7 +3796,8 @@
       if (!director || director.state !== 'WAITING_FOR_USER') return false;
       if (global.VO && VO.at && VO.at() != null) return false;
       if (revealUnits) return false;
-      if (entering || leaving) return false;
+      if (entering || leaving || popping) return false;
+      if (global.Input && Input.mode && Input.mode() === 'locked') return false;
       if (global.Swiftee && (Swiftee.busy || Swiftee.locked)) return false;
       if (global.Transition && Transition.covered && Transition.covered()) return false;
       if (cheerUntil > Date.now()) return false;

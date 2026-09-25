@@ -1060,7 +1060,10 @@
         { instruction: null },
         { stage: { kind: 'swipe-sort', enter: 'stagger' } },
         { say: 'Where does this polygon belong?', vo: 'p33' },
-        { swiftee: 'observe', at: 'sort.item' },
+        // AND DOWN AGAIN BEFORE THE CARD CAN BE TAKEN: pop up, ask, pop
+        // down, and only then the input (game.js pop() does the same for
+        // every card after this one, and for every wrong answer's reason)
+        { swiftee: 'exit', to: 'below' },
         // (praise: false — the finale below is his cheer; a "Well done!" first
         // would bring him up behind a card that is no longer there)
         { input: { type: 'swipe', until: 'all-classified', praise: false } },
@@ -1070,7 +1073,8 @@
         { feedback: milestone([{ sfx: 'levelUp' }, { juice: 'confetti', target: 'stage' }]) }
       ],
       perTap: { correct: [{ sfx: 'correct' }, { juice: 'pop', target: 'item' }],
-                wrong:   [{ sfx: 'wrong' }, { juice: 'refuse', target: 'item' }, { swiftee: 'oops' }] }
+                // (his 'oops' comes when he is up, in the pop that answers it)
+                wrong:   [{ sfx: 'wrong' }, { juice: 'refuse', target: 'item' }] }
     },
 
     /* ================================================================ *

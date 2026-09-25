@@ -461,6 +461,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
           if (st === null || st === 'done') return;
           if (st === 'wait') { await sleep(140); continue; }
 
+          // HANDED BACK FIRST. He pops up behind the card to ask about each
+          // one, and to say why after a wrong answer, and the card cannot be
+          // taken until he is down again (game.js pop()): a child cannot
+          // swipe into that, and neither does this.
+          const handedBack = () => page.waitForFunction(() => window.Input.mode() !== 'locked' || !window.Stage.state.swipe, null, { timeout: 15000 });
+          await handedBack();
+
           const left = { x: st.home.x - 150, y: st.home.y };
           const right = { x: st.home.x + 150, y: st.home.y };
           const toward = (side) => (side === 'regular' ? left : right);
@@ -477,6 +484,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
             await sleep(700);
             const stillHere = await page.evaluate(() => window.Stage.state.swipe.i);
             if (stillHere !== 0) throw new Error('a wrong swipe advanced the round');
+            // and while he is up saying why, the card is his: a swipe does nothing
+            const locked = await page.evaluate(() => window.Input.mode() === 'locked');
+            if (!locked) throw new Error('the card could be taken while he was answering a wrong swipe');
+            await dragPath(st.home, toward(st.right), 8);
+            await sleep(250);
+            const heldStill = await page.evaluate(() => window.Stage.state.swipe.i);
+            if (heldStill !== 0) throw new Error('a swipe while he was speaking was taken as an answer');
+            await handedBack();
           }
 
           const before = st.i;
