@@ -1255,7 +1255,7 @@ function speaksAll(i) {
   var s = SCREENS[i];
   if (s && s.swiftee && s.swiftee.pos === 'off') return false;
   var kind = sceneKindAt(i);
-  return kind === 'polygon' || kind === 'compare' || kind === 'builder' || kind === 'sort' || kind === 'summary';
+  return kind === 'polygon' || kind === 'compare' || kind === 'sort' || kind === 'summary';
 }
 function wantsBuddyAt(i) {
   return wantsBuddy(SCREENS[i]) || speaksAll(i);

@@ -836,11 +836,11 @@
   function wantsRoomBelow(scr) {
     var beats = (scr.beats || []).concat(
       Object.keys(scr.perTap || {}).reduce(function (a, k) { return a.concat(scr.perTap[k] || []); }, []));
-    // Readings, a checklist, a stepper: things drawn INSIDE the face that
+    // Readings: things drawn INSIDE the face that
     // want the shape a little higher. A label, a badge or an answer row
     // goes UNDER the card instead (wantsBand), and takes no room inside.
     var has = function (o) {
-      return !!(o && (o.checklist || o.stepper || o.measurements));
+      return !!(o && o.measurements);
     };
     if (has(scr.stage)) return true;
     return beats.some(function (b) {
@@ -1812,7 +1812,12 @@
         var capY = cs.y + cs.h, rightEdge = cs.x + cs.w;
         gp.forEach(function (p) {
           if (!(p.right > cs.x + 4 && p.left < rightEdge - 4 && p.top < capY && p.bottom > cs.y)) return;
-          if (p.left - 12 - cs.x >= 200 * K) rightEdge = Math.min(rightEdge, p.left - 12);   // step in beside it
+          // A TAG IS GONE OVER, NOT SQUEEZED BESIDE, when the strip beside it is
+          // narrower than a two-row line: that broke "Let's see what happens to
+          // the sides and angles." over four rows. Beside it only when the strip
+          // is wide enough, or there is no room above.
+          var beside = p.left - 12 - cs.x, above = p.top - 10 - cs.y;
+          if (beside >= 300 * K || (beside >= 200 * K && above < 2 * MIN_H)) rightEdge = Math.min(rightEdge, p.left - 12);   // step in beside it
           else capY = Math.min(capY, p.top - 10);                                        // or stop above it
         });
         cs.w = rightEdge - cs.x;
@@ -2681,7 +2686,9 @@
           return function () {
             if (!global.VO || !VO.at || VO.id !== voId) return null;
             var at = VO.at();
-            return at == null ? null : Math.max(0, at - offset);
+            // below zero until this bubble's sentence is spoken: its words wait
+            // for the voice even when the bubble itself has come up early
+            return at == null ? null : at - offset;
           };
         };
         /* THE DECK'S OWN FRAGMENTS COME FIRST.
@@ -2832,19 +2839,25 @@
            * voice where it is: if it has not reached this sentence yet, come
            * back when it has. It can only ever wait longer, never cut in
            * early, and the deadline stops it waiting on a clip that stalled. */
+          /* THE NEXT BUBBLE COMES UP JUST BEFORE ITS SENTENCE. The swap — the
+             old bubble lifting away, the new one arriving — takes T_SWAP_LEAD,
+             and started on the first word it made that word a quarter second
+             late. With a voice it starts that much early and its words wait on
+             the clip, so each still appears as it is said. */
+          var early = voId ? T_SWAP_LEAD : 0;
           (function (t, share, when, partIndex) {
             var deadline = t0Line + when + 2000;
             var fire = function () {
               var clock = clockFor(0);
               var pos = clock ? clock() : null;
-              if (pos != null && pos < when - 90 && Date.now() < deadline) {
-                var again = setTimeout(fire, Math.min(320, when - pos));
+              if (pos != null && pos < when - early - 90 && Date.now() < deadline) {
+                var again = setTimeout(fire, Math.min(320, Math.max(16, when - early - pos)));
                 partTimers.push(again); lineTimers.push(again);
                 return;
               }
               say(t, null, share, clockFor(when), cuesFor(partIndex)); faceAt(partIndex);
             };
-            var h = setTimeout(fire, when);
+            var h = setTimeout(fire, Math.max(0, when - early));
             partTimers.push(h); lineTimers.push(h);
           }(parts[pi], shares[pi], at, pi));
         }
@@ -3444,7 +3457,7 @@
      to everything (swiftee.js perform: a reaction, a gesture, the measuring
      walk), and the child's next touch replaces it with his watching face. */
   function hintGesture(p) {
-    if (hintedHere || !p || p.rung !== 'pulse') return;
+    if (hintedHere || !p || p.rung !== 'idle') return;
     if (!inputSpec || !buddyOn || !present || entering || !global.Swiftee || !Swiftee.perform) return;
     // not on the measuring screens: the side walk is protected, and over the
     // angles he is already examining them with the child — the pulsing
@@ -3479,6 +3492,7 @@
     clearTimeout(rewardTimer);
     quest = Quest.create(); say(null); snaps = [];
     if (Stage.forgetMade) Stage.forgetMade();   // a new lesson: no shapes made yet
+    if (Stage.forgetHints) Stage.forgetHints();  // and every interaction is new again
     // the finale's fanfare does not play on over the new opening
     if (global.SFX && SFX.cancelSequences) SFX.cancelSequences();
     $('#reward').classList.remove('show');
@@ -3580,6 +3594,19 @@
       // (surprised), a card was named (the badge's `react`)
       if (name === 'compare:outside') buddyReacts('surprised');
       if (name === 'compare:react' && payload && payload.state) buddyReacts(payload.state);
+    });
+    /* A HINT ONLY WHILE THE LESSON IS ONLY WAITING (stage.js hintLadder): not
+       over his voice, the words still arriving, his entrance, exit, a
+       reaction or the measuring walk, a transition, or an answer's feedback. */
+    if (Stage.hintGate) Stage.hintGate(function () {
+      if (!director || director.state !== 'WAITING_FOR_USER') return false;
+      if (global.VO && VO.at && VO.at() != null) return false;
+      if (revealUnits) return false;
+      if (entering || leaving) return false;
+      if (global.Swiftee && (Swiftee.busy || Swiftee.locked)) return false;
+      if (global.Transition && Transition.covered && Transition.covered()) return false;
+      if (cheerUntil > Date.now()) return false;
+      return true;
     });
     // THE SUMMARY SAYS WHICH STATE IT IS IN (Stage.summaryState). The card's
     // own states are the stage's; his rising, his line, its reading pause and
@@ -3793,7 +3820,7 @@
    * from there with their own hands in it.
    *
    * Read from the storyboard, like wipesAt(), so it is the same every time. */
-  var CHANGES_SCENE = /^(vertex-pick|draw-diagonals?|drag-vertex|tap-each|stepper|sort|swipe|multi-select)$/;
+  var CHANGES_SCENE = /^(vertex-pick|draw-diagonals?|drag-vertex|tap-each|sort|swipe|multi-select)$/;
   function scriptOf(i) {
     var s = Screens.list[i], edits = 0, moves = false;
     (function walk(b) {

@@ -343,11 +343,14 @@
   .bubble-line .w, .bubble-line .dc-term {
     display: inline-block;
     transform-origin: 50% 80%;
-    transition: opacity 380ms cubic-bezier(.25,.8,.35,1),
-                scale 420ms cubic-bezier(.25,.8,.35,1),
-                translate 420ms cubic-bezier(.25,.8,.35,1);
+    /* ON THE VOICE: each word arrives as it is SPOKEN (the clip's word
+       timings), so the arrival itself is short — a fade and a small lift in
+       about 160ms — or the text trails the voice it is showing */
+    transition: opacity 160ms cubic-bezier(.25,.8,.35,1),
+                scale 170ms cubic-bezier(.25,.8,.35,1),
+                translate 170ms cubic-bezier(.25,.8,.35,1);
   }
-  .bubble-line.revealing .w, .bubble-line.revealing .dc-term { opacity: 0; scale: .96; translate: 0 6px; }
+  .bubble-line.revealing .w, .bubble-line.revealing .dc-term { opacity: 0; scale: .96; translate: 0 4px; }
   .bubble-line .w.in, .bubble-line .dc-term.in { opacity: 1; scale: 1; translate: 0 0; }
   @media (prefers-reduced-motion: reduce) {
     .bubble-line .w, .bubble-line .dc-term { transition: opacity 120ms ease-out; scale: 1; translate: 0 0; }
@@ -389,7 +392,7 @@
   }
   /* ...and when it lands, a tiny pop more than the words round it — on the
      same beat as the thing it names moving on the stage. */
-  .bubble-line.revealing .dc-term.in { animation: dcTermPop 320ms cubic-bezier(.22, 1, .36, 1) both; }
+  .bubble-line.revealing .dc-term.in { animation: dcTermPop 220ms cubic-bezier(.22, 1, .36, 1) both; }
   @keyframes dcTermPop {
     0%   { scale: .92; }
     60%  { scale: 1.06; }

@@ -144,6 +144,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     window.SFX.play = (n) => { if (n === 'correct') window.__cues.correct++; if (n === 'wrong') window.__cues.wrong++; return true; };
     window.SFX.sequence = () => 0;
     window.Game.director.configure({ sayMinMs: 120, msPerWord: 8, feedbackSettleMs: 40, beatCeilingMs: 6000, readablePauseMs: 60 });
+    // A FAST RUN IS A SILENT RUN. Every line here is fast-forwarded; a real
+    // voice would hold each one for its whole clip (the voiced timing is
+    // checked on its own, word by word), so the game's sound is muted.
+    if (window.SFX && SFX.isMuted && !SFX.isMuted()) SFX.mute();
     window.Game.director.on('start', () => window.__seen.add(window.Game.screen));
     // SWIFTEE IS ON SCREEN ONLY WHERE HE HAS A PURPOSE. Sampled a beat after
     // each screen opens, against whichever screen is up at that moment; the

@@ -88,62 +88,59 @@
     return { x: q.x, y: q.y - seatY };   // into the seated layers' own space
   }
   function on(el, ev, fn, opts) { el.addEventListener(ev, fn, opts); cleanup.push(function () { el.removeEventListener(ev, fn, opts); }); }
-  /**
-   * HINTS WAIT FOR THE CHILD TO NEED THEM.
+  /* (`opts.demo` — or `opts.pulse` where there is no gesture to show —
+     builds a hint from the screen as it is NOW and returns its stop function.) */
+  /* THE INTERACTION HINT (the user's spec, 2026-09-25) — one manager for
+   * every tap, drag, swipe, draw, select and measure:
    *
-   * This used to put its hint up the instant an input armed — a breathing
-   * corner, a ghost sliding across the card — and keep it going, forever,
-   * until the first touch. So every screen opened with something moving at
-   * the child while they were still reading what to do, and a child who
-   * stopped to think was pulsed at the whole time they thought.
+   *   FIRST TIME   the first time the child meets an interaction TYPE (a
+   *                vertex to pick, a line to draw, a card to sort…), its short
+   *                demonstration — a hand, a ghost of the gesture — plays as
+   *                soon as the game hands over, once per type.
+   *   IDLE         after that, whenever they have been still for 3 s, the
+   *                same short hint again, and again after another 3 s.
+   *   ANY PRESS    takes it down at once; a moving pointer or a tap restarts
+   *                the 3 s (a pointer drifting toward the ghost's end mark is
+   *                the child following the hint, so moving does not hide it).
    *
-   * It is a ladder now, and it only climbs while nothing is happening:
-   *
-   *   level 1   at once: the targets are simply shown as touchable — the
-   *             corners visible, the hand cursor, a steady glow on a side.
-   *             Nothing moves. (The interaction does this itself.)
-   *   level 2   after HINT_PULSE_MS of stillness, the targets pulse ONCE.
-   *   level 3   HINT_DEMO_MS after that, the move is shown once — a ghost
-   *             running the gesture — or, where there is no gesture to show,
-   *             a clearer pulse.
-   *   then      level 3 again every HINT_AGAIN_MS for as long as they wait,
-   *             so a child is never left with nothing, and never pulsed at.
-   *
-   * Anything the child does puts it back to the bottom: a press takes the hint
-   * down at once, and no hint is ever started while a finger is on the glass.
-   * A pointer that is only moving counts as trying, and restarts the wait.
-   *
-   * `opts.pulse` and `opts.demo` each build a hint from the screen as it is
-   * NOW and return its stop function.
-   */
-  // 2.5s of stillness before the first, single hint (the polish pass: 2.5–3s;
-  // the diagonal pass: about 2s), the move shown 7s after that, and then no
-  // oftener than every 12s — a child thinking is not pulsed at.
-  // (the demo 4.5s after the first pulse, not 7s: a move a child has never
-  // made is shown while they are still looking for it, not after they have
-  // given up — the user: "add hand hint... only for user idle")
-  var HINT_PULSE_MS = 2500, HINT_DEMO_MS = 4500, HINT_AGAIN_MS = 12000;
+   * NEVER over anything else: a hint waits (hintGate, from game.js) while his
+   * voice is playing, the words are still arriving, he is moving or reacting,
+   * a transition is up, or an answer's feedback is showing — so it only ever
+   * plays while the lesson is doing nothing but waiting for the child. The
+   * demonstrations show the gesture and never the answer; they are drawn on
+   * the fx layer from the shapes as they are NOW, and change nothing real.
+   * Everything is cleared with the interaction (cleanup) on a screen change,
+   * Back or Restart. */
+  var HINT_FIRST_MS = 700, HINT_IDLE_MS = 3000, HINT_SHOW_MS = 1800;
+  var hintSeen = {};                         // interaction types already demonstrated
+  var hintType = 'input';                    // the type the current interaction is (waitFor)
+  var hintGate = function () { return true; };
   function hintLadder(opts) {
     if (reduced() || !svg) return;
-    var pulse = opts.pulse || null, demo = opts.demo || opts.pulse || null;
+    var show = opts.demo || opts.pulse || null;
+    var type = opts.type || hintType;
     var stop = null, t = null, live = true, pressing = false, lastMove = 0;
     var hide = function () { if (stop) { try { stop(); } catch (e) {} stop = null; } };
-    var run = function (fn) { hide(); if (!live || pressing || !fn) return; try { stop = fn() || null; } catch (e) { stop = null; } };
-    var climb = function (level) {
+    var arm = function (ms) {
       clearTimeout(t);
       if (!live) return;
-      var wait = level === 2 ? (opts.firstMs || HINT_PULSE_MS) : level === 3 ? HINT_DEMO_MS : HINT_AGAIN_MS;
-      t = setTimeout(function () {
+      t = setTimeout(function tick() {
         if (!live || pressing) return;
-        run(level === 2 ? pulse : demo);
+        // the lesson must be doing nothing but waiting for the child
+        var open = true; try { open = hintGate() !== false; } catch (e) { open = true; }
+        if (!open) { t = setTimeout(tick, 250); return; }
+        var first = !hintSeen[type];
+        hintSeen[type] = true;
+        hide();
+        try { stop = (show && show()) || null; } catch (e) { stop = null; }
         // said on the event stream, so the companion can make his ONE small
         // gesture toward it (game.js) without the stage knowing he exists
-        evt('hint:show', { rung: level === 2 ? 'pulse' : 'demo' });
-        climb(level === 2 ? 3 : 4);
-      }, wait);
+        evt('hint:show', { rung: first ? 'first' : 'idle', type: type });
+        arm(HINT_SHOW_MS + HINT_IDLE_MS);    // another 3 s of stillness after this one
+      }, ms);
     };
     on(svg, 'pointerdown', function () { pressing = true; hide(); clearTimeout(t); });
-    var release = function () { pressing = false; climb(2); };
+    var release = function () { pressing = false; arm(HINT_IDLE_MS); };
     on(svg, 'pointerup', release);
     on(svg, 'pointercancel', release);
     on(svg, 'pointermove', function () {
@@ -151,14 +148,10 @@
       var now = Date.now();
       if (now - lastMove < 200) return;       // a moving pointer is one signal, not sixty
       lastMove = now;
-      // It restarts the wait, and it leaves what is showing alone: a mouse
-      // drifting toward the corner the ghost pointed at is the child FOLLOWING
-      // the hint, and taking the ghost's end mark away under it would hide the
-      // very place they are heading for. Only a press takes a hint down.
-      climb(2);
+      arm(HINT_IDLE_MS);
     });
     cleanup.push(function () { live = false; hide(); clearTimeout(t); });
-    climb(2);
+    arm(hintSeen[type] ? HINT_IDLE_MS : HINT_FIRST_MS);
   }
 
   /**
@@ -5418,8 +5411,7 @@
         // stillness, not two and a half: it is the first thing asked of them)
         hintLadder({
           pulse: function () { return pickHand(false); },
-          demo: function () { return pickHand(true); },
-          firstMs: 1500
+          demo: function () { return pickHand(true); }
         });
         st.vertEls.forEach(function (c, i) {
           c.style.cursor = 'pointer';
@@ -6489,6 +6481,9 @@
 
   function waitFor(spec, ctx) {
     var fn = INTERACT[spec.type];
+    // what the hint manager calls this interaction (a measure of sides and
+    // of angles are two things to learn)
+    hintType = spec.type + (spec.targets ? ':' + spec.targets : '');
     if (!fn) { if (global.console) console.warn('Stage: no interaction "' + spec.type + '"'); return Promise.resolve({ result: 'correct' }); }
 
     // tap-anywhere is reading, not doing. Breathing the polygon's vertices
@@ -6694,6 +6689,10 @@
       return null;
     },
     onTap: function (fn) { onTap = fn || function () {}; },
+    /** game.js: may a hint play now? (only while the lesson is only waiting) */
+    hintGate: function (fn) { hintGate = typeof fn === 'function' ? fn : function () { return true; }; },
+    /** Forget which interactions have been demonstrated (Restart). */
+    forgetHints: function () { hintSeen = {}; },
     onEvent: function (fn) { onEvent = fn || function () {}; },
     /** A plank-free screen lifts a lone card to the centre; a plank seats it under the band. Animated. */
     seat: function (free) { plankFree = !!free; applySeat(true); },
