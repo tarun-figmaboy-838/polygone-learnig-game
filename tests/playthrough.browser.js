@@ -92,21 +92,34 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     /* EVERY WORD AGAINST THE VOICE. Each word in the bubble is revealed by
        gaining .in; at that moment the voice's position in its clip is set
        beside the word's recorded start (assets/vo/word-timings.json). A word
-       shown before it is said, or long after, is a sync fault. Counted per
-       play of a clip, across all of that line's bubbles. */
-    let wordN = 0, wordClip = null;
+       shown before it is said, or long after, is a sync fault.
+       WHICH word it is comes from WHERE it is — the words before it in its
+       bubble line, plus the words of this clip's earlier bubbles — never from
+       a running count, which any extra lit element (a term's "?") or a
+       miscounted word throws off for the rest of the line. A mark continues
+       the word before it, and each word is timed once per play. */
+    let wordClip = null, partBase = 0, lastLine = null, lastText = '', seenK = null;
+    const nWords = (s) => { s = String(s || '').trim(); return s ? s.split(/\s+/).length : 0; };
     document.addEventListener('DOMContentLoaded', () => {
       new MutationObserver((muts) => {
-        const VO = window.VO; if (!VO || !VO.id || !VO.at) return;
+        const VO = window.VO; if (!VO || !VO.id || !VO.at || !VO.playing) return;
         muts.forEach((m) => {
           const el = m.target;
-          if (!el.classList || !el.classList.contains('in') || /in/.test(m.oldValue || '') || !el.closest || !el.closest('#bubble')) return;
+          if (!el.classList || !el.classList.contains('in') || /\bin\b/.test(m.oldValue || '') || !el.closest) return;
+          const line = el.closest('#bubble .bubble-line'); if (!line) return;
           const at = VO.at(); if (at == null) return;
-          if (wordClip !== V.clips[V.clips.length - 1]) { wordClip = V.clips[V.clips.length - 1]; wordN = 0; }
-          if (!wordClip || wordClip.id !== VO.id) return;
+          // one play of one clip; a new bubble for it starts after the last one's words
+          if (VO.playing !== wordClip) { wordClip = VO.playing; partBase = 0; lastLine = null; lastText = ''; seenK = new Set(); }
+          const text = line.textContent || '';
+          if (lastLine && (line !== lastLine || text !== lastText)) partBase += nWords(lastText);
+          lastLine = line; lastText = text;
+          const r = document.createRange(); r.setStart(line, 0); r.setEndBefore(el);
+          const before = r.toString();
+          const k = partBase + nWords(before) - (before && !/\s$/.test(before) ? 1 : 0);
+          if (seenK.has(k)) return;
+          seenK.add(k);
           const cues = VO.words(VO.id) || [];
-          if (wordN < cues.length) V.words.push({ id: VO.id, k: wordN, text: (el.textContent || '').trim(), at: Math.round(at), cue: cues[wordN] });
-          wordN += Math.max(1, (el.textContent || '').trim().split(/s+/).filter(Boolean).length);
+          if (k >= 0 && k < cues.length) V.words.push({ id: VO.id, k, text: (el.textContent || '').trim(), at: Math.round(at), cue: cues[k] });
         });
       }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true });
     });

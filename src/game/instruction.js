@@ -151,8 +151,8 @@
   function applyVoice() {
     var v = pendingVoice; pendingVoice = null;
     if (!v || !textEl || !current) return;
-    // (reduced motion: the sentence stays whole, as his bubble's does)
-    if (global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // (reduced motion too: each word is a plain fade, and arrives with the
+    // voice, as his bubble's do)
     var doc = textEl.ownerDocument, units = [];
     [].slice.call(textEl.childNodes).forEach(function (n) {
       if (n.nodeType === 3) {

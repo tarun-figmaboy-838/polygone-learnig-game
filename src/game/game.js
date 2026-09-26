@@ -1208,10 +1208,12 @@
     var finished = function (early) { if (o.onDone) { try { o.onDone(!!early); } catch (e) {} } };
     if (!units.length) { finished(); return; }
 
-    // Reduced motion keeps the pacing and loses the pop: the words are all
-    // there at once, and the line is still held for as long as it was.
-    var reduced = !!(global.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-    if (reduced || o.instant) { units.forEach(showUnit); finished(); return; }
+    // REDUCED MOTION KEEPS THE WORDS ON THE VOICE. It used to put the whole
+    // sentence up at once while he read it out — the text a sentence ahead of
+    // him on every device with animations turned off. A word arriving is not
+    // motion: the stylesheet takes the rise and the pop away under
+    // prefers-reduced-motion and leaves a plain fade, and the timing stays.
+    if (o.instant) { units.forEach(showUnit); finished(); return; }
 
     line.classList.add('revealing');
     revealUnits = units; revealDone = o.onDone || null;

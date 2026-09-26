@@ -36,19 +36,44 @@
   // from the folder; until it is fetched, or if it is missing, nothing plays.
   var index = null, secs = {}, revs = {}, wordMs = {}, spokenMs = {};
   var indexWait = null, indexSettled = false;
-  /* OPENED STRAIGHT OFF THE DISK, THERE IS NO LIST TO READ. A file:// page
+  /* OPENED STRAIGHT OFF THE DISK, THE LIST COMES AS A SCRIPT. A file:// page
      may not fetch a sibling file — Chrome blocks it as a cross-origin read —
-     so the index never arrives, nothing is ever allowed, and the game plays
-     in silence for anyone who double-clicks index.html. The list exists to
-     keep a 404 out of the console on a server; off the disk there is no
-     server and no gate: the clip is asked for, and if it is not there the
-     error handler forgets it exactly as it always did. */
+     so index.json never arrived there, and with it went every word's moment:
+     the bubble fell back to a reading-time guess and the plank to a fixed
+     320 ms a word, both quicker than the voice, so the text ran ahead of him
+     ("text type fast and vo not syncing"). A <script> may load off the disk,
+     so tools/build-vo-index.js writes the same list as index.js too, and a
+     page opened that way reads that one. On a server index.json is still
+     the one read — it is revalidated on every load, index.js is not.
+     Off the disk there is still no gate: a clip not listed is asked for, and
+     if it is not there the error handler forgets it as it always did. */
   var offDisk = (function () {
     try { return (global.location && global.location.protocol) === 'file:'; } catch (e) { return false; }
   }());
+  function useIndex(j) {
+    (j && j.clips || []).forEach(function (id) { index[id] = true; });
+    secs = (j && j.seconds) || {};
+    revs = (j && j.rev) || {};
+    wordMs = (j && j.words) || {};
+    spokenMs = (j && j.spoken) || {};
+  }
   function loadIndex() {
     if (indexWait || indexSettled) return indexWait;
-    if (offDisk || typeof fetch !== 'function') {
+    if (offDisk) {
+      index = {};
+      var doc = global.document;
+      if (!doc || !doc.createElement) { indexSettled = true; return Promise.resolve(); }
+      indexWait = new Promise(function (res) {
+        var s = doc.createElement('script'), done = false;
+        var end = function () { if (!done) { done = true; res(); } };
+        s.onload = s.onerror = end;
+        setTimeout(end, 2500);                 // a missing file must not hold the voice up
+        s.src = BASE + 'index.js';
+        (doc.head || doc.documentElement).appendChild(s);
+      }).then(function () { useIndex(global.VO_INDEX); }).then(function () { indexSettled = true; });
+      return indexWait;
+    }
+    if (typeof fetch !== 'function') {
       indexSettled = true;
       return Promise.resolve();
     }
@@ -56,13 +81,8 @@
     // no-cache, not no-store: the list changes when clips are added, and a
     // browser that read it when it was empty must not keep that answer. The
     // clips themselves stay immutable; only this one file is revalidated.
-    indexWait = fetch(BASE + 'index.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
-      (j && j.clips || []).forEach(function (id) { index[id] = true; });
-      secs = (j && j.seconds) || {};
-      revs = (j && j.rev) || {};
-      wordMs = (j && j.words) || {};
-      spokenMs = (j && j.spoken) || {};
-    }).catch(function () {}).then(function () { indexSettled = true; });
+    indexWait = fetch(BASE + 'index.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).then(useIndex)
+      .catch(function () {}).then(function () { indexSettled = true; });
     return indexWait;
   }
   loadIndex();
@@ -79,7 +99,8 @@
    * arrive on the next load and leaves every unchanged clip in the cache. */
   function url(id) {
     var v = revs[id];
-    return BASE + id + EXT + (v ? '?v=' + v : '');
+    // (off the disk there is no cache to outwit, and no query on a file path)
+    return BASE + id + EXT + (v && !offDisk ? '?v=' + v : '');
   }
 
   function muted() { return !!(global.SFX && SFX.isMuted && SFX.isMuted()); }

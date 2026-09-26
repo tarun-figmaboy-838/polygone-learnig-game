@@ -5052,7 +5052,7 @@
         // "another vertex", "a different vertex": the OTHER corners; "this
         // vertex", "the same vertex": the one the lesson has marked
         var mine = relevantKnobs(), all = (st.knobEls || []).filter(function (k) { return k && k.getAttribute('opacity') !== '0'; });
-        if (/(another|different|other)s+vert/.test(line) && mine.length < all.length) {
+        if (/\b(another|different|other)\s+vert/.test(line) && mine.length < all.length) {
           return warmPulse(all.filter(function (k) { return mine.indexOf(k) < 0; }));
         }
         return warmPulse(mine);
@@ -5066,7 +5066,7 @@
       case 'diagonal': {
         if (kind === 'compare') {
           // "this one" is the card in focus; otherwise both cards' diagonals
-          var cards = Object.keys(st.compare || {}).filter(function (k) { return !st.compareFocus || /both/.test(line) || k === st.compareFocus; });
+          var cards = Object.keys(st.compare || {}).filter(function (k) { return !st.compareFocus || /\bboth\b/.test(line) || k === st.compareFocus; });
           var dl = [];
           cards.forEach(function (k) { var pg = st.compare[k].pg; if (pg) dl = dl.concat([].slice.call(pg.querySelectorAll('line'))); });
           return dl.length ? trace(dl) : 0;
