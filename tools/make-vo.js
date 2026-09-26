@@ -89,8 +89,15 @@ function snapCues(cs, file) {
     let nearQuiet = false;
     for (let k = Math.floor((c - 60) / STEP); k <= Math.floor((c + 60) / STEP); k++) if (quietAt(k)) { nearQuiet = true; break; }
     if (!nearQuiet) { out.push(c); return; }
-    const hi = Math.min(n - 5, Math.floor((c + 300) / STEP)), lo = Math.max(3, Math.floor((c - 150) / STEP));
-    let at = c;
+    // the rise NEAREST the mark, and strictly between its neighbours: after
+    // the word before is shown and before the word after is marked. The
+    // latest rise in the window was taken before, and where a word dips into
+    // quiet before the next ("You | got it!") it moved "You" onto "got";
+    // the nearest, unbounded, could pull "one" back onto "that".
+    let nextMark = Infinity; for (let z = i + 1; z < cs.length; z++) if (cs[z] > c) { nextMark = cs[z]; break; }
+    const floor = i ? out[i - 1] + 40 : -Infinity, ceil = nextMark - 40;
+    const hi = Math.min(n - 5, Math.floor((c + 300) / STEP), Math.floor(ceil / STEP)), lo = Math.max(3, Math.floor((c - 150) / STEP));
+    let at = c, best = Infinity;
     for (let j = hi; j >= lo; j--) {
       if (db[j] <= -35) continue;
       // the quiet it rose out of, within 60 ms: a nasal or a fricative
@@ -99,8 +106,9 @@ function snapCues(cs, file) {
       if (q < 0 || !quietAt(q - 1) || !quietAt(q - 2)) continue;
       let held = 0; for (let z = j; z < j + 5 && z < n; z++) if (db[z] > -30) held++;
       if (held < 3) continue;
-      at = (q + 1) * STEP;                                 // the first step out of the quiet
-      break;
+      const onset = (q + 1) * STEP;                        // the first step out of the quiet
+      if (onset < floor || onset > ceil) continue;
+      if (Math.abs(onset - c) < best) { best = Math.abs(onset - c); at = onset; }
     }
     out.push(i ? Math.max(at, out[i - 1]) : at);
   });
