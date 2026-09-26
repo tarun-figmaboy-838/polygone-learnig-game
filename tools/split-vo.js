@@ -56,7 +56,7 @@
  * A word shown with its sound reads as said; a tenth of a second after, as
  * lagging behind the voice.
  *
- * Encoded as the rest of assets/vo is (tools/encode-vo.js): mono, 64k mp3 for
+ * Encoded as every clip in assets/vo is, straight from the take: mono, 64k mp3 for
  * Safari, Vorbis q1 for everyone else.
  */
 'use strict';

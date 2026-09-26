@@ -15,7 +15,8 @@
  *                  so the file is there and never played. Run npm run build:vo.
  *   NO OGG         listed, and only as .mp3. vo.js asks for <id>.ogg wherever
  *                  Vorbis plays — Chrome, Firefox, every Android — so the
- *                  clip 404s for everyone but Safari. Run node tools/encode-vo.js.
+ *                  clip 404s for everyone but Safari. Re-run the tool that made
+ *                  it (tools/split-vo.js or tools/make-vo.js): both write both.
  *   ORPHAN         a clip nothing in the game asks for: dead weight in the
  *                  deploy, and usually a typo in a mapping row.
  *
@@ -87,7 +88,7 @@ const list = (label, items, fmt) => {
 console.log('the game can say ' + rows.length + ' lines; ' + (rows.length - noClip.length) + ' have a clip');
 list('NO CLIP — shown but never spoken', noClip, (r) => r.id.padEnd(5) + ' "' + r.text + '"  — ' + r.where);
 list('NOT LISTED in index.json — on disk and never asked for', notListed, (r) => r.id + '  (run npm run build:vo)');
-list('NO .OGG — silent in Chrome, Firefox and Android', noOgg, (r) => r.id + '  (run node tools/encode-vo.js)');
+list('NO .OGG — silent in Chrome, Firefox and Android', noOgg, (r) => r.id + '  (re-run tools/split-vo.js or tools/make-vo.js)');
 list('ORPHAN — a clip nothing asks for', orphan, (id) => id);
 if (rate) {
   console.log('\nthis reader runs at about ' + rate.toFixed(2) + 's a syllable');

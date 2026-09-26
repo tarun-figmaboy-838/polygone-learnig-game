@@ -25,7 +25,6 @@
     "split:vo": "node tools/split-vo.js",
     "vo:lines": "node tools/vo-lines.js",
     "vo:check": "node tools/vo-check.js",
-    "vo:encode": "node tools/encode-vo.js",
     "vo:script": "node tools/vo-script.js",
     "vo:align": "node tools/align-vo.js",
     "build:hand": "node tools/build-hand.js"

@@ -3164,7 +3164,11 @@
     // that pays for the whole round trip. Not before the list of clips has
     // arrived: preload() drops what it cannot find in it, and the latch kept
     // them cold for the whole lesson.
-    if (!warmedCues) {
+    // AND NOT DURING THE INTRO. Asked for on the first screen, the twenty-six
+    // replies (half a megabyte) shared the line with the sleigh's sheets and
+    // held his arrival back; the first answer is three screens away, so from
+    // the second screen on — or at once on a screen that is answered.
+    if (!warmedCues && (i >= 1 || screenAwaitsAction(i))) {
       if (VO.ready && VO.isReady === false) {
         VO.ready().then(function () { if (!warmedCues) warmVoice(current < 0 ? i : current); });
       } else {
@@ -3191,9 +3195,20 @@
     return found;
   }
 
+  /* ART THAT IS NOT NEEDED UNTIL LATER, fetched once the intro is over: the
+     measuring walk (446 KB, first seen on the measuring screens) was preloaded
+     with the page and shared the line with the sleigh. */
+  var warmedArt = false;
+  function warmArt(i) {
+    if (warmedArt || i < 1 || typeof Image === 'undefined') return;
+    warmedArt = true;
+    try { if (global.MeasuringFrames && MeasuringFrames.image) (new Image()).src = MeasuringFrames.image; } catch (e) {}
+  }
+
   function runScreen(i) {
     var s = Screens.list[i];
     warmVoice(i);
+    warmArt(i);
     // whatever the screen before was still going to say, it is not saying it
     cancelScreenLine();
     clearLineTimers();

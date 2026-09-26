@@ -9,10 +9,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
-<!-- the backdrop is the first thing on screen; fetch it alongside the scripts -->
+<!-- the backdrop is the first thing on screen; fetch it alongside the scripts.
+     The sleigh's three sheets too: the intro draws nothing until all three are
+     in, and asked for only once the scripts had run they left a child who
+     tapped Start straight away looking at the title for seven seconds on a
+     4 Mbps line. What is not needed yet (the measuring walk, the replies) is
+     warmed after the intro instead, so it does not share the line with it. -->
 <link rel="preload" as="image" href="assets/ui/banner.webp?v=0f187566">
-<link rel="preload" as="image" href="assets/bg/ice-vista.png">
-<link rel="preload" as="image" href="assets/swiftee/swiftee-measuring.png">
+<link rel="preload" as="image" href="assets/bg/ice-vista.webp" fetchpriority="high">
+<link rel="preload" as="image" href="assets/swiftee/intro/sheet1.png" fetchpriority="low">
+<link rel="preload" as="image" href="assets/swiftee/intro/sheet2.png" fetchpriority="low">
+<link rel="preload" as="image" href="assets/swiftee/intro/sheet3.png" fetchpriority="low">
 <style>
   :root {
     --ink: #1c2a4a;
@@ -45,7 +52,7 @@
      so on a 16:10 laptop or a 4:3 tablet there is a strip above and below it.
      That strip used to be a pale grey-blue wash that met the painting at a
      hard line: the game looked like a picture pasted on a page. These two
-     colours are the top and bottom rows of assets/bg/ice-vista.png (#40b7fd
+     colours are the top and bottom rows of assets/bg/ice-vista.webp (#40b7fd
      and #acd8fd), so the sky simply carries on past the edge of the stage and
      the snow does too, and the seam cannot be seen. */
   #game { position: fixed; inset: 0; background: #5fbdfa; }   /* under the backdrop; never seen unless an image fails */
@@ -69,7 +76,8 @@
        than a band. Sharp, not blurred: the board's own copy is drawn at
        almost the same scale, so the two line up and the join disappears. */
     position: absolute; inset: 0;
-    background: url("assets/bg/ice-vista.png") center center / cover no-repeat, #5fbdfa;
+    /* lossless WebP: every pixel of the painting as it was, a quarter lighter */
+    background: url("assets/bg/ice-vista.webp") center center / cover no-repeat, #5fbdfa;
     pointer-events: none; z-index: 0;
   }
   #stage { position: absolute; inset: 0; z-index: 1; }
@@ -839,7 +847,7 @@
 
   <div id="loading">
     <div class="title-stage" aria-hidden="true">
-      <img class="title-art" src="assets/ui/banner.webp" alt="" draggable="false">
+      <img class="title-art" src="assets/ui/banner.webp?v=0f187566" alt="" draggable="false">
       <div class="title-sheen"></div>
       <div class="title-snow"></div>
       <div class="title-scrim"></div>

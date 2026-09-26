@@ -26,5 +26,6 @@ Thumbs.db
 # is assets/source/gamevo.mp3, cut into assets/vo/<id>.mp3 by tools/split-vo.js.
 assets/vo/take/
 
-# a collaborator's local preview renders, not part of the game
+# a collaborator's local preview renders and listening samples, not part of the game
 preview/
+review/
