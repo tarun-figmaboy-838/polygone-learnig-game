@@ -1,0 +1,2690 @@
+{
+ "source": "assets/source/gamevo.mp3",
+ "seconds": 181.629,
+ "model": "Xenova/wav2vec2-base-960h",
+ "frameMs": 20,
+ "note": "Word times in seconds from the start of the take, by CTC forced alignment (tools/align-vo.js). tools/split-vo.js cuts the clips from this and writes their word starts into assets/vo/word-timings.json.",
+ "silences": [
+  [
+   0.484,
+   0.936
+  ],
+  [
+   1.848,
+   2.347
+  ],
+  [
+   4.847,
+   5.558
+  ],
+  [
+   6.5,
+   6.641
+  ],
+  [
+   9.347,
+   10.021
+  ],
+  [
+   11.828,
+   12.737
+  ],
+  [
+   14.044,
+   14.58
+  ],
+  [
+   16.311,
+   17.023
+  ],
+  [
+   17.882,
+   18.106
+  ],
+  [
+   19.304,
+   19.892
+  ],
+  [
+   21.824,
+   22.463
+  ],
+  [
+   23.351,
+   23.562
+  ],
+  [
+   24.957,
+   25.635
+  ],
+  [
+   26.376,
+   26.686
+  ],
+  [
+   28.045,
+   28.557
+  ],
+  [
+   30.084,
+   30.204
+  ],
+  [
+   31.991,
+   32.156
+  ],
+  [
+   33.023,
+   33.598
+  ],
+  [
+   36.635,
+   37.187
+  ],
+  [
+   38.116,
+   38.224
+  ],
+  [
+   39.326,
+   39.622
+  ],
+  [
+   42.804,
+   43.421
+  ],
+  [
+   44.13,
+   44.399
+  ],
+  [
+   44.56,
+   44.663
+  ],
+  [
+   45.27,
+   45.41
+  ],
+  [
+   47.636,
+   48.166
+  ],
+  [
+   48.853,
+   48.993
+  ],
+  [
+   51.174,
+   51.62
+  ],
+  [
+   53.991,
+   54.327
+  ],
+  [
+   56.148,
+   56.292
+  ],
+  [
+   57.198,
+   57.745
+  ],
+  [
+   58.871,
+   59.309
+  ],
+  [
+   61.478,
+   62.057
+  ],
+  [
+   62.827,
+   62.933
+  ],
+  [
+   63.022,
+   63.167
+  ],
+  [
+   65.148,
+   65.797
+  ],
+  [
+   68.948,
+   69.3
+  ],
+  [
+   70.386,
+   70.496
+  ],
+  [
+   72.109,
+   72.635
+  ],
+  [
+   73.402,
+   73.57
+  ],
+  [
+   75.921,
+   76.515
+  ],
+  [
+   78.571,
+   78.734
+  ],
+  [
+   80.004,
+   80.45
+  ],
+  [
+   82.448,
+   82.66
+  ],
+  [
+   83.05,
+   83.251
+  ],
+  [
+   84.452,
+   84.917
+  ],
+  [
+   88.19,
+   88.711
+  ],
+  [
+   91.334,
+   91.444
+  ],
+  [
+   92.19,
+   92.867
+  ],
+  [
+   93.127,
+   93.247
+  ],
+  [
+   93.306,
+   93.531
+  ],
+  [
+   93.569,
+   93.743
+  ],
+  [
+   95.376,
+   95.986
+  ],
+  [
+   96.209,
+   96.317
+  ],
+  [
+   96.337,
+   96.652
+  ],
+  [
+   98.331,
+   98.902
+  ],
+  [
+   99.425,
+   99.572
+  ],
+  [
+   99.729,
+   99.842
+  ],
+  [
+   101.944,
+   102.054
+  ],
+  [
+   102.105,
+   102.62
+  ],
+  [
+   103.211,
+   103.321
+  ],
+  [
+   103.366,
+   103.858
+  ],
+  [
+   105.487,
+   106.075
+  ],
+  [
+   107.456,
+   107.847
+  ],
+  [
+   109.679,
+   110.173
+  ],
+  [
+   111.807,
+   112.416
+  ],
+  [
+   113.914,
+   114.469
+  ],
+  [
+   116.141,
+   116.51
+  ],
+  [
+   116.676,
+   116.781
+  ],
+  [
+   118.731,
+   118.833
+  ],
+  [
+   119.64,
+   120.145
+  ],
+  [
+   121.948,
+   122.483
+  ],
+  [
+   123.814,
+   124.306
+  ],
+  [
+   126.984,
+   127.926
+  ],
+  [
+   130.359,
+   130.875
+  ],
+  [
+   132.007,
+   132.13
+  ],
+  [
+   133.387,
+   133.787
+  ],
+  [
+   134.335,
+   134.786
+  ],
+  [
+   135.369,
+   135.546
+  ],
+  [
+   135.792,
+   135.902
+  ],
+  [
+   136.516,
+   136.99
+  ],
+  [
+   138.686,
+   139.308
+  ],
+  [
+   141.049,
+   141.171
+  ],
+  [
+   142.008,
+   142.112
+  ],
+  [
+   142.17,
+   142.547
+  ],
+  [
+   144.878,
+   144.996
+  ],
+  [
+   145.981,
+   146.374
+  ],
+  [
+   148.062,
+   148.197
+  ],
+  [
+   149.106,
+   149.218
+  ],
+  [
+   149.272,
+   149.765
+  ],
+  [
+   153.183,
+   153.572
+  ],
+  [
+   154.965,
+   155.343
+  ],
+  [
+   157.267,
+   157.767
+  ],
+  [
+   159.314,
+   159.42
+  ],
+  [
+   162.135,
+   162.72
+  ],
+  [
+   165.316,
+   165.424
+  ],
+  [
+   166.625,
+   167.012
+  ],
+  [
+   170.248,
+   170.439
+  ],
+  [
+   170.502,
+   170.611
+  ],
+  [
+   172.342,
+   173.166
+  ],
+  [
+   174.028,
+   174.41
+  ],
+  [
+   175.214,
+   175.335
+  ],
+  [
+   177.031,
+   177.487
+  ],
+  [
+   178.355,
+   178.468
+  ],
+  [
+   178.5,
+   179.086
+  ],
+  [
+   179.847,
+   179.983
+  ],
+  [
+   181.391,
+   181.629
+  ]
+ ],
+ "derived": [
+  {
+   "id": "fb18",
+   "from": "p12",
+   "words": [
+    0,
+    0
+   ]
+  }
+ ],
+ "lines": [
+  {
+   "id": "p01",
+   "text": "Hi! I am Swiftee.",
+   "start": 0.14,
+   "end": 1.8,
+   "words": [
+    {
+     "text": "Hi!",
+     "start": 0.14,
+     "end": 0.34
+    },
+    {
+     "text": "I",
+     "start": 1.04,
+     "end": 1.06
+    },
+    {
+     "text": "am",
+     "start": 1.16,
+     "end": 1.22
+    },
+    {
+     "text": "Swiftee.",
+     "start": 1.36,
+     "end": 1.8
+    }
+   ]
+  },
+  {
+   "id": "p02",
+   "text": "Remember we learned about polygons before.",
+   "start": 2.62,
+   "end": 4.84,
+   "words": [
+    {
+     "text": "Remember",
+     "start": 2.62,
+     "end": 3
+    },
+    {
+     "text": "we",
+     "start": 3.08,
+     "end": 3.16
+    },
+    {
+     "text": "learned",
+     "start": 3.26,
+     "end": 3.48
+    },
+    {
+     "text": "about",
+     "start": 3.56,
+     "end": 3.78
+    },
+    {
+     "text": "polygons",
+     "start": 3.9,
+     "end": 4.46
+    },
+    {
+     "text": "before.",
+     "start": 4.54,
+     "end": 4.84
+    }
+   ]
+  },
+  {
+   "id": "p03",
+   "text": "Polygons are closed shapes made from straight lines.",
+   "start": 5.56,
+   "end": 9.2,
+   "words": [
+    {
+     "text": "Polygons",
+     "start": 5.56,
+     "end": 6.18
+    },
+    {
+     "text": "are",
+     "start": 6.42,
+     "end": 6.5
+    },
+    {
+     "text": "closed",
+     "start": 6.66,
+     "end": 7.04
+    },
+    {
+     "text": "shapes",
+     "start": 7.2,
+     "end": 7.52
+    },
+    {
+     "text": "made",
+     "start": 7.74,
+     "end": 7.96
+    },
+    {
+     "text": "from",
+     "start": 8.08,
+     "end": 8.26
+    },
+    {
+     "text": "straight",
+     "start": 8.4,
+     "end": 8.78
+    },
+    {
+     "text": "lines.",
+     "start": 8.88,
+     "end": 9.2
+    }
+   ]
+  },
+  {
+   "id": "p04",
+   "text": "Which of these are polygons?",
+   "start": 10.08,
+   "end": 11.66,
+   "words": [
+    {
+     "text": "Which",
+     "start": 10.08,
+     "end": 10.28
+    },
+    {
+     "text": "of",
+     "start": 10.36,
+     "end": 10.4
+    },
+    {
+     "text": "these",
+     "start": 10.5,
+     "end": 10.72
+    },
+    {
+     "text": "are",
+     "start": 10.96,
+     "end": 11.02
+    },
+    {
+     "text": "polygons?",
+     "start": 11.06,
+     "end": 11.66
+    }
+   ]
+  },
+  {
+   "id": "p05",
+   "text": "Let’s play with this one.",
+   "start": 12.8,
+   "end": 14.02,
+   "words": [
+    {
+     "text": "Let’s",
+     "start": 12.8,
+     "end": 13.06
+    },
+    {
+     "text": "play",
+     "start": 13.16,
+     "end": 13.34
+    },
+    {
+     "text": "with",
+     "start": 13.42,
+     "end": 13.54
+    },
+    {
+     "text": "this",
+     "start": 13.62,
+     "end": 13.76
+    },
+    {
+     "text": "one.",
+     "start": 13.92,
+     "end": 14.02
+    }
+   ]
+  },
+  {
+   "id": "p06",
+   "text": "Select any vertex.",
+   "start": 14.88,
+   "end": 16.08,
+   "words": [
+    {
+     "text": "Select",
+     "start": 14.88,
+     "end": 15.24
+    },
+    {
+     "text": "any",
+     "start": 15.46,
+     "end": 15.62
+    },
+    {
+     "text": "vertex.",
+     "start": 15.72,
+     "end": 16.08
+    }
+   ]
+  },
+  {
+   "id": "p07i",
+   "text": "Let’s connect it to another vertex.",
+   "start": 17.06,
+   "end": 19.12,
+   "words": [
+    {
+     "text": "Let’s",
+     "start": 17.06,
+     "end": 17.32
+    },
+    {
+     "text": "connect",
+     "start": 17.36,
+     "end": 17.68
+    },
+    {
+     "text": "it",
+     "start": 17.76,
+     "end": 17.82
+    },
+    {
+     "text": "to",
+     "start": 18.1,
+     "end": 18.2
+    },
+    {
+     "text": "another",
+     "start": 18.32,
+     "end": 18.68
+    },
+    {
+     "text": "vertex.",
+     "start": 18.74,
+     "end": 19.12
+    }
+   ]
+  },
+  {
+   "id": "p09",
+   "text": "This is a side of the polygon.",
+   "start": 20,
+   "end": 21.72,
+   "words": [
+    {
+     "text": "This",
+     "start": 20,
+     "end": 20.18
+    },
+    {
+     "text": "is",
+     "start": 20.4,
+     "end": 20.46
+    },
+    {
+     "text": "a",
+     "start": 20.58,
+     "end": 20.6
+    },
+    {
+     "text": "side",
+     "start": 20.68,
+     "end": 20.94
+    },
+    {
+     "text": "of",
+     "start": 21,
+     "end": 21.04
+    },
+    {
+     "text": "the",
+     "start": 21.12,
+     "end": 21.2
+    },
+    {
+     "text": "polygon.",
+     "start": 21.26,
+     "end": 21.72
+    }
+   ]
+  },
+  {
+   "id": "p10i",
+   "text": "Let’s connect it to a different vertex.",
+   "start": 22.52,
+   "end": 24.76,
+   "words": [
+    {
+     "text": "Let’s",
+     "start": 22.52,
+     "end": 22.78
+    },
+    {
+     "text": "connect",
+     "start": 22.84,
+     "end": 23.14
+    },
+    {
+     "text": "it",
+     "start": 23.22,
+     "end": 23.28
+    },
+    {
+     "text": "to",
+     "start": 23.54,
+     "end": 23.64
+    },
+    {
+     "text": "a",
+     "start": 23.74,
+     "end": 23.76
+    },
+    {
+     "text": "different",
+     "start": 23.92,
+     "end": 24.32
+    },
+    {
+     "text": "vertex.",
+     "start": 24.4,
+     "end": 24.76
+    }
+   ]
+  },
+  {
+   "id": "p12",
+   "text": "Yay! You made a diagonal!",
+   "start": 25.7,
+   "end": 27.94,
+   "words": [
+    {
+     "text": "Yay!",
+     "start": 25.7,
+     "end": 26.16
+    },
+    {
+     "text": "You",
+     "start": 26.76,
+     "end": 26.9
+    },
+    {
+     "text": "made",
+     "start": 27.04,
+     "end": 27.24
+    },
+    {
+     "text": "a",
+     "start": 27.32,
+     "end": 27.34
+    },
+    {
+     "text": "diagonal!",
+     "start": 27.4,
+     "end": 27.94
+    }
+   ]
+  },
+  {
+   "id": "p13",
+   "text": "A line segment joining two non-adjacent vertices is a diagonal.",
+   "start": 28.62,
+   "end": 32.98,
+   "words": [
+    {
+     "text": "A",
+     "start": 28.62,
+     "end": 28.64
+    },
+    {
+     "text": "line",
+     "start": 28.74,
+     "end": 29
+    },
+    {
+     "text": "segment",
+     "start": 29.04,
+     "end": 29.46
+    },
+    {
+     "text": "joining",
+     "start": 29.66,
+     "end": 30.04
+    },
+    {
+     "text": "two",
+     "start": 30.18,
+     "end": 30.32
+    },
+    {
+     "text": "non-adjacent",
+     "start": 30.54,
+     "end": 31.24
+    },
+    {
+     "text": "vertices",
+     "start": 31.32,
+     "end": 31.88
+    },
+    {
+     "text": "is",
+     "start": 32.2,
+     "end": 32.28
+    },
+    {
+     "text": "a",
+     "start": 32.38,
+     "end": 32.4
+    },
+    {
+     "text": "diagonal.",
+     "start": 32.46,
+     "end": 32.98
+    }
+   ]
+  },
+  {
+   "id": "p14i",
+   "text": "Let’s draw another diagonal from the same vertex.",
+   "start": 33.64,
+   "end": 36.42,
+   "words": [
+    {
+     "text": "Let’s",
+     "start": 33.64,
+     "end": 33.9
+    },
+    {
+     "text": "draw",
+     "start": 33.98,
+     "end": 34.2
+    },
+    {
+     "text": "another",
+     "start": 34.4,
+     "end": 34.74
+    },
+    {
+     "text": "diagonal",
+     "start": 34.8,
+     "end": 35.22
+    },
+    {
+     "text": "from",
+     "start": 35.32,
+     "end": 35.46
+    },
+    {
+     "text": "the",
+     "start": 35.54,
+     "end": 35.62
+    },
+    {
+     "text": "same",
+     "start": 35.72,
+     "end": 35.96
+    },
+    {
+     "text": "vertex.",
+     "start": 36.06,
+     "end": 36.42
+    }
+   ]
+  },
+  {
+   "id": "p14b",
+   "text": "All diagonals are still inside.",
+   "start": 37.26,
+   "end": 39.22,
+   "words": [
+    {
+     "text": "All",
+     "start": 37.26,
+     "end": 37.4
+    },
+    {
+     "text": "diagonals",
+     "start": 37.5,
+     "end": 38.02
+    },
+    {
+     "text": "are",
+     "start": 38.3,
+     "end": 38.38
+    },
+    {
+     "text": "still",
+     "start": 38.46,
+     "end": 38.74
+    },
+    {
+     "text": "inside.",
+     "start": 38.8,
+     "end": 39.22
+    }
+   ]
+  },
+  {
+   "id": "p14r",
+   "text": "A diagonal connects non-adjacent vertices.",
+   "start": 39.96,
+   "end": 42.64,
+   "words": [
+    {
+     "text": "A",
+     "start": 39.96,
+     "end": 39.98
+    },
+    {
+     "text": "diagonal",
+     "start": 40.06,
+     "end": 40.54
+    },
+    {
+     "text": "connects",
+     "start": 40.62,
+     "end": 41.02
+    },
+    {
+     "text": "non-adjacent",
+     "start": 41.28,
+     "end": 42.02
+    },
+    {
+     "text": "vertices.",
+     "start": 42.1,
+     "end": 42.64
+    }
+   ]
+  },
+  {
+   "id": "p15",
+   "text": "Your turn! Let’s draw all the diagonals from this vertex.",
+   "start": 43.5,
+   "end": 47.42,
+   "words": [
+    {
+     "text": "Your",
+     "start": 43.5,
+     "end": 43.72
+    },
+    {
+     "text": "turn!",
+     "start": 43.78,
+     "end": 44.04
+    },
+    {
+     "text": "Let’s",
+     "start": 44.7,
+     "end": 44.94
+    },
+    {
+     "text": "draw",
+     "start": 45,
+     "end": 45.22
+    },
+    {
+     "text": "all",
+     "start": 45.48,
+     "end": 45.62
+    },
+    {
+     "text": "the",
+     "start": 45.7,
+     "end": 45.76
+    },
+    {
+     "text": "diagonals",
+     "start": 45.82,
+     "end": 46.36
+    },
+    {
+     "text": "from",
+     "start": 46.46,
+     "end": 46.6
+    },
+    {
+     "text": "this",
+     "start": 46.76,
+     "end": 46.94
+    },
+    {
+     "text": "vertex.",
+     "start": 47.04,
+     "end": 47.42
+    }
+   ]
+  },
+  {
+   "id": "p15i",
+   "text": "Let’s draw all the diagonals from this vertex.",
+   "start": 48.22,
+   "end": 50.96,
+   "words": [
+    {
+     "text": "Let’s",
+     "start": 48.22,
+     "end": 48.46
+    },
+    {
+     "text": "draw",
+     "start": 48.54,
+     "end": 48.78
+    },
+    {
+     "text": "all",
+     "start": 49.08,
+     "end": 49.2
+    },
+    {
+     "text": "the",
+     "start": 49.28,
+     "end": 49.36
+    },
+    {
+     "text": "diagonals",
+     "start": 49.4,
+     "end": 49.94
+    },
+    {
+     "text": "from",
+     "start": 50.02,
+     "end": 50.16
+    },
+    {
+     "text": "this",
+     "start": 50.3,
+     "end": 50.48
+    },
+    {
+     "text": "vertex.",
+     "start": 50.58,
+     "end": 50.96
+    }
+   ]
+  },
+  {
+   "id": "p16",
+   "text": "Look at the diagonals of this pentagon.",
+   "start": 51.7,
+   "end": 53.92,
+   "words": [
+    {
+     "text": "Look",
+     "start": 51.7,
+     "end": 51.88
+    },
+    {
+     "text": "at",
+     "start": 51.96,
+     "end": 52
+    },
+    {
+     "text": "the",
+     "start": 52.1,
+     "end": 52.16
+    },
+    {
+     "text": "diagonals",
+     "start": 52.2,
+     "end": 52.72
+    },
+    {
+     "text": "of",
+     "start": 52.86,
+     "end": 52.9
+    },
+    {
+     "text": "this",
+     "start": 53.1,
+     "end": 53.3
+    },
+    {
+     "text": "pentagon.",
+     "start": 53.4,
+     "end": 53.92
+    }
+   ]
+  },
+  {
+   "id": "p17i",
+   "text": "Are the diagonals inside or outside?",
+   "start": 54.66,
+   "end": 57.12,
+   "words": [
+    {
+     "text": "Are",
+     "start": 54.66,
+     "end": 54.76
+    },
+    {
+     "text": "the",
+     "start": 54.82,
+     "end": 54.88
+    },
+    {
+     "text": "diagonals",
+     "start": 54.94,
+     "end": 55.46
+    },
+    {
+     "text": "inside",
+     "start": 55.62,
+     "end": 56.06
+    },
+    {
+     "text": "or",
+     "start": 56.36,
+     "end": 56.42
+    },
+    {
+     "text": "outside?",
+     "start": 56.64,
+     "end": 57.12
+    }
+   ]
+  },
+  {
+   "id": "p18",
+   "text": "Let’s make a change.",
+   "start": 57.8,
+   "end": 58.74,
+   "words": [
+    {
+     "text": "Let’s",
+     "start": 57.8,
+     "end": 58.04
+    },
+    {
+     "text": "make",
+     "start": 58.14,
+     "end": 58.3
+    },
+    {
+     "text": "a",
+     "start": 58.36,
+     "end": 58.38
+    },
+    {
+     "text": "change.",
+     "start": 58.42,
+     "end": 58.74
+    }
+   ]
+  },
+  {
+   "id": "p19i",
+   "text": "Help me pull this vertex inside.",
+   "start": 59.34,
+   "end": 61.38,
+   "words": [
+    {
+     "text": "Help",
+     "start": 59.34,
+     "end": 59.52
+    },
+    {
+     "text": "me",
+     "start": 59.62,
+     "end": 59.7
+    },
+    {
+     "text": "pull",
+     "start": 59.8,
+     "end": 60
+    },
+    {
+     "text": "this",
+     "start": 60.08,
+     "end": 60.22
+    },
+    {
+     "text": "vertex",
+     "start": 60.3,
+     "end": 60.66
+    },
+    {
+     "text": "inside.",
+     "start": 60.94,
+     "end": 61.38
+    }
+   ]
+  },
+  {
+   "id": "p20",
+   "text": "Whoa! One of the diagonals went outside.",
+   "start": 62.16,
+   "end": 65.14,
+   "words": [
+    {
+     "text": "Whoa!",
+     "start": 62.16,
+     "end": 62.62
+    },
+    {
+     "text": "One",
+     "start": 63.3,
+     "end": 63.4
+    },
+    {
+     "text": "of",
+     "start": 63.44,
+     "end": 63.48
+    },
+    {
+     "text": "the",
+     "start": 63.56,
+     "end": 63.64
+    },
+    {
+     "text": "diagonals",
+     "start": 63.68,
+     "end": 64.18
+    },
+    {
+     "text": "went",
+     "start": 64.26,
+     "end": 64.46
+    },
+    {
+     "text": "outside.",
+     "start": 64.64,
+     "end": 65.14
+    }
+   ]
+  },
+  {
+   "id": "p21",
+   "text": "Let’s compare the diagonals in both the pentagons.",
+   "start": 65.88,
+   "end": 68.8,
+   "words": [
+    {
+     "text": "Let’s",
+     "start": 65.88,
+     "end": 66.12
+    },
+    {
+     "text": "compare",
+     "start": 66.2,
+     "end": 66.52
+    },
+    {
+     "text": "the",
+     "start": 66.6,
+     "end": 66.68
+    },
+    {
+     "text": "diagonals",
+     "start": 66.72,
+     "end": 67.24
+    },
+    {
+     "text": "in",
+     "start": 67.4,
+     "end": 67.44
+    },
+    {
+     "text": "both",
+     "start": 67.64,
+     "end": 67.88
+    },
+    {
+     "text": "the",
+     "start": 68.04,
+     "end": 68.12
+    },
+    {
+     "text": "pentagons.",
+     "start": 68.16,
+     "end": 68.8
+    }
+   ]
+  },
+  {
+   "id": "p22",
+   "text": "This one has all the diagonals inside.",
+   "start": 69.58,
+   "end": 72.04,
+   "words": [
+    {
+     "text": "This",
+     "start": 69.58,
+     "end": 69.76
+    },
+    {
+     "text": "one",
+     "start": 69.92,
+     "end": 70.02
+    },
+    {
+     "text": "has",
+     "start": 70.16,
+     "end": 70.3
+    },
+    {
+     "text": "all",
+     "start": 70.58,
+     "end": 70.7
+    },
+    {
+     "text": "the",
+     "start": 70.8,
+     "end": 70.88
+    },
+    {
+     "text": "diagonals",
+     "start": 70.92,
+     "end": 71.42
+    },
+    {
+     "text": "inside.",
+     "start": 71.6,
+     "end": 72.04
+    }
+   ]
+  },
+  {
+   "id": "p23",
+   "text": "But this one has atleast one diagonal outside.",
+   "start": 72.66,
+   "end": 75.84,
+   "words": [
+    {
+     "text": "But",
+     "start": 72.66,
+     "end": 72.8
+    },
+    {
+     "text": "this",
+     "start": 72.9,
+     "end": 73.06
+    },
+    {
+     "text": "one",
+     "start": 73.24,
+     "end": 73.34
+    },
+    {
+     "text": "has",
+     "start": 73.58,
+     "end": 73.72
+    },
+    {
+     "text": "atleast",
+     "start": 73.82,
+     "end": 74.16
+    },
+    {
+     "text": "one",
+     "start": 74.56,
+     "end": 74.68
+    },
+    {
+     "text": "diagonal",
+     "start": 74.76,
+     "end": 75.2
+    },
+    {
+     "text": "outside.",
+     "start": 75.4,
+     "end": 75.84
+    }
+   ]
+  },
+  {
+   "id": "p24",
+   "text": "All diagonals inside means convex polygon.",
+   "start": 76.6,
+   "end": 79.94,
+   "words": [
+    {
+     "text": "All",
+     "start": 76.6,
+     "end": 76.74
+    },
+    {
+     "text": "diagonals",
+     "start": 76.84,
+     "end": 77.4
+    },
+    {
+     "text": "inside",
+     "start": 77.56,
+     "end": 78
+    },
+    {
+     "text": "means",
+     "start": 78.2,
+     "end": 78.48
+    },
+    {
+     "text": "convex",
+     "start": 78.74,
+     "end": 79.2
+    },
+    {
+     "text": "polygon.",
+     "start": 79.42,
+     "end": 79.94
+    }
+   ]
+  },
+  {
+   "id": "p25",
+   "text": "Atleast one diagonal outside means concave polygon.",
+   "start": 80.5,
+   "end": 84.4,
+   "words": [
+    {
+     "text": "Atleast",
+     "start": 80.5,
+     "end": 80.84
+    },
+    {
+     "text": "one",
+     "start": 81.2,
+     "end": 81.32
+    },
+    {
+     "text": "diagonal",
+     "start": 81.4,
+     "end": 81.82
+    },
+    {
+     "text": "outside",
+     "start": 81.98,
+     "end": 82.4
+    },
+    {
+     "text": "means",
+     "start": 82.68,
+     "end": 82.96
+    },
+    {
+     "text": "concave",
+     "start": 83.26,
+     "end": 83.82
+    },
+    {
+     "text": "polygon.",
+     "start": 83.9,
+     "end": 84.4
+    }
+   ]
+  },
+  {
+   "id": "p26i",
+   "text": "Drag any vertex to make this polygon concave.",
+   "start": 84.98,
+   "end": 88.1,
+   "words": [
+    {
+     "text": "Drag",
+     "start": 84.98,
+     "end": 85.28
+    },
+    {
+     "text": "any",
+     "start": 85.54,
+     "end": 85.68
+    },
+    {
+     "text": "vertex",
+     "start": 85.78,
+     "end": 86.16
+    },
+    {
+     "text": "to",
+     "start": 86.34,
+     "end": 86.42
+    },
+    {
+     "text": "make",
+     "start": 86.5,
+     "end": 86.68
+    },
+    {
+     "text": "this",
+     "start": 86.74,
+     "end": 86.88
+    },
+    {
+     "text": "polygon",
+     "start": 86.94,
+     "end": 87.4
+    },
+    {
+     "text": "concave.",
+     "start": 87.54,
+     "end": 88.1
+    }
+   ]
+  },
+  {
+   "id": "p27",
+   "text": "Can you sort these polygons as convex or concave?",
+   "start": 88.7,
+   "end": 92.2,
+   "words": [
+    {
+     "text": "Can",
+     "start": 88.7,
+     "end": 88.84
+    },
+    {
+     "text": "you",
+     "start": 88.92,
+     "end": 89
+    },
+    {
+     "text": "sort",
+     "start": 89.12,
+     "end": 89.38
+    },
+    {
+     "text": "these",
+     "start": 89.48,
+     "end": 89.64
+    },
+    {
+     "text": "polygons",
+     "start": 89.72,
+     "end": 90.26
+    },
+    {
+     "text": "as",
+     "start": 90.48,
+     "end": 90.54
+    },
+    {
+     "text": "convex",
+     "start": 90.66,
+     "end": 91.08
+    },
+    {
+     "text": "or",
+     "start": 91.5,
+     "end": 91.58
+    },
+    {
+     "text": "concave?",
+     "start": 91.68,
+     "end": 92.2
+    }
+   ]
+  },
+  {
+   "id": "p27c",
+   "text": "Look! This corner goes inward.",
+   "start": 92.94,
+   "end": 95.28,
+   "words": [
+    {
+     "text": "Look!",
+     "start": 92.94,
+     "end": 93.16
+    },
+    {
+     "text": "This",
+     "start": 93.8,
+     "end": 93.96
+    },
+    {
+     "text": "corner",
+     "start": 94.08,
+     "end": 94.42
+    },
+    {
+     "text": "goes",
+     "start": 94.52,
+     "end": 94.74
+    },
+    {
+     "text": "inward.",
+     "start": 94.94,
+     "end": 95.28
+    }
+   ]
+  },
+  {
+   "id": "p27v",
+   "text": "Look! No corner goes inward.",
+   "start": 96.04,
+   "end": 98.24,
+   "words": [
+    {
+     "text": "Look!",
+     "start": 96.04,
+     "end": 96.24
+    },
+    {
+     "text": "No",
+     "start": 96.8,
+     "end": 96.94
+    },
+    {
+     "text": "corner",
+     "start": 97.08,
+     "end": 97.38
+    },
+    {
+     "text": "goes",
+     "start": 97.5,
+     "end": 97.74
+    },
+    {
+     "text": "inward.",
+     "start": 97.9,
+     "end": 98.24
+    }
+   ]
+  },
+  {
+   "id": "p28",
+   "text": "Hmm… The sides look suspiciously alike. Let’s check!",
+   "start": 98.96,
+   "end": 103.24,
+   "words": [
+    {
+     "text": "Hmm…",
+     "start": 98.96,
+     "end": 99.18
+    },
+    {
+     "text": "The",
+     "start": 99.86,
+     "end": 99.96
+    },
+    {
+     "text": "sides",
+     "start": 100.04,
+     "end": 100.4
+    },
+    {
+     "text": "look",
+     "start": 100.5,
+     "end": 100.66
+    },
+    {
+     "text": "suspiciously",
+     "start": 100.8,
+     "end": 101.6
+    },
+    {
+     "text": "alike.",
+     "start": 101.7,
+     "end": 102
+    },
+    {
+     "text": "Let’s",
+     "start": 102.7,
+     "end": 102.94
+    },
+    {
+     "text": "check!",
+     "start": 103.04,
+     "end": 103.24
+    }
+   ]
+  },
+  {
+   "id": "p29i",
+   "text": "Tap the sides to measure them.",
+   "start": 103.86,
+   "end": 105.44,
+   "words": [
+    {
+     "text": "Tap",
+     "start": 103.86,
+     "end": 104.06
+    },
+    {
+     "text": "the",
+     "start": 104.18,
+     "end": 104.26
+    },
+    {
+     "text": "sides",
+     "start": 104.32,
+     "end": 104.68
+    },
+    {
+     "text": "to",
+     "start": 104.8,
+     "end": 104.9
+    },
+    {
+     "text": "measure",
+     "start": 105,
+     "end": 105.26
+    },
+    {
+     "text": "them.",
+     "start": 105.32,
+     "end": 105.44
+    }
+   ]
+  },
+  {
+   "id": "p30",
+   "text": "Every side is equal. But what about the angles?",
+   "start": 106.16,
+   "end": 109.52,
+   "words": [
+    {
+     "text": "Every",
+     "start": 106.16,
+     "end": 106.44
+    },
+    {
+     "text": "side",
+     "start": 106.56,
+     "end": 106.84
+    },
+    {
+     "text": "is",
+     "start": 106.92,
+     "end": 106.98
+    },
+    {
+     "text": "equal.",
+     "start": 107.1,
+     "end": 107.36
+    },
+    {
+     "text": "But",
+     "start": 108.12,
+     "end": 108.28
+    },
+    {
+     "text": "what",
+     "start": 108.42,
+     "end": 108.58
+    },
+    {
+     "text": "about",
+     "start": 108.66,
+     "end": 108.86
+    },
+    {
+     "text": "the",
+     "start": 108.94,
+     "end": 109.02
+    },
+    {
+     "text": "angles?",
+     "start": 109.14,
+     "end": 109.52
+    }
+   ]
+  },
+  {
+   "id": "p31i",
+   "text": "Tap the angles to measure them.",
+   "start": 110.16,
+   "end": 111.72,
+   "words": [
+    {
+     "text": "Tap",
+     "start": 110.16,
+     "end": 110.38
+    },
+    {
+     "text": "the",
+     "start": 110.5,
+     "end": 110.58
+    },
+    {
+     "text": "angles",
+     "start": 110.7,
+     "end": 111.02
+    },
+    {
+     "text": "to",
+     "start": 111.1,
+     "end": 111.2
+    },
+    {
+     "text": "measure",
+     "start": 111.28,
+     "end": 111.54
+    },
+    {
+     "text": "them.",
+     "start": 111.6,
+     "end": 111.72
+    }
+   ]
+  },
+  {
+   "id": "p31",
+   "text": "The angles match too!",
+   "start": 112.5,
+   "end": 113.78,
+   "words": [
+    {
+     "text": "The",
+     "start": 112.5,
+     "end": 112.6
+    },
+    {
+     "text": "angles",
+     "start": 112.78,
+     "end": 113.16
+    },
+    {
+     "text": "match",
+     "start": 113.28,
+     "end": 113.52
+    },
+    {
+     "text": "too!",
+     "start": 113.64,
+     "end": 113.78
+    }
+   ]
+  },
+  {
+   "id": "p32a",
+   "text": "Help me stretch this corner. Let’s see what happens to the sides and angles.",
+   "start": 114.5,
+   "end": 119.5,
+   "words": [
+    {
+     "text": "Help",
+     "start": 114.5,
+     "end": 114.68
+    },
+    {
+     "text": "me",
+     "start": 114.82,
+     "end": 114.9
+    },
+    {
+     "text": "stretch",
+     "start": 115.02,
+     "end": 115.42
+    },
+    {
+     "text": "this",
+     "start": 115.54,
+     "end": 115.68
+    },
+    {
+     "text": "corner.",
+     "start": 115.78,
+     "end": 116.1
+    },
+    {
+     "text": "Let’s",
+     "start": 116.8,
+     "end": 117.02
+    },
+    {
+     "text": "see",
+     "start": 117.06,
+     "end": 117.2
+    },
+    {
+     "text": "what",
+     "start": 117.32,
+     "end": 117.5
+    },
+    {
+     "text": "happens",
+     "start": 117.58,
+     "end": 117.92
+    },
+    {
+     "text": "to",
+     "start": 118,
+     "end": 118.08
+    },
+    {
+     "text": "the",
+     "start": 118.16,
+     "end": 118.22
+    },
+    {
+     "text": "sides",
+     "start": 118.32,
+     "end": 118.66
+    },
+    {
+     "text": "and",
+     "start": 118.92,
+     "end": 119.02
+    },
+    {
+     "text": "angles.",
+     "start": 119.16,
+     "end": 119.5
+    }
+   ]
+  },
+  {
+   "id": "p32ai",
+   "text": "Drag the highlighted vertex.",
+   "start": 120.22,
+   "end": 121.72,
+   "words": [
+    {
+     "text": "Drag",
+     "start": 120.22,
+     "end": 120.5
+    },
+    {
+     "text": "the",
+     "start": 120.6,
+     "end": 120.68
+    },
+    {
+     "text": "highlighted",
+     "start": 120.74,
+     "end": 121.24
+    },
+    {
+     "text": "vertex.",
+     "start": 121.34,
+     "end": 121.72
+    }
+   ]
+  },
+  {
+   "id": "p32b",
+   "text": "It’s still a pentagon. But are the sides and angles still equal?",
+   "start": 122.56,
+   "end": 126.92,
+   "words": [
+    {
+     "text": "It’s",
+     "start": 122.56,
+     "end": 122.7
+    },
+    {
+     "text": "still",
+     "start": 122.76,
+     "end": 123.08
+    },
+    {
+     "text": "a",
+     "start": 123.2,
+     "end": 123.22
+    },
+    {
+     "text": "pentagon.",
+     "start": 123.28,
+     "end": 123.78
+    },
+    {
+     "text": "But",
+     "start": 124.34,
+     "end": 124.44
+    },
+    {
+     "text": "are",
+     "start": 124.66,
+     "end": 124.74
+    },
+    {
+     "text": "the",
+     "start": 124.8,
+     "end": 124.88
+    },
+    {
+     "text": "sides",
+     "start": 124.96,
+     "end": 125.3
+    },
+    {
+     "text": "and",
+     "start": 125.48,
+     "end": 125.56
+    },
+    {
+     "text": "angles",
+     "start": 125.78,
+     "end": 126.14
+    },
+    {
+     "text": "still",
+     "start": 126.34,
+     "end": 126.58
+    },
+    {
+     "text": "equal?",
+     "start": 126.68,
+     "end": 126.92
+    }
+   ]
+  },
+  {
+   "id": "p32bi",
+   "text": "Are the sides and angles still equal?",
+   "start": 128.02,
+   "end": 130.3,
+   "words": [
+    {
+     "text": "Are",
+     "start": 128.02,
+     "end": 128.12
+    },
+    {
+     "text": "the",
+     "start": 128.2,
+     "end": 128.28
+    },
+    {
+     "text": "sides",
+     "start": 128.38,
+     "end": 128.72
+    },
+    {
+     "text": "and",
+     "start": 128.88,
+     "end": 128.96
+    },
+    {
+     "text": "angles",
+     "start": 129.16,
+     "end": 129.5
+    },
+    {
+     "text": "still",
+     "start": 129.7,
+     "end": 129.96
+    },
+    {
+     "text": "equal?",
+     "start": 130.06,
+     "end": 130.3
+    }
+   ]
+  },
+  {
+   "id": "p32c",
+   "text": "All sides AND all angles same: regular. Otherwise, it’s irregular.",
+   "start": 131,
+   "end": 136.5,
+   "words": [
+    {
+     "text": "All",
+     "start": 131,
+     "end": 131.12
+    },
+    {
+     "text": "sides",
+     "start": 131.26,
+     "end": 131.62
+    },
+    {
+     "text": "AND",
+     "start": 131.84,
+     "end": 131.94
+    },
+    {
+     "text": "all",
+     "start": 132.26,
+     "end": 132.38
+    },
+    {
+     "text": "angles",
+     "start": 132.58,
+     "end": 132.88
+    },
+    {
+     "text": "same:",
+     "start": 133.02,
+     "end": 133.28
+    },
+    {
+     "text": "regular.",
+     "start": 133.88,
+     "end": 134.32
+    },
+    {
+     "text": "Otherwise,",
+     "start": 134.84,
+     "end": 135.26
+    },
+    {
+     "text": "it’s",
+     "start": 135.6,
+     "end": 135.74
+    },
+    {
+     "text": "irregular.",
+     "start": 135.98,
+     "end": 136.5
+    }
+   ]
+  },
+  {
+   "id": "p33",
+   "text": "Where does this polygon belong?",
+   "start": 137,
+   "end": 138.64,
+   "words": [
+    {
+     "text": "Where",
+     "start": 137,
+     "end": 137.18
+    },
+    {
+     "text": "does",
+     "start": 137.24,
+     "end": 137.4
+    },
+    {
+     "text": "this",
+     "start": 137.54,
+     "end": 137.72
+    },
+    {
+     "text": "polygon",
+     "start": 137.82,
+     "end": 138.26
+    },
+    {
+     "text": "belong?",
+     "start": 138.34,
+     "end": 138.64
+    }
+   ]
+  },
+  {
+   "id": "p37a",
+   "text": "A vertex is a corner where two sides meet.",
+   "start": 139.36,
+   "end": 142.04,
+   "words": [
+    {
+     "text": "A",
+     "start": 139.36,
+     "end": 139.38
+    },
+    {
+     "text": "vertex",
+     "start": 139.48,
+     "end": 139.88
+    },
+    {
+     "text": "is",
+     "start": 140.14,
+     "end": 140.2
+    },
+    {
+     "text": "a",
+     "start": 140.3,
+     "end": 140.32
+    },
+    {
+     "text": "corner",
+     "start": 140.4,
+     "end": 140.74
+    },
+    {
+     "text": "where",
+     "start": 140.86,
+     "end": 141.04
+    },
+    {
+     "text": "two",
+     "start": 141.14,
+     "end": 141.28
+    },
+    {
+     "text": "sides",
+     "start": 141.42,
+     "end": 141.74
+    },
+    {
+     "text": "meet.",
+     "start": 141.84,
+     "end": 142.04
+    }
+   ]
+  },
+  {
+   "id": "p37b",
+   "text": "A side is a straight line joining two vertices.",
+   "start": 142.84,
+   "end": 145.78,
+   "words": [
+    {
+     "text": "A",
+     "start": 142.84,
+     "end": 142.86
+    },
+    {
+     "text": "side",
+     "start": 142.96,
+     "end": 143.28
+    },
+    {
+     "text": "is",
+     "start": 143.48,
+     "end": 143.52
+    },
+    {
+     "text": "a",
+     "start": 143.62,
+     "end": 143.64
+    },
+    {
+     "text": "straight",
+     "start": 143.72,
+     "end": 144.04
+    },
+    {
+     "text": "line",
+     "start": 144.12,
+     "end": 144.34
+    },
+    {
+     "text": "joining",
+     "start": 144.46,
+     "end": 144.84
+    },
+    {
+     "text": "two",
+     "start": 144.96,
+     "end": 145.12
+    },
+    {
+     "text": "vertices.",
+     "start": 145.24,
+     "end": 145.78
+    }
+   ]
+  },
+  {
+   "id": "p37c",
+   "text": "An angle is formed where two sides meet.",
+   "start": 146.66,
+   "end": 149.14,
+   "words": [
+    {
+     "text": "An",
+     "start": 146.66,
+     "end": 146.72
+    },
+    {
+     "text": "angle",
+     "start": 146.92,
+     "end": 147.2
+    },
+    {
+     "text": "is",
+     "start": 147.28,
+     "end": 147.34
+    },
+    {
+     "text": "formed",
+     "start": 147.42,
+     "end": 147.76
+    },
+    {
+     "text": "where",
+     "start": 147.88,
+     "end": 148.06
+    },
+    {
+     "text": "two",
+     "start": 148.16,
+     "end": 148.34
+    },
+    {
+     "text": "sides",
+     "start": 148.5,
+     "end": 148.84
+    },
+    {
+     "text": "meet.",
+     "start": 148.94,
+     "end": 149.14
+    }
+   ]
+  },
+  {
+   "id": "p37d",
+   "text": "A diagonal joins two non-adjacent vertices.",
+   "start": 150.1,
+   "end": 153.02,
+   "words": [
+    {
+     "text": "A",
+     "start": 150.1,
+     "end": 150.12
+    },
+    {
+     "text": "diagonal",
+     "start": 150.18,
+     "end": 150.66
+    },
+    {
+     "text": "joins",
+     "start": 150.76,
+     "end": 151.1
+    },
+    {
+     "text": "two",
+     "start": 151.22,
+     "end": 151.4
+    },
+    {
+     "text": "non-adjacent",
+     "start": 151.68,
+     "end": 152.42
+    },
+    {
+     "text": "vertices.",
+     "start": 152.5,
+     "end": 153.02
+    }
+   ]
+  },
+  {
+   "id": "p37e",
+   "text": "In a convex polygon, all diagonals stay inside.",
+   "start": 153.62,
+   "end": 157.2,
+   "words": [
+    {
+     "text": "In",
+     "start": 153.62,
+     "end": 153.66
+    },
+    {
+     "text": "a",
+     "start": 153.74,
+     "end": 153.76
+    },
+    {
+     "text": "convex",
+     "start": 153.86,
+     "end": 154.26
+    },
+    {
+     "text": "polygon,",
+     "start": 154.42,
+     "end": 154.9
+    },
+    {
+     "text": "all",
+     "start": 155.42,
+     "end": 155.56
+    },
+    {
+     "text": "diagonals",
+     "start": 155.64,
+     "end": 156.18
+    },
+    {
+     "text": "stay",
+     "start": 156.36,
+     "end": 156.6
+    },
+    {
+     "text": "inside.",
+     "start": 156.76,
+     "end": 157.2
+    }
+   ]
+  },
+  {
+   "id": "p37f",
+   "text": "In a concave polygon, atleast one diagonal goes outside.",
+   "start": 157.82,
+   "end": 162.06,
+   "words": [
+    {
+     "text": "In",
+     "start": 157.82,
+     "end": 157.86
+    },
+    {
+     "text": "a",
+     "start": 157.94,
+     "end": 157.98
+    },
+    {
+     "text": "concave",
+     "start": 158.06,
+     "end": 158.66
+    },
+    {
+     "text": "polygon,",
+     "start": 158.72,
+     "end": 159.22
+    },
+    {
+     "text": "atleast",
+     "start": 159.72,
+     "end": 160.06
+    },
+    {
+     "text": "one",
+     "start": 160.42,
+     "end": 160.52
+    },
+    {
+     "text": "diagonal",
+     "start": 160.6,
+     "end": 161.02
+    },
+    {
+     "text": "goes",
+     "start": 161.12,
+     "end": 161.34
+    },
+    {
+     "text": "outside.",
+     "start": 161.56,
+     "end": 162.06
+    }
+   ]
+  },
+  {
+   "id": "p37g",
+   "text": "A regular polygon has all sides and all angles equal.",
+   "start": 162.8,
+   "end": 166.56,
+   "words": [
+    {
+     "text": "A",
+     "start": 162.8,
+     "end": 162.82
+    },
+    {
+     "text": "regular",
+     "start": 162.96,
+     "end": 163.36
+    },
+    {
+     "text": "polygon",
+     "start": 163.42,
+     "end": 163.92
+    },
+    {
+     "text": "has",
+     "start": 164.02,
+     "end": 164.18
+    },
+    {
+     "text": "all",
+     "start": 164.44,
+     "end": 164.58
+    },
+    {
+     "text": "sides",
+     "start": 164.68,
+     "end": 165
+    },
+    {
+     "text": "and",
+     "start": 165.18,
+     "end": 165.26
+    },
+    {
+     "text": "all",
+     "start": 165.52,
+     "end": 165.64
+    },
+    {
+     "text": "angles",
+     "start": 165.82,
+     "end": 166.12
+    },
+    {
+     "text": "equal.",
+     "start": 166.32,
+     "end": 166.56
+    }
+   ]
+  },
+  {
+   "id": "p37h",
+   "text": "If the sides or angles are not all equal, the polygon is irregular.",
+   "start": 167.34,
+   "end": 172.3,
+   "words": [
+    {
+     "text": "If",
+     "start": 167.34,
+     "end": 167.38
+    },
+    {
+     "text": "the",
+     "start": 167.48,
+     "end": 167.58
+    },
+    {
+     "text": "sides",
+     "start": 167.7,
+     "end": 168.06
+    },
+    {
+     "text": "or",
+     "start": 168.24,
+     "end": 168.32
+    },
+    {
+     "text": "angles",
+     "start": 168.5,
+     "end": 168.84
+    },
+    {
+     "text": "are",
+     "start": 169.06,
+     "end": 169.14
+    },
+    {
+     "text": "not",
+     "start": 169.32,
+     "end": 169.5
+    },
+    {
+     "text": "all",
+     "start": 169.7,
+     "end": 169.82
+    },
+    {
+     "text": "equal,",
+     "start": 169.94,
+     "end": 170.18
+    },
+    {
+     "text": "the",
+     "start": 170.62,
+     "end": 170.72
+    },
+    {
+     "text": "polygon",
+     "start": 170.78,
+     "end": 171.28
+    },
+    {
+     "text": "is",
+     "start": 171.5,
+     "end": 171.56
+    },
+    {
+     "text": "irregular.",
+     "start": 171.78,
+     "end": 172.3
+    }
+   ]
+  },
+  {
+   "id": "p37i",
+   "text": "Amazing! You explored all these polygon ideas!",
+   "start": 173.24,
+   "end": 176.86,
+   "words": [
+    {
+     "text": "Amazing!",
+     "start": 173.24,
+     "end": 173.94
+    },
+    {
+     "text": "You",
+     "start": 174.44,
+     "end": 174.58
+    },
+    {
+     "text": "explored",
+     "start": 174.74,
+     "end": 175.18
+    },
+    {
+     "text": "all",
+     "start": 175.44,
+     "end": 175.58
+    },
+    {
+     "text": "these",
+     "start": 175.68,
+     "end": 175.86
+    },
+    {
+     "text": "polygon",
+     "start": 175.96,
+     "end": 176.38
+    },
+    {
+     "text": "ideas!",
+     "start": 176.5,
+     "end": 176.86
+    }
+   ]
+  },
+  {
+   "id": "p38a",
+   "text": "Honk-tastic!",
+   "start": 177.54,
+   "end": 178.38,
+   "words": [
+    {
+     "text": "Honk-tastic!",
+     "start": 177.54,
+     "end": 178.38
+    }
+   ]
+  },
+  {
+   "id": "p38b",
+   "text": "You are a polygon adventurer!",
+   "start": 179.12,
+   "end": 181.38,
+   "words": [
+    {
+     "text": "You",
+     "start": 179.12,
+     "end": 179.32
+    },
+    {
+     "text": "are",
+     "start": 179.66,
+     "end": 179.76
+    },
+    {
+     "text": "a",
+     "start": 179.84,
+     "end": 179.86
+    },
+    {
+     "text": "polygon",
+     "start": 179.94,
+     "end": 180.5
+    },
+    {
+     "text": "adventurer!",
+     "start": 180.74,
+     "end": 181.38
+    }
+   ]
+  }
+ ]
+}

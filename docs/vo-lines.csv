@@ -68,7 +68,7 @@ order,id,file,kind,screen,screen_id,text,breaths,when,delivery
 67,fb29,assets/vo/fb29.mp3,feedback,,,"Try once more.","","a try that falls short, with the reason","explaining, warm and clear"
 68,fb30,assets/vo/fb30.mp3,feedback,,,"Take another look.","","a try that falls short, with the reason","explaining, warm and clear"
 69,fb31,assets/vo/fb31.mp3,feedback,,,"Not quite.","","a try that falls short, with the reason","explaining, warm and clear"
-70,p38a,assets/vo/p38a.mp3,feedback,,,"Honk-tastic! 350 XP and 5 badges.","","a try that falls short, with the reason","explaining, warm and clear"
+70,p38a,assets/vo/p38a.mp3,feedback,,,"Honk-tastic!","","a try that falls short, with the reason","explaining, warm and clear"
 71,p38b,assets/vo/p38b.mp3,feedback,,,"You are a polygon adventurer!","","a try that falls short, with the reason","explaining, warm and clear"
 72,fb10,assets/vo/fb10.mp3,feedback,,,"Not that one.","","a wrong answer (rotates, at most every 3 s)","gentle and encouraging, never disappointed"
 73,fb15,assets/vo/fb15.mp3,feedback,,,"Drop it on a corner!","","a try that falls short, with the reason","gentle and encouraging, never disappointed"

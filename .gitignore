@@ -22,8 +22,8 @@ Thumbs.db
 .vscode/
 .vercel/
 
-# Raw voice takes cut by tools/split-vo.js. Source material: the per-line
-# clips that ship are assets/vo/<id>.mp3, placed by `node tools/split-vo.js --apply`.
+# Cuts of an earlier take; nothing reads them. The take that voices the game
+# is assets/source/gamevo.mp3, cut into assets/vo/<id>.mp3 by tools/split-vo.js.
 assets/vo/take/
 
 # a collaborator's local preview renders, not part of the game

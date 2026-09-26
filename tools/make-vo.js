@@ -7,7 +7,7 @@
  *   node tools/make-vo.js p21 p22         just these
  *   options: --voice en-US-AvaNeural --pitch +6% --rate -20%
  *
- *   then:    npm run vo:encode && npm run build:vo
+ *   then:    npm run build:vo
  *
  * Every line the game can say (tools/vo-lines.js — the storyboard, the
  * answers, the reasons, the reminders) is spoken by one natural neural voice
@@ -17,11 +17,20 @@
  * the BUBBLE shows — so each word appears as it is said, not on a clock of
  * its own. build-vo-index.js folds them into index.json for the game.
  *
- * THE VOICE. Swiftee is a small, curious, clever bird talking to a
- * seven-year-old: a natural female voice, young and warm, clear and a little
- * bright — not a baby voice and not a narrator. Ava is the most natural and
- * expressive of the en-US voices; a touch of lift and an easy, unhurried pace
- * make her Swiftee. Any Edge voice can be tried with --voice.
+ * THE VOICE. Swiftee's lesson lines are a RECORDING (assets/source/gamevo.mp3,
+ * cut by tools/split-vo.js); this voices only what the take does not — the
+ * feedback cheers and nudges — until they are recorded too. So the voice here
+ * is the one that sits beside the recording: measured against the take's own
+ * lines, Ana is by far the nearest of the en-US voices in timbre (3.7 dB
+ * long-term mel-spectrum distance, against 5.5 dB and more for every other)
+ * and in pitch, and the defaults below pull her pitch and pace onto the
+ * take's (a 262 Hz median; about 128 words a minute, the pace split-vo cuts
+ * the take to). Any Edge voice can be tried with --voice.
+ *
+ * THE LEVEL. Each clip is brought to TARGET LUFS, the level the take's clips
+ * are cut at (split-vo.js), so a cheer is never louder than the line before
+ * it — and written straight out in the game's formats (mono 64k mp3 for
+ * Safari, Vorbis q1 for everyone else), so no encode step follows.
  *
  * THE WORDS SHOWN AND THE WORDS SPOKEN can differ ("Atleast" is said "at
  * least"; "Hmm…" is said "Hmm"). Each word of the bubble takes the start of
@@ -42,12 +51,61 @@ const VO = path.join(ROOT, 'assets', 'vo');
 const TIMINGS = path.join(VO, 'word-timings.json');
 
 const arg = (name, dflt) => { const i = process.argv.indexOf('--' + name); return i > 0 ? process.argv[i + 1] : dflt; };
-const VOICE = arg('voice', 'en-US-AvaNeural');
-const PITCH = arg('pitch', '+6%');
-// -20%: about 130-135 words a minute, an unhurried classroom pace (at the
-// service's own pace she spoke nearly 200 a minute — the user: "make sure vo
-// not look very fast to hear")
-const RATE = arg('rate', '-20%');
+const VOICE = arg('voice', 'en-US-AnaNeural');
+// -11%: Ana's own median is ~300 Hz against the take's 262; at -11% she
+// reads at 262-276 on the take's lines, and the timbre distance is at its
+// lowest there (2.7-2.9 dB; 3.7 at her own pitch, and it climbs past -13%)
+const PITCH = arg('pitch', '-11%');
+// -5%: on the take's lines Ana at her own rate runs 5% quicker than the
+// take cut to its unhurried ~128 words a minute; this brings her level with it
+const RATE = arg('rate', '-5%');
+const { spawnSync, execFileSync } = require('node:child_process');
+const TARGET = -20.5, PEAK_DB = -1.5;                 // as tools/split-vo.js cuts the take
+const TMP = path.join(VO, '.make-vo.tmp.mp3');
+const ff = (args) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args]);
+/* how loud a clip is (integrated LUFS) and its peak (dBFS) */
+function levelOf(file) {
+  const r = spawnSync('ffmpeg', ['-hide_banner', '-i', file, '-af', 'ebur128=peak=sample', '-f', 'null', '-'], { encoding: 'utf8' });
+  const log = r.stderr || '';
+  const I = /I:\s+(-?[\d.]+) LUFS\s*\n\s*Threshold/.exec(log), P = /Peak:\s+(-?[\d.]+) dBFS/.exec(log.slice(log.lastIndexOf('Summary')));
+  return { lufs: I ? parseFloat(I[1]) : null, peak: P ? parseFloat(P[1]) : null };
+}
+/* WHERE A WORD'S SOUND BEGINS. The service's boundary for a word after a
+   pause — the first word most of all — sits 80-130 ms before anything can be
+   heard (measured on every cheer: the mark at 103 ms, sound from 170-230);
+   inside running speech its boundaries are right ("more" lands on its dip).
+   So a mark with quiet beside it is moved to the rise out of that quiet, as
+   split-vo.js does for the take; a mark in running speech is left alone. */
+function snapCues(cs, file) {
+  const r = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-i', file, '-ac', '1', '-ar', '16000', '-f', 'f32le', '-'], { maxBuffer: 1 << 26 });
+  if (r.status || !r.stdout || !r.stdout.length) return cs;
+  const x = new Float32Array(r.stdout.buffer, r.stdout.byteOffset, r.stdout.length / 4);
+  const STEP = 10, per = 160, n = Math.floor(x.length / per), db = new Float32Array(n);
+  for (let k = 0; k < n; k++) { let m = 0; for (let i = k * per; i < (k + 1) * per; i++) m = Math.max(m, Math.abs(x[i])); db[k] = 20 * Math.log10(m + 1e-9); }
+  const quietAt = (k) => k < 0 || k >= n || db[k] <= -45;
+  const out = [];
+  cs.forEach((c, i) => {
+    if (i && c === cs[i - 1]) { out.push(out[i - 1]); return; }      // a mark riding on the word before
+    let nearQuiet = false;
+    for (let k = Math.floor((c - 60) / STEP); k <= Math.floor((c + 60) / STEP); k++) if (quietAt(k)) { nearQuiet = true; break; }
+    if (!nearQuiet) { out.push(c); return; }
+    const hi = Math.min(n - 5, Math.floor((c + 300) / STEP)), lo = Math.max(3, Math.floor((c - 150) / STEP));
+    let at = c;
+    for (let j = hi; j >= lo; j--) {
+      if (db[j] <= -35) continue;
+      // the quiet it rose out of, within 60 ms: a nasal or a fricative
+      // ("Nice", "That's") climbs through the threshold over a few steps
+      let q = -1; for (let z = j - 1; z >= j - 6 && z >= 0; z--) if (quietAt(z)) { q = z; break; }
+      if (q < 0 || !quietAt(q - 1) || !quietAt(q - 2)) continue;
+      let held = 0; for (let z = j; z < j + 5 && z < n; z++) if (db[z] > -30) held++;
+      if (held < 3) continue;
+      at = (q + 1) * STEP;                                 // the first step out of the quiet
+      break;
+    }
+    out.push(i ? Math.max(at, out[i - 1]) : at);
+  });
+  return out;
+}
 const ALL = process.argv.includes('--all');
 const only = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !(all[i - 1] || '').startsWith('--'));
 
@@ -140,7 +198,14 @@ function cues(text, heard) {
   fs.mkdirSync(VO, { recursive: true });
   let timings = {};
   try { timings = JSON.parse(fs.readFileSync(TIMINGS, 'utf8')); } catch (e) { timings = {}; }
-  const todo = lines().filter((l) => l.text && (only.length ? only.includes(l.id) : (ALL || !fs.existsSync(path.join(VO, l.id + '.mp3')))));
+  // never the recording's own lines: those are cut from the take by split-vo.js
+  const taken = new Set((() => {
+    try {
+      const t = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'vo-timeline.json'), 'utf8'));
+      return t.lines.map((l) => l.id).concat((t.derived || []).map((d) => d.id));
+    } catch (e) { return []; }
+  })());
+  const todo = lines().filter((l) => l.text && !taken.has(l.id) && (only.length ? only.includes(l.id) : (ALL || !fs.existsSync(path.join(VO, l.id + '.mp3')))));
   console.log('voice ' + VOICE + ' (pitch ' + PITCH + ', rate ' + RATE + '), ' + todo.length + ' line' + (todo.length === 1 ? '' : 's'));
   let ok = 0, unsynced = [];
   for (const l of todo) {
@@ -149,8 +214,16 @@ function cues(text, heard) {
       try { res = await speak(l.text); } catch (e) { err = e; await new Promise((r) => setTimeout(r, 800 * (attempt + 1))); }
     }
     if (!res || !res.audio.length) { console.log('  FAILED ' + l.id + ': ' + (err && err.message)); continue; }
-    fs.writeFileSync(path.join(VO, l.id + '.mp3'), res.audio);
-    const c = cues(l.text, res.words);
+    // at the take's level, in the game's formats
+    fs.writeFileSync(TMP, res.audio);
+    const lv = levelOf(TMP);
+    let gain = lv.lufs == null ? 0 : TARGET - lv.lufs;
+    if (lv.peak != null) gain = Math.min(gain, PEAK_DB - lv.peak);
+    const af = 'volume=' + gain.toFixed(2) + 'dB';
+    ff(['-i', TMP, '-af', af, '-ac', '1', '-c:a', 'libmp3lame', '-b:a', '64k', path.join(VO, l.id + '.mp3')]);
+    ff(['-i', TMP, '-af', af, '-ac', '1', '-c:a', 'libvorbis', '-q:a', '1', path.join(VO, l.id + '.ogg')]);
+    const c0 = cues(l.text, res.words);
+    const c = c0 ? snapCues(c0, path.join(VO, l.id + '.ogg')) : null;
     if (c) timings[l.id] = c; else { delete timings[l.id]; unsynced.push(l.id); }
     ok++;
     console.log('  ' + l.id.padEnd(5) + ' ' + (c ? c.length + ' words' : 'NO WORD SYNC') + '  "' + l.text + '"');
@@ -159,5 +232,6 @@ function cues(text, heard) {
   const sorted = {};
   Object.keys(timings).sort().forEach((k) => { sorted[k] = timings[k]; });
   fs.writeFileSync(TIMINGS, JSON.stringify(sorted, null, 1) + '\n');
-  console.log(ok + ' spoken' + (unsynced.length ? '; word sync missing for ' + unsynced.join(' ') : '') + '. Next: npm run vo:encode && npm run build:vo');
+  try { fs.unlinkSync(TMP); } catch (e) {}
+  console.log(ok + ' spoken' + (unsynced.length ? '; word sync missing for ' + unsynced.join(' ') : '') + '. Next: npm run build:vo');
 })().catch((e) => { console.error(e); process.exit(1); });

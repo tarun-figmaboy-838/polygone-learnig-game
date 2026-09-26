@@ -108,7 +108,7 @@ md += '| File | Line | When | Delivery | Recorded |\n|------|------|------|-----
 fb.forEach((r) => {
   md += '| `assets/vo/' + r.id + '.mp3` | ' + esc(r.text) + ' | ' + when(r, null) + ' | ' + delivery(r) + ' | ' + (have.has(r.id) ? 'yes' : '—') + ' |\n';
 });
-md += '\n## Not recorded\n\nThe finale line, "Honk-tastic! <XP> XP and <badges> badges. You are a polygon adventurer!", carries the child’s own score, so it is shown and not voiced.\n';
+md += '\n## Not recorded\n\nThe score between the two finale lines ("<XP> XP and <badges> badges.") is the child’s own, so it is shown and not voiced.\n';
 
 fs.mkdirSync(path.join(ROOT, 'docs'), { recursive: true });
 fs.writeFileSync(path.join(ROOT, 'docs', 'VO.md'), md);

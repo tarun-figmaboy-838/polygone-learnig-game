@@ -88,7 +88,7 @@ Every line Swiftee says, **in the order a child hears it**, with the file the ga
 | `assets/vo/fb29.mp3` | Try once more. | a try that falls short, with the reason | explaining, warm and clear | yes |
 | `assets/vo/fb30.mp3` | Take another look. | a try that falls short, with the reason | explaining, warm and clear | yes |
 | `assets/vo/fb31.mp3` | Not quite. | a try that falls short, with the reason | explaining, warm and clear | yes |
-| `assets/vo/p38a.mp3` | Honk-tastic! 350 XP and 5 badges. | a try that falls short, with the reason | explaining, warm and clear | yes |
+| `assets/vo/p38a.mp3` | Honk-tastic! | a try that falls short, with the reason | explaining, warm and clear | yes |
 | `assets/vo/p38b.mp3` | You are a polygon adventurer! | a try that falls short, with the reason | explaining, warm and clear | yes |
 | `assets/vo/fb10.mp3` | Not that one. | a wrong answer (rotates, at most every 3 s) | gentle and encouraging, never disappointed | yes |
 | `assets/vo/fb15.mp3` | Drop it on a corner! | a try that falls short, with the reason | gentle and encouraging, never disappointed | yes |
@@ -100,4 +100,4 @@ Every line Swiftee says, **in the order a child hears it**, with the file the ga
 
 ## Not recorded
 
-The finale line, "Honk-tastic! <XP> XP and <badges> badges. You are a polygon adventurer!", carries the child’s own score, so it is shown and not voiced.
+The score between the two finale lines ("<XP> XP and <badges> badges.") is the child’s own, so it is shown and not voiced.

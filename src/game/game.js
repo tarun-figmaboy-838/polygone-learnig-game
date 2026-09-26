@@ -731,10 +731,11 @@
    * one it is due on (`after` misses on the screen, or on the card:
    * `perCard`). */
   var inputSeq = 0, praisedInput = -1, lastPraiseAt = 0, wrongRepliedSeq = -1;
-  /* THE FINALE, IN HIS VOICE. A whole run always ends on the same score
-     (fourteen questions at 25, five badges); any other score is shown and
-     not said. */
-  var FINALE = [{ t: 'Honk-tastic! 350 XP and 5 badges.', vo: 'p38a' }, { t: 'You are a polygon adventurer!', vo: 'p38b' }];
+  /* THE FINALE, IN HIS VOICE: "Honk-tastic!" and "You are a polygon
+     adventurer!" are the recorded take's last two lines. Between them the
+     child's own score is shown, not said — the take has no numbers in it,
+     and a score is whatever this run earned. */
+  var FINALE = [{ t: 'Honk-tastic!', vo: 'p38a' }, { t: 'You are a polygon adventurer!', vo: 'p38b' }];
   var NUDGE_STRONG = { t: 'Not that one.', vo: 'fb10' };
   var wrongSinceRight = false;        // a miss on this screen since the last right answer
   /* the next cheer in the round, never the one just said */
@@ -3738,9 +3739,10 @@
     say(null); setCard(null); showNext(false);
     if (global.Music) Music.mood('win');   // the tune lifts for the last screen
     var won = quest.snapshot();
-    var score = 'Honk-tastic! ' + won.xp + ' XP and ' + won.badges.length + (won.badges.length === 1 ? ' badge' : ' badges') + '.';
+    var score = won.xp + ' XP and ' + won.badges.length + (won.badges.length === 1 ? ' badge' : ' badges') + '.';
     // spoken and word by word, one voice at a time, his last words kept up
-    pop([{ t: score, vo: score === FINALE[0].t ? FINALE[0].vo : null, mood: 'win' },
+    pop([{ t: FINALE[0].t, vo: FINALE[0].vo, mood: 'win' },
+         { t: score, mood: 'win' },
          { t: FINALE[1].t, vo: FINALE[1].vo, mood: 'win' }], { keep: true });
     // one burst, wide, for the finale — two from different points read as a stutter
     if (global.Juice) Juice.confetti(Stage.svg, { count: 72, spread: 2.6 });

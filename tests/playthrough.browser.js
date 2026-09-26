@@ -88,7 +88,28 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
   const page = await context.newPage();
   if (VOICED) await page.addInitScript(() => {
-    const V = window.__voiced = { clips: [], openWhileSpeaking: [], openNotWaiting: [], hintOverVoice: [], dupes: [] };
+    const V = window.__voiced = { clips: [], openWhileSpeaking: [], openNotWaiting: [], hintOverVoice: [], dupes: [], words: [] };
+    /* EVERY WORD AGAINST THE VOICE. Each word in the bubble is revealed by
+       gaining .in; at that moment the voice's position in its clip is set
+       beside the word's recorded start (assets/vo/word-timings.json). A word
+       shown before it is said, or long after, is a sync fault. Counted per
+       play of a clip, across all of that line's bubbles. */
+    let wordN = 0, wordClip = null;
+    document.addEventListener('DOMContentLoaded', () => {
+      new MutationObserver((muts) => {
+        const VO = window.VO; if (!VO || !VO.id || !VO.at) return;
+        muts.forEach((m) => {
+          const el = m.target;
+          if (!el.classList || !el.classList.contains('in') || /in/.test(m.oldValue || '') || !el.closest || !el.closest('#bubble')) return;
+          const at = VO.at(); if (at == null) return;
+          if (wordClip !== V.clips[V.clips.length - 1]) { wordClip = V.clips[V.clips.length - 1]; wordN = 0; }
+          if (!wordClip || wordClip.id !== VO.id) return;
+          const cues = VO.words(VO.id) || [];
+          if (wordN < cues.length) V.words.push({ id: VO.id, k: wordN, text: (el.textContent || '').trim(), at: Math.round(at), cue: cues[wordN] });
+          wordN += Math.max(1, (el.textContent || '').trim().split(/s+/).filter(Boolean).length);
+        });
+      }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true });
+    });
     const P = HTMLMediaElement.prototype, play = P.play, pause = P.pause;
     const idOf = (el) => (el.currentSrc || el.src || '').split('/').pop().split('?')[0].replace(/\.(ogg|mp3)$/, '');
     P.play = function () {
@@ -806,6 +827,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         t('voiced: no input open while he is speaking', V.openWhileSpeaking.length === 0, JSON.stringify(V.openWhileSpeaking.slice(0, 6)));
         t('voiced: no hint over his voice', V.hintOverVoice.length === 0, JSON.stringify(V.hintOverVoice.slice(0, 6)));
         t('voiced: nothing on the page twice', V.dupes.length === 0, JSON.stringify(V.dupes.slice(0, 6)));
+        // (the first word of a line waits for its bubble to arrive, PANEL_LEAD,
+        // so it is allowed its own lateness; every other word follows the voice)
+        const lag = V.words.map((w) => ({ ...w, e: w.at - w.cue }));
+        const early = lag.filter((w) => w.e < -60), late = lag.filter((w) => w.e > (w.k === 0 ? 260 : 180));
+        const es = lag.map((w) => w.e).sort((a, b) => a - b);
+        console.log('  note  voiced: ' + lag.length + ' words timed against the voice; lag median ' + (es[es.length >> 1] || 0) + ' ms, 95% within ' + (es[Math.floor(es.length * 0.95)] || 0) + ' ms');
+        t('voiced: every word appears as it is said', lag.length > 100 && !early.length && !late.length,
+          early.concat(late).slice(0, 8).map((w) => w.id + ' "' + w.text + '" at ' + w.at + ' ms, said at ' + w.cue).join('; ') || ('only ' + lag.length + ' words seen'));
       }
     }
   }
