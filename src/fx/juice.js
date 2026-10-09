@@ -15,7 +15,7 @@
  *
  *   Juice.stage(container)                  // one-time: where confetti lands
  *   Juice.pop(el, { scale })
- *   Juice.wobble(el) / refuse(el)           // "not that one"
+ *   Juice.wobble(el) / refuse(el) / buzz(el) // "not that one"
  *   Juice.collect(el) / celebrate(el)       // "yes"
  *   Juice.flash(el)
  *   Juice.confetti(near, { count, offsetX })   // a burst, from a place
@@ -78,6 +78,47 @@
     return el;
   }
 
+  /**
+   * AN SVG POSITION IS AN ATTRIBUTE, AND NOT EVERY ENGINE ADDS TO IT.
+   *
+   * Most of the stage is placed by `transform="translate(x,y)"`, and ADDITIVE
+   * above counts on the effect being added to that. Chrome adds to it. Safari
+   * starts the addition from `none`: the pop on a card dropped in its bin
+   * replaced translate(600,400) with a bare scale(1.18), so for the length of
+   * the pop the card was drawn at the stage's top-left corner, and bounced
+   * there. (The separate `scale` property is no way round it: it scales about
+   * the parent's origin, and slid the same card 85px.)
+   *
+   * So while an effect runs, the attribute is copied into the inline style,
+   * where every engine adds to it. Same property and same origin, so the copy
+   * draws exactly where the attribute did. It is kept in step if the scene
+   * moves the element meanwhile (a card dragged again during its recoil), and
+   * the last effect to end takes it away and leaves the attribute in charge.
+   */
+  function holdBase(el, a) {
+    if (!el.transform || !el.transform.baseVal || !a || !a.finished) return;
+    var h = el._juiceBase;
+    if (!h) {
+      if (el.style.transform) return;              // a CSS transform of its own is already the base
+      var sync = function () {
+        var t = el.transform.baseVal.consolidate(), m = t && t.matrix;
+        el.style.transform = m ? 'matrix(' + [m.a, m.b, m.c, m.d, m.e, m.f].join(',') + ')' : '';
+      };
+      if (!el.transform.baseVal.numberOfItems) return;
+      sync();
+      h = el._juiceBase = { n: 0, watch: global.MutationObserver ? new MutationObserver(sync) : null };
+      if (h.watch) h.watch.observe(el, { attributes: true, attributeFilter: ['transform'] });
+    }
+    h.n++;
+    var release = function () {
+      if (--h.n > 0) return;
+      if (h.watch) h.watch.disconnect();
+      el.style.transform = '';
+      el._juiceBase = null;
+    };
+    a.finished.then(release, release);
+  }
+
   function run(el, frames, opts) {
     if (!can(el)) return { finished: Promise.resolve(), cancel: function () {} };
     centred(el);
@@ -87,6 +128,7 @@
     } catch (e) {
       return { finished: Promise.resolve(), cancel: function () {} };
     }
+    try { holdBase(el, a); } catch (e) {}
     return a;
   }
 
@@ -147,6 +189,22 @@
       ], { duration: o.duration || 380, easing: 'ease-in-out' }).finished;
     },
 
+    /** A buzz: a quick small shiver, side to side — "not that one" felt, like a phone's
+        buzz, not a telling-off. Clearer than the wobble, over in a third of a second. */
+    buzz: function (el, o) {
+      o = o || {};
+      var d = o.distance == null ? 6 : o.distance;
+      return run(el, [
+        { transform: 'translateX(0)' },
+        { transform: 'translateX(' + -d + 'px)', offset: 0.14 },
+        { transform: 'translateX(' + d + 'px)', offset: 0.32 },
+        { transform: 'translateX(' + (-d * 0.7) + 'px)', offset: 0.5 },
+        { transform: 'translateX(' + (d * 0.45) + 'px)', offset: 0.68 },
+        { transform: 'translateX(' + (-d * 0.2) + 'px)', offset: 0.84 },
+        { transform: 'translateX(0)' }
+      ], { duration: o.duration || 340, easing: 'linear' }).finished;
+    },
+
     /** A refused drop: wobble plus a small recoil. */
     refuse: function (el, o) {
       o = o || {};
@@ -188,22 +246,6 @@
       } catch (e) { return Promise.resolve(); }
       return a.finished;
     },
-    /* A NUDGE OF THE WHOLE SCENE on a wrong answer: five pixels, a third of a
-       second, on `translate` so it never throws away a transform the scene
-       already has. Felt more than seen. */
-    shake: function (el, o) {
-      o = o || {};
-      if (!can(el)) return Promise.resolve();
-      var d = o.distance == null ? 5 : o.distance, a;
-      try {
-        a = el.animate([
-          { translate: '0 0' }, { translate: -d + 'px 0', offset: 0.2 }, { translate: d + 'px 0', offset: 0.45 },
-          { translate: (-d * 0.5) + 'px 0', offset: 0.7 }, { translate: '0 0' }
-        ], { duration: o.duration || 320, easing: 'ease-in-out' });
-      } catch (e) { return Promise.resolve(); }
-      return a.finished;
-    },
-
     /** Accepted: a lift, a squeeze and a settle. */
     collect: function (el, o) {
       o = o || {};
@@ -332,7 +374,9 @@
     var speed = (180 + Math.random() * 300) * (o.speed || 1);   // o.speed: shorter throws keep a burst close to its card
     var dx = Math.cos(angle) * speed;
     var rise = Math.sin(angle) * speed;
-    var fall = 300 + Math.random() * 360;
+    // (the fall is scaled with the throw: a short burst that still dropped three hundred pixels
+    // landed on the cards below it, as if they had burst too)
+    var fall = (300 + Math.random() * 360) * (o.speed || 1);
     var spin = (Math.random() - 0.5) * 1400;
     var dur = 1500 + Math.random() * 900;
     var flutter = 0.25 + Math.random() * 0.35;   // how edge-on it turns mid-fall

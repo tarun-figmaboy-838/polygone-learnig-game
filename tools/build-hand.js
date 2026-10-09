@@ -2,7 +2,7 @@
 /*!
  * build-hand.js — the pointing hand the hints use, from the supplied artwork.
  *
- *   assets/source/image copy.png  (300×360, transparent)  →  assets/ui/hand.webp
+ *   assets/source/image copy.avif  (300×360, transparent)  →  assets/ui/hand.webp
  *                                                        src/game/hand-art.js
  *
  * The hand is drawn at about a fingertip's size over the stage, so the file is
@@ -16,7 +16,7 @@
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), crypto = require('node:crypto');
 const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '..');
-const SRC = 'assets/source/image copy.png', OUT = 'assets/ui/hand.webp', ART = 'src/game/hand-art.js', HEIGHT = 240;
+const SRC = 'assets/source/image copy.avif', OUT = 'assets/ui/hand.webp', ART = 'src/game/hand-art.js', HEIGHT = 240;
 function serve() { const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0])); if (!fs.existsSync(f)) { r.writeHead(404); return r.end(); } r.writeHead(200, { 'Content-Type': 'image/png', 'Access-Control-Allow-Origin': '*' }); fs.createReadStream(f).pipe(r); }); return new Promise((res) => srv.listen(0, () => res(srv))); }
 (async () => {
   const srv = await serve(); const port = srv.address().port;

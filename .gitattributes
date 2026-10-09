@@ -4,3 +4,5 @@
 
 *.png  binary
 *.webp binary
+*.avif binary
+*.opus binary

@@ -89,6 +89,8 @@
    */
   function show(text) {
     if (!mount()) return;
+    // in the lesson's language (src/core/i18n.js, ?lan=); a line already turned is left as it is
+    if (text && global.I18N && I18N.on) text = I18N.tr(text);
     clearTimeout(swapTimer);
     // A swap cut short by the next call is finished, not abandoned: the old
     // text is not left faded out, and the sentence it was fading to is the

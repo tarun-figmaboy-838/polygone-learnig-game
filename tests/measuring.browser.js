@@ -12,7 +12,7 @@ const path = require('node:path');
     const file = path.join(root, req.url.split('?')[0] === '/' ? 'index.html' : req.url.split('?')[0]);
     fs.readFile(file, (err, bytes) => {
       if (err) { res.writeHead(404).end(); return; }
-      const types = { '.js': 'text/javascript', '.html': 'text/html', '.webp': 'image/webp', '.png': 'image/png' };
+      const types = { '.js': 'text/javascript', '.html': 'text/html', '.webp': 'image/webp', '.avif': 'image/avif', '.png': 'image/png' };
       res.setHeader('Content-Type', types[path.extname(file)] || 'application/octet-stream');
       res.end(bytes);
     });

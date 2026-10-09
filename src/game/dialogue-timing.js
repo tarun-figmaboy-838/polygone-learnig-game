@@ -50,12 +50,14 @@
   var AFTER = [
     [/(…|\.\.\.)["”’)]*$/, 600],   // ellipsis — the longest think
     [/[?]["”’)]*$/, 480],
-    [/[.!]["”’)]*$/, 420],
+    [/[.!\u0964\u0965]["”’)]*$/, 420],   // (and the danda, the full stop of Hindi, Marathi and Odia)
     [/[,;:]["”’)]*$/, 220]
   ];
 
+  /* (a word in another script keeps its letters — Devanagari to Malayalam, and the joiners —
+     so a long one is given its moment as a long English word is; src/core/i18n.js, ?lan=) */
   var clean = function (w) {
-    return String(w).toLowerCase().replace(/[^a-z-]/g, '');
+    return String(w).toLowerCase().replace(/[^a-z\u0900-\u0963\u0966-\u0dff\u200c\u200d-]/g, '');
   };
 
   /** The gap owed BEFORE the next word, given the word just shown. */
@@ -100,7 +102,7 @@
     for (var i = 0; i < ws.length; i++) {
       out.push(Math.round(at * k));
       at += gapAfter(ws[i]);
-      if (breaks && breaks.indexOf(i) >= 0 && !/[.!?…,;:]["”’)]*$/.test(ws[i])) at += FRAGMENT_GAP;
+      if (breaks && breaks.indexOf(i) >= 0 && !/[.!?…,;:\u0964\u0965]["”’)]*$/.test(ws[i])) at += FRAGMENT_GAP;
     }
     return out;
   }
@@ -130,11 +132,13 @@
    * for a long one — enough that no finger already moving lands on a target
    * that was not there a moment ago, never so long that the child is waiting
    * on the game. The instruction stays up afterwards; this only decides when
-   * the hands may start. */
+   * the hands may start. 500 to 800 ms since the Part 1 review (a Grade 8
+   * pace: "pause before enabling user interaction: 500–800ms") — 500 to 650
+   * for a short line, 650 to 800 for a long one. */
   function interactionDelay(text, scale) {
     var n = words(text).length;
-    var ms = n <= 6 ? Math.min(600, Math.max(300, 240 + n * 60))
-                    : Math.min(1000, Math.max(600, 360 + n * 45));
+    var ms = n <= 6 ? Math.min(650, Math.max(500, 380 + n * 45))
+                    : Math.min(800, Math.max(650, 470 + n * 30));
     return Math.round(ms * (scale == null ? 1 : scale));
   }
 
@@ -146,7 +150,7 @@
      a finished thought and gets the reading pause instead: it is going to be
      taken away, and it has to have been read first. */
   var FRAGMENT_GAP = 450;
-  function endsSentence(text) { return /[.!?…]["”’)]*\s*$/.test(String(text || '')); }
+  function endsSentence(text) { return /[.!?…\u0964\u0965]["”’)]*\s*$/.test(String(text || '')); }
 
   /* THE BUBBLE'S OWN MOTION, which the words have to wait for.
    *
@@ -180,7 +184,7 @@
    * all the diagonals from this vertex." — is looked through: it settles the
    * line into one piece, it is not another line to read. */
   function norm(t) {
-    return String(t || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9\s-]/g, ' ').replace(/\s+/g, ' ').trim();
+    return String(t || '').toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9\u0900-\u0963\u0966-\u0dff\u200c\u200d\s-]/g, ' ').replace(/\s+/g, ' ').trim();
   }
   /** Does `instruction` only repeat the end of `line`? */
   function repeats(instruction, line) {

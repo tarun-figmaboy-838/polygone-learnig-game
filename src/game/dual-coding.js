@@ -155,6 +155,7 @@
    */
   function markup(text) {
     if (!text) return '';
+    if (global.I18N && I18N.on) return markupWords(text);
     var out = '', last = 0, m;
     RE.lastIndex = 0;
     while ((m = RE.exec(text)) !== null) {
@@ -208,6 +209,26 @@
      — the marked corner or every corner, the drawn side, the inside of the
      shape — and lights it for half a second in the warmth of the word's
      orange. True when something on the board answered. */
+  /* IN ANOTHER LANGUAGE (src/core/i18n.js, ?lan=) a key word is found by the word, not by an
+     English pattern: each word of the line is looked up in that language's lists ("विकर्णों" is
+     a diagonal: the list says विकर्ण and any ending), and drawn exactly as above — the chip, and
+     the mark after it held to it as one word. */
+  var EDGE = /^([(\[{"'\u201c\u2018]*)([\s\S]*?)([.,!?;:%)\]}"'\u201d\u2019\u2026\u0964\u0965]*)$/;
+  function markupWords(text) {
+    var out = '';
+    String(text).split(/(\s+)/).forEach(function (p) {
+      if (!p) return;
+      if (/^\s+$/.test(p)) { out += p; return; }
+      var m = EDGE.exec(p) || ['', '', p, ''];
+      var term = m[2] ? I18N.termOf(m[2]) : null;
+      if (!term || !TERMS[term]) { out += esc(p); return; }
+      var chip = '<span class="dc-term" data-term="' + term + '"><span class="dc-ink">' + esc(m[2]) + '</span></span>';
+      out += esc(m[1]);
+      out += m[3] ? '<span class="dc-keep">' + chip + esc(m[3]) + '</span>' : chip;
+    });
+    return out;
+  }
+
   function cueTerm(term, ctx) {
     var def = TERMS[term];
     if (!def || !global.Stage) return false;

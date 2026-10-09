@@ -87,14 +87,32 @@ const esc = (s) => String(s).replace(/\|/g, '\\|');
 let md = '';
 md += '# Voice-over script — Swiftee & the Polygons\n\n';
 md += '_Generated from the storyboard by `node tools/vo-script.js`; do not edit by hand._\n\n';
-md += 'Every line Swiftee says, **in the order a child hears it**, with the file the game plays. ';
+md += 'Every line the game says — the story\u2019s three voices first, then Swiftee\u2019s — **in the order a child hears it**, with the file the game plays. ';
 md += 'Save each clip as `assets/vo/<id>.mp3`, then run `npm run build:vo`: the game plays it as the words appear and paces the bubbles by the recording. ';
 md += 'A clip that is not there yet is silent, so they can be added a few at a time.\n\n';
 md += '**Voice:** Swiftee, a small, warm, playful teal bird talking to a seven-year-old. Clear, unhurried and smiling, never shouty. Lines end with a smile, not a drop.\n\n';
 md += '**Files:** mono MP3, 44.1 kHz, 128 kbps or better, about −16 LUFS, no more than 0.2 s of silence at either end. Aim for about 0.4 s per word plus 0.4 s.\n\n';
 md += '**Breaths:** record every line as ONE clip, read naturally, with a short breath at each `/` in the Breaths column. On screen each sentence is one bubble; the breaths are where the words pause inside it.\n\n';
-const lesson = rows.filter((r) => r.kind !== 'feedback');
+const story = rows.filter((r) => r.kind === 'story');
+const lesson = rows.filter((r) => r.kind !== 'feedback' && r.kind !== 'story');
 const fb = rows.filter((r) => r.kind === 'feedback');
+/* THE STORY FIRST: it is heard before Swiftee arrives, and in three voices that are not his
+   (src/story/story-data.js; tools/make-vo.js STORY voices them until they are recorded) */
+const STORY_VOICE = {
+  narrator: 'the storyteller: warm, clear and unhurried, a grown-up reading a picture book aloud',
+  momo: 'Momo the mammoth: a cute cartoon kid, big-hearted and eager',
+  popo: 'Popo the polar bear: a cute cartoon kid, bright and bouncy, plainly not the same child as Momo'
+};
+md += '## The story (' + story.length + '), before the lesson — in its own voices\n\n';
+md += 'Five painted scenes of Momo and Popo play between Start and Swiftee\u2019s first screen. None of these lines is Swiftee\u2019s; ';
+md += 'each speaker has a voice of their own:\n\n';
+Object.keys(STORY_VOICE).forEach((k) => { md += '- **' + k + '** — ' + STORY_VOICE[k] + '\n'; });
+md += '\n| # | Scene | Speaker | File | Line | Recorded |\n|---|-------|---------|------|------|----------|\n';
+story.forEach((r, k) => {
+  const scene = (/story scene (\d+)/.exec(r.where) || [])[1] || '';
+  md += '| ' + (k + 1) + ' | ' + scene + ' | ' + r.speaker + ' | `assets/vo/' + r.id + '.mp3` | ' + esc(r.text) + ' | ' + (have.has(r.id) ? 'yes' : '—') + ' |\n';
+});
+md += '\n';
 md += '## Lesson lines (' + lesson.length + '), in timeline order\n\n';
 md += '| # | Screen | Screen id | File | Type | Line | Breaths | When | Delivery | Recorded |\n';
 md += '|---|--------|-----------|------|------|------|---------|------|----------|----------|\n';
@@ -115,7 +133,8 @@ fs.writeFileSync(path.join(ROOT, 'docs', 'VO.md'), md);
 const q = (s) => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
 const csv = ['order,id,file,kind,screen,screen_id,text,breaths,when,delivery'].concat(rows.map((r, k) => {
   const c = ctx.get(r.id) || {};
+  if (r.kind === 'story') return [k + 1, r.id, 'assets/vo/' + r.id + '.mp3', r.kind, '', '', q(r.text), '""', q(r.where), q(r.speaker)].join(',');
   return [k + 1, r.id, 'assets/vo/' + r.id + '.mp3', r.kind, c.screen || '', c.id || '', q(r.text), q(c.parts ? c.parts.join(' / ') : ''), q(when(r, r.kind === 'feedback' ? null : c)), q(delivery(r))].join(',');
 })).join('\n') + '\n';
 fs.writeFileSync(path.join(ROOT, 'docs', 'vo-lines.csv'), csv);
-console.log('docs/VO.md and docs/vo-lines.csv written — ' + lesson.length + ' lesson lines, ' + fb.length + ' answers');
+console.log('docs/VO.md and docs/vo-lines.csv written — ' + story.length + ' story lines, ' + lesson.length + ' lesson lines, ' + fb.length + ' answers');

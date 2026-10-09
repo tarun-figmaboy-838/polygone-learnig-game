@@ -1,0 +1,96 @@
+{
+ "source": "assets/source/vo-masters/popo.mp3",
+ "seconds": 4.362,
+ "model": "Xenova/wav2vec2-base-960h",
+ "frameMs": 20,
+ "note": "Word times in seconds from the start of the take, by CTC forced alignment (tools/align-vo.js). tools/split-vo.js cuts the clips from this and writes their word starts into assets/vo/word-timings.json.",
+ "silences": [
+  [
+   1.589,
+   1.994
+  ],
+  [
+   4.258,
+   4.362
+  ]
+ ],
+ "derived": [],
+ "lines": [
+  {
+   "id": "st1-popo",
+   "text": "Great idea, Momo!",
+   "start": 0.16,
+   "end": 1.48,
+   "words": [
+    {
+     "text": "Great",
+     "start": 0.16,
+     "end": 0.5
+    },
+    {
+     "text": "idea,",
+     "start": 0.68,
+     "end": 1
+    },
+    {
+     "text": "Momo!",
+     "start": 1.12,
+     "end": 1.48
+    }
+   ]
+  },
+  {
+   "id": "st2-popo",
+   "text": "I’ll go ahead and find us a nice spot.",
+   "start": 2.06,
+   "end": 4.14,
+   "words": [
+    {
+     "text": "I’ll",
+     "start": 2.06,
+     "end": 2.24
+    },
+    {
+     "text": "go",
+     "start": 2.28,
+     "end": 2.36
+    },
+    {
+     "text": "ahead",
+     "start": 2.48,
+     "end": 2.68
+    },
+    {
+     "text": "and",
+     "start": 2.76,
+     "end": 2.84
+    },
+    {
+     "text": "find",
+     "start": 2.92,
+     "end": 3.14
+    },
+    {
+     "text": "us",
+     "start": 3.22,
+     "end": 3.3
+    },
+    {
+     "text": "a",
+     "start": 3.4,
+     "end": 3.42
+    },
+    {
+     "text": "nice",
+     "start": 3.52,
+     "end": 3.76
+    },
+    {
+     "text": "spot.",
+     "start": 3.84,
+     "end": 4.14
+    }
+   ]
+  }
+ ]
+}

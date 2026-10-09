@@ -16,7 +16,7 @@
  * the scene and never the thing being listened to.
  *
  *   Music.start()          begin, if it is not already going
- *   Music.mood('win')      'play' (default), 'win', 'think'
+ *   Music.mood('win')      'play' (default) or 'win'
  *
  * It rides the music bus (SFX.musicBus()), so muting the game mutes it and
  * SFX.voice() steps it back while Swiftee speaks.
@@ -48,11 +48,11 @@
   ];
   var BASS = [[0, 0, 1], [0, 2, 1], [3, 4, 1], [4, 6, 1]];
 
-  var ctx = null, out = null, timer = null, nextAt = 0, bar = 0;
+  var ctx = null, out = null, nextAt = 0, bar = 0;
   var mood = 'play', level = 1, running = false;
 
   function gainFor() {
-    return (mood === 'win' ? 0.30 : mood === 'think' ? 0.14 : 0.20) * level;
+    return (mood === 'win' ? 0.30 : 0.20) * level;
   }
 
   function ping(at, f, len, kind, vol) {
@@ -92,7 +92,7 @@
       bar++;
       nextAt += BAR * 2;            // the figure is two bars long
     }
-    timer = setTimeout(schedule, 400);
+    setTimeout(schedule, 400);
   }
 
   function start() {
@@ -106,9 +106,14 @@
     schedule();
   }
 
+  /* AND IT STOPS, when the lesson hands the screen to Frozen Rush (src/opening/runner-stage.js):
+     nothing new is scheduled, and what already is (under a second) plays out under the snow. */
+  function stop() { running = false; }
+
   global.Music = {
     start: start,
-    /** 'play' under the lesson, 'win' for a celebration, 'think' while working. */
+    stop: stop,
+    /** 'play' under the lesson, 'win' for a celebration. */
     mood: function (m) { if (m) mood = m; return mood; }
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.Music;

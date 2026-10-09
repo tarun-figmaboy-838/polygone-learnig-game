@@ -103,9 +103,12 @@
     var f = F(); if (!f) return Promise.reject(new Error('no frame table'));
     images[key] = new Promise(function (resolve, reject) {
       var img = new Image();
-      img.onload = function () { resolve(img); };
-      img.onerror = function () { reject(new Error('sleigh sheet: ' + key)); };
-      img.src = f.sheets[key].file;
+      // and a sheet that neither arrives nor fails (a stalled line) gives up after 12 s, so
+      // Swiftee still appears (swiftee.js enter: the reveal is unconditional)
+      var wd = setTimeout(function () { reject(new Error('sleigh sheet timed out: ' + key)); }, 12000);
+      img.onload = function () { clearTimeout(wd); resolve(img); };
+      img.onerror = function () { clearTimeout(wd); reject(new Error('sleigh sheet: ' + key)); };
+      img.src = global.Preload && Preload.pick ? Preload.pick(f.sheets[key].file) : f.sheets[key].file;   // its AVIF twin, where shown
     });
     return images[key];
   }

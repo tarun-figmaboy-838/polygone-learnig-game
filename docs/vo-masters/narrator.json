@@ -1,0 +1,319 @@
+{
+ "source": "assets/source/vo-masters/narrator.mp3",
+ "seconds": 19.879,
+ "model": "Xenova/wav2vec2-base-960h",
+ "frameMs": 20,
+ "note": "Word times in seconds from the start of the take, by CTC forced alignment (tools/align-vo.js). tools/split-vo.js cuts the clips from this and writes their word starts into assets/vo/word-timings.json.",
+ "silences": [
+  [
+   0,
+   0.112
+  ],
+  [
+   1.697,
+   2.072
+  ],
+  [
+   4.37,
+   4.478
+  ],
+  [
+   5.021,
+   5.838
+  ],
+  [
+   7.768,
+   8.045
+  ],
+  [
+   9.606,
+   9.889
+  ],
+  [
+   11.271,
+   11.917
+  ],
+  [
+   14.819,
+   15.52
+  ],
+  [
+   16.241,
+   16.53
+  ],
+  [
+   18.341,
+   18.463
+  ]
+ ],
+ "derived": [],
+ "lines": [
+  {
+   "id": "st1-narrator",
+   "text": "It was a great day, and Momo and Popo were deciding what to do.",
+   "start": 0.2,
+   "end": 4.82,
+   "words": [
+    {
+     "text": "It",
+     "start": 0.2,
+     "end": 0.24
+    },
+    {
+     "text": "was",
+     "start": 0.34,
+     "end": 0.5
+    },
+    {
+     "text": "a",
+     "start": 0.6,
+     "end": 0.62
+    },
+    {
+     "text": "great",
+     "start": 0.8,
+     "end": 1.1
+    },
+    {
+     "text": "day,",
+     "start": 1.32,
+     "end": 1.58
+    },
+    {
+     "text": "and",
+     "start": 2.14,
+     "end": 2.22
+    },
+    {
+     "text": "Momo",
+     "start": 2.32,
+     "end": 2.66
+    },
+    {
+     "text": "and",
+     "start": 2.82,
+     "end": 2.9
+    },
+    {
+     "text": "Popo",
+     "start": 3,
+     "end": 3.36
+    },
+    {
+     "text": "were",
+     "start": 3.48,
+     "end": 3.64
+    },
+    {
+     "text": "deciding",
+     "start": 3.68,
+     "end": 4.14
+    },
+    {
+     "text": "what",
+     "start": 4.22,
+     "end": 4.38
+    },
+    {
+     "text": "to",
+     "start": 4.48,
+     "end": 4.58
+    },
+    {
+     "text": "do.",
+     "start": 4.66,
+     "end": 4.82
+    }
+   ]
+  },
+  {
+   "id": "st3-narrator",
+   "text": "Momo wanted to get there quickly, so he took the shortest route— through Frozen Pass.",
+   "start": 5.88,
+   "end": 11.1,
+   "words": [
+    {
+     "text": "Momo",
+     "start": 5.88,
+     "end": 6.24
+    },
+    {
+     "text": "wanted",
+     "start": 6.38,
+     "end": 6.72
+    },
+    {
+     "text": "to",
+     "start": 6.76,
+     "end": 6.82
+    },
+    {
+     "text": "get",
+     "start": 6.88,
+     "end": 7.02
+    },
+    {
+     "text": "there",
+     "start": 7.08,
+     "end": 7.24
+    },
+    {
+     "text": "quickly,",
+     "start": 7.32,
+     "end": 7.7
+    },
+    {
+     "text": "so",
+     "start": 8.08,
+     "end": 8.18
+    },
+    {
+     "text": "he",
+     "start": 8.26,
+     "end": 8.32
+    },
+    {
+     "text": "took",
+     "start": 8.38,
+     "end": 8.54
+    },
+    {
+     "text": "the",
+     "start": 8.62,
+     "end": 8.7
+    },
+    {
+     "text": "shortest",
+     "start": 8.78,
+     "end": 9.2
+    },
+    {
+     "text": "route—",
+     "start": 9.3,
+     "end": 9.52
+    },
+    {
+     "text": "through",
+     "start": 9.86,
+     "end": 10.08
+    },
+    {
+     "text": "Frozen",
+     "start": 10.2,
+     "end": 10.58
+    },
+    {
+     "text": "Pass.",
+     "start": 10.72,
+     "end": 11.1
+    }
+   ]
+  },
+  {
+   "id": "st5-narrator",
+   "text": "Momo needs your help to reach Popo.",
+   "start": 11.98,
+   "end": 14.7,
+   "words": [
+    {
+     "text": "Momo",
+     "start": 11.98,
+     "end": 12.3
+    },
+    {
+     "text": "needs",
+     "start": 12.48,
+     "end": 12.78
+    },
+    {
+     "text": "your",
+     "start": 12.96,
+     "end": 13.18
+    },
+    {
+     "text": "help",
+     "start": 13.28,
+     "end": 13.5
+    },
+    {
+     "text": "to",
+     "start": 13.74,
+     "end": 13.82
+    },
+    {
+     "text": "reach",
+     "start": 13.9,
+     "end": 14.12
+    },
+    {
+     "text": "Popo.",
+     "start": 14.28,
+     "end": 14.7
+    }
+   ]
+  },
+  {
+   "id": "st5-narrator~rest",
+   "text": "But first, you’ll need to learn a little more about polygons.",
+   "start": 15.54,
+   "end": 19.6,
+   "words": [
+    {
+     "text": "But",
+     "start": 15.54,
+     "end": 15.64
+    },
+    {
+     "text": "first,",
+     "start": 15.76,
+     "end": 16.14
+    },
+    {
+     "text": "you’ll",
+     "start": 16.52,
+     "end": 16.74
+    },
+    {
+     "text": "need",
+     "start": 16.78,
+     "end": 16.92
+    },
+    {
+     "text": "to",
+     "start": 16.98,
+     "end": 17.06
+    },
+    {
+     "text": "learn",
+     "start": 17.12,
+     "end": 17.34
+    },
+    {
+     "text": "a",
+     "start": 17.42,
+     "end": 17.44
+    },
+    {
+     "text": "little",
+     "start": 17.52,
+     "end": 17.82
+    },
+    {
+     "text": "more",
+     "start": 17.94,
+     "end": 18.22
+    },
+    {
+     "text": "about",
+     "start": 18.52,
+     "end": 18.78
+    },
+    {
+     "text": "polygons.",
+     "start": 18.88,
+     "end": 19.6
+    }
+   ]
+  }
+ ]
+}

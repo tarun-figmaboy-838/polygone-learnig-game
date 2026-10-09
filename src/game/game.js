@@ -12,7 +12,15 @@
   'use strict';
 
   var $ = function (s) { return document.querySelector(s); };
-  var root, stageEl, hud, bubble, instruction, progress, loadEl, nextBtn;
+  /** A picture's address as this browser asks for it: its AVIF twin where it shows AVIF
+      (src/core/preload.js pick), the .webp everywhere else. */
+  var pic = function (u) { return global.Preload && Preload.pick ? Preload.pick(u) : u; };
+  /* THE LESSON'S LANGUAGE (src/core/i18n.js, ?lan=), or null in English — when every line below
+     is exactly the English it always was. Lines are turned as they come in to be shown and
+     timed (handlerSay, handlerInstruction, popLine), so a bubble is laid out and paced by the
+     words the child reads; what the lesson decides by stays English. */
+  var LANG = global.I18N && global.I18N.on ? global.I18N : null;
+  var root, stageEl, hud, bubble, instruction, progress, loadEl, continueBtn, nextBtn;
   var director, current = -1, playing = false, settleTimer = null, mouthTimer = null, bubbleTimer = null;
   /* Whether Swiftee is on this screen at all. Set per screen from its
      `purpose`; when false, his lines go to the plank and his beats are
@@ -35,6 +43,10 @@
   var playGen = 0;
   var refitTimer = null, refitRaf = 0;
   var SAVE_KEY = 'swiftee.audio';
+  /* THE LESSON IS PART 1 OF ONE GAME. After the finale, Next opens the hand-over
+     screen (readyScene), and its button lets the snow close in while Part 2
+     (Frozen Rush, beside this folder) opens behind it. */
+  var leaving = false;
   var quest = Quest.create(), rewardTimer;
 
   /**
@@ -222,15 +234,15 @@
     // whole, however long, and the bubble grows or steps its type down.
     //
     // AND AS MANY BUBBLES AS IT TAKES. This used to cut once and leave the
-    // rest together, so "Hmm… The sides look suspiciously alike. Let's
-    // check!" came out as "Hmm…" and then a bubble with two sentences in it
-    // — and the second of them, the one that says what happens next, went
-    // past in the same breath as the observation. Sentences are packed into
-    // bubbles up to about a line's worth of words, so a short opener rides
-    // with the sentence after it and a closing "Let's check!" gets its own.
+    // rest together, so a line of three sentences came out as its opener and
+    // then a bubble with two sentences in it — and the second of them, the
+    // one that says what happens next, went past in the same breath as the
+    // observation. Sentences are packed into bubbles up to about a line's
+    // worth of words, so a short opener rides with the sentence after it and
+    // a closing call to action ("Let's find out!") gets its own.
     if (!text || text.length <= 32) return [text];
     var sentences = [], rest = text, m;
-    while ((m = /^(.{3,}?[.!?\u2026])\s+(\S.*)$/.exec(rest))) { sentences.push(m[1]); rest = m[2]; }
+    while ((m = /^(.{3,}?[.!?\u2026\u0964\u0965])\s+(\S.*)$/.exec(rest))) { sentences.push(m[1]); rest = m[2]; }
     sentences.push(rest);
     if (sentences.length < 2) return [text];
     var BUDGET = 44;
@@ -356,6 +368,9 @@
    * into the frame of the card: behind it, as far as the eye can tell.
    */
   var rimEl = null;
+  /* (No copy of the log is laid over him any more: sunk into its snow under one, he read as
+     standing BEHIND the log — the user. He sits on its top now, the whole of him showing:
+     Stage LOG_SINK.) */
   function syncPeekRim() {
     var want = !riseWait && global.Swiftee && Swiftee.pos === 'peek' && (present || entering || leaving) &&
                global.Stage && Stage.peekAnchor && Stage.peekAnchor({ home: true }) &&
@@ -368,7 +383,7 @@
       rimEl.className = 'peek-rim';
       rimEl.alt = '';
       rimEl.setAttribute('aria-hidden', 'true');
-      rimEl.src = CardFrame.panel.src;
+      rimEl.src = pic(CardFrame.panel.src);
       rimEl.style.cssText = 'position:absolute;z-index:4;pointer-events:none;';
       var host = (Swiftee.el && Swiftee.el.parentNode) || document.body;
       if (Swiftee.el && Swiftee.el.nextSibling) host.insertBefore(rimEl, Swiftee.el.nextSibling); else host.appendChild(rimEl);
@@ -377,7 +392,7 @@
     var x = m.a * a.x + m.e - hostBox.left, y = m.d * a.y + m.f - hostBox.top;
     var w = m.a * a.w, h = m.d * a.h;
     var PF = CardFrame[a.frame || 'panel'] || CardFrame.panel;
-    if (rimEl.getAttribute('src') !== PF.src) rimEl.src = PF.src;
+    if (rimEl.getAttribute('src') !== pic(PF.src)) rimEl.src = pic(PF.src);
     var paneY = PF.pane ? PF.pane.y : 0.082;
     rimEl.style.display = '';
     rimEl.style.left = x + 'px'; rimEl.style.top = y + 'px';
@@ -484,45 +499,48 @@
     var behind = peeksBehind(i);
     if (!s.swiftee.purpose) {
       if (behind) { pos = 'peek'; size = 'small'; }
-      else if (!/^(left|top-left)/.test(pos)) { pos = 'left-low'; size = 'medium'; }
+      else if (!/^(left|top-left|log$)/.test(pos)) { pos = 'left-low'; size = 'medium'; }   // (the log is a left-hand mark too)
     } else if (pos === 'peek' && !behind) { pos = 'left-low'; size = 'medium'; }
     return { pos: pos, size: size };
   }
 
-  /* What he says when the child gets it, and when they do not. Short, so
-     they fit in one bubble beside his head, and varied, so the tenth right
-     answer is not met with the same word as the first. */
-  // Each carries the id of its voice clip (assets/vo/<id>.mp3), listed in
-  // docs/VO.md with everything else he says.
-  // A CHEER THAT SAYS SO (the user's QA spec): warm and clear, and never the
-  // same one twice running. "Yes!" and "That's it!" were half of these and
-  // told a child little; they are gone from the round.
-  var PRAISE = [
-    { t: 'Great job!', vo: 'fb03' }, { t: 'Nice!', vo: 'fb01' }, { t: 'Well done!', vo: 'fb06' },
-    { t: 'You got it!', vo: 'fb04' }, { t: 'Perfect!', vo: 'fb17' }, { t: 'Yay!', vo: 'fb18' },
-    { t: 'That\u2019s right!', vo: 'fb19' }, { t: 'Awesome!', vo: 'fb20' }, { t: 'Great thinking!', vo: 'fb21' },
-    { t: 'Exactly!', vo: 'fb22' }
-  ];
-  // ...and where what was done has words of its own, those (replyFor)
+  /* What he says when the child gets it. Each carries the id of its voice clip
+     (assets/vo/<id>.mp3), listed in docs/VO.md with everything else he says.
+     TWO CHEERS, EACH WITH ITS OWN JOB (the user's feedback rules — praiseFor): "Keep going!"
+     for a right answer on the way, "Great job!" for the one that completes a level. The round
+     of ten ("Nice!", "You got it!", "Perfect!", "Well done!"…) mixed its phrases at random from
+     level to level, and is gone. */
   var PRAISE_FOR = {
-    sorted:   { t: 'Great! That belongs here.', vo: 'fb23' },
-    diagonal: { t: 'Nice! That\u2019s a diagonal.', vo: 'fb24' },
-    allFound: { t: 'Great job! You found them all.', vo: 'fb25' },
-    measured: { t: 'Well done!', vo: 'fb06' },
-    fixed:    { t: 'Yes! You got it!', vo: 'fb26' }
+    keepGoing:  { t: 'Keep going!', vo: 'fb46' },   // right, and the same screen has more to do
+    screenDone: { t: 'Amazing!', vo: 'fb47' },      // right, and the screen is done (the user: not "Keep going!" there)
+    levelDone:  { t: 'Great job!', vo: 'fb03' }     // right, and the level is done
   };
   /* HIS FACE GOES WITH THE WORD — each cheer its own drawing from the rig:
      a hop with happy eyes, the wings up, a proud little nod, a point at the
      answer, relief after a miss. */
-  var EMOTE = { fb03: 'nice', fb01: 'happy', fb06: 'chuffed', fb04: 'point', fb17: 'celebrate', fb18: 'celebrate',
-                fb19: 'nod', fb20: 'wink', fb21: 'chuffed', fb22: 'nod', fb23: 'nice', fb24: 'happy', fb25: 'celebrate',
-                fb26: 'phew' };
-  // A MISS IS MET GENTLY, and says to look again rather than only "no"
+  var EMOTE = { fb03: 'celebrate', fb46: 'nice', fb47: 'happy' };
+  // A MISS IS MET GENTLY, and says to try again rather than only "no" — "Try again!" (asked
+  // for, twice): not "Almost!", "Hmm, look again.", "Try once more." or "Take another look.".
+  // Where the miss has a reason, the reason follows it in the same breath (CLUES, the stage's
+  // reasons, the screen's reminder). The one exception is Level 1's own (CLUES curved/open):
+  // "Not quite." and the reason, as its bug list asks.
   var NUDGE = [
-    { t: 'Hmm, look again.', vo: 'fb27' }, { t: 'Almost!', vo: 'fb28' }, { t: 'Try once more.', vo: 'fb29' },
-    { t: 'Take another look.', vo: 'fb30' }, { t: 'Not quite.', vo: 'fb31' }
+    { t: 'Try again!', vo: 'fb32' }
   ];
-  var praiseN = 0, nudgeN = 0, feedbackScreen = -1;
+  /* WHY THAT WAS NOT IT, FOR EACH IDEA (the Part 1 review, section 14). A miss is answered
+     with what the question is about — the smallest thing that helps — opened by "Try again!",
+     never by a bare "no". Keyed by name: a card or a question in screens.js says which clue is
+     its own (`reason`), and the stage passes it on with the miss. */
+  var CLUES = {
+    /* LEVEL 1: THE LESSON IN THE FIRST MISS (the user: "do not make the student fail twice
+       before receiving the useful explanation"). "Not quite." and then what is true of the
+       shape that was chosen — the circle is curved, the open path is open — in the words of
+       the definition the intro gave. The card is put out after it (screens.js outAfter). */
+    curved:   { t: 'Not quite. A circle is curved. A polygon has only straight sides.', vo: 'fb44' },
+    open:     { t: 'Not quite. This shape is open. A polygon must be closed.', vo: 'fb45' },
+    compare:  { t: 'Try again! Compare the sides and angles now.', vo: 'fb41' }
+  };
+  var nudgeN = 0, feedbackScreen = -1;
   /* NOW A FEELING, NOT A LIST OF FACES. The faces rotated by a counter, so
      the same screen got a different one on a replay, and 'puzzled' was a HELD
      pose that left him frowning after a miss until something else happened.
@@ -608,7 +626,8 @@
     var drag = (type || (inputSpec && inputSpec.type)) === 'drag-vertex';
     var el = drag ? Stage.element('polygon') : (Stage.element('answer') || Stage.element('polygon'));
     try {
-      if (kind === 'wrong') { if (Juice.bad) Juice.bad(el); if (Juice.shake) Juice.shake(stageEl); }
+      // (the card's own red and buzz say it; the whole stage shaking on top was excess — the review)
+      if (kind === 'wrong') { if (Juice.bad) Juice.bad(el); }
       else if (kind === 'correct' && Juice.good) Juice.good(el);
     } catch (e) {}
   }
@@ -619,12 +638,23 @@
   // one only speaks — one face per answer, not two in a row.
   // `o.final`: the question's own verdict (its input is over), after any
   // per-tap ones. `o.tries`: how many times THIS card has now been missed.
+  var replyUp = null;   // the reply react() last started: { kind, teach, gen } (gen: its pop)
   function react(kind, said, o) {
     o = o || {};
+    /* THE LEVEL'S CHEER WAITS ITS TURN. The answer that completes a level, given while he is
+       still saying "Keep going!" for the one before, must not cut that line off: "Great job!"
+       is owed, and said the moment the line before it ends (pop's finish) — the lesson waits. */
+    if (kind === 'correct' && !o.late && !o.owed && (o.last || (o.final && levelEnd())) && replying()) {
+      oweCheer([kind, said, Object.assign({}, o, { owed: true })]);
+      return;
+    }
     if (kind === 'wrong' && !o.late) { missesHere++; streak = 0; cheeredAt = 0; }
     if (kind === 'correct' && !o.late) streak++;
-    if (!buddyOn) return;   // the sound and the confetti carry the verdict
-    if (!global.Swiftee || !Swiftee.play) return;
+    // (o.after: what the stage does once this reply is over — or at once, when there is nobody
+    // to give one; called exactly once)
+    var after = function () { var f = o.after; o.after = null; if (f) f(); };
+    if (!buddyOn) { after(); return; }   // the sound and the confetti carry the verdict
+    if (!global.Swiftee || !Swiftee.play) { after(); return; }
     if (!o.late) {
       /* WHAT HE WILL SAY IS DECIDED AT THE ANSWER. If he is going to speak
          while the child could still act, the input is held from this instant
@@ -632,6 +662,12 @@
          lesson's next line knows to wait for him (replying()). */
       var plan = replyFor(kind, said, o);
       if (plan) {
+        /* A REPLY THAT NOW SAYS THE OPPOSITE GOES WITH THE TAP. Where a card can be pressed
+           while he is still answering the last one (multi-select: Stage tapThrough), his
+           "Try again!" left up over a card that has just turned green — or a cheer over a red
+           one — contradicted the verdict until his next line came. Not a teaching moment:
+           that one has a card to put back first. */
+        if (popping && replyUp && replyUp.gen === popGen && replyUp.kind !== kind && !replyUp.teach) { popGen++; popping = false; say(null); }
         if (inputLive) holdInput(true);
         cheerUntil = Math.max(cheerUntil, Date.now() + REACT_MS + 400);
       }
@@ -643,7 +679,7 @@
     // along it with the tape — that is the reaction, and it is protected. A
     // face and a "Nice!" after each of the five walks was the generic
     // reaction the walk exists to replace, spoken from an empty mark.
-    if (o.walked) return;
+    if (o.walked) { after(); return; }
     var reply = o.plan;
     /* HIS FACE, when the storyboard has not already given one (o.face). A
        right answer gets a cheer — a happy face and a hop — when he says so, a
@@ -667,17 +703,19 @@
             var at = global.Stage && Stage.element && (Stage.element('answer') || Stage.element('polygon'));
             Swiftee.play('point', direction(at ? { at: at } : null));
           } else Swiftee.play(emote || (reply ? 'happySmall' : 'nod'), direction());
-          // "Perfect!" — and a glint on it
-          if (reply && reply.lines[0] && reply.lines[0].vo === 'fb17' && global.Juice && Juice.sparkle && Stage.element) {
+          // "Great job!" — the level's cheer — and a glint on the answer
+          if (reply && reply.lines[0] && reply.lines[0].vo === 'fb03' && global.Juice && Juice.sparkle && Stage.element) {
             try { Juice.sparkle(Stage.element('answer') || Stage.element('polygon')); } catch (e) {}
           }
         }
       } catch (e) {}
     };
-    if (!reply) { face(); return; }
-    if (reply.teach) { pop(reply.lines, teachHooks(reply.teach)); return; }
-    reply.lines[0].face = face;
-    pop(reply.lines);
+    if (!reply) { face(); after(); return; }
+    var said_ = null;
+    if (reply.teach) said_ = pop(reply.lines, teachHooks(reply.teach));
+    else { reply.lines[0].face = face; said_ = pop(reply.lines); }
+    replyUp = { kind: kind, teach: !!reply.teach, gen: popGen };
+    if (o.after) Promise.resolve(said_).then(after, after);
   }
 
   /* THE TEACHING MOMENT'S SHAPE (pop hooks): the card lifted to the middle
@@ -686,21 +724,34 @@
      presents the shape, he does not say "oops" at it. */
   function teachHooks(t) {
     var T = null, wasAt = null;
+    // he goes to the card he is about to explain: a walk to its side while it
+    // flies up, and the presenting flourish once both arrive
+    function lift() {
+      var walked = null;
+      if (buddyOn && present && global.Swiftee && Swiftee.play) {
+        wasAt = { pos: Swiftee.pos, size: Swiftee.size };
+        try { walked = Swiftee.play('move', { to: 'teach', size: 'medium' }); } catch (e) {}
+      }
+      // the copy of the card's rim that hid him behind the swipe card goes with him: left where
+      // the card was, it showed over the sheet as a second card (the user: "two layers")
+      if (rimEl) { rimEl.style.display = 'none'; rimFollow(false); }
+      return Promise.all([T.open(), Promise.resolve(walked)]).then(function () {
+        placeBubble();
+        if (buddyOn && present && global.Swiftee && Swiftee.play) { try { Swiftee.play('present', direction()); } catch (e) {} }
+      });
+    }
     return {
       open: function () {
         say(null);
-        T = Stage.teach(t.el);
-        if (!T) return Promise.resolve();
-        // he goes to the card he is about to explain: a walk to its side
-        // while it flies up, and the presenting flourish once both arrive
-        var walked = null;
-        if (buddyOn && present && global.Swiftee && Swiftee.play) {
-          wasAt = { pos: Swiftee.pos, size: Swiftee.size };
-          try { walked = Swiftee.play('move', { to: 'teach', size: 'medium' }); } catch (e) {}
-        }
-        return Promise.all([T.open(), Promise.resolve(walked)]).then(function () {
-          placeBubble();
-          if (buddyOn && present && global.Swiftee && Swiftee.play) { try { Swiftee.play('present', direction()); } catch (e) {} }
+        /* THE MISS IS SEEN FIRST: the card glides home with its shake, and a breath later it
+           is lifted up to be explained — "incorrect feedback, pause, bring the card forward",
+           not the lift arriving on top of the miss. (A screen left in that breath is left
+           alone.) */
+        var screenAt = current;
+        return pause(Math.round(450 * paceScale())).then(function () {
+          if (current !== screenAt) return null;
+          T = Stage.teach(t.el, t);
+          return T ? lift() : null;
         });
       },
       cue: function (what) { if (T) T.show(what); },
@@ -710,7 +761,7 @@
         if (wasAt && buddyOn && present && global.Swiftee && Swiftee.play) {
           try { back = Promise.all([back, Swiftee.play('move', { to: wasAt.pos, size: wasAt.size })]); } catch (e) {}
         }
-        return Promise.resolve(back).then(function () { placeBubble(); });
+        return Promise.resolve(back).then(function () { placeBubble(); syncPeekRim(); });
       }
     };
   }
@@ -735,45 +786,47 @@
      adventurer!" are the recorded take's last two lines. Between them the
      child's own score is shown, not said — the take has no numbers in it,
      and a score is whatever this run earned. */
-  var FINALE = [{ t: 'Honk-tastic!', vo: 'p38a' }, { t: 'You are a polygon adventurer!', vo: 'p38b' }];
-  var NUDGE_STRONG = { t: 'Not that one.', vo: 'fb10' };
-  var wrongSinceRight = false;        // a miss on this screen since the last right answer
-  /* the next cheer in the round, never the one just said */
-  var lastPraise = null;
-  function nextPraise() {
-    var p = PRAISE[praiseN++ % PRAISE.length];
-    if (lastPraise && p.vo === lastPraise) p = PRAISE[praiseN++ % PRAISE.length];
-    lastPraise = p.vo;
-    return p;
-  }
-  /* the cheer for THIS right answer: its own words where the action has
-     them, else the round */
+  // ("Honk-tastic!" is gone from the front of it — the user: "it looks extra, nonsense")
+  var FINALE = [{ t: 'You are a polygon adventurer!', vo: 'p38b' }];
+  // the hand-over screen's one line (readyScene). Not in the recorded take, so it is
+  // voiced by tools/make-vo.js in the voice matched to it, as the cheers are.
+  // (Swiftee's own recording now — the take's "ending" line, which the game-lesson kit puts here)
+  var READY = { t: 'Now you know everything about polygons. You are ready to help Momo.', vo: 'p39' };
+  // the second miss on the same card: "Try again!" too (the card is put out, and the screen's
+  // reminder — what a polygon is — follows it)
+  var NUDGE_STRONG = { t: 'Try again!', vo: 'fb32' };
+  /* ONE CHEER FOR PROGRESS, ONE FOR THE LEVEL (the user's feedback rules: "all full level
+     completions use 'Great job!'", "'Keep going!' only for intermediate progress", "do not
+     randomly mix different success phrases"). A right answer that completes a level — the last
+     answer on the last screen of a chapter (quest.js) — is "Great job!"; any other right answer
+     that is answered in words is "Keep going!". The round of ten cheers ("Nice!", "You got
+     it!", "Perfect!"…) is gone; so is "Yes! You got it!" after a miss. A screen's own words
+     for a right answer — the sort's "It's convex: no corner goes inward." — still come first. */
+  var levelCheered = -1;
+  function levelEnd() { return ((global.Quest && Quest.chapters) || []).some(function (c) { return c.end === current; }); }
   function praiseFor(o) {
-    var type = o.type || (inputSpec && inputSpec.type);
-    var pick = wrongSinceRight ? PRAISE_FOR.fixed
-             : (!o.final && type === 'sort') ? PRAISE_FOR.sorted
-             : (/^draw-diagonals?$/.test(type || '')) && !o.final ? PRAISE_FOR.diagonal
-             : (type === 'draw-diagonal' && o.final) ? PRAISE_FOR.diagonal
-             : (o.final && type === 'multi-select') ? PRAISE_FOR.allFound
-             : (o.final && type === 'tap-each') ? PRAISE_FOR.measured
-             : null;
-    if (pick && pick.vo === lastPraise) pick = null;
-    if (!pick) return nextPraise();
-    lastPraise = pick.vo;
-    return pick;
+    var done = !!(o.final || o.last);
+    return (levelEnd() && done) ? PRAISE_FOR.levelDone : done ? PRAISE_FOR.screenDone : PRAISE_FOR.keepGoing;
   }
   function replyFor(kind, said, o) {
     if (o.walked) return null;
     var now = Date.now(), lines = [], pick = null;
     if (current !== feedbackScreen) { feedbackScreen = current; lastPraiseAt = 0; }
     if (kind === 'correct') {
-      if (o.quiet || o.face === 'dip') { if (o.final) wrongSinceRight = false; return null; }
-      if (!o.final && inputSpec && inputSpec.praise === false) return null;
-      var due = o.final ? now - lastPraiseAt > 1500 : praisedInput !== inputSeq;
+      // (the answer that completes a level is always met, once: it is the level's own cheer —
+      // even on a question that cheers nothing else (praise: false, the swipe: its right cards
+      // are answered by the cards themselves, and "Great job!" comes when the last one is in)
+      var ends = levelEnd() && (o.final || o.last);
+      if ((o.quiet && !ends) || o.face === 'dip') return null;
+      if (!o.final && !ends && inputSpec && inputSpec.praise === false) return null;
+      var due = ends ? levelCheered !== current : o.final ? now - lastPraiseAt > 1500 : praisedInput !== inputSeq;
       if (!due) return null;
       praisedInput = inputSeq; lastPraiseAt = now;
-      pick = praiseFor(o);
-      wrongSinceRight = false;
+      // a right answer that has words of its own says them (the sort's "Yes! It's convex: no
+      // corner goes inward." — the short learning confirmation); anything else is cheered
+      if (said && said.t && !ends) pick = said;
+      else pick = praiseFor(o);
+      if (pick === PRAISE_FOR.levelDone) levelCheered = current;
       lines.push({ t: pick.t, vo: pick.vo, mood: 'win', emote: EMOTE[pick.vo] });
     } else if (kind === 'wrong') {
       // (the question's own verdict straight after the tap's is the same miss
@@ -784,16 +837,24 @@
       // lines for a concave or a convex shape, each lighting its part on the
       // card as the word is said (teachHooks)
       var lesson = o.teach && (Screens.list[current] || {}).teach;
-      var set = lesson && (o.teach.concave ? lesson.concave : lesson.convex);
+      // (the sort's convex/concave pair, or the set the stage names — the swipe's regular /
+      // sides / angles / both)
+      var set = lesson && (o.teach.kind ? lesson[o.teach.kind] : (o.teach.concave ? lesson.concave : lesson.convex));
       if (set && set.length && global.Stage && Stage.teach) {
-        wrongSinceRight = true; wrongRepliedSeq = inputSeq;
-        return { lines: set.map(function (b) { return { t: b.say, vo: b.vo, mood: 'hint', show: b.show, on: b.on || 0 }; }),
+        wrongRepliedSeq = inputSeq;
+        return { lines: set.map(function (b) { return { t: b.say, vo: b.vo, mood: 'hint', show: b.show, on: b.on || 0, shows: b.shows }; }),
                  teach: o.teach };
       }
+      // the stage's own reason first; then, on a card's second miss, "Try again!" and the
+      // screen's reminder; then the clue the card or the question names (CLUES); else the nudge
+      // (a card with a clue of its own says it on every miss — the explanation is the useful
+      // part, and a second miss on the same card gets it again as the card goes out)
+      var clue = o.reason && CLUES[o.reason];
       if (said && said.t) pick = said;
+      else if (clue) pick = clue;
       else if (o.tries >= 2) pick = NUDGE_STRONG;
       else pick = NUDGE[nudgeN++ % NUDGE.length];
-      wrongSinceRight = true; wrongRepliedSeq = inputSeq;
+      wrongRepliedSeq = inputSeq;
       lines.push({ t: pick.t, vo: pick.vo, mood: 'hint', miss: true });
       var rem = (Screens.list[current] || {}).remind;
       var count = rem && rem.perCard ? (o.tries || 0) : missesHere;
@@ -836,6 +897,8 @@
       var sw = 1000 * s;
       g0.style.setProperty('--svw', (sw / 100).toFixed(3) + 'px');
       g0.style.setProperty('--u', Math.max(0.7, Math.min(1.4, sw / 1920)).toFixed(4));
+      // the story's paintings are drawn at their own 1672 wide and scaled onto this board
+      g0.style.setProperty('--story-k', (sw / 1672).toFixed(5));
     }
   }
 
@@ -845,6 +908,83 @@
     var s = Math.min(r.width / 1000, r.height / 562);
     var w = 1000 * s, h = 562 * s;
     return { x: (r.width - w) / 2, y: (r.height - h) / 2, w: w, h: h, portrait: r.height > r.width };
+  }
+
+  /* THE CAMERA (the user's MASTER brief, sections 1–2). The three opening lines are shot
+   * close: the world drawn larger round him and the painting behind him out of focus, so he
+   * is the one thing to look at while he introduces himself. After the third the camera draws
+   * back (cameraTo), and the ground on his left, with the log on it, comes into view for the
+   * flight that ends the intro.
+   *
+   * The zoom is held about his feet on the centre mark (layout's 'centre', where he stands on
+   * the empty intro stage), so they stay on the same snow the whole way. The painting
+   * (#backdrop) and the board (Stage.svg) are scaled by the browser; he is laid out through
+   * the same mapping (layout), so he, his bubble and the ground cannot drift apart. The
+   * board's own box (#stage) is never transformed: frame(), and everything laid out from it,
+   * is exactly what it was. */
+  var CAM_CLOSE = 1.25;                  // the close shot: everything a quarter larger
+  var CAM_BLUR = 0.0036;                 // ...and the painting this far out of focus (of the board's height)
+  var CAM_AT = { x: 0.5, y: 0.93 };      // the point held still: his feet on the centre mark
+  var cam = { k: 1, blur: 0 }, camGen = 0, camAim = null;   // camAim: where a running move is going
+  function applyCam() {
+    var f = frame(), on = cam.k !== 1;
+    var ox = f.x + CAM_AT.x * f.w, oy = f.y + CAM_AT.y * f.h;
+    var bd = document.getElementById('backdrop'), sv = global.Stage && Stage.svg;
+    [bd, sv].forEach(function (n) {
+      if (!n) return;
+      n.style.transformOrigin = on ? ox.toFixed(1) + 'px ' + oy.toFixed(1) + 'px' : '';
+      n.style.transform = on ? 'scale(' + cam.k.toFixed(4) + ')' : '';
+      n.style.willChange = on ? 'transform' : '';
+    });
+    if (bd) bd.style.filter = cam.blur > 0.0001 ? 'blur(' + (cam.blur * f.h).toFixed(2) + 'px)' : '';
+    // and the log with it: the same softness, in the board's own units (the board is 562 tall)
+    if (global.Stage && Stage.blurLog) Stage.blurLog(cam.blur * 562);
+  }
+  /* The shot a screen asks for (screens.js `camera: 'close'`), or wide. Never in portrait (the
+     board is a band there, and he stands under it) or with reduced motion. */
+  function camFor(close) { return (close && !frame().portrait && !(global.Juice && Juice.reducedMotion)) ? CAM_CLOSE : 1; }
+  /* Close or wide at once, as a screen starts — so a jump into the intro opens on the close
+     shot, and any other screen is wide. Set BEFORE the lesson is seen (boot), so the opening
+     is already the close shot when the title or the story lifts off it: the camera never
+     jumps into it on screen. A move already on its way to the same shot (Restart's) is left
+     to arrive rather than cut short. */
+  function setCam(close) {
+    var k = camFor(close);
+    if (camAim === k) return;
+    camGen++; camAim = null;
+    if (cam.k === k && cam.blur === (k !== 1 ? CAM_BLUR : 0)) return;
+    cam.k = k; cam.blur = k !== 1 ? CAM_BLUR : 0;
+    applyCam();
+  }
+  /* The camera moving to shot `k` — back to the wide shot at the end of the intro (the stage
+     beat `{ camera: 'wide' }`), or in to the close one on Restart — eased in and out over `ms`
+     as ONE continuous move: every frame the world and he are redrawn together, the painting
+     going out of focus or into it with the zoom, so nothing on the screen is ever at a scale
+     of its own. Anything that takes the screen away ends it on the shot it was going to —
+     never a lesson left half zoomed. */
+  function cameraTo(k, ms, ctx) {
+    var gen = ++camGen, k0 = cam.k, b0 = cam.blur, b1 = k !== 1 ? CAM_BLUR : 0;
+    var dur = Math.max(0, (ms || 0) * paceScale());
+    var raf = global.requestAnimationFrame ? function (f) { global.requestAnimationFrame(f); }
+                                            : function (f) { setTimeout(function () { f(Date.now()); }, 16); };
+    camAim = k;
+    return new Promise(function (resolve) {
+      var t0 = null;
+      var settle = function () { if (camAim === k) camAim = null; cam.k = k; cam.blur = b1; applyCam(); relayout(); resolve(); };
+      if (ctx && ctx.onCancel) ctx.onCancel(function () { if (gen === camGen) { camGen++; settle(); } else resolve(); });
+      if (k0 === k || dur < 17) { settle(); return; }
+      var step = function (t) {
+        if (gen !== camGen) return;
+        if (t0 == null) t0 = t;
+        var u = Math.min(1, (t - t0) / dur);
+        var e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+        cam.k = k0 + (k - k0) * e; cam.blur = b0 + (b1 - b0) * e;
+        applyCam();
+        if (global.Swiftee && Swiftee.relayout) Swiftee.relayout();
+        if (u < 1) raf(step); else { camGen++; settle(); }
+      };
+      raf(step);
+    });
   }
 
   /**
@@ -900,7 +1040,10 @@
   function wantsBand(scr) {
     var beats = (scr.beats || []).concat(
       Object.keys(scr.perTap || {}).reduce(function (a, k) { return a.concat(scr.perTap[k] || []); }, []));
-    var has = function (o) { return !!(o && (o.label || o.badge || (o.choices && o.choices.length))); };
+    // (a tag that points at a line on the figure, or hangs on the card's top edge, is not under
+    // the card, and takes no room there: the card is built — and stays — its full size)
+    var under = function (lb) { return !!lb && !/^(segment|diagonal|top)$/.test(lb.at || ''); };
+    var has = function (o) { return !!(o && (under(o.label) || o.badge || (o.choices && o.choices.length))); };
     if (has(scr.stage)) return true;
     return beats.some(function (b) {
       return has(b.stage) ||
@@ -937,6 +1080,12 @@
       // the far corner talking across the screen (teachHooks).
       'teach':              { x: 0.17, y: 0.82 },
       'centre':             { x: 0.50, y: 0.93 },
+      // ON MOMO'S GROUND, the hand-over screen (readyScene): on the left ledge, feet on
+      // its snow line — y is Stage's LEDGE_WALK (455 of 562), so the two must move together
+      'ledge':              { x: 0.17, y: 0.81 },
+      // ON THE LOG ARC at the left of the ground (Stage.perch): his feet on the snow along its
+      // crest — read from the stage, which placed the log, so the two cannot drift apart
+      'log':                (global.Stage && Stage.perchAt) ? Stage.perchAt() : { x: 0.144, y: 0.729 },
       'off':                { x: -0.3, y: 0.9 }
     };
 
@@ -1027,7 +1176,10 @@
     // do not need to know this — they still say "left"; the layout decides
     // that "left of nothing" means the middle, with a little more presence.
     var m = map[pos] || map['left-low'];
-    if (pos !== 'off' && soloed()) { m = map['centre']; }
+    // ...except the ledge: that scene is scenery too, but the ledge IS where he stands —
+    // moved to the middle he was over the gap, feet in the rock (readyScene)
+    // (and the log: it is his seat, wherever the rest of the stage is)
+    if (pos !== 'off' && pos !== 'ledge' && pos !== 'log' && soloed()) { m = map['centre']; }
 
     var x = f.x + m.x * f.w;
 
@@ -1042,7 +1194,17 @@
       y = Math.max(y, f.y + f.h + 8 + 256 * CONTENT_FRAC * scale);
     }
 
+    // THROUGH THE CAMERA (applyCam): on the close shot he is drawn where the zoomed ground
+    // puts his mark, and as much larger as the world round him. `cam` goes with it, so the
+    // sprite keeps the sheet it has at his usual size (swiftee.js place): a zoom that swapped
+    // sheets would blank him for as long as the other sheet took to arrive.
+    if (cam.k !== 1 && pos !== 'off') {
+      var cox = f.x + CAM_AT.x * f.w, coy = f.y + CAM_AT.y * f.h;
+      x = cox + (x - cox) * cam.k; y = coy + (y - coy) * cam.k; scale *= cam.k;
+    }
+
     var L = fit({ x: x, y: y, scale: scale }, pos);
+    if (cam.k !== 1 && pos !== 'off') L.cam = cam.k;
     if (clipPage != null) L.clip = clipPage;
     if (m.air) L.air = true;
     return L;
@@ -1126,7 +1288,10 @@
     if (u.term && global.DualCode) {
       // the sentence it is in, so "another vertex" and "this vertex" can mean what they say
       var inLine = u.el.closest ? u.el.closest('.bubble-line') : null;
-      var lit = DualCode.cueTerm(u.term, { line: inLine ? inLine.textContent : '' });
+      // (in another language, the English it came from: "another vertex" is read off the words)
+      var lineText = inLine ? inLine.textContent : '';
+      if (lineText && global.I18N && I18N.on) lineText = I18N.english(lineText) || lineText;
+      var lit = DualCode.cueTerm(u.term, { line: lineText });
       // AND HE GLANCES AT IT — once a line, a small lean toward the board,
       // never a gesture: the thing on the board is the lesson, he only looks
       if (lit && !glanced && present && !entering && global.Swiftee && Swiftee.lookAt && !Swiftee.busy && !Swiftee.locked) {
@@ -1138,7 +1303,12 @@
     // AND WHATEVER THE WORD NAMES COMES IN WITH IT: an answer, a name tag,
     // a bin, the stepper (stage.js holdForWord) — the word and the thing in
     // the same frame
-    if (global.Stage && Stage.said) { try { Stage.said(u.el.textContent); } catch (e) {} }
+    // (in another language a word is told by the English it stands for: "अंदर" is "inside" —
+    // src/core/i18n.js cues — so the Inside button still arrives on its word)
+    if (global.Stage && Stage.said) {
+      if (global.I18N && I18N.on) I18N.cues(u.el.textContent).forEach(function (w) { try { Stage.said(w); } catch (e) {} });
+      else { try { Stage.said(u.el.textContent); } catch (e) {} }
+    }
   }
 
   /* THE FIRST TAP FINISHES THE SENTENCE. Every word still on its way lands at
@@ -1298,6 +1468,7 @@
   if (global.Timing) { T_PANEL_LEAD = Timing.PANEL_LEAD; T_SWAP_OUT = Timing.SWAP_OUT; T_SWAP_LEAD = Timing.SWAP_LEAD; }
   function say(text, mood, ms, clock, cues, o) {
     o = o || {};
+    if (text && global.I18N && I18N.on) text = I18N.tr(text);
     stopReveal(); revealUnits = null; revealDone = null;
     clearTimeout(swapTimer); swapTimer = null; pendingPut = null;
     if (!text) {
@@ -1569,7 +1740,32 @@
     var cardBox = instruction && instruction.classList.contains('show')
       ? instruction.getBoundingClientRect() : null;
     var hudBox = hud.getBoundingClientRect();
-    var nextBox = nextBtn && nextBtn.classList.contains('show') ? nextBtn.getBoundingClientRect() : null;
+    // the finale's Part 2 button stands in the bottom-right corner, so it is kept clear
+    var nextBox = continueBtn && continueBtn.classList.contains('show') ? continueBtn.getBoundingClientRect()
+      : (nextBtn && nextBtn.classList.contains('show') ? nextBtn.getBoundingClientRect() : null);
+
+    /* ON THE LEDGE (readyScene): UP AND TO HIS RIGHT, over the gap, as the reference has
+       it. The stage holds only scenery there, so the solo rule below would centre the
+       line over the middle of the screen, away from him. Its foot sits a little over the
+       top of his head and its left end just past his shoulder, so the tail comes off the
+       bottom-left corner and drops onto him (paintSkin aims it). */
+    if (readyOn && Swiftee.pos === 'ledge') {
+      var bird = birdRect();
+      if (bird && bird.width) {
+        // AS WIDE AS THE SKY TO HIS RIGHT ALLOWS (up to the usual cap), not a share of the stage:
+        // on a phone the type is large for the screen, and at 0.46 of it the hand-over line ran
+        // to four rows in Telugu with half the sky beside it empty
+        bubble.style.maxWidth = Math.max(MIN_W, Math.min(vw - GAP - (bird.right - bird.width * 0.12), 600 * K)) + 'px';
+        snugWidth();
+        var rw = bubble.offsetWidth, rh = bubble.offsetHeight;
+        var rl = Math.max(X0 + GAP, Math.min(vw - rw - GAP, bird.right - bird.width * 0.12));
+        var rt = Math.max(hudBox.bottom + GAP, bird.top + bird.height * 0.08 - rh);
+        bubble.style.left = rl + 'px';
+        bubble.style.top = rt + 'px';
+        paintSkin();
+        return;
+      }
+    }
 
     // With nothing on stage he simply speaks over the middle of the screen.
     if (solo || !content) {
@@ -1584,7 +1780,11 @@
       snugWidth();
       bubble.style.left = '50%';
       bubble.style.marginLeft = -(bubble.offsetWidth / 2) + 'px';
-      var birdTop = L.y - 256 * layout(Swiftee.pos, 'large').scale * CONTENT_FRAC;
+      /* OVER HIS HEAD AT THE SIZE HE IS (the user, screen 31: on "Let's recall" the box floated
+         far above him). This measured a LARGE bird's head whatever he was — right on the intro,
+         where he is large, and nearly a hundred pixels too high for the small bird who opens the
+         recap. L is his own mark at his own size. */
+      var birdTop = L.y - 256 * L.scale * CONTENT_FRAC;
       bubble.style.top = Math.max(hudBox.bottom + GAP, birdTop - bubble.offsetHeight - TAIL_GAP) + 'px';
       // He stands directly below on these screens, but aim it properly all the
       // same — "below" is only true once he has landed.
@@ -1639,7 +1839,10 @@
      * bubble's own span, so the tail drops straight onto it. Only when none of
      * those is clear (no room over him at all: the sorting screens, where he
      * hovers under the HUD) does the search below take over. */
-    if (global.Swiftee && Swiftee.pos !== 'corner' && Swiftee.pos !== 'off') {
+    // (the corner mark too, now: he stands on the card's glass there, and the bubble keeps clear of
+    // what is drawn on it rather than of the whole card — see ON THE GLASS WITH HIM below. Before,
+    // the corner went to the slot search, which could leave the line a hundred pixels over him.)
+    if (global.Swiftee && Swiftee.pos !== 'off') {
       var overHead = birdRect();
       if (overHead && overHead.width) {
         var ABOVE_GAP = 22 * K;
@@ -1654,7 +1857,19 @@
         // over his head and the line went to the top of the screen, its tail
         // aimed at the tray ("dialouge box placement not currect?")
         var teachOn = Stage.teachBox && Stage.teachBox();
-        var aparts = teachOn ? [teachOn] : (Stage.contentParts ? Stage.contentParts({}) : []);
+        /* ON THE GLASS WITH HIM (the final pass: "the bubble must feel physically connected"): when
+           he stands on the card itself (the corner mark on the measuring and stretching screens),
+           the slab is under him whatever the bubble does — avoiding it sent the line to a nook far
+           above his head (screen 28). Then only what is drawn on the glass is kept clear. */
+        var onGlass = false;
+        if (!teachOn && Stage.contentBox) {
+          var cb0 = Stage.contentBox(), hx0 = (overHead.left + overHead.right) / 2, hy0 = overHead.top + overHead.height * 0.2;
+          onGlass = !!(cb0 && hx0 > cb0.left && hx0 < cb0.right && hy0 > cb0.top && hy0 < cb0.bottom);
+          // (or standing in front of it: his body over the card's rim, as beside the make-concave
+          // card — the card is behind him either way, and only what is drawn on it is in the way)
+          if (!onGlass && cb0) onGlass = overHead.right > cb0.left + 8 && overHead.left < cb0.right - 8 && overHead.bottom > cb0.top + 8 && overHead.top < cb0.bottom - 8;
+        }
+        var aparts = teachOn ? [teachOn] : (Stage.contentParts ? Stage.contentParts(onGlass ? { glass: true } : {}) : []);
         var ablocks = [hudBox, nextBox].filter(function (b) { return b && b.width; });
         var aclear = function (x, y) {
           var box = { left: x, right: x + aw, top: y, bottom: y + ah };
@@ -1665,12 +1880,19 @@
           for (var bi2 = 0; bi2 < ablocks.length; bi2++) if (hit(ablocks[bi2], 16)) return false;
           return true;
         };
+        // `lane`, when set, is the free span either side of him that the box
+        // is kept within (see BETWEEN TWO COLUMNS below); the frame otherwise
+        var lane = null;
         var tryAbove = function () {
           if (atop < f.y + GAP) return false;
           var tries = [acx - aw / 2, acx - aw * 0.78, acx - aw * 0.22];   // centred, above-left, above-right
+          var lo = lane ? lane.l : f.x + GAP, hi = lane ? lane.r - aw : f.x + f.w - GAP - aw;
           for (var ti = 0; ti < tries.length; ti++) {
-            var ax2 = Math.max(f.x + GAP, Math.min(f.x + f.w - GAP - aw, tries[ti]));
-            if (acx < ax2 + 26 * K || acx > ax2 + aw - 26 * K) continue;   // his head must be under the bubble
+            var ax2 = Math.max(lo, Math.min(hi, tries[ti]));
+            // his head must be under the bubble — to within the tail's reach of its corners (12, not
+            // 26: a head just past the straight run is still met by a tail leaning out to it; at 26
+            // the column beside a card missed him by a few pixels and the line went to the top)
+            if (acx < ax2 + 12 * K || acx > ax2 + aw - 12 * K) continue;
             if (aclear(ax2, atop)) {
               bubble.style.left = ax2 + 'px';
               bubble.style.top = atop + 'px';
@@ -1693,9 +1915,47 @@
           if (col >= MIN_W && col < aw) {
             bubble.style.maxWidth = col + 'px';
             snugWidth();
-            if (rowsOfLine() <= 3) {
+            // (four rows, not three: four over his head, near him, is still his speech; the band
+            // this gave up to was the top of the screen, the tail over empty sky — the final pass)
+            if (rowsOfLine() <= 4) {
+              aw = bubble.offsetWidth; ah = bubble.offsetHeight; atop = overHead.top - ABOVE_GAP - ah;
+              // (held inside the column it was fitted to: tried at his centre or leaning left or
+              // right, a column-wide bubble crossed the lesson's edge by a few pixels every time)
+              lane = { l: f.x + GAP, r: content.left - 12 * K };
+              if (tryAbove()) return;
+              lane = null;
+            }
+          }
+        }
+        /* BETWEEN TWO COLUMNS. On the finale he stands in the open middle with
+           the collection either side of him, and "You explored all these
+           polygon ideas!" at one row was a shade wider than the gap: centred,
+           above-left and above-right each touched a column, the lesson box
+           spans both columns so the branch above did not apply, and the band
+           search put the line at the top of the screen, its tail over empty
+           sky with him far below. The free span at his head's height is
+           measured between the nearest parts left and right of him, and the
+           line is fitted to it — two rows over his head, pointing at him. */
+        if (aparts.length) {
+          var laneL = f.x + GAP, laneR = f.x + f.w - GAP;
+          var bandTop = overHead.top - ABOVE_GAP - ah * 2.4, bandBot = overHead.top;
+          for (var li = 0; li < aparts.length; li++) {
+            var lp = aparts[li];
+            if (lp.bottom + 10 < bandTop || lp.top - 10 > bandBot) continue;    // not at that height
+            if (lp.right <= acx && lp.right + 10 > laneL) laneL = lp.right + 10;
+            if (lp.left >= acx && lp.left - 10 < laneR) laneR = lp.left - 10;
+          }
+          var laneW = laneR - laneL;
+          if (laneW >= MIN_W && laneW < aw) {
+            bubble.style.maxWidth = laneW + 'px';
+            snugWidth();
+            // (four rows, not three: four over his head, near him, is still his speech; the band
+            // this gave up to was the top of the screen, the tail over empty sky — the final pass)
+            if (rowsOfLine() <= 4) {
+              lane = { l: laneL, r: laneR };
               aw = bubble.offsetWidth; ah = bubble.offsetHeight; atop = overHead.top - ABOVE_GAP - ah;
               if (tryAbove()) return;
+              lane = null;
             }
           }
         }
@@ -2174,6 +2434,17 @@
     if (!tail) return;
     var r = layoutRect(bubble);
     if (!r.width || !r.height) return;
+    /* AIMED FROM WHERE IT IS GOING, NOT FROM WHERE ITS SLIDE HAS GOT TO. The bubble glides to a
+       new place (a 240ms transition on left/top), and its layout box mid-glide is the old place:
+       re-placed as an input armed (screen 20), the tail was worked out from there and pointed
+       past his cheek for the rest of the line. The target is what style.left/top say. */
+    var par = bubble.offsetParent, pr0 = par && par.getBoundingClientRect();
+    var toPx = function (v, span) { if (!v) return NaN; var n = parseFloat(v); return /%$/.test(v) ? n * span / 100 : (/px$/.test(v) ? n : NaN); };
+    if (pr0) {
+      var sl = toPx(bubble.style.left, par.clientWidth), stp = toPx(bubble.style.top, par.clientHeight);
+      if (isFinite(sl)) r.left = pr0.left + sl + (parseFloat(bubble.style.marginLeft) || 0);
+      if (isFinite(stp)) r.top = pr0.top + stp + (parseFloat(bubble.style.marginTop) || 0);
+    }
     // OUT ON THE MEASURING WALK he is not where his words are: the tail
     // pointed at the empty corner he had left. While the walk has him the
     // line is a plain card with no tail; it points at him again once he is
@@ -2297,6 +2568,7 @@
    */
   function relayout() {
     seatFurniture();
+    applyCam();   // the camera's origin is in pixels of the board: a resize moves it
     Swiftee.relayout();
     syncPeekRim();
     // placeBubble, not fitLine: the fit was worked out when the line was set
@@ -2306,10 +2578,63 @@
     paintSkin();
   }
 
-  function showNext(on) {
-    if (!nextBtn) return;
-    nextBtn.classList.toggle('show', !!on);
-    nextBtn.disabled = !on;
+
+  /* THE LESSON GOES ON BY ITSELF (the Part 1 review, section 2).
+   *
+   * Every screen ended on a Next button. Now a screen that has said and shown everything
+   * it has to — his line finished and its reading pause over (the say beat before this),
+   * no reply of his still being said, his voice quiet, him not on his way in — waits one
+   * reading breath more and goes on: longer on a screen whose line names one of the
+   * lesson's ideas, so a definition is left up a moment after it has been said. It never
+   * goes on over his voice or over a reply; those are waited for, with a ceiling, so a
+   * stalled clip cannot hold the lesson for ever. Scaled with the lesson's pace (a test
+   * harness runs it fast), and called off by anything that takes the screen away.
+   *
+   * THE HOLD IS SIZED TO THE LINE (the MASTER brief §23): 700–900 ms for an ordinary line,
+   * 1000–1400 ms for one that states an idea of the lesson, longer the more words it has —
+   * and counted from the moment his voice stopped (VO.quietAt), so the breath the screen has
+   * already taken (the say beat's tail, a `wait` it asked for to look at something) is part
+   * of the hold rather than added to it. Never under a short beat once the gate is open.
+   */
+  var AUTO_CEILING = 20000, HOLD_FLOOR = 300;
+  var IDEA_RE = /\b(vertex|vertices|diagonals?|convex|concave|sides?|angles?|regular|irregular)\b/i;
+  function holdFor(sc) {
+    var say = String(sc.say || '').trim(), n = say ? say.split(/\s+/).length : 0;
+    var idea = (sc.swiftee && sc.swiftee.purpose === 'concept') || IDEA_RE.test(say);
+    return idea ? Math.min(1400, 1000 + 40 * n) : Math.min(900, 700 + 20 * n);
+  }
+  function autoAdvance(ctx, spec) {
+    var gen = playGen, screenAt = current, off = false, t0 = Date.now();
+    if (ctx && ctx.onCancel) ctx.onCancel(function () { off = true; });
+    var sc = Screens.list[current] || {};
+    // (a screen whose last beat is already a pause — the flight onto the log — names its own)
+    var settleMs = spec && spec.pause != null ? spec.pause : null;
+    var hold = settleMs != null ? settleMs : holdFor(sc);
+    var alive = function () { return !off && gen === playGen && screenAt === current; };
+    var ceiling = Math.max(200, AUTO_CEILING * paceScale());
+    var quiet = function () {
+      if (Date.now() - t0 > ceiling) return true;
+      return !replying() && !entering && !(global.VO && VO.id);
+    };
+    var tries = 0;
+    var go = function () {
+      if (!alive()) return;
+      // (Input answers only while the gate is open and past its guard: try again shortly)
+      if (global.Input && Input.advance && Input.advance()) return;
+      if (++tries < 12) setTimeout(go, 250);
+    };
+    (function settle() {
+      if (!alive()) return;
+      if (!quiet()) { setTimeout(settle, 120); return; }
+      // (a named pause is its own: it follows a flight, not his voice)
+      var hushed = global.VO && VO.quietAt ? Date.now() - VO.quietAt : 0;
+      var ms = settleMs != null ? settleMs : Math.max(HOLD_FLOOR, hold - Math.max(0, hushed));
+      setTimeout(function () {
+        if (!alive()) return;
+        if (!quiet()) { settle(); return; }                  // something began in the breath
+        go();
+      }, Math.round(ms * paceScale()));
+    })();
   }
 
   function setProgress(i) {
@@ -2510,7 +2835,16 @@
   var H = null;   // the live handler table, so one handler can hand off to another
   function handlers() {
     H = {
-      stage: function (spec) {
+      stage: function (spec, ctx) {
+        /* THE CAMERA DRAWS BACK (the end of the intro — MASTER brief §2): the third line is
+           said and its bubble goes, then the close shot eases out to the whole scene in one
+           move. The log has been on the ground at his left all along, just outside the close
+           shot: it comes into view because the camera shows it, not because it appears (the
+           user: "the log arc is already part of the scene"). */
+        if (spec && spec.camera === 'wide') {
+          standing = null; say(null);
+          return cameraTo(1, spec.ms || 1000, ctx);
+        }
         // AFTER THE SNOW. A beat marked afterReveal waits for the veil to
         // melt before it draws, so what it draws — diagonals arriving one
         // by one — is seen arriving, not found already there when the snow
@@ -2593,12 +2927,28 @@
         // into the open middle.)
         // IN BY AIR, looking the shape over on the way (flyIn)
         if (state === 'enter' && opts && opts.from === 'air') return flyIn();
+        /* ONTO THE LOG (the end of the intro — the user's "fly to the log arc"): his line is said
+           and its bubble comes down with it, then a real flight from wherever he is to the log —
+           wings going, up and over on one curve, easing down onto it — the landing squash, and
+           he is perched there (swiftee.js MOVES.perch). */
+        if (state === 'perch' && present && global.Swiftee && Swiftee.play) {
+          standing = null; say(null);
+          var fr = frame();
+          return Promise.resolve(Swiftee.play('perch', { size: (opts && opts.size) || Swiftee.size,
+                                                         bow: Math.round(fr.h * 0.2), ms: (opts && opts.ms) || 1300 }))
+            .then(function () { placeBubble(); }, function () {});
+        }
         if (state === 'enter' && opts && opts.from === 'below' && !opts.to) {
           return entrance({ quick: !!opts.quick, ms: opts.ms }).then(function () { placeBubble(); });
         }
         // and his words go down with him: a line left up after he has gone
         // is re-placed against nobody (the orphan bubble at the top-left)
         if (state === 'exit' && opts && opts.to === 'below') { standing = null; say(null); return leave(); }
+        // ALREADY STANDING WHERE THE ENTRANCE WOULD PUT HIM: nothing to do. A screen that may or
+        // may not have brought him in by now (make-concave: in on the first miss, or not until
+        // the cheer) asks for the same mark either way, and a second walk-on would replay.
+        if (state === 'enter' && present && !entering && opts && opts.to && opts.to === Swiftee.pos &&
+            (!opts.size || opts.size === Swiftee.size)) return Promise.resolve();
         // Not on yet? He comes in first, then does what the beat asked.
         if (state !== 'enter' && !present) {
           return entrance().then(function () { return handlerSwiftee(state, opts, ctx); });
@@ -2655,7 +3005,22 @@
         if (state === 'move' || state === 'enter') p.then(placeBubble);
         return p;
       },
+      /* the director's line tests (a beat's `alt.if`): what the shape on screen actually shows */
+      test: function (name) {
+        if (name === 'manyOutside') return !!(Stage.outsideCount && Stage.outsideCount() > 1);
+        return false;
+      },
       say: function handlerSay(text, opts, ctx) {
+        // IN THE LESSON'S LANGUAGE before anything is timed: the line, the script's breaks in it
+        // (its own, as the translation breaks it) and the instruction that will repeat it. Once.
+        if (LANG && text && !(opts && opts.inLang)) {
+          opts = Object.assign({}, opts, {
+            inLang: true,
+            parts: opts && opts.parts ? LANG.trParts(text, opts.parts) : null,
+            settledBy: opts && opts.settledBy ? LANG.tr(opts.settledBy) : (opts && opts.settledBy)
+          });
+          text = LANG.tr(text);
+        }
         // The index is fetched asynchronously. Without this gate the first
         // line can reach play() while the list is still empty and become the
         // only line on a run that is silently skipped.
@@ -2770,8 +3135,8 @@
         parts = sentences.map(function (x) { return x.text; });
         /* HIS FACE ON ITS BUBBLE. A line can say which face goes with which
            of its bubbles (`faces`, one per script fragment): "Hmm…" squinting,
-           "Let's check!" with the magnifying glass coming out on the word —
-           not a beat after the whole line has been read. */
+           then the question on his face as "The sides look suspiciously alike."
+           arrives — not a beat after the whole line has been read. */
         var faceAt = function (i) {
           var fc = sentences[i] && sentences[i].face;
           if (fc && buddyOn && present && global.Swiftee && Swiftee.play) { try { Swiftee.play(fc, direction()); } catch (e) {} }
@@ -2946,6 +3311,20 @@
         // every single-sentence screen paced by the director's word count
         // alone — and that count is short of the recording on twenty-five of
         // the thirty-six lines that have one.
+        /* ON ITS LAST WORD (`endsAt: 'words'` — the inside / outside answer, the user: "the
+           interaction not sync with vo"): "The diagonals are inside." is said by 2.0 s of a 3.0 s
+           clip, and the merged Inside waited out the silent second as well. Such a line ends
+           when the voice's own clock reaches its last word (VO.spoken); the tail plays on
+           under what comes next. */
+        if (opts && opts.endsAt === 'words' && voId && VO.spoken && VO.spoken(voId)) {
+          var saidBy = VO.spoken(voId);
+          return new Promise(function (res) {
+            var iv = setInterval(function () {
+              if (VO.id !== voId || (VO.at && VO.at() >= saidBy)) { clearInterval(iv); res(); }
+            }, 30);
+            if (ctx && ctx.onCancel) ctx.onCancel(function () { clearInterval(iv); res(); });
+          });
+        }
         var paced = new Promise(function (res) {
           var t = setTimeout(res, spoken);
           if (ctx && ctx.onCancel) ctx.onCancel(function () { clearTimeout(t); res(); });
@@ -2954,6 +3333,7 @@
         return Promise.all([paced, heard]);
       },
       instruction: function handlerInstruction(text, opts, ctx) {
+        if (LANG && text) text = LANG.tr(text);       // (in the lesson's language, as handlerSay)
         // (and, like a line, not over his reply to the answer just given)
         if (text && replying() && !(opts && opts.afterReply)) {
           return untilReplied(ctx).then(function () {
@@ -3026,8 +3406,9 @@
         if (global.Swiftee && Swiftee.warm) Swiftee.warm();
 
         var waiting = spec.type === 'tap-anywhere';
-        showNext(waiting);
-        if (ctx && ctx.onCancel) ctx.onCancel(function () { showNext(false); });
+        // NO NEXT BUTTON IN THE LESSON: the screen goes on by itself once all of it has been
+        // said and seen (autoAdvance). The story before it keeps its own Next.
+        if (waiting) autoAdvance(ctx, spec);
         if (ctx && ctx.onCancel) ctx.onCancel(function () { inputLive = false; inputSpec = null; });
 
         /* WHILE THE CHILD WORKS, HE WAITS WITH THEM. The pose he asked the
@@ -3039,16 +3420,21 @@
         if (!waiting && buddyOn && present && global.Swiftee && Swiftee.stance) {
           Swiftee.stance(HOLDS_A_QUESTION.test(Swiftee.state || '') ? Swiftee.state : null);
         }
-        var answered = Stage.waitFor(spec, ctx);
+        var answered = spec.type === 'summary-review' ? reviewSummary(spec, ctx) : Stage.waitFor(spec, ctx);
         // A RETRY THAT ARMS WHILE HE IS STILL ANSWERING THE LAST TRY waits for
         // him: held, and handed back as his reply ends (pop). A wrong answer
         // that ends its input re-arms the question at once, and the child
-        // could answer again over "Hmm, look again." and cut it off. (After
+        // could answer again over "Try again!" and cut it off. (After
         // the interaction has started: it sets the pointer mode itself, and
         // the mode and the stage's hold must say the same thing.)
         if (inputLive && replying()) { holdInput(true); holdForReply = true; }
         return answered.then(function (r) {
           inputLive = false; inputSpec = null;
+          /* ONE STATE AT A TIME (the final pass): the answer is in, so nothing on the stage takes
+             a press until the next input arms and sets its own mode — not under his reply, not
+             under an explanation or a demonstration. (A reading beat keeps its mode: it is how
+             the screen goes on.) */
+          if (!waiting && global.Input) Input.mode('locked');
           bubble.classList.remove('dim');
           // the task is over: whatever he was watching or holding, the answer's
           // reaction comes next, and after it he rests
@@ -3056,9 +3442,11 @@
           if (r && (r.result === 'correct' || r.result === 'wrong')) {
             verdictAt = Date.now();
             if (director) director.emit(r.result === 'correct' ? 'answer:correct' : 'answer:incorrect', { spec: spec, detail: r });
-            verdictFx(r.result, spec.type);
+            // (not for the cards that draw their own verdict — Level 1's halo, the swipe card:
+            // the generic green flash and 3px lift on the completing tap were "the card pops
+            // a little" — the user)
+            if (spec.type !== 'multi-select' && spec.type !== 'swipe') verdictFx(r.result, spec.type);
           }
-          showNext(false);
           if (waiting) say(null);
           else if (r && r.result === 'correct') {
             var earned = quest.award(current + ':' + spec.type);
@@ -3066,14 +3454,16 @@
             // the else, replaying a screen — or solving one whose XP was
             // already banked — got no reaction at all, which is the same
             // desync as a wrong answer getting none.
-            if (earned) reward('+' + earned + ' XP. Challenge complete.', false);
+            if (earned) reward(LANG ? LANG.t('rewardXp', { xp: earned }) : '+' + earned + ' XP. Challenge complete.', false);
             // and he says so, whether or not there was XP in it: react() is
             // the one place his word on an answer comes from. His FACE is the
             // screen's own feedback beat, a moment later — one reaction, not two.
             react('correct', null, { face: false, quiet: spec.praise === false, final: true, type: spec.type });
-          } else if (r && r.result === 'wrong') react('wrong', null, { face: false, final: true });
+          // (a last try's miss is answered by the screen's own explanation — spec.quietMiss — not
+          // by one more "Try again!" in front of it)
+          } else if (r && r.result === 'wrong' && !spec.quietMiss) react('wrong', null, { face: false, final: true, reason: spec.reason });
           return r;
-        }, function (e) { showNext(false); throw e; });
+        }, function (e) { throw e; });
       },
       sfx: function (name, opts) { if (global.SFX) SFX.play(name, opts); },
       juice: function (name, target, opts) { if (global.Juice && Juice[name]) Juice[name](Stage.element(target), opts); }
@@ -3138,9 +3528,12 @@
     return out;
   }
   /* every reply clip: the cheers, the nudges, and the stage's reasons */
-  var REASONS = ['fb11', 'fb12', 'fb13', 'fb14', 'fb15', 'fb16'];
+  // (the stage's own: "Pull it in more!", "Drop it on a corner!", the swipe's four reasons, the
+  // stretch, and the sort's two confirmations — stage.js)
+  var REASONS = ['fb11', 'fb15', 'fb35', 'fb36', 'fb37', 'fb38', 'fb40', 'fb42', 'fb43'];
   function replyClips() {
-    var out = PRAISE.concat(NUDGE, [NUDGE_STRONG]).map(function (p) { return p.vo; });
+    var out = NUDGE.concat([NUDGE_STRONG]).map(function (p) { return p.vo; });
+    Object.keys(CLUES).forEach(function (k) { out.push(CLUES[k].vo); });
     Object.keys(PRAISE_FOR).forEach(function (k) { out.push(PRAISE_FOR[k].vo); });
     return out.concat(REASONS).filter(function (id, n, all) { return id && all.indexOf(id) === n; });
   }
@@ -3202,7 +3595,7 @@
   function warmArt(i) {
     if (warmedArt || i < 1 || typeof Image === 'undefined') return;
     warmedArt = true;
-    try { if (global.MeasuringFrames && MeasuringFrames.image) (new Image()).src = MeasuringFrames.image; } catch (e) {}
+    try { if (global.MeasuringFrames && MeasuringFrames.image) (new Image()).src = pic(MeasuringFrames.image); } catch (e) {}
   }
 
   function runScreen(i) {
@@ -3218,10 +3611,10 @@
     // from the screen before plays its stop and he rests; the new screen's
     // count of misses and its one hint start again.
     if (global.Swiftee && Swiftee.settle) Swiftee.settle();
-    missesHere = 0; hintedHere = false; inputSpec = null; wrongSinceRight = false;
+    missesHere = 0; hintedHere = false; inputSpec = null;
     // whatever he was still saying back on the screen before is over, and
     // nothing of it holds the new screen's input
-    popGen++; popping = false; clearTimeout(popDue); popDue = null; riseWait = false; cheerUntil = 0; holdForReply = false;
+    popGen++; popping = false; clearTimeout(popDue); popDue = null; riseWait = false; cheerUntil = 0; holdForReply = false; owedCheer = null;
     if (Stage.hold) Stage.hold(false);
     // THE CARD IS CLEARED, NOT INHERITED.
     //
@@ -3244,6 +3637,8 @@
     // child is shown two buttons, taps one, and nothing happens, which is a
     // worse lesson than no buttons at all.
     if (!screenAsksChoices(s) && global.Stage && Stage.apply) Stage.apply({ choices: null });
+    // (Screen 7's corner states — its sides made and their disabled ends — are its own)
+    if (global.Stage && Stage.leaveConnect) Stage.leaveConnect();
 
     // WHERE HE STANDS ON THIS SCREEN.
     //
@@ -3258,6 +3653,12 @@
     // transition on every screen that wipes rather than as a jump.
     // ONLY A PURPOSE PUTS HIM ON SCREEN. Every screen has a position for him;
     // eleven have a reason. The rest get the plank.
+    // (Through the camera: the intro's close shot, screens.js `camera`, and every other screen
+    // wide — set first, so he is laid out through it wherever this screen puts him. And the log
+    // where this screen has it, for the same reason: his 'log' mark is read off it. On the
+    // intro it is simply there — no fade.)
+    setCam(s.camera === 'close');
+    if (Stage.perch) Stage.perch(!!s.log, s.camera === 'close' ? 0 : undefined);
     buddyOn = wantsBuddy(i);
 
     // THE PLANK IS NOT BLANK WHILE THE CHILD IS ASKED TO ACT.
@@ -3324,6 +3725,8 @@
     }
 
     current = i; setProgress(i);
+    // (the log arc stands on the screens that sit him on it — screens.js `log`, set above; off,
+    // it fades, under the snow when the screen after them is built behind the cover)
     // A carried card rides up when this screen has no plank, and eases back
     // under the band when it has; a scene built by this screen's beats is
     // seated as it is built.
@@ -3333,17 +3736,35 @@
         verdictAt = Date.now();
         if (director) director.emit(kind === 'correct' ? 'answer:correct' : 'answer:incorrect', { perTap: true });
         // (not the measuring taps: a measured side is not an answer)
-        if (!(inputSpec && inputSpec.type === 'tap-each')) verdictFx(kind);
+        // (nor a corner let go short of the answer: guidance, not a verdict — stage `soft`)
+        // (nor a card that draws its own verdict — the option cards' halo, stage.js optionCard
+        // _mark: the generic flash, shake and shrink on top of it were the "pop" the user saw)
+        if (!(inputSpec && inputSpec.type === 'tap-each') && !(info && info.soft) && !(info && info.marked)) verdictFx(kind);
       }
       var list = s.perTap ? (s.perTap[kind] || s.perTap.any) : null;
+      // (confetti for the answer that COMPLETES the question, not for every right card on the
+      // way — the animation review: confetti at completions)
+      // (…except a card that celebrates ITSELF — target 'option', Level 1: the user, "when I tap a
+      // card only one card bursts confetti, not the other too?" — every right card gets its
+      // own burst, from its own edges, as it is pressed)
+      if (list && kind === 'correct' && info && info.last === false) list = list.filter(function (b) { return !(b && b.juice === 'confetti' && b.target !== 'option'); });
       if (list) fire(list);
       // ONE FACE PER TAP: the storyboard's, when its per-tap list gives him
       // one, and otherwise react()'s. On the side-measuring screen the walk
       // itself is the answer to every tap (it is protected: swiftee.js lock).
       var walked = !!(inputSpec && inputSpec.type === 'tap-each' && inputSpec.targets === 'sides');
       var dip = !!(inputSpec && inputSpec.type === 'tap-each');
-      react(kind, said, { face: dip ? 'dip' : !(list && list.some(function (b) { return b && b.swiftee; })), walked: walked,
-                          tries: info && info.tries, teach: info && info.teach });
+      // a question with a cheer of its own (screens.js `cheer`): one for a right answer that
+      // leaves more to find, another for the one that completes it
+      var cheer = kind === 'correct' && !said && inputSpec && inputSpec.cheer;
+      if (cheer) said = PRAISE_FOR[info && info.last ? cheer.last : cheer.more] || null;
+      var ro = { face: dip ? 'dip' : !(list && list.some(function (b) { return b && b.swiftee; })), walked: walked,
+                 tries: info && info.tries, teach: info && info.teach, reason: info && info.reason,
+                 last: !!(info && info.last),
+                 // (the stage's own next step, once he has said this and is down again: the
+                 // swipe's second miss puts the card away after its explanation)
+                 after: info && typeof info.after === 'function' ? info.after : null };
+      react(kind, said, ro);
     });
     if (global.Input) Input.mode('locked');
     // WRITTEN DOWN AS IT BEGINS: the scene exactly as the child found it on
@@ -3478,7 +3899,7 @@
       // "Nice!" was being cut off by the ice; the lesson waits for it.
       if (replying()) { await untilReplied(); if (gen !== playGen) return; }
       var badge = quest.complete(i);
-      if (badge) { reward('Badge unlocked: ' + badge.name + '.', true); }
+      if (badge) { reward(LANG ? LANG.t('badgeUnlocked', { badge: LANG.tr(badge.name) }) : 'Badge unlocked: ' + badge.name + '.', true); }
     }
     playing = false;
     finish();
@@ -3498,7 +3919,8 @@
        box look static?"). While the walk has him, his line softly fades
        back; when he is home again it springs back in, pointing at him. */
     tailWatch = setInterval(function () {
-      var out = !!(global.Swiftee && Swiftee.locked === 'measuring');
+      // (either walk: the tape round the sides, or the protractor round the corners)
+      var out = !!(global.Swiftee && (Swiftee.locked === 'measuring' || Swiftee.locked === 'angle-measuring'));
       // the walk takes its lock a moment after the tap: step aside then
       if (out && !away) { away = true; bubble.classList.remove('back'); bubble.classList.add('away'); repaint(); }
       if (out && Date.now() - since < 20000) return;
@@ -3506,7 +3928,11 @@
       if (!away && Date.now() - since < 1500) return;
       clearInterval(tailWatch); tailWatch = null;
       bubble.classList.remove('away');
-      if (away) { void bubble.offsetWidth; bubble.classList.add('back'); setTimeout(function () { bubble.classList.remove('back'); }, 520); }
+      /* …AND IT DOES NOT COME BACK (the user: "after measuring side and angles why dialogue stay
+         and show 'Let's measure'?"). The line was said before the walk; once the measuring is
+         done it is over, so the box closes instead of springing back in with words that no
+         longer fit — the next thing he says opens it again. */
+      if (away) { say(null); return; }
       repaint();
     }, 120);
   }
@@ -3525,16 +3951,12 @@
      PRAISE → POP DOWN → CONTINUE). A card that came back (a wrong answer,
      answered by its own pop in react(); a pull let go short of a zone)
      brings nobody up. */
-  function swipeHome(p) {
-    if (!p || !p.dealt || !popsHere()) return;
-    var pick = wrongSinceRight ? PRAISE_FOR.fixed : nextPraise();
-    wrongSinceRight = false;
-    lastPraiseAt = Date.now();
-    // (a head over the card: his small happy face, not a whole-body move)
-    pop([{ t: pick.t, vo: pick.vo, mood: 'win', face: pick.vo === 'fb26' ? 'phew' : 'happySmall' }]);
-  }
+  /* NOT ANY MORE (the user, screen 30: "Swiftee should not interrupt every correct swipe"): a
+     right card is answered by the card itself — its green, the chime, the flight into its zone —
+     and the next one comes; he speaks for a wrong one, and says "Great job!" when the last one
+     is in (the swipe's own answer, react). Nothing listens for the dealt card any more. */
 
-  /* HIS REPLY — every word he says back to an answer (react(), swipeHome).
+  /* HIS REPLY — every word he says back to an answer (react()).
    *
    * The user's spec: nothing can be done while he is speaking, and a reply
    * is always heard out. So a reply is one sequence, each step waiting for
@@ -3626,6 +4048,9 @@
   }
   function popLine(ln, hooks) {
     var text = ln.t, k = paceScale(), T = global.Timing || {};
+    // in the lesson's language — and each `show` then waits for its word where the translation says it
+    var enText = text;
+    if (LANG && text) text = LANG.tr(text);
     var vid = (global.VO && ln.vo && VO.play && VO.play(ln.vo)) ? ln.vo : null;
     var clock = vid ? function () { return (global.VO && VO.id === vid && VO.at) ? VO.at() : null; } : null;
     var cues = null;
@@ -3646,9 +4071,13 @@
     talkFor(vid, voiced || (lastWord + Math.round(300 * k)));
     // ON ITS WORD: what the line names lights up as it is said — on the
     // voice's own clock when there is a voice, else when the word appears
-    if (hooks && hooks.cue && ln.show) {
-      var g = popGen, cueMs = cues && cues[ln.on || 0] != null ? cues[ln.on || 0] : 0, t0 = Date.now(), fired = false;
-      var fire = function () { if (!fired && g === popGen) { fired = true; hooks.cue(ln.show); } };
+    // (one `show` on its `on` word, or several — `shows: [{ what, on }]` — for a line that
+    // names two things: the swipe's "every side is equal, and every angle is equal too")
+    var shows = ln.shows ? ln.shows.slice() : ln.show ? [{ what: ln.show, on: ln.on || 0 }] : [];
+    if (LANG && text !== enText) shows = shows.map(function (sh) { return { what: sh.what, on: LANG.wordIndex(enText, text, sh.on || 0) }; });
+    if (hooks && hooks.cue) shows.forEach(function (sh) {
+      var g = popGen, cueMs = cues && cues[sh.on || 0] != null ? cues[sh.on || 0] : 0, t0 = Date.now(), fired = false;
+      var fire = function () { if (!fired && g === popGen) { fired = true; hooks.cue(sh.what); } };
       if (vid) {
         (function wait() {
           if (fired || g !== popGen) return;
@@ -3657,7 +4086,7 @@
           setTimeout(wait, 25);
         })();
       } else setTimeout(fire, cueMs + Math.round((T.PANEL_LEAD || 120) * k));
-    }
+    });
     /* HELD FOR THE VOICE ITSELF. This was a timer from the moment the clip
        was asked for — so a clip that started late (fetched cold, a slow
        decode) lost its last word to it: "That's right!" cut at 0.81 s of
@@ -3693,6 +4122,7 @@
         // (and the hint waits for 3 s of stillness from here: holdInput)
         holdInput(false);
       }
+      if (owedCheer) payCheer();
     };
     return (present ? Promise.resolve(true) : entrance(behind ? undefined : true)).then(function () {
       if (!alive() || !present) return;
@@ -3709,7 +4139,14 @@
       }, Promise.resolve());
     }).then(function () {
       if (!alive()) return;
-      if (behind) { say(null); return leave(); }
+      if (behind) {
+        say(null);
+        // a teaching moment given from behind the swipe card ends the same way as any other:
+        // the card back in its place and the sheet lifted (hooks.close) — and only then does
+        // he go down behind the card again
+        var closed = hooks && hooks.close ? hooks.close() : null;
+        return Promise.resolve(closed).then(function () { if (alive()) return leave(); });
+      }
       if (hooks && hooks.keep) return;          // (the finale: his last words stay up)
       // THE INSTRUCTION COMES BACK: the child is still working, and the words
       // they are working to return in place — not a blank bubble, and not
@@ -3722,7 +4159,17 @@
   }
   /* Is he still saying something back? The lesson's next line, and the next
      screen, wait for it: one voice at a time, and a reply is never cut off. */
-  function replying() { return popping || cheerUntil > Date.now(); }
+  function replying() { return popping || !!owedCheer || cheerUntil > Date.now(); }
+  var owedCheer = null;
+  function oweCheer(args) {
+    var o = owedCheer = { screen: current, args: args };
+    // (and if the line before it is taken away rather than finished, it is said anyway)
+    setTimeout(function () { if (owedCheer === o) payCheer(); }, 4000);
+  }
+  function payCheer() {
+    var o = owedCheer; owedCheer = null;
+    if (o && o.screen === current) react.apply(null, o.args);
+  }
   function untilReplied(ctx) {
     var until = Date.now() + 9000;
     return new Promise(function (res) {
@@ -3752,15 +4199,83 @@
     Swiftee.perform('hint', direction({ at: at }));
   }
 
+  /* THE SUMMARY, LOOKED BACK AT (the final pass). Its explanations have all been given; now Next
+   * is shown, and every card in the collection can be tapped to hear its idea again.
+   *
+   *   READY → CARD_SELECTED → LOCK_OTHER_CARDS → REPLAY_EXPLANATION → SETTLE → READY
+   *
+   * One replay at a time: a tap while one runs is not taken (nor is Next — it waits, dimmed, and
+   * comes back), so no two voices and no two animations ever overlap. A replay replays only the
+   * card tapped: its idea drawn again in place (Stage.summaryReplay) and its own line and voice,
+   * the same words it was first given. Next resolves the input, and the game's ending follows. */
+  function reviewSummary(spec, ctx) {
+    return new Promise(function (resolve) {
+      var lines = {}; (spec.cards || []).forEach(function (c) { lines[c.id] = c; });
+      var cards = Stage.summaryCards ? Stage.summaryCards() : [];
+      var busy = false, over = false, offs = [];
+      if (global.Input) Input.mode('polygon');
+      var ready = function () { busy = false; if (nextBtn) nextBtn.classList.remove('wait'); if (Stage.summaryReplay) Stage.summaryReplay(null); };
+      var end = function () {
+        if (over) return; over = true;
+        offs.forEach(function (f) { f(); }); offs = [];
+        if (nextBtn) nextBtn.classList.remove('show', 'wait');
+        cards.forEach(function (c) { c.el.style.cursor = ''; });
+      };
+      var onNext = function (e) {
+        if (e) e.preventDefault();
+        if (over || busy) return;
+        if (global.SFX) SFX.play('select');
+        end(); resolve({ result: 'tap' });
+      };
+      if (nextBtn) {
+        nextBtn.classList.remove('wait'); nextBtn.classList.add('show');
+        nextBtn.addEventListener('click', onNext);
+        offs.push(function () { nextBtn.removeEventListener('click', onNext); });
+        placeBubble();
+      }
+      cards.forEach(function (c) {
+        c.el.style.cursor = 'pointer';
+        var tap = function (e) {
+          if (over || busy || (global.Input && Input.guarded)) return;
+          var L = lines[c.id]; if (!L) return;
+          if (e) { e.preventDefault(); e.stopPropagation(); }
+          busy = true;
+          if (nextBtn) nextBtn.classList.add('wait');
+          if (global.SFX) SFX.play('pop', { gain: 0.4 });
+          var shown = Stage.summaryReplay ? Stage.summaryReplay(c.id) : Promise.resolve();
+          var told = Promise.resolve(H && H.say ? H.say(L.say, { vo: L.vo, type: 'narration' }, ctx) : null);
+          Promise.all([shown, told]).then(function () {
+            if (over) return;
+            // a breath to read it, then the collection is all his again
+            setTimeout(function () { if (!over) ready(); }, Math.round(500 * paceScale()));
+          }, function () { if (!over) ready(); });
+        };
+        c.el.addEventListener('pointerdown', tap);
+        offs.push(function () { c.el.removeEventListener('pointerdown', tap); });
+      });
+      if (ctx && ctx.onCancel) ctx.onCancel(function () { end(); });
+    });
+  }
+
   function finish() {
-    say(null); setCard(null); showNext(false);
+    say(null); setCard(null);
     if (global.Music) Music.mood('win');   // the tune lifts for the last screen
-    var won = quest.snapshot();
-    var score = won.xp + ' XP and ' + won.badges.length + (won.badges.length === 1 ? ' badge' : ' badges') + '.';
-    // spoken and word by word, one voice at a time, his last words kept up
-    pop([{ t: FINALE[0].t, vo: FINALE[0].vo, mood: 'win' },
-         { t: score, mood: 'win' },
-         { t: FINALE[1].t, vo: FINALE[1].vo, mood: 'win' }], { keep: true });
+    // (no score sentence between his two lines any more: "180 XP and 5 badges." had no voice and
+    // read as noise in his mouth — the user)
+    // spoken and word by word, one voice at a time, his last words kept up —
+    // and a breath after they are said, the hand-over screen comes in by itself
+    // (readyScene), as every screen of the lesson has gone on (autoAdvance). A
+    // replay, a restart or a screen picked in the review tool bumps playGen and
+    // so calls it off.
+    var gen = playGen;
+    finaleOn = true;
+    pop(FINALE.map(function (f) { return { t: f.t, vo: f.vo, mood: 'win' }; }), { keep: true }).then(function () {
+      if (gen !== playGen) return;
+      if (!finaleOn || readyOn) return;
+      setTimeout(function () {
+        if (gen === playGen && finaleOn && !readyOn) readyScene();
+      }, Math.round(1800 * paceScale()));
+    });
     // one burst, wide, for the finale — two from different points read as a stutter
     if (global.Juice) Juice.confetti(Stage.svg, { count: 72, spread: 2.6 });
     if (global.SFX) SFX.sequence(['drumroll', 1.2, 'levelUp', 0.3, 'sparkle']);
@@ -3768,18 +4283,180 @@
     // settles into `proud`. Everywhere else `celebrate` is the ceiling.
     Swiftee.play('excited').then(function () { return Swiftee.play('proud'); });
     hud.querySelector('.replay').classList.add('show');
+    // PART 2's BUTTON WAITS FOR THE HAND-OVER SCREEN. It used to come up here,
+    // with the finale, and it went straight to Frozen Rush: a child pressed it
+    // before the finale was over, and the screen that hands them over to Momo
+    // was never seen.
+  }
+
+  /* THE HAND-OVER SCREEN: SWIFTEE ON MOMO'S GROUND (asked for, from a reference).
+   *
+   * The lesson used to leave for Part 2 by itself four seconds after the finale, so
+   * the first thing Part 2 showed was a stranger (Momo) in a place the child had never
+   * seen. Now the finale is followed by one quiet screen that joins them: Swiftee
+   * standing on a ledge of Frozen Rush's own ice path (Stage 'ready'), waving, with
+   * one line — "You're ready! Now let's help Momo." — and the way on, Part 2's
+   * button, bigger and in the corner where moving on has lived all lesson.
+   *
+   * It does NOT go on by itself. It is a doorway, and the child walks through it:
+   * the button breathes after a moment (index.html, .ready-scene) so nobody is left
+   * wondering what to press. It comes in under the lesson's own snow, like a new level,
+   * a breath after the finale's last words — and the button answers only once it is in
+   * (readyUp), so a tap on the way in cannot carry on through it unseen.
+   */
+  var finaleOn = false, readyOn = false, readyUp = false, continueLabel = null;
+  function readyScene() {
+    if (leaving || readyOn || !continueBtn) return;
+    readyOn = true; readyUp = false; finaleOn = false;
+    var gen = playGen;
+    var snow = global.Transition && Transition.cover ? Transition.cover() : Promise.resolve();
+    snow.then(function () {
+      if (gen !== playGen) return;
+      say(null);
+      if (global.Swiftee && Swiftee.settle) Swiftee.settle({ now: true });
+      Stage.apply({ kind: 'ready' });
+      root.classList.add('ready-scene');
+      var label = continueBtn.querySelector('span');
+      if (label) { if (continueLabel == null) continueLabel = label.textContent; label.textContent = LANG ? LANG.t('playPartTwoButton') : 'Play Part 2'; }
+      continueBtn.classList.add('show');
+      Swiftee.place('ledge', 'large');
+      if (Swiftee.visible) Swiftee.visible(true);
+      return global.Transition && Transition.reveal ? Transition.reveal() : null;
+    }).then(function () {
+      if (gen !== playGen) return;
+      readyUp = true;
+      return pop([{ t: READY.t, vo: READY.vo, mood: 'win', face: 'wave' }], { keep: true });
+    }).then(function () {
+      /* AND THEN FROZEN RUSH COMES BACK BY ITSELF (the game-lesson kit): a breath after the line,
+         once the game's art is in, snow blows across and the game starts under it — no cover, no
+         Play. Its button stays, and a tap on it goes at once. Without the runner stage (the
+         suites, ?intro=0) the button is the way on, as it always was. */
+      if (gen !== playGen || !readyOn) return;
+      if (global.RunnerStage && RunnerStage.on) {
+        setTimeout(function () { if (gen === playGen && readyOn) RunnerStage.start(); }, END_READ);
+      }
+    });
+  }
+  var END_READ = 1300;   // the last line, read, before the game takes the screen
+  /** Back out of it (or of the finale): a replay, a restart or a jump in the review tool. */
+  function leaveReady() {
+    finaleOn = false;
+    if (!readyOn) return;
+    readyOn = false; readyUp = false;
+    if (root) root.classList.remove('ready-scene');
+    var label = continueBtn && continueBtn.querySelector('span');
+    if (label && continueLabel != null) label.textContent = continueLabel;
+  }
+
+  /* ON TO PART 2: the lesson's own snowfall closes over the finale, and Frozen
+     Rush opens behind it, whose title screen is snowing too. Once only; with
+     reduced motion there is no snow and it simply goes. */
+  function goOn() {
+    if (leaving || !continueBtn) return;
+    leaving = true;
+    var gen = playGen, href = continueBtn.href;
+    var snow = global.Transition && Transition.cover ? Transition.cover() : Promise.resolve();
+    snow.then(function () {
+      if (gen !== playGen) { leaving = false; return; }
+      try { global.location.assign(href); } catch (e) { leaving = false; }
+    });
+  }
+
+  /* PART 2 LOADS WHILE THE SUMMARY PLAYS. Frozen Rush holds its PLAY button
+     until its whole art set is in — 6.5MB, about thirteen seconds on a 5 Mbps
+     school line — and the lesson hands straight over to it, so the child sat
+     on "Loading…" at the one moment the two parts should feel like one game.
+     The summary is a minute of cards and voice that needs almost nothing new,
+     so from its first beat the files Part 2 will ask for are fetched quietly,
+     three at a time and at low priority, into the browser's cache.
+
+     The list is Part 2's own (game/js/asset-versions.js), with the ?v= hash
+     each file is requested by, so its requests hit exactly what is warmed: the
+     same hd-or-not choice (its wantHd in main.js) and ogg-or-mp3 choice
+     (playsOgg in engine.js). Only inside the combined project — the page sits
+     in /part1-swiftee-lesson/ over http — because the lesson's own test
+     servers and file:// have no Part 2 beside them. Nothing waits on it: a
+     file that fails only costs a slower cover. */
+  var warmed = false;
+  function warmPart2() {
+    if (warmed || !continueBtn || typeof global.fetch !== 'function') return;
+    var loc = global.location || {};
+    if (!/^https?:$/.test(loc.protocol || '') || !/\/part1-swiftee-lesson\//.test(loc.pathname || '')) return;
+    warmed = true;
+    var base = new URL('.', continueBtn.href).href;          // …/part2-frozen-rush/game/
+    var get = function (url) {
+      return global.fetch(url, { priority: 'low' }).then(function (r) { return r.ok ? r.arrayBuffer() : null; });
+    };
+    get(base + 'js/asset-versions.js').then(function (buf) {
+      if (!buf) return;
+      var src = new TextDecoder().decode(buf), v = {}, m;
+      var re = /"(assets\/[^"]+)":\s*"([0-9a-f]+)"/g;
+      while ((m = re.exec(src))) v[m[1]] = m[2];
+      var ogg = false;
+      try { ogg = !!new Audio().canPlayType('audio/ogg; codecs="opus"'); } catch (e) {}   // as engine.js playsOgg asks
+      var w = Math.min(global.innerWidth, global.innerHeight * 16 / 9);
+      var mem = global.navigator && navigator.deviceMemory;
+      var hd = w * (global.devicePixelRatio || 1) / 1920 >= 1.15 && w >= 1000 && !(mem && mem < 4);
+      var avif = !!(global.ImgFormat && ImgFormat.avif);      // as engine.js assetUrl asks (the same probe)
+      var art = [], sound = [];
+      Object.keys(v).forEach(function (p) {
+        // the hd character sheets replace the base ones on a big sharp screen, never both
+        var asWebp = p.replace(/\.avif$/, '.webp');
+        if (/\/hd\//.test(p) ? !hd : hd && /^assets\/char\/[^/]+$/.test(p) && v[asWebp.replace('assets/char/', 'assets/char/hd/')]) return;
+        // and a picture with an AVIF twin as the one file it will draw: the twin where this
+        // browser shows AVIF, the .webp where it does not
+        if (/\.avif$/.test(p) ? !avif : avif && /\.webp$/.test(p) && v[p.replace(/\.webp$/, '.avif')]) return;
+        if (/\.(mp3|ogg)$/.test(p)) {
+          // only the voice take the game will play: vo-lines (English), vo-lines-hi (Hindi), and
+          // none in a language with no recording of its own
+          var take = /\/vo-lines(?:-([a-z]+))?\./.exec(p);
+          if (take && (take[1] || 'en') !== (LANG ? (LANG.voice ? LANG.lang : '-') : 'en')) return;
+          var twin = /\.mp3$/.test(p) ? p.replace(/\.mp3$/, '.ogg') : p.replace(/\.ogg$/, '.mp3');
+          if (v[twin] && (/\.ogg$/.test(p) !== ogg)) return;   // only the one it will play
+          sound.push(p);
+        } else art.push(p);
+      });
+      // the code first (it revalidates, so this spares the download), then the
+      // art that gates PLAY, then the sounds, the music bed last
+      var queue = ['index.html', 'css/style.css', 'css/screens.css', 'js/locales.js', 'js/i18n.js', 'js/main.js', 'js/engine.js',
+                   'js/hud.js', 'js/tutorial.js'].map(function (f) { return base + f; })
+        .concat(art.concat(sound.sort(function (a, b) { return /bgm/.test(a) - /bgm/.test(b); }))
+          .map(function (p) { return base + p + '?v=' + v[p]; }));
+      var next = function () {
+        var url = queue.shift();
+        if (url) return get(url).catch(function () {}).then(next);
+      };
+      next(); next(); next();
+    }).catch(function () {});
   }
 
   function restart() {
+    resetLesson();
+    setTimeout(function () { play(0); }, 200);
+  }
+  /* THE STORY AGAIN, then the lesson from screen 1: the review tool's "Story" (wireJump).
+     Play again and the HUD's restart start the lesson itself, as they always have — the
+     story opens the game once, and a child who has heard it is not made to sit through it
+     again to replay the lesson. */
+  function restartStory() {
+    if (!global.Story || !Story.start) { restart(); return; }
+    resetLesson();
+    current = -1;
+    if (global.Swiftee && Swiftee.visible) Swiftee.visible(false);   // he flies in on screen 1, after it
+    Story.start({ lift: function () {}, done: function () { play(0); } });
+  }
+  function resetLesson() {
+    // a restart from inside the story (the review tool) ends it first
+    if (global.Story && Story.active) Story.stop();
     // THE OLD RUN ENDS NOW, not when the new one starts 200 ms later: a
     // restart pressed during the snow let the old loop's next screen, and
     // its voice, play over the new opening
-    playGen++; popGen++; popping = false; cheerUntil = 0; holdForReply = false;
+    playGen++; popGen++; popping = false; cheerUntil = 0; holdForReply = false; owedCheer = null;
     if (Stage.hold) Stage.hold(false);
     // and the second run's music is the lesson's, not the finale's louder tune
     if (global.Music && Music.mood) Music.mood('play');
     flightGen++; entering = null; present = false;
-    director.abort(); playing = false; showNext(false);
+    director.abort(); playing = false;
     if (global.Swiftee && Swiftee.settle) Swiftee.settle({ now: true });
     clearTimeout(rewardTimer);
     quest = Quest.create(); say(null); snaps = [];
@@ -3788,9 +4465,14 @@
     // the finale's fanfare does not play on over the new opening
     if (global.SFX && SFX.cancelSequences) SFX.cancelSequences();
     hud.querySelector('.replay').classList.remove('show');
+    if (continueBtn) continueBtn.classList.remove('show');
+    if (nextBtn) nextBtn.classList.remove('show', 'wait');
+    leaveReady();   // (playGen has moved on, so a snow already falling stays here too)
     Stage.apply({ kind: 'vista' });
+    // back in to the opening's close shot, eased — screen 1 lets the move finish (setCam)
+    var first0 = Screens.list[0] || {};
+    if (camFor(first0.camera === 'close') !== cam.k) cameraTo(camFor(first0.camera === 'close'), 700);
     Swiftee.place('left', 'large');
-    setTimeout(function () { play(0); }, 200);
   }
 
   /* ------------------------------------------------------------------ *
@@ -3799,10 +4481,28 @@
 
   function boot() {
     root = $('#game'); stageEl = $('#stage'); hud = $('#hud'); bubble = $('#bubble');
-    instruction = $('#instruction'); progress = $('#progress'); loadEl = $('#loading'); nextBtn = $('#next');
+    instruction = $('#instruction'); progress = $('#progress'); loadEl = $('#loading');
+    continueBtn = $('#continue');
+    // on to Part 2 in the same language (and the review bar's link to it)
+    if (LANG) [continueBtn, $('#jump .dev-go')].forEach(function (a) { if (a && a.getAttribute('href')) a.setAttribute('href', LANG.keep(a.getAttribute('href'))); });
+    nextBtn = $('#next');
+    // pressed on the hand-over screen, and only there (readyScene), through the snow
+    if (continueBtn) continueBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (!readyUp) return;
+      if (global.SFX) SFX.play('select');
+      if (global.RunnerStage && RunnerStage.on) { RunnerStage.start(); return; }
+      goOn();
+    });
 
     Stage.mount(stageEl);
     Swiftee.mount(root, { layout: layout });
+    // THE OPENING SHOT BEFORE ANYTHING IS SEEN: the intro's close shot, and its log, are set
+    // behind the title and the story, so the lesson is revealed already framed — the camera
+    // does not jump into the close-up when the curtain goes
+    var first = Screens.list[0] || {};
+    setCam(first.camera === 'close');
+    if (Stage.perch) Stage.perch(!!first.log, 0);
     Swiftee.place('left', 'large'); Swiftee.visible(false);   // he flies in on screen 1
 
     if (global.Juice) Juice.stage(stageEl);
@@ -3851,12 +4551,15 @@
         // behind it: the card is leaving, and the strip of its rim that hides
         // his body would be left hanging in the air where it was. HIS WORDS
         // GO WITH HIM — a bubble with nobody under it is a caption pointing
-        // at the snow — and both come back up when the next card is home
-        // (swipeHome).
+        // at the snow — and both come back up when he next has something to say.
         if (inputSpec && inputSpec.type === 'swipe' && present && !entering && global.Swiftee && Swiftee.pos === 'peek') { say(null); leave(); }
       });
-      (stageEl.ownerDocument.defaultView || global).addEventListener('pointerup', function () {
-        if (inputLive && director) director.mark(Director.STATES ? Director.STATES.WAITING_FOR_USER : 'WAITING_FOR_USER');
+      // (and a touch the system cancelled is over too: the finger is off the glass, and the input
+      // is waiting again — it was left marked as being interacted with until the next release)
+      ['pointerup', 'pointercancel'].forEach(function (type) {
+        (stageEl.ownerDocument.defaultView || global).addEventListener(type, function () {
+          if (inputLive && director) director.mark(Director.STATES ? Director.STATES.WAITING_FOR_USER : 'WAITING_FOR_USER');
+        });
       });
       var lastNoticed = 0;
       Input.on('down', function () {
@@ -3877,15 +4580,21 @@
     // feedbackSettleMs 900: a right answer is held for the polish pass's
     // 700–1100ms, long enough for his "Nice!", then the lesson moves on.
     director = Director.create(handlers(), { msPerWord: 300, sayMinMs: 900, readablePauseMs: 0, feedbackSettleMs: 900 });
+    // the last screen is the summary: Part 2 starts loading behind it (warmPart2)
+    director.on('start', function () { if (current === Screens.list.length - 1) warmPart2(); });
+    // the game's return, loaded unseen a screen before the end (src/opening/runner-stage.js)
+    director.on('start', function () {
+      if (current >= Screens.list.length - 2 && global.RunnerStage && RunnerStage.on) RunnerStage.preload();
+    });
     if (Stage.onEvent) Stage.onEvent(function (name, payload) {
       director.emit(name, payload);
       if (name === 'hint:show') hintGesture(payload);
-      if (name === 'swipe:home') swipeHome(payload);
-      // THE ANSWER IS GIVEN: nothing more can be done to the card until he
-      // has answered it (react(): the reason) or asked about the next one
-      // (swipeHome) and gone back down
-      if (name === 'answer:selected' && popsHere()) holdInput(true);
-      if (name === 'measurement:start' && payload && payload.what === 'side') tailWhenHome();
+      // A WRONG ANSWER IS GIVEN: nothing more can be done to the card until he has answered it
+      // (react(): the reason, which releases the hold). Not a right one: a right card is
+      // answered by the card itself and the next is dealt — held here, the next card sat
+      // locked until the failsafe let go three seconds later (the QA checkpoints found it)
+      if (name === 'answer:selected' && popsHere() && !(payload && payload.correct)) holdInput(true);
+      if (name === 'measurement:start' && payload && (payload.what === 'side' || payload.what === 'angle')) tailWhenHome();
       // THE COMPARE PAIR TELLS HIM WHAT HAPPENED: a diagonal left the shape
       // (surprised), a card was named (the badge's `react`)
       if (name === 'compare:outside') buddyReacts('surprised');
@@ -3929,18 +4638,7 @@
       if (global.VO && VO.playing) { try { VO.playing.muted = m; } catch (e) {} }
       this.classList.toggle('on', m); this.setAttribute('aria-pressed', String(m)); saveAudio();
     });
-    nextBtn.addEventListener('click', function () {
-      if (global.SFX) SFX.play('select');
-      if (global.Input) Input.advance();
-    });
-    // Keyboard parity: a child on a laptop should not have to find the mouse.
-    document.addEventListener('keydown', function (e) {
-      if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'ArrowRight') return;
-      if (!nextBtn.classList.contains('show')) return;
-      e.preventDefault();
-      if (global.SFX) SFX.play('select');
-      if (global.Input) Input.advance();
-    });
+    // (no Next button: every screen and every story scene goes on by itself — the user)
 
     hud.querySelector('.restart').addEventListener('click', restart);
     hud.querySelector('.replay').addEventListener('click', restart);
@@ -3962,7 +4660,13 @@
       document.fonts.ready.then(relayout, function () {});
     }
 
-    loadEl.classList.add('ready');
+    /* THE STORY BEFORE THE LESSON (src/story/story.js): its layer is built and its
+       paintings start loading now, behind the title, so they are in when Start is pressed.
+       It moves on with this game's own Next, at this game's own pace. */
+    if (global.Story && Story.mount) Story.mount({ root: root, pace: paceScale });
+
+    // the loading bar, in Play's place until everything is in (startLoading; Play pops in after)
+    startLoading();
     if (global.TitleFx) TitleFx.mount(loadEl);
 
     // Audio needs a real gesture. The start button is that gesture, so
@@ -3992,6 +4696,12 @@
     });
 
     startEl.addEventListener('click', function () {
+      /* NOT BEFORE EVERYTHING IS IN. Play is hidden until then, so a child cannot press it;
+         a start asked for some other way (a key, a script, the review bar) waits for the
+         last file and then goes. */
+      if (!preloaded) { pendingStart = function () { startEl.click(); }; return; }
+      // once the story is under way, a second tap on Play (the title is still lifting) is nothing
+      if (global.Story && Story.active) return;
       // The gesture that unlocks audio is also the first thing that should
       // make a sound. Unlock, then play on the same tick — the context is
       // resumed by the gesture, so the cue lands with the press rather than
@@ -4000,22 +4710,142 @@
       // honours the options it reads, and sparkle reads none — so the delay
       // was ignored and both landed on the same instant as one thicker pop.
       // The pop already rang on the press; this is the release on top of it.
-      if (global.SFX) { SFX.unlock(); SFX.play('sparkle'); }
+      // (not when the lesson starts by itself, ?auto=1: there was no press for it to answer)
+      if (global.SFX) { SFX.unlock(); if (!autoPress) SFX.play('sparkle'); }
+      autoPress = false;
       // THE TUNE COMES IN WITH THE GAME, not with the page: audio may only
       // start on a gesture, and this is the gesture. It is quiet and it is on
       // the music bus, so the mute button and every duck already reach it.
-      if (global.Music) Music.start();
+      // (not under the story: it has its own music — src/audio/story-music.js — and the lesson's
+      // tune comes in when the story hands over, below)
+      var skipping = storySkip;
+      var storyNext = !skipping && global.Story && Story.enabled && Story.enabled();
+      if (global.Music && !storyNext) Music.start();
       if (global.TitleFx) { TitleFx.pressUp(); TitleFx.press(); }
-      // A beat before the curtain, so the burst is something the child sees
-      // rather than something the transition eats.
-      setTimeout(function () { loadEl.classList.add('gone'); }, 120);
-      // The title screen's weather is thirty infinite animations. Nothing can
-      // see them once the curtain is down, so they are cancelled rather than
-      // left running behind the lesson for the rest of the session.
-      setTimeout(function () { if (global.TitleFx) TitleFx.stop(); }, 640);
+      var curtain = function () {
+        // A beat before the curtain, so the burst is something the child sees
+        // rather than something the transition eats.
+        setTimeout(function () { loadEl.classList.add('gone'); }, 120);
+        // The title screen's weather is thirty infinite animations. Nothing can
+        // see them once the curtain is down, so they are cancelled rather than
+        // left running behind the lesson for the rest of the session.
+        setTimeout(function () { if (global.TitleFx) TitleFx.stop(); }, 640);
+      };
+      /* THE STORY COMES FIRST: Momo and Popo, five scenes, then Swiftee's screen 1. The
+         title lifts once the first painting is in (the story calls curtain), and the
+         lesson starts when the story ends — once. Without it (?story=0, or the review
+         tool jumping straight to a screen) Start goes on exactly as it always has. */
+      var skip = storySkip; storySkip = false;
+      if (!skip && global.Story && Story.enabled && Story.enabled()) {
+        var lifted = false;
+        Story.start({
+          lift: function () { if (!lifted) { lifted = true; curtain(); } },
+          done: function () { if (global.Music) Music.start(); play(0); }
+        });
+        return;
+      }
+      curtain();
       setTimeout(function () { play(0); }, 430);
     });
+
+    /* STRAIGHT IN FROM FROZEN RUSH (?auto=1 — the user: "show learning section, do not add game
+       banner, make auto start"). Frozen Rush's tutorial hands over here, so the title is not shown:
+       no banner and no Play, only the loading bar on the snow-white the hand-over faded to
+       (index.html #loading.auto), and the lesson starts by itself the moment the last file is in —
+       a start asked for before then waits for it (pendingStart).
+       WHERE THE BROWSER ALLOWS THE SOUND. The tap that started Frozen Rush counts as this site's
+       gesture in Chrome, so the voice plays; Safari asks for a gesture on every page, and a lesson
+       started without one runs silent (measured: WebKit stepped through three screens with no
+       voice). So a silent sound is tried first: heard, the lesson starts by itself; refused, Play
+       alone comes up on the snow (#loading.auto-tap), and the one tap starts it with its voice. */
+    /* THE GAME OPENS THE EXPERIENCE (src/opening/runner-stage.js): while its frame is up the
+       title stays out of sight (no banner, no Play under it), and the lesson starts by itself
+       when the snow carries the game away — straight to screen 1, with no sparkle for a press
+       that never happened. If the game cannot open, the title comes back as it always was. */
+    if (global.RunnerStage && RunnerStage.opening) loadEl.classList.add('auto');
+    global.Lesson = {
+      startHosted: function () { autoPress = true; storySkip = true; startEl.click(); },
+      showTitle: function () { loadEl.classList.remove('auto', 'auto-tap'); },
+      // review only (?dev=1, End 1): the hand-over screen now, from wherever the lesson is
+      devReady: function () {
+        var go = function () { try { if (director && director.abort) director.abort(); } catch (e) {} finaleOn = true; readyScene(); };
+        if (loadEl && !loadEl.classList.contains('gone')) { storySkip = true; startEl.click(); setTimeout(go, 900); }
+        else go();
+      }
+    };
+    var autoLoc = global.location || {};
+    if (/[?&]auto=1\b/.test(autoLoc.search || '')) {
+      loadEl.classList.add('auto');
+      var tryStart = function () {
+        var probe = null, played = null;
+        try { probe = new Audio(SILENT_WAV); played = probe.play(); } catch (e) { played = null; }
+        var go = function () { autoPress = true; startEl.click(); };
+        if (!played || !played.then) { go(); return; }
+        played.then(function () {
+          try { probe.pause(); } catch (e) {}
+          go();
+        }, function (err) {
+          // only the browser saying "not without a tap" asks for one; any other failure starts anyway
+          if (err && err.name === 'NotAllowedError') loadEl.classList.add('auto-tap');
+          else go();
+        });
+      };
+      if (preloaded) tryStart(); else pendingStart = tryStart;
+    }
   }
+  /* A jump from the title in the review tool goes straight to its screen, not through the
+     story first (wireJump). */
+  var storySkip = false;
+  var autoPress = false;   // the lesson starting by itself (?auto=1), not a press of Play
+  // a twentieth of a second of silence: the probe for whether this page may make a sound yet
+  var SILENT_WAV = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YSADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==';
+
+  /* ------------------------------------------------------------------ *
+   * THE LOADING BAR — everything before Play (src/core/preload.js)
+   *
+   * The list: every asset the code names as a literal (src/core/preload-list.js, written by
+   * tools/build-preload.js, ?v= and all, so the very URLs the game will ask for), Swiftee's
+   * sheets at the resolution this screen draws him, the voice clips in the format this
+   * browser plays, and the lesson's two type faces. The voice and the story's paintings are
+   * held in memory and played or drawn from there; the rest is left in the browser's cache.
+   * A file that will not come counts as in — the bar never becomes a wall — and Play appears,
+   * with a pop, when the last one has.
+   * ------------------------------------------------------------------ */
+  var preloaded = false, pendingStart = null;
+  function startLoading() {
+    var P = global.Preload;
+    var ready = function () {
+      preloaded = true;
+      loadEl.classList.remove('loading');
+      loadEl.classList.add('ready');
+      if (pendingStart) { var go = pendingStart; pendingStart = null; setTimeout(go, 0); }
+    };
+    if (!P) { ready(); return; }
+    loadEl.classList.add('loading');
+    var fill = $('#title-loading-fill'), label = $('#title-loading-label'), bar = $('#title-loading');
+    P.onProgress(function (f) {
+      var pct = Math.floor(f * 100);
+      if (fill) fill.style.width = pct + '%';
+      if (label) label.textContent = LANG ? LANG.t('loadingPercent', { percent: pct }) : 'Loading\u2026 ' + pct + '%';
+      if (bar) bar.setAttribute('aria-valuenow', String(pct));
+    });
+    var keep = /^assets\/(vo|story)\//;
+    P.want((global.PreloadList && PreloadList.urls) || [], { keep: keep });
+    if (global.Swiftee && Swiftee.sheetUrls) P.want(Swiftee.sheetUrls());
+    FACES.forEach(function (f) { P.font(f); });
+    // and the letters of the lesson's language, in its own face, once that face's sheet is in
+    if (LANG && LANG.font && LANG.fontReady) [600, 700, 800].forEach(function (w) { P.font(w + ' 1em "' + LANG.font + '"', LANG.t('lessonTitle'), LANG.fontReady()); });
+    var voice = (global.VO && VO.ready) ? VO.ready() : Promise.resolve();
+    // the story's music, in the one format this browser plays (src/story/story.js MUSIC_SRC)
+    if (global.StoryMusic && StoryMusic.ext) P.want(['assets/story/story-music.' + StoryMusic.ext()], { keep: keep });
+    voice.then(function () { if (global.VO && VO.urls) P.want(VO.urls(), { keep: keep }); }, function () {})
+      .then(function () { P.seal(); });
+    P.done.then(ready);
+  }
+  /* the faces the lesson's words are set in (index.html's Google Fonts request) — only those a
+     line is actually drawn in: measured over every screen, the story and the finale, nothing is
+     set in Nunito 600 or Fredoka 500, so neither is requested any more (two files fewer) */
+  var FACES = ['700 1em Nunito', '800 1em Nunito', '600 1em Fredoka', '700 1em Fredoka'];
 
   /**
    * THE SCREEN PICKER — a review tool, off unless the address asks for it.
@@ -4051,16 +4881,24 @@
    */
   function goTo(n) {
     if (!(n >= 0 && n < Screens.list.length)) return;
-    playGen++; popGen++; popping = false; cheerUntil = 0; holdForReply = false;
+    // a jump from inside the story ends it here: no Scene 5 hand-over after it
+    if (global.Story && Story.active) Story.stop();
+    playGen++; popGen++; popping = false; cheerUntil = 0; holdForReply = false; owedCheer = null;
     if (Stage.hold) Stage.hold(false);
     flightGen++; entering = null;
     director.abort();
     playing = false;
-    showNext(false);
     cancelScreenLine(); clearLineTimers(); clearTimeout(bubbleTimer); say(null);
     // a jump drops whatever he was doing, at once (and anything a sequence was
     // holding for him: the rebuild below lets go of the measuring walk)
     if (global.Swiftee && Swiftee.settle) Swiftee.settle({ now: true });
+    // (a jump past the opening does not replay the sled ride on whatever screen it lands on)
+    if (n > 0 && global.Swiftee && Swiftee.markArrived) Swiftee.markArrived();
+    // and a jump back from the finale takes its buttons down; playGen has
+    // already called off the move to Part 2
+    hud.querySelector('.replay').classList.remove('show');
+    if (continueBtn) continueBtn.classList.remove('show');
+    leaveReady();
 
     // THE SCREEN AS IT WAS, if the child has been there: put back exactly,
     // with him on this screen's own mark.
@@ -4120,18 +4958,67 @@
     } catch (e) { dev = false; }
     if (!dev) { var host = $('#jump'); if (host) host.remove(); return; }
     var host2 = $('#jump'); if (host2) host2.removeAttribute('hidden');
+    // the Momo and Popo story that opens the game, from its first scene (restartStory)
+    if (global.Story && Story.enabled && Story.enabled()) {
+      var so = document.createElement('option');
+      so.value = 'story';
+      so.textContent = '0. story (Momo & Popo)';
+      box.appendChild(so);
+    }
+    /* THE WHOLE EXPERIENCE, in order (the game-lesson kit): the game's opening before the
+       screens and its return after them — Start 1 the cover, Start 2 Swiftee at the broken path,
+       End 1 the lesson's last line and the game starting by itself, End 2 Swiftee at the ditch. */
+    var withGame = global.RunnerStage && RunnerStage.on;
+    var addOpt = function (value, label) {
+      var o = document.createElement('option'); o.value = value; o.textContent = label; box.appendChild(o);
+    };
+    if (withGame) { addOpt('start1', 'Start 1. Frozen Rush cover'); addOpt('start2', 'Start 2. Swiftee at the broken path'); }
     Screens.list.forEach(function (s, i) {
       var o = document.createElement('option');
       o.value = i;
       o.textContent = (i + 1) + '. ' + s.id;
       box.appendChild(o);
     });
+    if (withGame) { addOpt('end1', 'End 1. Last line, then the game'); addOpt('end2', 'End 2. Swiftee at the ditch'); }
+    // (and the picker says where the review is: the game's opening, or its break)
+    if (withGame && RunnerStage.opening) box.value = /[?&]devat=break\b/.test((global.location || {}).search || '') ? 'start2' : 'start1';
+    // Before Start the title curtain is still down, and a screen played behind
+    // it would be heard and not seen: so a jump from the title presses Start
+    // first (inside this click, so the sound unlocks too), then jumps.
+    function jump(n) {
+      n = Math.max(0, Math.min(Screens.list.length - 1, n));
+      // from the title, not before the loading bar is done (Play would only wait for it anyway)
+      if (!preloaded && global.Preload) { Preload.done.then(function () { jump(n); }); return; }
+      if (loadEl && !loadEl.classList.contains('gone')) {
+        // straight to the screen asked for, not through the story first
+        storySkip = true;
+        var s = $('#start'); if (s) s.click();
+        setTimeout(function () { goTo(n); }, 600);
+      } else goTo(n);
+    }
     box.addEventListener('change', function () {
-      // The picker and the Back button change screen the same way: goTo().
-      var n = +box.value;
       box.blur();                       // so the arrow keys go back to the lesson
-      goTo(n);
+      // the story: from the title that is Start itself; from the lesson, the story again
+      if (box.value === 'story') {
+        if (loadEl && !loadEl.classList.contains('gone')) { var s0 = $('#start'); if (s0) s0.click(); }
+        else restartStory();
+        return;
+      }
+      if (/^(start|end)[12]$/.test(box.value)) { if (global.RunnerStage) RunnerStage.devJump(box.value); return; }
+      // (the game off the screen first, if it is up: the lesson is under it — runner-stage.js leave)
+      if (global.RunnerStage && RunnerStage.leave) RunnerStage.leave();
+      // The picker and the Back button change screen the same way: goTo().
+      jump(+box.value);
     });
+    // one screen back or on, from wherever the lesson is
+    Array.prototype.forEach.call(host2.querySelectorAll('.dev-step'), function (b) {
+      b.addEventListener('click', function () {
+        if (global.RunnerStage && RunnerStage.leave) RunnerStage.leave();
+        jump(current + (+b.getAttribute('data-step')));   // (from the title, either way is screen 1)
+      });
+    });
+    // and the hand-over to Part 2 keeps dev on, so its own bar is there too
+    if (continueBtn) continueBtn.search = '?dev=1' + (LANG ? '&lan=' + LANG.lang : '');
     if (director && director.on) {
       director.on('start', function () {
         if (current >= 0 && +box.value !== current) box.value = current;
@@ -4139,7 +5026,15 @@
     }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+  /* THE PICTURES' FORMAT BEFORE THE FIRST ONE: boot builds the stage and Swiftee, and they draw
+     each picture as its AVIF twin or as its .webp (pic), so it waits for index.html's probe —
+     usually in long before this, and never more than a few seconds. runner-stage.js's opening
+     waits for the same answer, so the two still run in the order they always did. */
+  function start() {
+    var F = global.ImgFormat;
+    if (F && F.ready && !F.settled) F.ready.then(boot); else boot();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 
   global.Game = {
     relayout: relayout,

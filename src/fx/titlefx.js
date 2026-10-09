@@ -334,9 +334,10 @@
    * Where the play button goes
    * ------------------------------------------------------------------ */
 
-  // A point in the PAINTING, not in the window: the open ice below the logo,
-  // clear of the sledge on the left, the deer in the middle and the dark
-  // snow mound in the bottom-right corner.
+  // A point in the PAINTING, not in the window: the open ice under the logo of the lesson's own
+  // banner (Swiftee and the reindeer; assets/ui/banner.webp). In POLYGON-PART-1, where the title
+  // is the Frozen Rush 2 painting, this is { x: 0.5, y: 0.8 } — the middle of the ice wall under
+  // the scene, clear of Momo and the logo (the user: "the play button is not centre").
   var PLAY_AT = { x: 0.775, y: 0.755 };
 
   // The idle mid-point of the drift in drift(): the art is held at 1.035 and

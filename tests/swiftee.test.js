@@ -124,11 +124,21 @@ t('all 6 standalone clips are carried over', F.standalone.length === MANIFEST.st
     const c = F.clips[name];
     ['1x', '2x'].forEach((scale) => {
       (c.sheets[scale] || []).forEach((p) => {
-        if (!fs.existsSync(path.join(ROOT, F.base, p.image))) missing.push(p.image);
+        // (the path carries its content hash, ?v=, for the cache — build-swiftee-frames.js)
+        if (!fs.existsSync(path.join(ROOT, F.base, p.image.split('?')[0]))) missing.push(p.image);
       });
     });
   });
   t('every sheet the table names is on disk', missing.length === 0, missing.slice(0, 5));
+  // and the hash is the file's own: a sheet redrawn under the same name gets a new URL
+  const crypto = require('crypto');
+  const stale = [];
+  Object.keys(F.clips).forEach((name) => ['1x', '2x'].forEach((scale) => (F.clips[name].sheets[scale] || []).forEach((p) => {
+    const [file, q] = p.image.split('?v=');
+    const want = crypto.createHash('md5').update(fs.readFileSync(path.join(ROOT, F.base, file))).digest('hex').slice(0, 8);
+    if (q !== want) stale.push(p.image + ' (file is ' + want + ')');
+  })));
+  t('every sheet URL carries its file\'s current content hash', stale.length === 0, stale.slice(0, 3));
 }
 
 t('the asset base path is where index.html expects it',
@@ -150,8 +160,9 @@ t('the asset base path is where index.html expects it',
   t('every start/loop/stop in every state resolves to a real clip', bad.length === 0, bad);
 }
 
-t('the states without a stop clip are exactly the two documented ones',
-  Object.keys(F.states).filter((k) => !F.states[k].stop).sort().join(',') === 'driving,sleeping',
+// (sleeping went with the never-played clips: the lesson's idle is a look around, not a doze)
+t('the state without a stop clip is the one documented one (driving leaves by its own art)',
+  Object.keys(F.states).filter((k) => !F.states[k].stop).sort().join(',') === 'driving',
   Object.keys(F.states).filter((k) => !F.states[k].stop));
 
 t('the clips that leave the cell are flagged, not silently cropped',
@@ -159,8 +170,10 @@ t('the clips that leave the cell are flagged, not silently cropped',
 
 t('every standalone clip exists', F.standalone.every((n) => !!F.clips[n]),
   F.standalone.filter((n) => !F.clips[n]));
-t('the escape hatches from the stop-less states exist',
-  !!F.clips.wake && !!F.clips.drive_away && !!F.clips.reset);
+// (the escape clips — wake, drive_away, reset — were never played: the sleigh intro draws its own
+// sheets, and nothing sleeps. They are gone from the manifest and from disk, not merely unused.)
+t('no never-played escape clip is still carried',
+  !F.clips.wake && !F.clips.drive_away && !F.clips.reset && !F.clips.sleeping && !F.clips.calling && !F.clips.laptop);
 
 /* ------------------------------------------------------------------ *
  * The game's own mapping

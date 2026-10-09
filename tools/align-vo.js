@@ -4,6 +4,8 @@
  *
  *   node tools/align-vo.js [assets/source/gamevo.mp3] [--modules <dir>]
  *       → docs/vo-timeline.json
+ *   node tools/align-vo.js --master <name> [--modules <dir>]
+ *       → docs/vo-masters/<name>.json — one of the master takes in tools/vo-masters.js
  *
  * The take is Swiftee reading the lesson end to end: p01 … p37i, then the
  * finale's "Honk-tastic!" and "You are a polygon adventurer!" (the feedback
@@ -38,19 +40,31 @@ const ROOT = path.resolve(__dirname, '..');
 const argv = process.argv.slice(2);
 const flag = (name) => { const i = argv.indexOf('--' + name); if (i < 0) return null; const v = argv[i + 1]; argv.splice(i, 2); return v; };
 const MODULES = flag('modules');
-const SRC = path.resolve(ROOT, argv[0] || 'assets/source/gamevo.mp3');
-const OUT = path.join(ROOT, 'docs', 'vo-timeline.json');
+/* A MASTER TAKE (tools/vo-masters.js): its own recording, its own lines in the order it reads
+   them — the game's text for each id, a line read twice listed twice (`<id>~2`) — and its own
+   timeline, which split-vo.js --master cuts from. */
+const MASTER = flag('master');
+const master = MASTER ? require('./vo-masters').find((m) => m.name === MASTER) : null;
+if (MASTER && !master) throw new Error('no master take "' + MASTER + '" in tools/vo-masters.js');
+const SRC = path.resolve(ROOT, master ? master.source : (argv[0] || 'assets/source/gamevo.mp3'));
+const OUT = master ? path.join(ROOT, 'docs', 'vo-masters', master.name + '.json') : path.join(ROOT, 'docs', 'vo-timeline.json');
 const MODEL = 'Xenova/wav2vec2-base-960h';
 const RATE = 16000, FRAME = 320;                  // the model's hop: 20 ms
 const rel = (p) => path.relative(ROOT, p).replace(/\\/g, '/');
 
 /* THE LINES, IN THE ORDER THE TAKE READS THEM: the deck's narration and
    instructions (p…), which ends with the finale's two. */
-const lines = voLines().filter((l) => /^p\d/.test(l.id));
+const byId = {}; voLines().forEach((l) => { byId[l.id] = l; });
+const lines = master
+  ? master.lines.map((e) => {
+      if (e && typeof e === 'object') return { id: e.id, text: e.text };           // a reading not used
+      const l = byId[e.split('~')[0]]; if (!l) throw new Error('no line ' + e); return { id: e, text: l.text };
+    })
+  : voLines().filter((l) => /^p\d/.test(l.id));
 /* FEEDBACK THE TAKE SAYS INSIDE A LESSON LINE: cut out as a clip of its own by
    split-vo.js (words [first, last] of that line), and known to make-vo.js as
    recorded, so it is never generated over. */
-const DERIVED = [{ id: 'fb18', from: 'p12', words: [0, 0] }];          // "Yay!"
+const DERIVED = master ? [] : [{ id: 'fb18', from: 'p12', words: [0, 0] }];          // "Yay!"
 
 /* WHAT IS SAID FOR A WORD ON SCREEN. The model spells in capitals and
    apostrophes; "non-adjacent" is said as two words and "Atleast" as "at

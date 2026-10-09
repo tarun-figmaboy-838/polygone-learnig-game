@@ -3,23 +3,73 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Swiftee — Polygons</title>
+<title data-i18n="lessonPageTitle">Swiftee — Polygons</title>
 <!-- inline, so the page never fires a 404 for a favicon it does not have -->
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>%F0%9F%90%A6</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
-<!-- the backdrop is the first thing on screen; fetch it alongside the scripts.
-     The sleigh's three sheets too: the intro draws nothing until all three are
-     in, and asked for only once the scripts had run they left a child who
-     tapped Start straight away looking at the title for seven seconds on a
-     4 Mbps line. What is not needed yet (the measuring walk, the replies) is
-     warmed after the intro instead, so it does not share the line with it. -->
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Fredoka:wght@600;700&display=swap" rel="stylesheet">
+<!-- AVIF WHERE THE BROWSER SHOWS IT, WEBP WHERE IT DOES NOT. Some pictures ship twice: the
+     .webp every browser has always been given, and an .avif beside it that is the same
+     picture in fewer bytes (tools/build-avif.js). This asks the browser once, before anything is
+     drawn, and the answer is ImgFormat.avif: true only where an AVIF with an alpha channel
+     decodes to the right pixels AND the stylesheet's image-set(... type()) is understood, so
+     the scripts and the stylesheet always choose the same file. Anything else — an older
+     browser, or a decode that fails or never answers — is false, and every picture is the
+     .webp exactly as before. (?avif=0 says false too, for the scripts' pictures only: a
+     stylesheet's image-set() always decides for itself.) ImgFormat.ready settles with the answer;
+     the lesson boots once it has (game.js start), and every picture the scripts draw goes
+     through Preload.pick (src/core/preload.js). -->
+<script>
+  (function (w) {
+    var F = w.ImgFormat = { avif: false, settled: false }, done = null;
+    F.ready = typeof Promise === 'function' ? new Promise(function (r) { done = r; }) : null;
+    function settle(ok) {
+      if (F.settled) return;
+      F.settled = true; F.avif = !!ok;
+      if (done) done(F.avif);
+    }
+    try {
+      if (/[?&]avif=0\b/.test(location.search) || !(w.CSS && CSS.supports &&
+          CSS.supports('background-image', 'image-set(url("a.avif") type("image/avif"))'))) { settle(false); return; }
+      var img = new Image();
+      img.onload = function () {
+        // 2x1: an opaque red pixel and a transparent one, encoded the way the twins are
+        var ok = img.width === 2 && img.height === 1;
+        try {
+          var c = document.createElement('canvas'); c.width = 2; c.height = 1;
+          var x = c.getContext('2d'); x.drawImage(img, 0, 0);
+          var p = x.getImageData(0, 0, 2, 1).data;
+          ok = ok && p[0] > 200 && p[1] < 60 && p[2] < 60 && p[3] > 200 && p[7] < 60;
+        } catch (e) { /* no canvas to read: the size is the answer */ }
+        settle(ok);
+      };
+      img.onerror = function () { settle(false); };
+      setTimeout(function () { settle(false); }, 3000);   // never hold the page for an answer
+      img.src = 'data:image/avif;base64,AAAAHGZ0eXBhdmlmAAAAAG1pZjFhdmlmbWlhZgAAAXBtZXRhAAAAAAAAACFoZGxyAAAAAAAAAABwaWN0AAAAAAAAAAAAAAAAAAAAADRpbG9jAAAAAERAAAIAAQAAAAABlAABAAAAAAAAAC0AAgAAAAABwQABAAAAAAAAABcAAAA4aWluZgAAAAAAAgAAABVpbmZlAgAAAAABAABhdjAxAAAAABVpbmZlAgAAAAACAABhdjAxAAAAAA5waXRtAAAAAAABAAAAr2lwcnAAAACKaXBjbwAAAAxhdjFDgSACAAAAABRpc3BlAAAAAAAAAAIAAAABAAAAEHBpeGkAAAAAAwgICAAAAAxhdjFDgQAcAAAAAA5waXhpAAAAAAEIAAAAOGF1eEMAAAAAdXJuOm1wZWc6bXBlZ0I6Y2ljcDpzeXN0ZW1zOmF1eGlsaWFyeTphbHBoYQAAAAAdaXBtYQAAAAAAAAACAAEDgQIDAAIEhAIFhgAAABppcmVmAAAAAAAAAA5hdXhsAAIAAQABAAAATG1kYXQSAAoHOAAm0BDQaTIgGUJjBMAANAIIEOwnlGVLAN8Pvl+zUWUrjSmOji/1m1MSAAoEGAAuVTINGAAAARAjRj1vSa0F9w==';
+    } catch (e) { settle(false); }
+  })(window);
+</script>
+<!-- ANOTHER LANGUAGE (?lan=hi, mr, te, gu or od — src/core/i18n.js): the page's own words wait,
+     unseen, until they are in that language, so the English is never what flashes up first -->
+<script>if (/[?&]lang?=(?!en\b)[a-z]/i.test(location.search)) { document.documentElement.className += ' i18n-wait'; setTimeout(function () { document.documentElement.classList.remove('i18n-wait'); }, 4000); }</script>
+<!-- the title and the backdrop are the first things on screen; fetch them alongside
+     the scripts. Everything else — the sleigh's sheets, Swiftee, the story, the voice —
+     is fetched by the loading bar (src/core/preload.js) before Play appears. -->
 <link rel="preload" as="image" href="assets/ui/banner.webp?v=0f187566">
-<link rel="preload" as="image" href="assets/bg/ice-vista.webp" fetchpriority="high">
-<link rel="preload" as="image" href="assets/swiftee/intro/sheet1.png" fetchpriority="low">
-<link rel="preload" as="image" href="assets/swiftee/intro/sheet2.png" fetchpriority="low">
-<link rel="preload" as="image" href="assets/swiftee/intro/sheet3.png" fetchpriority="low">
+<!-- the backdrop as the stylesheet will ask for it: its AVIF twin wherever image-set() can
+     choose one (a browser that cannot show AVIF skips a preload typed image/avif, and so does
+     its image-set), the .webp everywhere else -->
+<script>
+  (function () {
+    var l = document.createElement('link');
+    l.rel = 'preload'; l.as = 'image'; l.setAttribute('fetchpriority', 'high');
+    if (window.CSS && CSS.supports && CSS.supports('background-image', 'image-set(url("a.avif") type("image/avif"))')) {
+      l.type = 'image/avif'; l.href = 'assets/bg/ice-vista.avif?v=0a5a529b';
+    } else l.href = 'assets/bg/ice-vista.webp';
+    document.head.appendChild(l);
+  })();
+</script>
 <style>
   :root {
     --ink: #1c2a4a;
@@ -76,8 +126,12 @@
        than a band. Sharp, not blurred: the board's own copy is drawn at
        almost the same scale, so the two line up and the join disappears. */
     position: absolute; inset: 0;
-    /* lossless WebP: every pixel of the painting as it was, a quarter lighter */
+    /* lossless WebP: every pixel of the painting as it was, a quarter lighter — and where the
+       browser shows AVIF, its twin, the same painting in a twenty-third of the bytes
+       (tools/build-avif.js). A browser that does not understand image-set(type()) keeps the
+       first line. */
     background: url("assets/bg/ice-vista.webp") center center / cover no-repeat, #5fbdfa;
+    background: image-set(url("assets/bg/ice-vista.avif?v=0a5a529b") type("image/avif"), url("assets/bg/ice-vista.webp") type("image/webp")) center center / cover no-repeat, #5fbdfa;
     pointer-events: none; z-index: 0;
   }
   #stage { position: absolute; inset: 0; z-index: 1; }
@@ -393,6 +447,9 @@
   /* A drop zone is two hundred pixels of dashed outline; a ring around
      something that big reads as a rendering fault. It still answers a press. */
   #stage .zone.touchable:hover { filter: none; translate: 0; }
+  /* AN ANSWER CARD DOES NOT MOVE UNDER THE FINGER (the user: "when I tap, the card pops a
+     little"): pressed is a light state, not a movement — the halo that follows is the answer */
+  #stage .card.touchable:hover, #stage .card.touchable:active { translate: 0; }
 
   /* WHERE TO TAP. A side or corner still waiting to be measured breathes:
      a soft warm glow that comes and goes, never a flash. The class is put
@@ -405,12 +462,15 @@
   #stage .edge.hint { stroke: transparent; }
   /* A side still to measure breathes along its length (stage.js side-todo):
      slow and soft, a beat apart side to side, and still once it is measured. */
-  #stage .side-todo { animation: sideTodo 1.8s ease-in-out infinite; stroke-opacity: .3; }
+  /* (still, not pulsing: the marks say what is left to measure while he walks — a loop there
+     competed with the walk, the one thing to watch) */
+  #stage .side-todo { stroke-opacity: .35; }
   @keyframes sideTodo { 0%, 100% { stroke-opacity: .22; } 50% { stroke-opacity: .85; } }
   @media (prefers-reduced-motion: reduce) { #stage .side-todo { animation: none; stroke-opacity: .6; } }
   /* a bird on a mark with no ground under it bobs on the air */
-  .swiftee.air { animation: hoverBob 1.6s ease-in-out infinite; }
-  @keyframes hoverBob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -12px; } }
+  /* a slow, small rise and fall — enough to say "hovering", not a bounce (the animation review) */
+  .swiftee.air { animation: hoverBob 2.6s ease-in-out infinite; }
+  @keyframes hoverBob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
   #stage .knob.hint {
     transform-box: fill-box; transform-origin: center;
     filter: drop-shadow(0 0 4px rgba(75, 224, 255, .85));
@@ -428,7 +488,7 @@
   }
   /* AN ANGLE STILL TO MEASURE breathes in outline (stage.js drawArc todo),
      a beat apart round the shape, until it is tapped and fills. */
-  #stage .angle-todo { animation: angleTodo 1.7s ease-in-out infinite; }
+  #stage .angle-todo { opacity: .6; }
   #stage .angle-todo[data-todo="1"] { animation-delay: .22s; } #stage .angle-todo[data-todo="2"] { animation-delay: .44s; }
   #stage .angle-todo[data-todo="3"] { animation-delay: .66s; } #stage .angle-todo[data-todo="4"] { animation-delay: .88s; }
   @keyframes angleTodo {
@@ -441,8 +501,20 @@
      things go", never which one is right. */
   /* A right card glows green, a wrong one flushes red. The glow is the
      verdict: no ring and no tick on top of the shape. */
-  #stage .shape-card.mark-good { filter: drop-shadow(0 0 12px rgba(46,171,78,.95)) drop-shadow(0 0 3px rgba(46,171,78,.9)); animation: markGood .7s ease-out; }
-  #stage .shape-card.mark-bad  { filter: drop-shadow(0 0 10px rgba(224,91,91,.9)); }
+  /* the compare card being talked about (stage.js focus): a gold rim just outside the card's own */
+  #stage .focus-ring { transition: opacity 320ms ease; filter: drop-shadow(0 0 6px rgba(255, 194, 60, .8)); }
+  /* THE VERDICT, UNMISSABLE (the user: "glow when right or wrong?"): a wide, bright halo — green
+     for right, red for wrong — plus a tight rim, so it reads at a glance on the pale ice */
+  /* (drawn in the SVG now — stage.js optionCard `_mark`, a blurred halo rect and a rim — because a
+     CSS filter on an SVG group is not rendered by Safari; the classes remain as the state's name) */
+  /* A LITTLE LIFT UNDER THE CURSOR (the user: "add a little hover when the cursor is on the card,
+     to look active"): an answer card or button grows three percent under a pointer that can
+     hover — never on touch, never once the card is out, never while a finger is on it. */
+  @media (hover: hover) and (pointer: fine) {
+    #stage .card .shape-card, #stage .choice { transform-box: fill-box; transform-origin: center; transition: transform .16s ease-out; }
+    #stage .card:not(.card-off):hover .shape-card, #stage .choice:hover { transform: scale(1.03); }
+    #stage .card:not(.card-off):active .shape-card, #stage .choice:active { transform: scale(1.0); transition-duration: .06s; }
+  }
   /* A card missed twice is put out for the rest of the question: dimmer and
      greyer, still readable, and nothing happens under a finger. */
   /* THE SHAPE TAUGHT UP CLOSE (stage.js teachShape): the play steps back
@@ -458,18 +530,11 @@
   @keyframes teachRing { 0%, 100% { transform: scale(1); opacity: .95; } 50% { transform: scale(1.4); opacity: .5; } }
   #stage .teach-spark { transform-box: fill-box; transform-origin: center; animation: teachSpark .9s ease-out both; }
   @keyframes teachSpark { 0% { transform: scale(0); opacity: 0; } 40% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(.6); opacity: 0; } }
-  #stage .teach-fade { animation: teachFade .35s ease-out both; }
-  @keyframes teachFade { from { opacity: 0; } to { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) {
-    #stage .teach-ring, #stage .teach-spark, #stage .teach-fade { animation: none; }
+    #stage .teach-ring, #stage .teach-spark { animation: none; }
     #stage .teach-sheet { transition: none; }
   }
   #stage .card.card-off { opacity: .5; filter: grayscale(.55); pointer-events: none; transition: opacity .35s ease, filter .35s ease; }
-  @keyframes markGood {
-    0% { filter: drop-shadow(0 0 0 rgba(46,171,78,0)); }
-    35% { filter: drop-shadow(0 0 26px rgba(46,171,78,1)) drop-shadow(0 0 6px rgba(255,255,255,.9)); }
-    100% { filter: drop-shadow(0 0 12px rgba(46,171,78,.95)) drop-shadow(0 0 3px rgba(46,171,78,.9)); }
-  }
   #stage .zone.hint { filter: drop-shadow(0 0 8px rgba(255, 255, 255, .6)); }
   #stage .zone.landed { animation: zoneLand .65s ease-out; }
   @keyframes zoneLand {
@@ -499,14 +564,34 @@
        the card can never pass 49% and the HUD starts at the right edge. */
     position: fixed; top: 6px; left: 52%; z-index: 60;
     max-width: calc(48vw - 96px);
-    opacity: .3; transition: opacity .18s ease;
+    /* THE REVIEW BAR, drawn the same in both parts (Part 2: .dev-bar in its
+       style.css): a small dark pill of plain system type, so it can never be
+       mistaken for one of the lesson's own buttons. */
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 6px; border-radius: 999px;
+    background: rgba(10, 30, 60, .82); box-shadow: 0 2px 10px rgba(0, 0, 0, .3);
+    font: 600 13px/1 system-ui, sans-serif; color: #fff;
+    opacity: .85; transition: opacity .18s ease;
   }
+  #jump[hidden] { display: none; }
   #jump:hover, #jump:focus-within { opacity: 1; }
+  #jump .dev-tag {
+    padding: 5px 8px; border-radius: 999px; background: #ff7a0e; color: #fff;
+    font-weight: 800; letter-spacing: .06em;
+  }
+  #jump .dev-step {
+    width: 30px; height: 30px; flex: none; border: 0; border-radius: 50%;
+    font: inherit; color: #0a1e3c; background: #eaf6ff; cursor: pointer;
+  }
+  #jump .dev-go {
+    display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 999px;
+    color: #0a1e3c; background: #eaf6ff; text-decoration: none; white-space: nowrap;
+  }
+  #jump .dev-step:hover, #jump .dev-go:hover { background: #fff; }
   #jump select {
-    width: 100%; max-width: 240px; height: 34px;
-    font: 600 13px/1 system-ui, sans-serif; color: #17324d;
-    background: rgba(255, 255, 255, .94);
-    border: 2px solid #9fd6fb; border-radius: 9px;
+    min-width: 0; width: 100%; max-width: 240px; height: 30px;
+    font: inherit; color: #0a1e3c;
+    background: #fff; border: 0; border-radius: 8px;
     padding: 0 6px; cursor: pointer;
   }
   /* Under a phone width there is no clear strip, so it drops below the HUD
@@ -559,6 +644,7 @@
        as a seam. The cap border keeps the cap in proportion. */
     border-width: clamp(26px, calc(3.4 * var(--svw, 1vw)), 62px) clamp(46px, calc(5.2 * var(--svw, 1vw)), 96px) clamp(18px, calc(2.4 * var(--svw, 1vw)), 44px);
     border-image-source: url("assets/ui/plank.webp?v=ef53d389");
+    border-image-source: image-set(url("assets/ui/plank.avif?v=cc10196e") type("image/avif"), url("assets/ui/plank.webp?v=ef53d389") type("image/webp"));
     border-image-slice: 120 270 90 270 fill;
     border-image-repeat: stretch;
 
@@ -590,6 +676,7 @@
     border-style: solid;
     border-width: clamp(26px, calc(3.4 * var(--svw, 1vw)), 62px) clamp(46px, calc(5.2 * var(--svw, 1vw)), 96px) clamp(18px, calc(2.4 * var(--svw, 1vw)), 44px);
     border-image: url("assets/ui/plank.webp?v=ef53d389") 120 270 90 270 fill stretch;
+    border-image: image-set(url("assets/ui/plank.avif?v=cc10196e") type("image/avif"), url("assets/ui/plank.webp?v=ef53d389") type("image/webp")) 120 270 90 270 fill stretch;
   }
   /* The words cross-fade; the plank itself never moves, because the lesson
      below is positioned from its height. */
@@ -636,12 +723,14 @@
     padding: 0 2px; font-size: 18px; color: #6a3200; text-shadow: 0 1px 0 rgba(255, 244, 200, .7);
     background: none; border: 0 solid transparent; border-width: 0 28px; border-radius: 0;
     border-image: url("assets/ui/btn-uiPrimary.webp?v=d8ec3af2") 0 82 0 82 fill stretch;
+    border-image: image-set(url("assets/ui/btn-uiPrimary.avif?v=d8f6defc") type("image/avif"), url("assets/ui/btn-uiPrimary.webp?v=d8ec3af2") type("image/webp")) 0 82 0 82 fill stretch;
     box-shadow: none; filter: drop-shadow(0 3px 0 rgba(140, 80, 0, .35));
   }
   #hud .replay.show { display: inline-flex; }
   #hud .replay:active { transform: translateY(3px); box-shadow: none; filter: drop-shadow(0 0 0 rgba(140, 80, 0, 0)) brightness(.95); }
 
-  /* ---- Next: the one deliberate way to move on ----
+  /* ---- The button on to Part 2 (there is no Next: every screen, and every story scene, goes
+     on by itself once it has been said and seen). The history, for the shape of the thing: ----
      Advancing used to be a tap anywhere, so the same gesture both dismissed a
      line and poked whatever was underneath it. It is a button now. It appears
      only while the game is genuinely waiting, and it nudges itself every few
@@ -662,6 +751,7 @@
        pixels; 34px is that cap drawn at this height. */
     background: none; border: 0 solid transparent; border-width: 0 34px;
     border-image: url("assets/ui/btn-uiNav.webp?v=dbbb52c5") 0 83 0 83 fill stretch;
+    border-image: image-set(url("assets/ui/btn-uiNav.avif?v=0530955a") type("image/avif"), url("assets/ui/btn-uiNav.webp?v=dbbb52c5") type("image/webp")) 0 83 0 83 fill stretch;
     height: 60px; line-height: 60px; padding: 0 6px 0 10px; cursor: pointer; display: none; align-items: center; gap: 8px;
     filter: drop-shadow(0 4px 0 rgba(10, 60, 120, .35)); text-shadow: 0 2px 0 rgba(12, 70, 140, .55);
     transition: transform 90ms, filter 90ms, opacity 160ms;
@@ -687,6 +777,8 @@
   #next.show { display: inline-flex; animation: nextNudge 8s ease-in-out 4s infinite; }
   #next:active { transform: translateY(4px); filter: drop-shadow(0 0 0 rgba(10, 60, 120, 0)) brightness(.94); animation: none; }
   #next .chev { font-size: 1.1em; line-height: 1; }
+  /* while a card's explanation replays, Next waits for it (a press is not lost: it is not taken) */
+  #next.show.wait { opacity: .55; cursor: default; animation: none; }
   @keyframes nextNudge {
     0%, 12%, 100% { transform: translateX(0); }
     4% { transform: translateX(5px); }
@@ -756,6 +848,55 @@
   }
   #start img { display: block; width: 100%; height: 100%; }
   #loading.ready #start { opacity: 1; pointer-events: auto; }
+  /* WHILE EVERYTHING LOADS (src/core/preload.js; game.js startLoading) the bar stands where
+     Play will, and Play is hidden — there is nothing to press until there is something to
+     play. It pops in when the last file is in (backwards fill only, so its press still works
+     the moment the pop has played). The bar is the same family as Part 2's: an ice-bright
+     fill in a dark rimmed track, over the painted title. */
+  #loading:not(.ready) #start { visibility: hidden; }
+  /* STRAIGHT IN FROM FROZEN RUSH (?auto=1, game.js): no banner, no Play — the loading bar alone on
+     the snow-white Frozen Rush's hand-over fades to, and the lesson starts by itself */
+
+  #loading.ready #start { animation: startPop 520ms cubic-bezier(.2, 1.6, .35, 1) backwards; }
+  @keyframes startPop {
+    0%   { opacity: 0; transform: scale(.45); }
+    60%  { opacity: 1; transform: scale(1.08); }
+    100% { opacity: 1; transform: none; }
+  }
+  .title-loading {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: clamp(220px, 44vh, 480px);
+    display: grid; justify-items: center; gap: clamp(6px, 1.2vh, 12px);
+    pointer-events: none; z-index: 4;
+  }
+  #loading.ready .title-loading { display: none; }
+  .title-loading-track {
+    width: 100%; height: clamp(16px, 3.2vh, 28px); padding: clamp(3px, .55vh, 5px);
+    border-radius: 999px; background: rgba(6, 30, 66, .62);
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, .35), 0 0 0 3px rgba(234, 249, 255, .9), 0 6px 18px rgba(6, 32, 60, .45);
+  }
+  .title-loading-fill {
+    position: relative; height: 100%; width: 0; min-width: clamp(10px, 2.1vh, 18px);
+    border-radius: 999px; overflow: hidden;
+    background: linear-gradient(180deg, #ffffff 0%, #c8f3ff 42%, #62c9f2 100%);
+    transition: width 220ms ease-out;
+  }
+  .title-loading-fill::after {
+    content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 40%;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .75), rgba(255, 255, 255, 0));
+    animation: titleLoadSheen 1.6s ease-in-out infinite;
+  }
+  @keyframes titleLoadSheen { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+  .title-loading-label {
+    margin: 0; font: 800 clamp(14px, 2.6vh, 22px)/1 "Fredoka", "Baloo 2", var(--sans);
+    color: #eaf9ff; letter-spacing: .04em;
+    text-shadow: 0 2px 0 rgba(6, 32, 60, .55), 0 3px 10px rgba(6, 32, 60, .6);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #loading.ready #start { animation: none; }
+    .title-loading-fill { transition: none; }
+    .title-loading-fill::after { animation: none; opacity: 0; }
+  }
   #start:active { transform: translateY(4px) scale(.965); filter: drop-shadow(0 4px 8px rgba(12, 64, 102, .5)) brightness(.97); }
   #start:focus-visible { outline: 4px solid #fff; outline-offset: 7px; border-radius: 50%; }
 
@@ -795,18 +936,29 @@
   .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
   @media (prefers-reduced-motion: reduce) {
-    #bubble, #progress, #next, #hud button { transition: none; }
+    #bubble, #progress, #hud button { transition: none; }
     #next.show { animation: none; }
   }
 
   .bubble-line { display: block; }
+
+  /* ANOTHER LANGUAGE (src/core/i18n.js, ?lan=). The page's words are hidden only until they
+     have been put into it. Its letters: the lesson's faces have none of them, so they fall
+     through every stack to --sans, which carries the Baloo face drawn for that script — after
+     Nunito, so a digit or a Latin letter keeps the face it had. */
+  html.i18n-wait [data-i18n] { visibility: hidden; }
+  html[data-font="deva"] { --sans: "Nunito", "Baloo 2", "Segoe UI", system-ui, sans-serif; }
+  html[data-font="telu"] { --sans: "Nunito", "Baloo Tammudu 2", "Segoe UI", system-ui, sans-serif; }
+  html[data-font="gujr"] { --sans: "Nunito", "Baloo Bhai 2", "Segoe UI", system-ui, sans-serif; }
+  html[data-font="orya"] { --sans: "Nunito", "Baloo Bhaina 2", "Segoe UI", system-ui, sans-serif; }
+
 </style>
 </head>
 <body>
-<div id="rotate" role="alertdialog" aria-label="Please turn your device sideways">
+<div id="rotate" role="alertdialog" aria-label="Please turn your device sideways" data-i18n-aria="rotateLabel">
   <div>
     <div class="phone" aria-hidden="true"></div>
-    <p>Turn your device sideways<br>to play with Swiftee!</p>
+    <p><span data-i18n="rotateTitle">Turn your device sideways</span><br><span data-i18n="rotateMessage">to play with Swiftee!</span></p>
   </div>
 </div>
 <div id="game">
@@ -825,9 +977,9 @@
   <div id="reward" class="sr-only" role="status" aria-live="polite"></div>
   <div id="instruction" role="note" aria-live="polite"><span class="instruction-text"></span></div>
   <div id="hud">
-    <button class="replay" type="button">Play again</button>
-    <button class="mute" type="button" aria-label="Mute" aria-pressed="false">🔊</button>
-    <button class="restart" type="button" aria-label="Restart">↻</button>
+    <button class="replay" type="button" data-i18n="playAgainButton">Play again</button>
+    <button class="mute" type="button" aria-label="Mute" aria-pressed="false" data-i18n-aria="muteButton">🔊</button>
+    <button class="restart" type="button" aria-label="Restart" data-i18n-aria="restartButton">↻</button>
   </div>
   <!-- A REVIEW TOOL, AND OFF UNLESS IT IS ASKED FOR. A screen picker for
        looking at one screen without playing the thirty-eight in front of it.
@@ -838,11 +990,16 @@
        wireJump() in game.js would still change nothing about the lesson.
        Marked data-dev so the suites can tell a review tool from the game. -->
   <div id="jump" data-dev="1" hidden>
+    <span class="dev-tag">DEV</span>
+    <button type="button" class="dev-step" data-step="-1" aria-label="Previous screen">&#9664;</button>
     <label class="sr-only" for="jump-sel">Jump to screen</label>
     <select id="jump-sel"></select>
+    <button type="button" class="dev-step" data-step="1" aria-label="Next screen">&#9654;</button>
   </div>
   
-  <button id="next" type="button" aria-label="Next"><span>Next</span><span class="chev" aria-hidden="true">&#9654;</span></button>
+  <!-- NEXT, ON THE SUMMARY ONLY (the final pass): shown once its explanations are over, and the
+       way on from it; the lesson's other screens go on by themselves -->
+  <button id="next" type="button" aria-label="Next" data-i18n-aria="nextButton"><span data-i18n="nextButton">Next</span><span class="chev" aria-hidden="true">&#9654;</span></button>
   <div id="progress-track"><div id="progress"></div></div>
 
   <div id="loading">
@@ -852,18 +1009,32 @@
       <div class="title-snow"></div>
       <div class="title-scrim"></div>
     </div>
-    <h1 class="sr-only">Swiftee &amp; the Polygons</h1>
+    <h1 class="sr-only" data-i18n="lessonTitle">Swiftee &amp; the Polygons</h1>
     <div class="title-play">
-      <button id="start" type="button" aria-label="Start">
+      <button id="start" type="button" aria-label="Start" data-i18n-aria="startButton">
         <span class="start-halo" aria-hidden="true"></span>
         <img src="assets/ui/play.webp" alt="" draggable="false">
       </button>
+      <!-- THE LOADING BAR (src/core/preload.js), in Play's place until every file the
+           lesson needs is in — real bytes, forward only; then it goes and Play pops in -->
+      <div class="title-loading" id="title-loading" role="progressbar" aria-label="Loading" data-i18n-aria="loadingLabel"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="title-loading-track"><div class="title-loading-fill" id="title-loading-fill"></div></div>
+        <p class="title-loading-label" id="title-loading-label" data-i18n="loadingLabel">Loading…</p>
+      </div>
       <span class="start-sparks" aria-hidden="true"></span>
     </div>
   </div>
 </div>
 
 <!-- Load order is the dependency order: each module reads the ones above it. -->
+<!-- the words first, in the language the address asks for (?lan=): polygon-locales.json, copied
+     to a script by tools/build-locales.js, and the code that reads it — everything below asks it -->
+<script src="src/core/locales.js"></script>
+<script src="src/core/i18n.js"></script>
+<!-- the loading bar first: its list (generated by tools/build-preload.js) and its loader -->
+<script src="src/core/preload-list.js"></script>
+<script src="src/core/preload.js"></script>
 <script src="src/audio/sfx.js"></script>
 <script src="src/audio/vo.js"></script>
 <!-- the tune under the lesson: synthesised on the music bus, no files -->
@@ -880,18 +1051,23 @@
 <!-- generated from assets/swiftee/swiftee.manifest.json by tools/build-swiftee-frames.js -->
 <script src="src/character/swiftee-frames.js"></script>
 <script src="src/character/measuring-frames.js"></script>
+<script src="src/character/angle-measuring-frames.js"></script>
 <script src="src/character/sleigh-frames.js"></script>
 <script src="src/fx/sleigh-intro.js"></script>
 <script src="src/character/swiftee.js"></script>
-<!-- generated from assets/source/cardskit.png, newcard.png, measure-card.png, compare-card.png, pannel.png, reg.png and irre.png by tools/build-card.js -->
+<!-- generated from assets/source/cardskit.webp, newcard.webp, measure-card.webp, compare-card.webp, pannel.webp, reg.webp and irre.webp by tools/build-card.js -->
 <script src="src/game/card-frame.js"></script>
 <script src="src/game/instruction.js"></script>
-<!-- generated from assets/source/new plus-minus.png and image.png by tools/build-buttons.js -->
+<!-- generated from assets/source/new plus-minus.avif and image.avif by tools/build-buttons.js -->
 <script src="src/game/button-frame.js"></script>
 <script src="src/game/hand-art.js"></script>
 <script src="src/game/stage.js"></script>
 <script src="src/game/dual-coding.js"></script>
 <script src="src/game/quest.js"></script>
+<!-- (the Momo and Popo story that opened the game is kept outside the repository, in POLYGON-1/story-draft (its README says how to bring it back) — the user:
+     "remove the story part and add on draft"; its README says how to bring it back) -->
+<!-- (the lesson on its own: no Frozen Rush around it and no way on to Part 2 — see the README,
+     "This repository and POLYGON-PART-1") -->
 <script src="src/game/game.js"></script>
 </body>
 </html>

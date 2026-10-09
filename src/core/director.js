@@ -262,7 +262,7 @@
       setState(STATES.DIALOGUE_REVEAL, { text: text, type: type });
       emit('say', { text: text, vo: beat.vo, type: type });
       lastWasSpeech = true;
-      var voDone = guard(call('say', [text, { vo: beat.vo, reading: reading, parts: beat.parts, type: type, settledBy: info && info.settledBy, faces: beat.faces }, ctx]), token, cfg.beatCeilingMs)
+      var voDone = guard(call('say', [text, { vo: beat.vo, reading: reading, parts: beat.parts, type: type, settledBy: info && info.settledBy, faces: beat.faces, endsAt: beat.endsAt }, ctx]), token, cfg.beatCeilingMs)
         .then(function (r) {
           // A handler that failed or hung paced nothing: fall back to the
           // reading time, so a broken voice never turns into a flash of text.
@@ -311,7 +311,8 @@
       // seconds after the diagonal was made, and every right answer held the
       // lesson that long. He celebrates while the lesson goes on — into the
       // next line, which he then says glad (swiftee.js moods).
-      var transitional = /^(enter|exit|move|hop)$/.test(beat.swiftee);
+      // (a flight onto his perch is travel too: the lesson waits for him to land)
+      var transitional = /^(enter|exit|move|hop|perch)$/.test(beat.swiftee);
       if (beat.await === false || (!transitional && beat.await !== true)) return Promise.resolve();
       return guard(p, token, cfg.beatCeilingMs);
     }
@@ -432,6 +433,15 @@
       }
       if (beat.stage != null)       return beatStage(beat, token);
       if (beat.wait != null)        return beatWait(beat, token);
+      /* A LINE CHOSEN BY WHAT IS ON SCREEN (`alt: { if, say, parts, vo }`). The words must match
+         the picture: "One of the diagonals went outside." over a shape with two outside was
+         wrong (the final pass). The handlers' test(name) is asked when the line starts — the
+         shape is what the child made — and the alternative replaces the line when it holds. */
+      if (beat.say != null && beat.alt && beat.alt.if && typeof handlers.test === 'function') {
+        var useAlt = false;
+        try { useAlt = !!handlers.test(beat.alt.if); } catch (e) { useAlt = false; }
+        if (useAlt) beat = Object.assign({}, beat, beat.alt, { alt: null });
+      }
       if (beat.say != null)         return beatSay(beat, token, info);
       if (beat.instruction != null) return beatInstruction(beat, token, info);
       if (beat.swiftee != null)     return beatSwiftee(beat, token);

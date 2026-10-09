@@ -30,7 +30,7 @@
  *   sfx.sparkle  with the denser flurry at the midpoint
  *
  * Every flake is the supplied artwork (assets/ui/snowflake.webp, built from
- * snowflake-src.png by tools/build-snowflake.js): pale ice arms with a blue
+ * snowflake-src.webp by tools/build-snowflake.js): pale ice arms with a blue
  * rim and a gem at the heart, drawn at every size and depth.
  *
  * Reduced motion: the transition does nothing at all, and the game simply
@@ -187,9 +187,17 @@
   }
 
   /**
-   * Drop one flake from the top. Three nested boxes, each with one job the
-   * Web Animations API can run on the compositor: the outer falls, the
-   * middle sways, the inner turns, breathes and twinkles.
+   * Drop one flake from the top. TWO boxes, each one compositor layer: the outer falls,
+   * fades and twinkles; the inner sways, turns and breathes.
+   *
+   * TWO, NOT FOUR. It was three nested boxes plus a twinkle on the picture, and every box
+   * with a running transform or opacity animation is a layer of its own: at the peak of a
+   * cover on a 1600x900 window that was 477 layers at once, where the rest of the lesson
+   * uses two to eight — the kind of pile that makes a low-end tablet's compositor drop
+   * frames or tiles. The sway, the turn and the breath are now the inner box's three
+   * independent transform properties (translate, rotate, scale — which the browser applies
+   * in that order, so the sway stays level while the flake turns, exactly as the nested
+   * boxes did), and the twinkle is folded into the fall's own opacity.
    */
   function drop(L, w, h, delay, scaleK) {
     var doc = host.ownerDocument, el = layerEls[L.id];
@@ -204,44 +212,44 @@
     var outer = doc.createElement('div');
     outer.style.cssText = 'position:absolute;left:' + x.toFixed(0) + 'px;top:' + (-size * 1.4).toFixed(0) + 'px;' +
                           'width:' + size + 'px;height:' + size + 'px;opacity:0;will-change:transform,opacity;';
-    var mid = doc.createElement('div');
-    // only the outer box is promoted: a hundred flakes with three promoted
-    // boxes each was three hundred compositor layers
-    mid.style.cssText = 'position:absolute;inset:0;';
     var inner = doc.createElement('div');
     inner.style.cssText = 'position:absolute;inset:0;';
     inner.innerHTML = flakeIMG(size, L.glow * c.glow, Math.random() < 0.14);
-    mid.appendChild(inner); outer.appendChild(mid); el.appendChild(outer);
+    outer.appendChild(inner); el.appendChild(outer);
 
     var peak = L.opacity;
-    // the fall, with a soft arrival and a fade before the ground
-    run(outer, [
+    // the fall, with a soft arrival and a fade before the ground — and, for half of them, a
+    // twinkle on the way down (opacity-only keyframes between the fall's own, at its cadence)
+    var fallKeys = [
       { transform: 'translate3d(0,0,0)', opacity: 0, offset: 0 },
       { transform: 'translate3d(0,' + (h * 0.08).toFixed(0) + 'px,0)', opacity: peak, offset: 0.1 },
       { transform: 'translate3d(0,' + (h * 0.84 + size).toFixed(0) + 'px,0)', opacity: peak, offset: 0.86 },
       { transform: 'translate3d(0,' + (h + size * 2.8).toFixed(0) + 'px,0)', opacity: 0, offset: 1 }
-    ], { duration: fall, delay: delay, easing: 'cubic-bezier(.3,.12,.55,1)', fill: 'forwards' })
+    ];
+    if (Math.random() < 0.5) {
+      var beat = rnd(700, 1300) / fall, dim = true;
+      for (var o = 0.1 + beat / 2; o < 0.86 - 0.02; o += beat / 2, dim = !dim) {
+        fallKeys.push({ opacity: peak * (dim ? 0.62 : 1), offset: +o.toFixed(4) });
+      }
+      fallKeys.sort(function (a, b) { return a.offset - b.offset; });
+    }
+    run(outer, fallKeys, { duration: fall, delay: delay, easing: 'cubic-bezier(.3,.12,.55,1)', fill: 'forwards' })
       .then(function () {
         // its endless sway and twinkle go with it
         try { outer.getAnimations({ subtree: true }).forEach(function (a) { a.cancel(); }); } catch (e) {}
         if (outer.parentNode) outer.parentNode.removeChild(outer);
       });
-    // the sway, to and fro for as long as it falls
-    run(mid, [
-      { transform: 'translate3d(' + (-driftPx).toFixed(0) + 'px,0,0)' },
-      { transform: 'translate3d(' + driftPx.toFixed(0) + 'px,0,0)' }
-    ], { duration: sway, delay: delay, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' });
-    // the turn, the breath and the twinkle
+    // the sway, to and fro for as long as it falls (the inner box's `translate`)
     run(inner, [
-      { transform: 'rotate(0deg) scale(.92)' },
-      { transform: 'rotate(' + (turn * 0.5).toFixed(0) + 'deg) scale(1.06)', offset: 0.5 },
-      { transform: 'rotate(' + turn.toFixed(0) + 'deg) scale(.96)' }
+      { translate: (-driftPx).toFixed(0) + 'px 0' },
+      { translate: driftPx.toFixed(0) + 'px 0' }
+    ], { duration: sway, delay: delay, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' });
+    // the turn and the breath (its `rotate` and `scale`, applied inside the sway)
+    run(inner, [
+      { rotate: '0deg', scale: '0.92' },
+      { rotate: (turn * 0.5).toFixed(0) + 'deg', scale: '1.06', offset: 0.5 },
+      { rotate: turn.toFixed(0) + 'deg', scale: '0.96' }
     ], { duration: fall, delay: delay, easing: 'ease-in-out' });
-    if (Math.random() < 0.5) {
-      var svg = inner.firstChild;
-      run(svg, [{ opacity: 1 }, { opacity: 0.62 }, { opacity: 1 }],
-          { duration: rnd(700, 1300), delay: delay + rnd(0, 600), iterations: Infinity, easing: 'ease-in-out' });
-    }
   }
 
   /** A tiny twinkle between the flakes: a soft dot that flares and is gone. */
