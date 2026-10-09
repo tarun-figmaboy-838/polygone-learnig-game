@@ -14,19 +14,29 @@
  */
 (function (global) {
   'use strict';
-  var BASE = 'assets/vo/';
+  /* HINDI HAS ITS OWN RECORDINGS (src/core/i18n.js, ?lan=hi): the same ids in their own folder,
+     assets/vo/hi/<id>.ogg, with an index of their own — so the clip that plays is the line on
+     the screen, and its words are timed off the Hindi voice (tools/build-vo-hindi.js). A line
+     the Hindi folder has no clip for is not heard, exactly as an English line with no clip. */
+  var I = global.I18N;
+  var BASE = 'assets/vo/' + (I && I.on && I.voice ? I.lang + '/' : '');
   // THE FORMAT THE BROWSER CAN ACTUALLY PLAY. Every clip is written twice —
-  // Vorbis in an .ogg, which Chrome, Firefox and Android take and which is
-  // about half the size, and an .mp3, which Safari and iOS are the only ones
-  // that need. Asking canPlayType once means nobody downloads the format
-  // they cannot use. Unknown answers fall back to mp3, which plays anywhere.
+  // Opus in an .ogg (tools/make-opus.js), which Chrome, Edge, Firefox and
+  // Android play and which is under half the size, and an .mp3 for everyone
+  // else (Safari, unless it says it plays Opus in Ogg). Asking canPlayType
+  // once means nobody downloads the format they cannot use. Unknown answers
+  // fall back to mp3, which plays anywhere.
   var EXT = (function () {
     try {
       var a = document.createElement('audio');
-      if (a.canPlayType && a.canPlayType('audio/ogg; codecs=\"vorbis\"')) return '.ogg';
+      if (a.canPlayType && a.canPlayType('audio/ogg; codecs=\"opus\"')) return '.ogg';
     } catch (e) {}
     return '.mp3';
   }());
+  /* AND A BROWSER THAT SAID YES AND WAS WRONG hears the mp3: the first .ogg that will not
+     play is retried as the mp3 (play, start), and every clip after it is asked for as one. */
+  var oggFailed = false;
+  function ext() { return oggFailed ? '.mp3' : EXT; }
   var current = null, known = {};   // known[id] = false once a clip has failed to load
   var liveId = null;                // the id of the clip `current` is playing
   // THE INDEX. assets/vo/index.json lists the clips that exist; only those
@@ -57,7 +67,13 @@
     wordMs = (j && j.words) || {};
     spokenMs = (j && j.spoken) || {};
   }
+  /* NO VOICE IN A LANGUAGE NOTHING WAS RECORDED IN (src/core/i18n.js, ?lan=mr and the rest).
+     The English clips read out over Marathi words would say one thing while the screen says
+     another. No clip is known, so none is fetched, none plays, and every line is paced by its
+     own words — the path a page with no index has always taken. */
+  var silent = !!(I && I.on && !I.voice);
   function loadIndex() {
+    if (silent) { index = {}; indexSettled = true; return Promise.resolve(); }
     if (indexWait || indexSettled) return indexWait;
     if (offDisk) {
       index = {};
@@ -97,17 +113,26 @@
    * the cache aged out. The index carries a hash of each clip's bytes and is
    * itself revalidated, so asking for it by revision makes a corrected clip
    * arrive on the next load and leaves every unchanged clip in the cache. */
-  function url(id) {
+  /** The clip's own file, as the server has it. */
+  function rawUrl(id) {
     var v = revs[id];
     // (off the disk there is no cache to outwit, and no query on a file path)
-    return BASE + id + EXT + (v && !offDisk ? '?v=' + v : '');
+    return BASE + id + ext() + (v && !offDisk ? '?v=' + v : '');
+  }
+  /** What an element plays: the loading bar's copy in memory (src/core/preload.js) when it
+      has one — so a line starts at once, with nothing left to fetch — else the file. */
+  function url(id) {
+    var u = rawUrl(id);
+    return (global.Preload && Preload.url) ? Preload.url(u) : u;
   }
 
   function muted() { return !!(global.SFX && SFX.isMuted && SFX.isMuted()); }
   /* THE MUSIC STEPS BACK WHILE HE SPEAKS (sfx.js voice: a smooth dip, and a
      smooth return a breath after the line). Every line goes through play(),
      so this is the one place that knows a voice is on air. */
-  function voiceBus(on) { try { if (global.SFX && SFX.voice) SFX.voice(on); } catch (e) {} }
+  // when the last clip went off air: game.js counts the hold after a line from it (autoAdvance)
+  var quietAt = 0;
+  function voiceBus(on) { if (!on) quietAt = Date.now(); try { if (global.SFX && SFX.voice) SFX.voice(on); } catch (e) {} }
 
   /* WAITING FOR THE VOICE.
    *
@@ -211,7 +236,7 @@
 
   /** Play the clip for a line. Returns the Audio element, or null. */
   function play(id) {
-    if (!id || typeof Audio === 'undefined' || known[id] === false || muted()) return null;
+    if (silent || !id || typeof Audio === 'undefined' || known[id] === false || muted()) return null;
     if (!offDisk && (!index || !index[id])) return null;
     stop();
     var a;
@@ -220,6 +245,9 @@
     // network round trip later. Taken out of `warm` because it is no longer
     // waiting to be used — and if it is asked for again the browser's cache
     // answers, which is the whole point of giving the file a revision.
+    // (only if it is the same copy: one warmed before the loading bar had the clip in memory
+    // points at the file, and the copy in memory is the one to play now)
+    if (warm[id] && warm[id].src !== url(id)) { delete warm[id]; var wo = warmOrder.indexOf(id); if (wo >= 0) warmOrder.splice(wo, 1); }
     if (warm[id]) {
       a = warm[id];
       delete warm[id];
@@ -228,18 +256,57 @@
     } else {
       try { a = new Audio(url(id)); } catch (e) { return null; }
     }
+    return start(a, id);
+  }
+
+  /** Put one element on air for a line: its end, its failure, and the play itself.
+      A copy in memory that will not play is retried as the file itself; an Opus file this
+      browser cannot play, as its mp3 (and every clip after it too). */
+  function start(a, id) {
     a.preload = 'auto';
     a.volume = 0.95;
     if (hiddenNow()) a.muted = true;
     a.addEventListener('error', function () {
+      if (current !== a) return;              // an element already replaced is nothing to us
+      var next = null, src = a.src || '';
+      if (/^blob:/.test(src)) next = rawUrl(id);
+      else if (!oggFailed && EXT === '.ogg' && /\.ogg(\?|$)/.test(src)) {
+        oggFailed = true;
+        if (global.console) console.warn('[VO] ogg will not play here, using mp3: ' + id);
+        next = rawUrl(id);
+      }
+      if (next && next !== src) {
+        var b = null;
+        try { b = new Audio(next); } catch (e) { b = null; }
+        if (b) { start(b, id); return; }
+      }
       known[id] = false;
       if (global.console) console.warn('[VO] missing or failed: ' + url(id));
-      if (current === a) { current = null; liveId = null; voiceBus(false); done(); }
+      current = null; liveId = null; voiceBus(false); done();
     });
     a.addEventListener('ended', function () { if (current === a) { current = null; liveId = null; voiceBus(false); done(); } });
     current = a;
     liveId = id;
     voiceBus(true);
+    /* A CLOCK THAT DOES NOT MOVE IS NOT A VOICE. A browser with no working audio sink (a
+       headless run, a tablet with sound blocked, a device that lost its output) can report an
+       element as playing while its currentTime never advances: it never ends, so `at()` kept
+       answering, and everything stepped against the voice's clock — the words, the cues, the
+       hint gate — waited on it for the rest of the screen. Two seconds without a tick while
+       "playing" and the clip is taken off air; the lesson goes on by its text clock, as it
+       does for a clip that failed to load. */
+    var lastT = -1, lastTick = Date.now();
+    var watch = setInterval(function () {
+      if (current !== a) { clearInterval(watch); return; }
+      var t = a.currentTime;
+      if (t !== lastT) { lastT = t; lastTick = Date.now(); return; }
+      if (!a.paused && !a.ended && Date.now() - lastTick > 2000) {
+        clearInterval(watch);
+        if (global.console) console.warn('[VO] playback stalled, going on without it: ' + id);
+        try { a.pause(); } catch (e) {}
+        current = null; liveId = null; voiceBus(false); done();
+      }
+    }, 250);
     var p = a.play();
     if (p && p.catch) p.catch(function () {
       // refused (autoplay policy) or failed: release anything waiting on it
@@ -270,13 +337,19 @@
   var warm = {}, warmOrder = [];
   var WARM_MAX = 48;   // clips are 10-17 KB; the replies alone are ~27 (game.js warmVoice)
   function preload(ids) {
+    if (silent) return;
     (ids || []).forEach(function (id) {
       if (!id || warm[id] || known[id] === false) return;
       if (!offDisk && (!index || !index[id])) return;
       try {
         var a = new Audio(url(id));
         a.preload = 'auto';
-        a.addEventListener('error', function () { known[id] = false; delete warm[id]; });
+        a.addEventListener('error', function () {
+          delete warm[id];
+          if (/^blob:/.test(a.src || '')) return;                          // play() will try the file itself
+          if (!oggFailed && EXT === '.ogg') { oggFailed = true; return; }   // play() asks for the mp3 now
+          known[id] = false;
+        });
         warm[id] = a;
         warmOrder.push(id);
         while (warmOrder.length > WARM_MAX) { var old = warmOrder.shift(); if (old !== id) delete warm[old]; }
@@ -311,9 +384,14 @@
       before the silence every recording runs on with — or 0 if not known. */
   function spoken(id) { return (id && spokenMs[id]) || 0; }
 
+  /** Every clip's file, in the format this browser plays — the loading bar's list. */
+  function urls() { return Object.keys(index || {}).map(rawUrl); }
+
   global.VO = { play: play, stop: stop, finished: finished, preload: preload, seconds: seconds, words: words, spoken: spoken, at: at,
+                urls: urls,
                 ready: ready,
                 get isReady() { return indexSettled; },
+                get quietAt() { return quietAt; },
                 get playing() { return current; },
                 /* Which clip is on air. The bubbles check this before they
                    trust at(): a line must never be paced by another line's

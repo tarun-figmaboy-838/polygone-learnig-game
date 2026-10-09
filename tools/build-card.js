@@ -1,28 +1,28 @@
 #!/usr/bin/env node
 /*!
- * build-card.js â€” measure the supplied card artwork, and re-encode it.
+ * build-card.js — measure the supplied card artwork, and re-encode it.
  *
  *   node tools/build-card.js
  *
  * Four cards, three jobs:
  *
- *   OPTION  assets/source/cardskit.png (cell 0)  the block of ice something you can TOUCH
- *                                  sits in â€” the sorting tray, the swipe
+ *   OPTION  assets/source/cardskit.webp (cell 0)  the block of ice something you can TOUCH
+ *                                  sits in — the sorting tray, the swipe
  *                                  card, the icons stacked in a bin, the four
  *                                  in the choose-the-polygons grid.
- *   PANEL   assets/source/newcard.png    the slab a single shape is DISPLAYED on,
+ *   PANEL   assets/source/newcard.webp    the slab a single shape is DISPLAYED on,
  *                                  where there is nothing to tap or drag.
  *
  * Which card a thing gets is the affordance. A child should be able to tell
  * whether something is for touching before they touch it, and two clearly
- * different cards say so at a glance â€” which one drawn slab used for both
+ * different cards say so at a glance — which one drawn slab used for both
  * never could.
  *
  * Neither file is usable as it is:
  *
  *   WHERE THE PANE IS. A shape is drawn ON a card and has to land inside the
  *   face rather than over the rim. The rim is not the same thickness on every
- *   edge â€” the option card's top carries snow caps â€” so the middle of the
+ *   edge — the option card's top carries snow caps — so the middle of the
  *   card is NOT the middle of the pane, and centring a shape on the card puts
  *   it low. The pane is found by walking OUT from the centre until the colour
  *   stops being the face. Walking IN from the edge does not work: both rims
@@ -52,42 +52,52 @@ const CARDS = [
   // The option card is the first cell of the frosted-card kit: a soft ice
   // card with snow on its corners. `cell` crops one of a sheet's cells
   // before the usual keying and measuring.
-  { key: 'option',    src: 'assets/source/cardskit.png',  cell: { cols: 3, rows: 2, i: 0 }, out: 'assets/ui/card.webp', cap: 512 },
+  { key: 'option',    src: 'assets/source/cardskit.webp',  cell: { cols: 3, rows: 2, i: 0 }, out: 'assets/ui/card.webp', cap: 512 },
   // The convex / concave bins on the sorting screen: aqua and lilac from
   // the same kit, so the two halves of the answer are two cards.
-  { key: 'convexBin',  src: 'assets/source/cardskit.png', cell: { cols: 3, rows: 2, i: 3 }, out: 'assets/ui/bin-convex.webp',  cap: 640 },
-  { key: 'concaveBin', src: 'assets/source/cardskit.png', cell: { cols: 3, rows: 2, i: 5 }, out: 'assets/ui/bin-concave.webp', cap: 640 },
+  { key: 'convexBin',  src: 'assets/source/cardskit.webp', cell: { cols: 3, rows: 2, i: 3 }, out: 'assets/ui/bin-convex.webp',  cap: 640 },
+  { key: 'concaveBin', src: 'assets/source/cardskit.webp', cell: { cols: 3, rows: 2, i: 5 }, out: 'assets/ui/bin-concave.webp', cap: 640 },
   // THE NEW SLAB: frosted glass with a crystal in each corner
-  // (assets/source/newcard.png, supplied to replace panel-card.png). Its face runs
-  // to the rim at the middle of every edge â€” there is no thick frame to walk
-  // out to â€” so the measured pane would be the whole card and the shape would
+  // (assets/source/newcard.webp, supplied to replace panel-card.png). Its face runs
+  // to the rim at the middle of every edge — there is no thick frame to walk
+  // out to — so the measured pane would be the whole card and the shape would
   // be fitted into the crystals. `pane` says where the clear glass is instead:
   // inside the corner crystals, about a tenth in from each edge, which also
-  // puts the shape at the 70â€“80% of the card the polish pass asked for.
-  { key: 'panel',     src: 'assets/source/newcard.png', out: 'assets/ui/panel.webp',   cap: 1024,
+  // puts the shape at the 70–80% of the card the polish pass asked for.
+  { key: 'panel',     src: 'assets/source/newcard.webp', out: 'assets/ui/panel.webp',   cap: 1024,
     pane: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 } },
   // The two drop zones of the swipe practice. Their titles are drawn INTO the
-  // artwork, so the game must not print a label over them â€” and the pane each
+  // artwork, so the game must not print a label over them — and the pane each
   // one reports is the shelf its catch is stacked on.
   // The instruction plank at the top of every screen. Drawn through CSS
   // border-image, so what matters is where the flat middle starts on each
-  // edge â€” the snow caps live in the corner slices and must never stretch.
-  { key: 'plank',     src: 'assets/source/pannel.png',   out: 'assets/ui/plank.webp',           cap: 1400 },
-  // The zone frames are blank glass now â€” a cyan rim for regular, a violet
-  // one for irregular â€” and stage.js letters the word on them. The earlier
+  // edge — the snow caps live in the corner slices and must never stretch.
+  { key: 'plank',     src: 'assets/source/pannel.webp',   out: 'assets/ui/plank.webp',           cap: 1400 },
+  // The zone frames are blank glass now — a cyan rim for regular, a violet
+  // one for irregular — and stage.js letters the word on them. The earlier
   // the earlier zone art carried its own title plates.
   // The card a shape is COMPARED on: two of these side by side, lighter
   // and plainer than the display slab, so the pair reads as a pair.
-  { key: 'compare',   src: 'assets/source/compare-card.png', out: 'assets/ui/compare.webp', cap: 640 },
+  { key: 'compare',   src: 'assets/source/compare-card.webp', out: 'assets/ui/compare.webp', cap: 640 },
   // The wide slab for the measuring screens: he waits inside its bottom-left
   // corner, small, and the shape has the whole width to be big in.
-  { key: 'measure',   src: 'assets/source/measure-card.png', out: 'assets/ui/measure.webp', cap: 1024 },
-  { key: 'regular',   src: 'assets/source/reg.png',  out: 'assets/ui/zone-regular.webp',   cap: 640 },
-  { key: 'irregular', src: 'assets/source/irre.png', out: 'assets/ui/zone-irregular.webp', cap: 640 }
+  { key: 'measure',   src: 'assets/source/measure-card.webp', out: 'assets/ui/measure.webp', cap: 1024 },
+  // The swipe screen's two destinations: the orange card is Regular (assets/source/reg.webp,
+  // supplied to replace the ice one), the violet one Irregular. 1024, not 640: they are drawn
+  // nearly 300 units wide now, which is over a thousand device pixels on a 2x laptop, and a
+  // rim upscaled from 640 goes soft.
+  // (Their panes are declared, the same for both: the violet card's face is so near the colour
+  // of its rim that the walk out from the centre runs to the edge, and the orange one's
+  // gradient stops it early. A sixteenth in from each edge is inside both rims, and the title
+  // band and the shelf sit at the same inset on the two cards.)
+  { key: 'regular',   src: 'assets/source/reg.webp',  out: 'assets/ui/zone-regular.webp',   cap: 1024,
+    pane: { x: 0.06, y: 0.06, w: 0.88, h: 0.88 } },
+  { key: 'irregular', src: 'assets/source/irre.webp', out: 'assets/ui/zone-irregular.webp', cap: 1024,
+    pane: { x: 0.06, y: 0.06, w: 0.88, h: 0.88 } }
 ];
 
 function serve() {
-  const TY = { '.html': 'text/html', '.png': 'image/png' };
+  const TY = { '.html': 'text/html', '.png': 'image/png', '.avif': 'image/avif', '.webp': 'image/webp' };
   const srv = http.createServer((q, r) => {
     let p = decodeURIComponent(q.url.split('?')[0]);
     if (p === '/') { r.writeHead(200, { 'Content-Type': 'text/html' }); return r.end('<!doctype html><title>x</title>'); }
@@ -125,8 +135,8 @@ const MEASURE = function (opts) {
 
       /* 0. THE BLACK MATTE.
             The slab was exported onto an opaque black background rather
-            than onto transparency â€” every one of its border pixels is
-            rgba(0,0,0,255) â€” so drawn as-is the display slab arrives inside a
+            than onto transparency — every one of its border pixels is
+            rgba(0,0,0,255) — so drawn as-is the display slab arrives inside a
             hard black rectangle. It is keyed out by flooding IN from the four
             corners and stopping at the first pixel that is not near-black, so
             only the surround is removed: any black inside the artwork is
@@ -274,7 +284,7 @@ const MEASURE = function (opts) {
 
   fs.writeFileSync(OUT_JS,
 `/*!
- * card-frame.js â€” GENERATED by tools/build-card.js. Do not edit.
+ * card-frame.js — GENERATED by tools/build-card.js. Do not edit.
  *
  * The two cards, and where each one's face is.
  *

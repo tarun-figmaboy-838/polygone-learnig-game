@@ -42,11 +42,21 @@
     { swiftee: 'oops' },
     { wait: 400 }
   ];
+  // A WRONG CARD BUZZES (Level 1 — the user: "brief red glow, short buzz/shake"): a quick small
+  // shiver of the card itself, clearer than the nudge but never a telling-off, under its red
+  // glow, with the miss sound — and then the explanation (game.js CLUES)
+  var BUZZ = [
+    { juice: 'buzz', target: 'answer' },
+    { sfx: 'wrong' },
+    { swiftee: 'oops' },
+    { wait: 400 }
+  ];
 
-  // What a diagonal is, said after the second wrong line on a screen where
-  // the child draws them (`after`: the miss it starts on). It says
-  // "vertices" where page 13's definition says "sides" — see the note there.
-  var DIAGONAL_RULE = { say: 'A diagonal connects non-adjacent vertices.', vo: 'p14r', after: 2 };
+  // What a diagonal is, said after "Try again!" on EVERY wrong line where the
+  // child draws them (`after`: the miss it starts on — the first, since the
+  // Part 1 review: the rule is the clue, not a reward for failing twice). It
+  // says "vertices" where page 13's definition says "sides" — see the note there.
+  var DIAGONAL_RULE = { say: 'A diagonal connects non-adjacent vertices.', vo: 'p14r', after: 1 };
 
   /* A RIGHT ANSWER: THE CONFIRMATION FIRST, THEN HIM, THEN ON.
    *
@@ -70,21 +80,20 @@
    * the child made concave, the angles matching, the pentagon built — gets
    * the full celebration, or another face as big (`face`). Every answer
    * celebrating the same way is how a celebration stops meaning anything. */
-  function correct(extra, face) {
+  function correct(extra, face, o) {
     extra = extra || [];
     var sounds = extra.some(function (b) { return b && b.sfx; });
-    var bursts = extra.some(function (b) { return b && b.juice === 'confetti'; });
-    // A BURST FROM THE ANSWER. The audit's child got a chime and a face for a
-    // right answer and nothing that said so on the screen; now the answer
-    // throws a small burst from its own edges — one, from the thing that
-    // earned it (a milestone that brings its own bigger one keeps that).
+    // CONFETTI ONLY AT A MILESTONE (o.burst — the animation review: "confetti only when
+    // appropriate, especially major completion"). An ordinary right answer is the glow, the
+    // chime and his face; a level's last answer (milestone) throws the burst.
+    var bursts = !!(o && o.burst === true) && !extra.some(function (b) { return b && b.juice === 'confetti'; });
     return [{ juice: 'collect', target: 'answer' }]
       .concat(sounds ? [] : [{ sfx: 'correct' }])
-      .concat(bursts ? [] : [{ juice: 'confetti', target: 'answer', count: 16, fromEdge: true }])
+      .concat(bursts ? [{ juice: 'confetti', target: 'answer', count: 20, fromEdge: true }] : [])
       .concat(extra)
       .concat([{ swiftee: face || 'happySmall' }, { wait: FEEDBACK_MS }]);
   }
-  function milestone(extra, face) { return correct(extra, face || 'celebrate'); }
+  function milestone(extra, face) { return correct(extra, face || 'celebrate', { burst: true }); }
 
   /* ------------------------------------------------------------------ *
    * THE END-GAME SUMMARY, as data
@@ -114,9 +123,18 @@
     { id: 'irregular', label: 'Irregular', text: 'If the sides or angles are not all equal, the polygon is irregular.', vo: 'p37h' }
   ];
   var SUMMARY_DONE = { text: 'Amazing! You explored all these polygon ideas!', vo: 'p37i' };
+  var SUMMARY_OPEN = { text: 'Let’s recall what we learned today.', vo: 'p37o' };
 
   function summaryBeats(list) {
     var out = [{ instruction: null }, { stage: { kind: 'summary' } }];
+    /* THE RECAP OPENS IN HIS VOICE (the user's recording: "Let's recall what we learned today."):
+       up into the open middle before the first card comes in, and back down — at his summary
+       size, small, so the first card brings him up behind it exactly as before */
+    out.push(
+      { swiftee: 'enter', from: 'below', quick: true, to: 'middle', size: 'small' },
+      { say: SUMMARY_OPEN.text, vo: SUMMARY_OPEN.vo },
+      { swiftee: 'exit', to: 'below' }
+    );
     list.forEach(function (c) {
       out.push(
         { stage: { summary: { card: c.id } } },            // in, and its idea shown (the beat waits for it)
@@ -134,8 +152,12 @@
       { swiftee: 'enter', from: 'below', quick: true, to: 'middle', size: 'medium' },
       { swiftee: 'celebrate' },
       { say: SUMMARY_DONE.text, vo: SUMMARY_DONE.vo },
-      // and the game's own ending follows on Next (game.js finish())
-      { input: { type: 'tap-anywhere' } }
+      /* THEN IT IS THEIRS TO LOOK BACK AT (the final pass): once every explanation has been
+         given, Next appears, and a tap on any card replays that card's idea and its line — one at
+         a time, the others resting — until Next goes on to the game's own ending (game.js
+         reviewSummary, then finish()). Each card's line is carried here so the replay says
+         exactly what the card first said. */
+      { input: { type: 'summary-review', cards: list.map(function (c) { return { id: c.id, say: c.text, vo: c.vo }; }) } }
     );
     return out;
   }
@@ -148,6 +170,12 @@
 
     {
       id: 'intro-hi', page: 1,
+      // THE CLOSE SHOT (the MASTER brief §1): the opening lines are filmed close on him, the
+      // painting soft behind him (game.js setCam). The log is already on the ground at his left
+      // (the user: "it should already exist naturally") — mostly outside the close shot, until
+      // the camera draws back to it
+      camera: 'close',
+      log: true,
       swiftee: { pos: 'left', size: 'large', purpose: 'introduce'},
       say: 'Hi! I am Swiftee.',
       stage: { kind: 'vista' },
@@ -158,12 +186,21 @@
         { wait: 300 },
         { say: 'Hi! I am Swiftee.', vo: 'p01' },
         { parallel: [{ swiftee: 'wave' }, { sfx: 'pop' }] },
+        // ("But for that, first you need to learn about polygons." is gone from here: Swiftee says
+        // it in Frozen Rush now, flying in at the broken path just before this screen — the same
+        // recording, sw-help in that game's voice track; the user)
         { input: { type: 'tap-anywhere' } }
       ]
     },
 
     {
       id: 'intro-remember', page: 2,
+      // THE CLOSE SHOT (the MASTER brief §1): the opening lines are filmed close on him, the
+      // painting soft behind him (game.js setCam). The log is already on the ground at his left
+      // (the user: "it should already exist naturally") — mostly outside the close shot, until
+      // the camera draws back to it
+      camera: 'close',
+      log: true,
       swiftee: { pos: 'left', size: 'large', purpose: 'introduce'},
       say: 'Remember we learned about polygons before.',
       beats: [
@@ -177,13 +214,24 @@
 
     {
       id: 'intro-define', page: 3,
+      camera: 'close',   // still close; it draws back at the end of this screen (below)
+      log: true,
       swiftee: { pos: 'left', size: 'large', purpose: 'concept'},
       say: 'Polygons are closed shapes made from straight lines.',
       beats: [
         // "Ta-da — here is the idea": one open-winged flourish, then talking
         { swiftee: 'present' },
         { say: 'Polygons are closed shapes made from straight lines.', parts: ['Polygons are closed shapes', 'made from straight lines.'], vo: 'p03' },
-        { input: { type: 'tap-anywhere' } }
+        // ONTO THE LOG (the user's spec, and the MASTER brief §2): the third line said to its
+        // end, a breath, then the camera draws back to the whole scene in one move — the log
+        // coming into view on the ground at his left, where it has been all along — a beat to
+        // see it, then a real flight onto it (wings going, one curve, easing down), a small
+        // squash, and a moment perched there before the first question comes
+        { wait: 600 },
+        { stage: { camera: 'wide', ms: 1000 } },
+        { wait: 250 },
+        { swiftee: 'perch' },
+        { input: { type: 'tap-anywhere', pause: 650 } }
       ]
     },
 
@@ -194,22 +242,25 @@
     {
       id: 'which-polygons', page: 4,
       transition: false,   // straight on from the intro: no ice between the definition and the first question
-      // The same mark as the three screens before: no wipe, no walk — the
-      // options simply appear on his right and he asks about them.
-      swiftee: { pos: 'left', size: 'large', purpose: 'ask' },
+      log: true,
+      // ON THE LOG, where the intro left him: no wipe, no walk — the options
+      // simply appear on his right and he asks about them from his perch.
+      swiftee: { pos: 'log', size: 'large', purpose: 'ask' },
       say: 'Which of these are polygons?',
-      // A MISS IS ANSWERED CARD BY CARD (the user's spec). The first miss on
-      // a card is a gentle nudge; the second on that SAME card is the
-      // stronger "Not that one." and then what a polygon is — the line from
-      // the screen before, in its own voice, not new words — and that card is
-      // put out (stage.js multi-select). Then the question comes back.
-      remind: { say: 'Polygons are closed shapes made from straight lines.', vo: 'p03', perCard: true, after: 2 },
+      // A MISS IS ANSWERED WITH THE LESSON, THE FIRST TIME (the user's bug list: "do not make
+      // the student fail twice before receiving the useful explanation"). The card glows red
+      // and buzzes, and he says "Not quite." and what is true of THAT shape — the circle is
+      // curved, the path is open (game.js CLUES, by the card's `reason`). The card stays in
+      // play; a SECOND miss on the same card says it again and puts the card out, dimmed and
+      // still readable, for the rest of the question (the user: "disable after the 2nd wrong
+      // attempt" — outAfter: 2).
       stage: {
         kind: 'choice-grid',
         options: [
           { id: 'pentagon', shape: 'pentagon', correct: true },
-          { id: 'circle',   shape: 'circle',   correct: false },
-          { id: 'open',     shape: 'open-path', correct: false },
+          // (each wrong card's own clue on its first miss — game.js CLUES)
+          { id: 'circle',   shape: 'circle',   correct: false, reason: 'curved' },
+          { id: 'open',     shape: 'open-path', correct: false, reason: 'open' },
           { id: 'octagon',  shape: 'octagon',  correct: true }
         ],
         multi: true
@@ -222,11 +273,25 @@
         { swiftee: 'observe', at: 'grid' },
         // Multi-select: each tap is judged on its own so a child learns per
         // shape, and the screen completes when both polygons are selected.
-        { input: { type: 'multi-select', until: 'all-correct-selected' } },
-        { feedback: correct() }
+        // "Keep going!" for the first polygon found, "Great job!" for the one that completes
+        // the level (game.js PRAISE_FOR) — not a "Great job!" for every card
+        { input: { type: 'multi-select', until: 'all-correct-selected', outAfter: 2, cheer: { more: 'keepGoing', last: 'levelDone' } } },
+        // no second burst when the last polygon is found: its own press already threw one — and
+        // no lift of the card either (the user: "the second correct tap pops the card"): the
+        // halo is the verdict; his face and a breath end the level
+        { feedback: [{ swiftee: 'happySmall' }, { wait: FEEDBACK_MS }] }
       ],
-      perTap: { correct: [{ juice: 'pop', target: 'option' }, { sfx: 'correct' }],
-                wrong:   WRONG }
+      /* EVERY RIGHT CARD CELEBRATES ITSELF, as it is pressed: it glows green, pops, rings and
+         throws a burst of confetti from behind its own edges — one burst per card, only from
+         the card that was pressed (a found card cannot be pressed again). A wrong card glows
+         red and shrinks back. */
+      // (no pop on the card — the user: the verdict is the glow, stage.js optionCard _mark)
+      // A SHORT THROW, FROM THIS CARD ONLY (the user: "when I tap a card, only that card should
+      // burst confetti, not the others too"): at full speed the pieces flew three or four cards
+      // away and fell across the ones below, so the burst read as coming from all of them.
+      perTap: { correct: [{ sfx: 'correct' },
+                          { juice: 'confetti', target: 'option', count: 26, fromEdge: true, speed: 0.3 }],
+                wrong:   BUZZ }
     },
 
     /* ================================================================ *
@@ -235,11 +300,16 @@
 
     {
       id: 'lets-play', page: 5,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // LEVEL 2 LAYOUT (the user): he stays on the log at the left, with his line; the card is
+      // on the right, and stays there, the same size, for the whole level
+      log: true,
+      swiftee: { pos: 'log', size: 'medium' },
       say: 'Let\u2019s play with this one.',
+      // ONE PLACE FOR THE CARD FOR THE WHOLE LEVEL (the user: "keep the card at the same scale
+      // and the same X/Y"): the right-hand slab, built here and never moved or resized after it
       stage: { kind: 'polygon', sides: 5, panel: 'right' },
       beats: [
-        { stage: { kind: 'polygon', sides: 5, panel: 'right', enter: 'pop' } },
+        { stage: { kind: 'polygon', sides: 5, panel: 'right', enter: 'fade' } },   // (no card pop — the user)
         { sfx: 'pop' },
         { wait: 300 },
         // "THIS one": he presents the pentagon \u2014 a flourish toward it \u2014 and
@@ -253,12 +323,17 @@
 
     {
       id: 'pick-vertex', page: 6,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // LEVEL 2 LAYOUT (the user): he stays on the log at the left, with his line; the card is
+      // on the right, and stays there, the same size, for the whole level
+      log: true,
+      swiftee: { pos: 'log', size: 'medium' },
       say: 'Select any vertex.',
       beats: [
+        // THE CORNERS ARE UP BEFORE THE LINE, and its word "vertex" swells them one after
+        // another (the user); the input after it makes them touchable (stage.js vertex-pick)
+        { stage: { dots: true } },
         { say: 'Select any vertex.', vo: 'p06' },
         { swiftee: 'point', at: 'polygon' },
-        { focus: 'polygon.vertices', style: 'pulse' },
         // any corner is right, so it is not praised as an answer: the pop,
         // the nod, and straight on to "Let’s connect it to another vertex."
         { input: { type: 'vertex-pick', praise: false } },
@@ -281,12 +356,15 @@
        * screen: a neighbour, i±1 wrapping round, is a SIDE; any other corner
        * is a DIAGONAL.
        *
-       *   SIDE      the side lights, its tag pops on the word "side", and he
-       *             says so in full; a readable pause; the side and the tag
-       *             fade; "Let’s connect it to a different vertex." — and the same
-       *             corner is theirs to try again. As often as they like: the
-       *             other neighbour is a side too. It is not a wrong answer —
-       *             it is the first thing there is to learn — so no wrong
+       *   SIDE      (the Screen 7 vertex brief) the preview line goes and the
+       *             side is the polygon's own edge, looking like every other;
+       *             its end is disabled on the drop; its tag pops on the word
+       *             "side", and he says so in full; a readable pause; the tag
+       *             fades; "Let’s connect it to a different vertex." — and the
+       *             same corner, still the anchor, draws again. BOTH neighbours
+       *             are sides, one after the other; only then are the far
+       *             corners places a line may go. A side is not a wrong answer
+       *             — it is the first thing there is to learn — so no wrong
        *             sound, no "oops", and it does not count as a miss.
        *   DIAGONAL  the line stays and glows, the right-answer sound, the
        *             instruction goes, and he cheers it: "Yay! You made a
@@ -296,10 +374,14 @@
        * Nothing can be drawn while a line is being said: the input is only
        * armed after each instruction has been heard out (the say/instruction
        * handlers wait for the voice, and a tap cannot cut it), and the stage
-       * refuses a line outside READY_TO_CONNECT. until: 'correct' keeps asking
+       * refuses a line outside its READY states (stage.js setConnect; each
+       * corner's own state, setVertexStates). until: 'correct' keeps asking
        * until the diagonal is made. */
       id: 'connect', page: 7,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // LEVEL 2 LAYOUT (the user): he stays on the log at the left, with his line; the card is
+      // on the right, and stays there, the same size, for the whole level
+      log: true,
+      swiftee: { pos: 'log', size: 'medium' },
       instruction: 'Let’s connect it to another vertex.',
       lines: ['This is a side of the polygon.', 'Yay! You made a diagonal!'],
       stage: { highlight: { vertex: 'picked', color: 'yellow' } },
@@ -313,7 +395,7 @@
         { input: { type: 'draw-diagonal', from: 'picked', sides: true, praise: false } },
         { branch: true, until: 'correct',
           on: {
-            // SIDE_FEEDBACK: kept a moment, named, and another try
+            // SIDE_COMPLETE / SECOND_SIDE_COMPLETE: named, its end disabled, and another try
             side: [
               { sfx: 'pop' },
               // the tag arrives on the word "side"
@@ -321,19 +403,26 @@
               { swiftee: 'discover' },
               { say: 'This is a side of the polygon.', vo: 'p09' },
               { wait: 1200 },
-              { stage: { side: null } },
+              // THE SIDE STAYS, ITS CORNER IS DONE WITH (stage.js freezeSide): only its tag goes;
+              // the next try is any corner still open — the other neighbour (another side, named
+              // the same way) or a far corner (the diagonal)
+              { stage: { side: 'done' } },
               { instruction: 'Let’s connect it to a different vertex.', vo: 'p10i' },
               { swiftee: 'point', at: 'picked' },
               { input: { type: 'draw-diagonal', from: 'picked', sides: true, praise: false, retry: true } }
             ],
-            // DIAGONAL_SUCCESS: the line is in and glowing (stage.js shimmer)
+            // DIAGONAL_CREATED: the line is in, locked, and glowing (stage.js shimmer)
             correct: [
               { sfx: 'correct' },
               { juice: 'collect', target: 'answer' },
               { instruction: null },
-              // on the word "diagonal", the tag that names it
-              { stage: { label: { text: 'Diagonal', at: 'below-polygon', inside: true, enter: 'pop', cue: 'diagonal' } } },
+              // on the word "diagonal", the tag that names it: beside the diagonal on the
+              // figure, an arrow to it (the user: "label → arrow → the actual diagonal") — not a
+              // tag under the card, which also made the card shrink to fit it
+              { stage: { label: { text: 'Diagonal', at: 'diagonal', arrow: true, enter: 'pop', cue: 'diagonal' } } },
               { swiftee: 'celebrate' },
+              // (the connecting step's last state: the diagonal is locked, and now explained)
+              { stage: { connectState: 'EXPLANATION' } },
               { say: 'Yay! You made a diagonal!', vo: 'p12' }
             ]
           },
@@ -350,7 +439,10 @@
 
     {
       id: 'define-diagonal', page: 13,
-      swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
+      // LEVEL 2 LAYOUT (the user): he stays on the log at the left, with his line; the card is
+      // on the right, and stays there, the same size, for the whole level
+      log: true,
+      swiftee: { pos: 'log', size: 'medium', purpose: 'concept' },
       instruction: null,
       // THE SUPPLIED WORDING, AND A STANDING OBJECTION TO IT.
       //
@@ -378,7 +470,10 @@
 
     {
       id: 'another-diagonal', page: 14,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // LEVEL 2 LAYOUT (the user): he stays on the log at the left, with his line; the card is
+      // on the right, and stays there, the same size, for the whole level
+      log: true,
+      swiftee: { pos: 'log', size: 'medium' },
       instruction: 'Let’s draw another diagonal from the same vertex.',
       // THE SAME CORNER, A SECOND DIAGONAL, AND WHAT THEY SHOW.
       //
@@ -393,7 +488,7 @@
       // to the remaining corner the whole time was a hint shown before anyone
       // needed it. The hint ladder in stage.js shows the move only once the
       // child has been still for a while.
-      lines: ['All diagonals are still inside.'],
+      // (no "All diagonals are still inside." after it any more — the user: removed)
       // THE SECOND MISS IS ANSWERED WITH WHAT A DIAGONAL IS. The first wrong
       // line gets "Hmm, not quite." like any other; from the second on he
       // adds the rule the line broke — then the instruction comes back.
@@ -404,27 +499,26 @@
         // they draw are what to do, not a question with half of it gone.
         // SAID ONCE: the line that echoed the instruction ("Can you draw another diagonal from here?") went —
         // the same request twice in a row read as a stutter, not a lesson.
+        // (the first diagonal's name has been said and shown twice; it comes down before the
+        // second is drawn, which could otherwise run across it)
+        { stage: { label: null } },
         { instruction: 'Let’s draw another diagonal from the same vertex.', vo: 'p14i' },
         { swiftee: 'point', at: 'picked' },
         { input: { type: 'draw-diagonal', from: 'picked' } },
         // until: the retry is branched on, so a right second try still gets
         // the observation below — it used to skip straight to the next screen
         { branch: true, until: 'correct',
-          on: { correct: correct([{ sfx: 'slice' }]).concat([
-            { parallel: [
-              { stage: { observe: 'diagonals' } },
-              // he watches them light up, one and then the other
-              { swiftee: 'observe', at: 'polygon' },
-              { say: 'All diagonals are still inside.', vo: 'p14b' }
-            ] }
-          ]) },
+          on: { correct: correct([{ sfx: 'slice' }]) },
           otherwise: WRONG.concat([{ input: { type: 'draw-diagonal', from: 'picked', retry: true } }]) }
       ]
     },
 
     {
       id: 'hexagon-your-turn', page: 15,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // LEVEL 2 LAYOUT (the user): he stays on the log at the left, with his line; the card is
+      // on the right, and stays there, the same size, for the whole level
+      log: true,
+      swiftee: { pos: 'log', size: 'medium' },
       instruction: 'Let’s draw all the diagonals from this vertex.',
       say: 'Your turn! Let’s draw all the diagonals from this vertex.',
       // FLAG: two problems on this page.
@@ -436,13 +530,22 @@
       //  (2) Answer leak: the deck draws all three diagonals as dashed
       //      ghosts on the "your turn" screen, so the exercise can be done
       //      by tracing. Section 2 of the brief forbids exactly this. The
-      //      ghosts are removed here; the label "Hexagon" stays.
-      stage: { kind: 'polygon', sides: 6, label: { text: 'Hexagon', at: 'below-polygon' }, ghost: null },
+      //      ghosts are removed here.
+      // NO NAME TAG (the user: "remove the Hexagon name tag … do not replace it with another
+      // shape-name tag; keep the polygon as the main visual focus"). The same slab, in the same
+      // place, at the same size as the pentagon's.
+      stage: { kind: 'polygon', sides: 6, panel: 'right', label: null, ghost: null },
       beats: [
-        { stage: { kind: 'polygon', sides: 6, enter: 'morph', label: { text: 'Hexagon', at: 'below-polygon' } } },
+        { stage: { kind: 'polygon', sides: 6, panel: 'right', enter: 'morph', label: null } },
         { sfx: 'pop' },
+        // THE CORNERS ARE THERE BEFORE HE SPEAKS (the user, screen 10: "all vertex dots present
+        // before the dialogue"), white, every one — and on "this VERTEX" the one he means changes
+        // from white to the corner colour and starts to breathe, as the word is said (onWord
+        // `knob`); the dots used to arrive only once the line was over and the drawing armed
+        { stage: { dots: true } },
         { wait: 400 },
         { swiftee: 'encourage' },
+        { stage: { onWord: [{ word: 'vertex', knob: 0, breathe: true }] } },
         { say: 'Your turn! Let’s draw all the diagonals from this vertex.', parts: ['Your turn!', 'Let’s draw all the diagonals', 'from this vertex.'], vo: 'p15' },
         // The instruction is the script's own last two bubbles, so it is not
         // said again: the line settles into the one sentence the child keeps
@@ -453,7 +556,11 @@
         { swiftee: 'step-back' },
         // Three diagonals from one hexagon vertex (n - 3). Each correct one
         // gets its own small reward; the screen completes on the third.
-        { input: { type: 'draw-diagonals', from: 0, count: 3 } },
+        // (sidesOk — a line to a NEIGHBOUR makes a side: it becomes the polygon's own edge, that
+        // neighbour is disabled for good, the anchor stays — and, the task here being diagonals, it
+        // is answered as a miss: the red glow on that corner, "Try again!" and the rule (the user:
+        // "if user drag to the side vertex why do not add wrong glow and feedback?"; stage.js)
+        { input: { type: 'draw-diagonals', from: 0, count: 3, sidesOk: true } },
         // EVERY DIAGONAL FROM ONE CORNER: a milestone, and the one place his
         // jumping-for-joy clip belongs
         { feedback: milestone([{ sfx: 'levelUp' }], 'excited') }
@@ -464,21 +571,31 @@
 
     {
       id: 'look-diagonals', page: 16,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      log: true,   // on the log arc at the left of the ground, as since the intro (the user: "after level-1, the log sit too")
+      swiftee: { pos: 'log', size: 'medium' },
       // FLAG: the deck's instruction card on this page still reads "Draw
       // another diagonal from the same vertex." while the dialogue is "Look
       // at the diagonals of this pentagon." — a stale card from page 14.
       // This is a look-only screen, so the card is cleared.
       instruction: null,
       originalInstruction: 'Draw another diagonal from the same vertex.',
-      say: 'Look at the diagonals of this pentagon.',
+      // ONE LINE, NOT "Let's look." AND THEN "Look at…" (the user): the invitation and what to
+      // look at are one sentence, said first; a breath; then the diagonals draw
+      say: 'Let\u2019s look at the diagonals of this pentagon.',
       // The diagonals are NOT on the screen-level stage: they arrive by
       // their own beat, one after another, once the chapter's snow has
       // cleared — a shape that comes up already starred shows nothing.
-      stage: { kind: 'polygon', sides: 5, label: { text: 'Diagonal' } },
+      // AND NO "Diagonal" TAG UNDER THE CARD (the user: "I told you, no diagonal name tag
+      // outside, below the card"): the screen-level stage carried one with no place to point
+      // to, so a rebuild — a jump, a replay, a resize — printed it under the shape. The name
+      // was taught on the connect screen, beside the line it names, and is not repeated here.
+      stage: { kind: 'polygon', sides: 5 },
       beats: [
         { instruction: null },
         { stage: { kind: 'polygon', sides: 5, enter: 'morph' } },
+        // the line first, a breath, and only then do the diagonals start to draw
+        { say: 'Let\u2019s look at the diagonals of this pentagon.', parts: ['Let\u2019s look at the diagonals', 'of this pentagon.'], vo: 'p16b' },
+        { wait: 450 },
         // THE FIVE DRAW IN ONCE, one after another, after the chapter's snow
         // has melted — a shape that arrives already starred shows nothing.
         // There were two of these beats for a while, one before the line and
@@ -489,7 +606,6 @@
         { stage: { diagonals: 'all', style: 'dashed', animate: 'sequential', each: 1150, afterReveal: true } },
         { sfx: 'sparkle' },
         { wait: 700 },
-        { say: 'Look at the diagonals of this pentagon.', parts: ['Look at the diagonals', 'of this pentagon.'], vo: 'p16' },
         { swiftee: 'observe', at: 'polygon' },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -501,30 +617,72 @@
 
     {
       id: 'inside-or-outside', page: 17,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      // (THE QUESTION IS BACK — the user: "revert the activity of screen 11 inside and outside": the
+      // two-button Inside / Outside question and its two tries, as it was before the one-button line)
+      log: true,   // on the log arc at the left of the ground, as since the intro (the user: "after level-1, the log sit too")
+      swiftee: { pos: 'log', size: 'medium' },
       instruction: 'Are the diagonals inside or outside?',
-      stage: { kind: 'polygon', sides: 5, diagonals: 'all', choices: ['Inside', 'Outside'] },
+      lines: ['The diagonals are inside.'],
+      // (no choices on the screen-level stage: the beats deal them on the question's words, and
+      // a rebuild — a jump, a resize — must not put them up before the question)
+      stage: { kind: 'polygon', sides: 5, diagonals: 'all' },
       beats: [
-        // THE ANSWERS COME IN WITH THEIR WORDS: built first, held, and each
-        // one arrives as the question reaches it — "Inside" on "inside",
-        // "Outside" on "outside" (stage.js holdForWord). The name tag from the
-        // screen before comes down: the question is about where the
-        // diagonals are, not what they are called.
-        { stage: { choices: ['Inside', 'Outside'], cue: true, label: null } },
-        { instruction: 'Are the diagonals inside or outside?', vo: 'p17i' },
+        // THE QUESTION FIRST, THEN THE ANSWERS (the user: never a button before the learner has
+        // been introduced to it). The name tag from the screen before comes down; he asks — on
+        // "inside" the shape's inside glows with its diagonals, on "outside" the band round it
+        // (dual coding) — a beat to take it in, and only then are the two answers dealt.
+        { stage: { label: null } },
+        // THE ANSWERS ARRIVE ON THEIR WORDS (the user: "the buttons are delayed — when the VO says
+        // 'are the diagonals inside or outside?'"): "Inside" is dealt as he says inside, "Outside"
+        // as he says outside — introduced by the question itself, not after a pause behind it.
+        // The question is still asked before either can be pressed (the input comes after).
+        { parallel: [
+          { instruction: 'Are the diagonals inside or outside?', vo: 'p17i' },
+          { stage: { choices: ['Inside', 'Outside'], cue: true } }
+        ] },
         // SAID ONCE: the line that echoed the instruction ("Are they inside or outside?") went —
         // the same request twice in a row read as a stutter, not a lesson.
         { swiftee: 'think' },
+        /* TWO TRIES (the user, the inside/outside question). The first miss is "Try again!" and
+           nothing more — the answer is not given away, both buttons stay. The second is taught:
+           the diagonals light inside the shape, "The diagonals are inside.", and the two
+           buttons merge into one "Inside" to tap on (below). */
         { input: { type: 'choice', correct: 'Inside' } },
-        { branch: true, until: 'correct',
+        { branch: true,
           on: { correct: correct() },
-          otherwise: WRONG.concat([{ input: { type: 'choice', correct: 'Inside', retry: true } }]) }
+          otherwise: WRONG.concat([
+            { input: { type: 'choice', correct: 'Inside', retry: true, quietMiss: true } },
+            { branch: true,
+              on: { correct: correct() },
+              /* THE SECOND MISS IS TAUGHT, AND THEN THE LESSON GOES ON BY ITSELF (the user, screen
+                 12: "when VO says inside give the Inside option green and the other option gone …
+                 why tap after giving the answer … make it auto"): the answers are locked (the
+                 input is over — game.js), a short beat; "The diagonals are inside." — the
+                 diagonals light gold on "diagonals" and stay lit, still dashed, inside the shape;
+                 ON "inside" the two buttons become ONE centred green Inside (stage `merge` on its
+                 word); a moment to see it, and on to the next screen. No tap, no third attempt,
+                 no "Try again!" here. */
+              otherwise: [
+                { sfx: 'wrong' },
+                { wait: 500 },
+                { swiftee: 'explain', at: 'polygon' },
+                // (ON THE WORD — the user: "not sync with vo?": the diagonals light gold as he says
+                // "diagonals", a quick sweep; the inside of the shape glows on "inside" — dual coding)
+                { stage: { onWord: [{ word: 'diagonals', lit: 'diagonals', each: 90 }] } },
+                { stage: { merge: 'Inside', cue: 'inside' } },
+                // (the beat ends on "inside.", not on the clip's silent tail)
+                { say: 'The diagonals are inside.', vo: 'fb54', endsAt: 'words' },
+                // (no chime: the answer is shown to them, not given by them — no verdict for it)
+                { wait: 1400 }
+              ] }
+          ]) }
       ]
     },
 
     {
       id: 'lets-change', page: 18,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      log: true,   // on the log arc at the left of the ground, as since the intro (the user: "after level-1, the log sit too")
+      swiftee: { pos: 'log', size: 'medium' },
       say: 'Let\u2019s make a change.',
       beats: [
         { instruction: null },
@@ -537,12 +695,15 @@
 
     {
       id: 'drag-inward', page: 19,
-      swiftee: { pos: 'left-low', size: 'medium' },
+      log: true,   // on the log arc at the left of the ground, as since the intro (the user: "after level-1, the log sit too")
+      swiftee: { pos: 'log', size: 'medium' },
       instruction: 'Help me pull this vertex inside.',
       stage: { highlight: { vertex: 0, color: 'yellow' } },
       beats: [
         // THE ASK IS HIS: "Help me pull this vertex inside." — the deck's own
         // line, now the instruction itself (it replaced "Drag the vertex inward.")
+        // (the point to pull comes up ON the word "vertex", not when the drag arms after the line)
+        { stage: { onWord: [{ word: 'vertex', knob: 0 }] } },
         { instruction: 'Help me pull this vertex inside.', vo: 'p19i' },
         { focus: 'polygon.vertex.0', style: 'pulse' },
         // "what will happen?" — curious, leaning toward the corner, not the
@@ -561,7 +722,9 @@
 
     {
       id: 'whoa', page: 20,
-      swiftee: { pos: 'peek', size: 'small', purpose: 'surprise'},
+      // (on the log, like the screens either side: this card has no rim to peek over)
+      log: true,
+      swiftee: { pos: 'log', size: 'medium', purpose: 'surprise' },
       say: 'Whoa! One of the diagonals went outside.',
       stage: { highlight: { diagonal: 'outside', color: 'red', style: 'dashed' } },
       beats: [
@@ -569,7 +732,10 @@
         { swiftee: 'surprised' },
         { stage: { highlight: { diagonal: 'outside', color: 'red', style: 'dashed', enter: 'flash' } } },
         { sfx: 'honk' },
-        { say: 'Whoa! One of the diagonals went outside.', parts: ['Whoa! One of the diagonals', 'went outside.'], vo: 'p20' },
+        // THE WORDS MATCH THE SHAPE (the final pass): the child's dent can send more than one
+        // diagonal outside, and then it is "some", not "one" (director alt / game.js test)
+        { say: 'Whoa! One of the diagonals went outside.', parts: ['Whoa! One of the diagonals', 'went outside.'], vo: 'p20',
+          alt: { if: 'manyOutside', say: 'Whoa! Some of the diagonals went outside.', parts: ['Whoa! Some of the diagonals', 'went outside.'], vo: 'fb52' } },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -600,17 +766,22 @@
 
     {
       id: 'compare', page: 21,
+      log: true,   // (the log stays in the scene while he is elsewhere in it: it does not blink out between screens that share it)
       // Both panels sit across the middle and nothing is drawn under them on
       // this screen, so the whole foot of the stage is his — centre stage,
       // with the line directly over his head in the band he leaves.
       // Small: at medium his head reaches 46 units up into the compare panels.
-      swiftee: { pos: 'centre', size: 'small' },
+      swiftee: { pos: 'log', size: 'medium' },
       instruction: null,
       say: 'Let\u2019s compare the diagonals in both the pentagons.',
       original: 'Both are pentagons.',
       // the concave one is the pentagon the child dented (made: stage.js
       // keeps it); the stock dent stands in when the screen is reached without it.
       // NO DIAGONALS YET: they are drawn as each card is talked about.
+      // NO NAME TABS ON THE CARDS (the final pass: "remove the text tags … Concave Pentagon, Convex
+      // Pentagon"): the shapes are the focus; which one he means is shown by the warm glow behind
+      // the card he is talking about (focus) and by his pointing, and the concept is named under
+      // it on its word (the Convex / Concave badges)
       stage: { kind: 'compare', left: { sides: 5 }, right: { sides: 5, dent: 0, made: 'concave' } },
       beats: [
         { instruction: null },
@@ -632,10 +803,11 @@
 
     {
       id: 'all-inside', page: 22,
+      log: true,   // on the log arc at the left of the ground, as since the intro (the user: "after level-1, the log sit too")
       // ON THE ICE AT THE LEFT. The pair begins at x 270, so the ground to
       // its left is his, and the bubble sits by his head wherever he stands
       // (game.js placeBubble). Hovering him in the corner read as floating.
-      swiftee: { pos: 'left-low', size: 'medium' },
+      swiftee: { pos: 'log', size: 'medium' },
       say: 'This one has all the diagonals inside.',
       original: 'This one has all diagonals inside.',
       beats: [
@@ -645,6 +817,8 @@
         // on "inside" its inside glows with its diagonals (emphasize), and a
         // small bright chime says so
         { stage: { onWord: { word: 'inside', sfx: 'sparkle', gain: 0.4 } } },
+        // ...and its mark, INSIDE, comes up under it on the same word (not a screen later)
+        { stage: { marks: { left: 'Inside', cue: true } } },
         { parallel: [
           // its diagonals grow one after another as he says it
           { stage: { grow: { card: 'left', each: 430, ms: 540 } } },
@@ -660,16 +834,21 @@
       // page 24 in the deck, where it followed "convex"; the author moved it
       // ahead of the names, so the pages are numbered in the order they are met
       id: 'one-outside', page: 23,
+      log: true,   // on the log arc at the left of the ground, as since the intro (the user: "after level-1, the log sit too")
       // On the ice at the left, like the screen before it.
-      swiftee: { pos: 'left-low', size: 'medium' },
+      swiftee: { pos: 'log', size: 'medium' },
       // FLAG: punctuation. Deck line has no full stop.
       say: 'But this one has atleast one diagonal outside.',
       original: 'This one has at least one diagonal outside',
       beats: [
         { instruction: null },
         { stage: { grow: { card: 'left', instant: true } } },
+        // (the left card's INSIDE mark, from the screen before — put back quietly on a jump)
+        { stage: { marks: { left: 'Inside', enter: false } } },
         // the convex one back to normal, only less important
         { focus: 'compare.right', style: 'lean' },
+        // OUTSIDE comes up under this one on the word "outside", with the diagonal that leaves
+        { stage: { marks: { right: 'Outside', cue: true } } },
         { parallel: [
           // the ones that stay inside grow first; the one that leaves the
           // shape waits for its word (and he is surprised when it does)
@@ -681,10 +860,7 @@
         // under each, and a moment to look
         { stage: { grow: { card: 'right', instant: true } } },
         { focus: 'compare', style: 'even' },
-        { parallel: [
-          { stage: { marks: { left: 'Inside', right: 'Outside' } } },
-          { swiftee: 'compare', at: ['compare.left', 'compare.right'] }
-        ] },
+        { swiftee: 'compare', at: ['compare.left', 'compare.right'] },
         { wait: 1000 },
         { input: { type: 'tap-anywhere' } }
       ]
@@ -692,9 +868,10 @@
 
     {
       id: 'convex', page: 24,
+      log: true,   // (the log stays in the scene while he is elsewhere in it: it does not blink out between screens that share it)
       // On the ice at the left like the rest of the run (markFor): the pair
       // fills the middle and his line sits by his head.
-      swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
+      swiftee: { pos: 'log', size: 'medium', purpose: 'concept' },
       instruction: null,
       // FLAG: grammar. Deck: "That's convex polygon." The author's line
       // for this step is the rule itself.
@@ -706,6 +883,7 @@
         { focus: 'compare.left', style: 'lean' },
         // THE NAME ARRIVES ON ITS WORD, in the INSIDE mark's place: a soft
         // chime, a few sparkles, and his nod
+        // (no tab renamed to "Convex pentagon" any more: the cards carry no name tags — final pass)
         { stage: { badge: { under: 'compare.left', text: 'Convex', tone: 'convex', enter: 'pop', cue: 'convex', sfx: 'correct', sparkle: true, react: 'nod' } } },
         { parallel: [
           // stating the rule
@@ -719,7 +897,8 @@
 
     {
       id: 'concave', page: 25,
-      swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
+      log: true,   // (the log stays in the scene while he is elsewhere in it: it does not blink out between screens that share it)
+      swiftee: { pos: 'log', size: 'medium', purpose: 'concept' },
       instruction: null,
       // FLAG: grammar and capitalisation. Deck: "So it is Concave polygon."
       say: 'Atleast one diagonal outside means concave polygon.',
@@ -745,21 +924,81 @@
 
     {
       id: 'make-concave', page: 26,
-      swiftee: { pos: 'off', size: 'medium' },
+      // OFF FOR THE TASK, HIS FOR THE EXPLANATIONS (`purpose`): every line on this screen is in a
+      // branch, so it did not count as one he speaks on (screens wantsBuddy looks at the top
+      // level) — his entrances were skipped and the explanations came as a voice with no one
+      // saying them. The purpose makes the screen his; he still starts off-stage.
+      swiftee: { pos: 'off', size: 'medium', purpose: 'concept' },
       instruction: 'Drag any vertex to make this polygon concave.',
-      // The deck shows the badge reading "Convex" during the task. It is a
-      // live readout: it flips to "Concave" the moment the shape does.
-      stage: { kind: 'polygon', sides: 6, panel: 'center', badge: { text: 'Convex', live: true } },
+      // ("Try again!" is his, on the first miss, once he is on the screen — the user, screen 21)
+      lines: ['Try again!', 'The diagonals are still inside the shape, so it is still convex.', 'Let me show you. Watch this corner.', 'Now one diagonal goes outside, so the polygon is concave.', 'Great job!'],
+      // A QUADRILATERAL (the user, screen 21), and the badge reading "Convex" during the task — a
+      // live readout that flips to "Concave" the moment the shape does. TWO TRIES: a corner let
+      // go short of a dent is answered with the diagonals drawn on the shape as it stands, kept,
+      // and why it is still convex; a second short try, and the dent is made for them — the
+      // corner pulled in, the diagonal that goes outside lit — and explained. No third attempt.
+      stage: { kind: 'polygon', sides: 4, panel: 'center', badge: { text: 'Convex', live: true } },
       beats: [
         { swiftee: 'exit', to: 'left' },
-        { stage: { kind: 'polygon', sides: 6, panel: 'center', enter: 'pop', badge: { text: 'Convex', live: true } } },
+        { stage: { kind: 'polygon', sides: 4, panel: 'center', enter: 'fade', badge: { text: 'Convex', live: true } } },
         { sfx: 'pop' },
         { instruction: 'Drag any vertex to make this polygon concave.', vo: 'p26i' },
-        { focus: 'polygon.vertices', style: 'pulse' },
-        { input: { type: 'drag-vertex', vertex: 'any', until: 'concave', live: 'badge' } },
-        { feedback: [{ sfx: 'correct' }, { juice: 'celebrate', target: 'polygon' }] },
-        { swiftee: 'enter', from: 'left' },
-        { swiftee: 'celebrate' }
+        // (the suggested corner — the top one — is the one dot that breathes: stage.js drag-vertex)
+        // (praise: false — the dent is cheered by the screen's own "Great job!" below; a stock
+        // "Amazing!" in front of it was two cheers for one answer, and the second cut the first off)
+        // (quietMiss: the first miss is answered below, by him — the stock "Try again!" came up in a
+        // box while he was still off the screen: the user, screen 21)
+        { input: { type: 'drag-vertex', vertex: 'any', until: 'concave', live: 'badge', attempts: true, praise: false, quietMiss: true } },
+        { branch: true,
+          on: { correct: [] },
+          otherwise: [
+            /* HE COMES IN FIRST, THEN HE SAYS IT (the user, screen 21: the "Try again!" box came
+               before Swiftee was on the screen): the miss is heard, he comes in beside the card's
+               lower-left corner, small, clear of the shape (he started off-stage, so the entrance
+               names its mark), and only then "Try again!" — in his own box — and the clue, with the
+               diagonals drawn on the shape as it stands. */
+            { sfx: 'wrong' },
+            { swiftee: 'enter', from: 'left', to: 'left', size: 'small' },
+            { say: 'Try again!', vo: 'fb32' },
+            { stage: { diagonals: 'all', style: 'dashed', animate: 'sequential', each: 420 } },
+            { say: 'The diagonals are still inside the shape, so it is still convex.', vo: 'p26r1' },
+            // (a breath to look at the clue before the task comes back — the final pass)
+            { wait: 600 },
+            // (the task, shown again — not said again)
+            { instruction: 'Drag any vertex to make this polygon concave.' },
+            // (the diagonals stay, and the one that leaves lights as the corner goes in: live 'both')
+            // (quietMiss: this is the last try — a miss here is answered by the demonstration below,
+            // not by "Try again!" for a try that is not coming)
+            { input: { type: 'drag-vertex', vertex: 'any', until: 'concave', live: 'both', attempts: true, retry: true, quietMiss: true, praise: false } },
+            { branch: true,
+              on: { correct: [] },
+              /* THE SECOND MISS IS TAUGHT, NOT GIVEN AWAY (the final pass): the input is locked
+                 (game.js), a breath to register the miss; he comes in and says what to watch;
+                 the corner goes in slowly (1 s), the shape settles, a breath, the diagonal that
+                 now leaves the shape lights and is held; then why — and a reading pause before
+                 the lesson goes on. No third try. (A quadrilateral's dent sends exactly one
+                 diagonal outside, so the recorded "one" is right here.) */
+              otherwise: [
+                { wait: 500 },
+                { swiftee: 'enter', from: 'left', to: 'left', size: 'small' },
+                { focus: 'polygon.vertex.0', style: 'pulse' },
+                { say: 'Let me show you. Watch this corner.', vo: 'fb53' },
+                { stage: { autoConcave: { vertex: 0, ms: 1000, settle: 400, hold: 1000 } } },
+                { say: 'Now one diagonal goes outside, so the polygon is concave.', vo: 'p26r2' },
+                { wait: 1000 }
+              ] }
+          ] },
+        // the child's own dent, either time: the cheer, and he is back for it (a dent made for
+        // them is explained above, and not cheered)
+        { branch: true,
+          on: { correct: [
+            { feedback: [{ sfx: 'correct' }, { juice: 'celebrate', target: 'polygon' }] },
+            // (in first, so "Great job!" is his — on the same mark as the explanations)
+            { swiftee: 'enter', from: 'left', to: 'left', size: 'small' },
+            { say: 'Great job!', vo: 'fb03' },
+            { swiftee: 'celebrate' }
+          ] },
+          otherwise: [] }
       ]
     },
 
@@ -777,18 +1016,23 @@
       // shadow while he is up (swiftee.js), so nothing says he is standing.
       swiftee: { pos: 'top-left', size: 'small' },
       say: 'Can you sort these polygons as convex or concave?',
-      // TWO MISSES AND THE SHAPE IS TAUGHT (the user's spec). The first wrong
-      // drop is answered in a word; the second lifts that card out of the
-      // tray under a dim sheet, large, and he says what it shows while each
-      // part lights on it on its word (`show`, on word `on`): stage.js
-      // teachShape, game.js teachHooks. Then it goes back to the tray and the
-      // same question goes on. The rule is the lesson's own two lines, in
-      // their own voices; the "Look!" line points at the shape.
+      // THE FIRST MISS IS TAUGHT, AND THEN ANSWERED (the Part 1 review, section
+      // 5). A wrong drop lifts that card out of the tray under a dim sheet,
+      // large, and he says what it shows while each part lights on it on its
+      // word (`show`, on word `on`): stage.js teachShape, game.js teachHooks.
+      // Then the card goes into the bin it belongs in and is locked there
+      // (autoPlace) — a child is not made to fail the same shape twice before
+      // it is explained — and the sort goes on with the rest. The rule is the
+      // lesson's own two lines, in their own voices; the "Look!" line points
+      // at the shape.
       teach: {
-        concave: [{ say: 'Look! This corner goes inward.', vo: 'p27c', show: 'notch' },
-                  { say: 'Atleast one diagonal outside means concave polygon.', vo: 'p25', show: 'outside', on: 2 }],
-        convex:  [{ say: 'Look! No corner goes inward.', vo: 'p27v', show: 'corners' },
-                  { say: 'All diagonals inside means convex polygon.', vo: 'p24', show: 'inside', on: 1 }]
+        // (each visual on the word that names it, and only that concept at a time — the explanation
+        // brief: "corner" the corner, "diagonal" the dashed diagonal alone, "outside" / "inside" its
+        // emphasis; stage.js teach show)
+        concave: [{ say: 'Look! This corner goes inward.', vo: 'p27c', show: 'notch', on: 2 },
+                  { say: 'Atleast one diagonal outside means concave polygon.', vo: 'p25', shows: [{ what: 'outside', on: 2 }, { what: 'outsideGlow', on: 3 }] }],
+        convex:  [{ say: 'Look! No corner goes inward.', vo: 'p27v', show: 'corners', on: 2 },
+                  { say: 'All diagonals inside means convex polygon.', vo: 'p24', shows: [{ what: 'inside', on: 1 }, { what: 'insideGlow', on: 2 }] }]
       },
       stage: {
         kind: 'sort',
@@ -810,7 +1054,10 @@
         { wait: 300 },
         { say: 'Can you sort these polygons as convex or concave?', vo: 'p27' },
         { swiftee: 'observe', at: 'sort.tray' },
-        { input: { type: 'sort', until: 'all-placed-correctly', teach: 2 } },
+        // (the FIRST wrong drop is brief feedback and the card goes home for another try; the
+        // second wrong drop of the SAME card is taught up close and put in its bin — the user,
+        // screen 22)
+        { input: { type: 'sort', until: 'all-placed-correctly', teach: 2, autoPlace: true } },
         // a finished sort is a milestone
         { feedback: milestone([{ sfx: 'levelUp' }, { juice: 'confetti', target: 'stage' }]) }
       ],
@@ -831,7 +1078,9 @@
       swiftee: { pos: 'corner', size: 'small', purpose: 'hint', arrive: 'fly' },
       // This wording follows the recorded master exactly. Extra copy here
       // makes the bubble reveal words that Swiftee never says.
-      say: 'Hmm\u2026 The sides look suspiciously alike. Let\u2019s check!',
+      // ("Let's check!" came off the end of the take: the next screen says what happens next,
+      // "Let's measure.", and measures — the review's section 3)
+      say: 'Hmm\u2026 The sides look suspiciously alike.',
       stage: { kind: 'polygon', sides: 5, room: 'measure' },
       beats: [
         /* THE THINKING COMES FROM WHAT HE DOES, THEN THE WORDS.
@@ -849,13 +1098,12 @@
         { wait: 200 },
         { swiftee: 'enter', from: 'air' },
         { swiftee: 'curious', at: 'polygon' },
-        // THREE BEATS, THE WAY A COMEDIAN WOULD SAY IT: "Hmm…" on its own,
+        // TWO BEATS, THE WAY A COMEDIAN WOULD SAY IT: "Hmm…" on its own,
         // squinting at the shape; then the suspicion, whole ("The sides look
-        // suspiciously alike."); then "Let's check!" — and the magnifying
-        // glass comes out ON those words (faces), not after the line.
+        // suspiciously alike."), with the question on his face.
         { swiftee: 'inspect' },
         { wait: 400 },
-        { say: 'Hmm\u2026 The sides look suspiciously alike. Let\u2019s check!', parts: ['Hmm\u2026', 'The sides look suspiciously alike.', 'Let\u2019s check!'], faces: [null, 'question', 'investigate'], vo: 'p28' },
+        { say: 'Hmm\u2026 The sides look suspiciously alike.', parts: ['Hmm\u2026', 'The sides look suspiciously alike.'], faces: [null, 'question'], vo: 'p28' },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -863,23 +1111,25 @@
     {
       id: 'measure-sides', page: 29,
       swiftee: { pos: 'corner', size: 'tiny', purpose: 'demo' },
-      // THE DECK'S INSTRUCTION, WORD FOR WORD. This screen said "Tap a side.
-      // I'll measure it!", which is in neither the script nor the list of
-      // instructions — a line the build wrote for itself.
-      instruction: 'Tap the sides to measure them.',
+      // HE MEASURES, THE CHILD WATCHES (the Part 1 review, section 3). This was a tap on each
+      // side — "Tap the sides to measure them." — five taps that taught nothing the walk did
+      // not. Now he says "Let's measure.", a breath, and walks each side in turn with the tape,
+      // its length arriving as he reaches its end; the equal-side ticks are dealt once all
+      // five are in, and the screen after says what they show.
+      instruction: null,
+      say: 'Let\u2019s measure the sides.',
       // The same pentagon as the screen before, built again under the
       // wipe: he waits inside this card, so it sits in the middle, where
       // the one he stood beside sat to the right.
       stage: { kind: 'polygon', sides: 5, room: 'measure' },
       beats: [
         { stage: { kind: 'polygon' } },
-        { instruction: 'Tap the sides to measure them.', vo: 'p29i' },
+        { instruction: null },
         { swiftee: 'inspect' },
-        { focus: 'polygon.sides', style: 'pulse' },
-        // Each tap reveals that side's length. Lengths come from
-        // Poly.sideLengths on the live geometry. Completes when all five
-        // have been tapped; there is no wrong tap on this screen.
-        { input: { type: 'tap-each', targets: 'sides', reveal: 'length', count: 5 } },
+        { say: 'Let\u2019s measure the sides.', vo: 'p29s' },
+        // Each side in turn, lengths from Poly.sideLengths on the live geometry; no taps are
+        // taken (auto), and the measuring is his, so there is no cheer at the end (praise).
+        { input: { type: 'tap-each', targets: 'sides', reveal: 'length', count: 5, auto: true, praise: false } },
         { feedback: [{ sfx: 'correct' }, { swiftee: 'proud' }] }
       ],
       perTap: { correct: [{ sfx: 'tick' }, { juice: 'pop', target: 'side' }] }
@@ -909,20 +1159,18 @@
     {
       id: 'measure-angles', page: 31,
       swiftee: { pos: 'corner', size: 'tiny', purpose: 'celebrate' },
+      instruction: null,
       say: 'The angles match too!',
+      lines: ['Let\u2019s measure the angles.'],
       beats: [
-        // THE INSTRUCTION BELONGS TO THE SCREEN THAT TAKES IT. It was on the
-        // screen before, which only offers a Next button: the child was told
-        // to tap the angles on a screen where tapping an angle does nothing.
-        { instruction: 'Tap the angles to measure them.', vo: 'p31i' },
-        { focus: 'polygon.vertices', style: 'pulse' },
-        // NOT the side-measuring walk (that is the sides' own, and protected):
-        // for the angles he takes out the magnifying glass and examines them
-        // with the child, and holds it while they tap
+        // HE MEASURES THE ANGLES HIMSELF (the user, screen 26): "Let's measure the angles.", and
+        // the same walk as the sides' — round the shape corner to corner, each angle's arc
+        // filled as he reaches it, no taps, and home from the last (stage.js tap-each, auto)
+        { instruction: null },
+        // (out comes the magnifying glass — the rig's 'learning' — before he sets off)
         { swiftee: 'examine' },
-        // Each tap fills a green arc at that corner (as page 31 shows) and
-        // reveals the angle from Poly.interiorAngles. Completes on five.
-        { input: { type: 'tap-each', targets: 'angles', reveal: 'arc', count: 5 } },
+        { say: 'Let\u2019s measure the angles.', vo: 'p31m' },
+        { input: { type: 'tap-each', targets: 'angles', reveal: 'arc', count: 5, auto: true, praise: false } },
         // the measuring is done and it all matches: heart eyes
         { swiftee: 'delight' },
         { say: 'The angles match too!', vo: 'p31' },
@@ -962,20 +1210,46 @@
       swiftee: { pos: 'corner', size: 'tiny', purpose: 'ask' },
       instruction: 'Are the sides and angles still equal?',
       say: 'It’s still a pentagon. But are the sides and angles still equal?',
-      stage: { choices: ['Still equal', 'Not equal'] },
+      lines: ['The sides and angles changed, so they are not equal.'],
+      // (the answers are dealt by the beats, on the question's words — not by a rebuild)
+      stage: {},
       beats: [
         { instruction: null },
-        // the answers are held until the question reaches "equal", its last word
-        { stage: { choices: ['Still equal', 'Not equal'], cue: { 'Still equal': 'equal', 'Not equal': 'equal' } } },
+        // THE QUESTION FIRST, THEN THE ANSWERS (the user): he asks, the question settles on the
+        // plank, a beat, and only then are the two answers dealt
         { swiftee: 'think' },
         { say: 'It’s still a pentagon. But are the sides and angles still equal?', parts: ['It\u2019s still a pentagon.', 'But are the sides', 'and angles still equal?'], vo: 'p32b' },
         // the script's last two bubbles are the instruction: it settles into
         // one question over the answers, and is not said a second time
-        { instruction: 'Are the sides and angles still equal?', vo: 'p32bi' },
-        { input: { type: 'choice', correct: 'Not equal' } },
-        { branch: true, until: 'correct',
+        // (the two answers dealt on the question's own words — "still", "equal" — as on the
+        // inside/outside question: no pause behind the question before they can be seen)
+        { parallel: [
+          { instruction: 'Are the sides and angles still equal?', vo: 'p32bi' },
+          { stage: { choices: ['Still equal', 'Not equal'], cue: { 'Still equal': ['still'], 'Not equal': ['equal'] } } }
+        ] },
+        /* TWO TRIES (the user, screen 28): the first miss is the clue and a retry; the second is
+           explained — the readings light as he says why — the Not equal button shows green on
+           the word, a moment, and the lesson goes on. No third attempt. */
+        { input: { type: 'choice', correct: 'Not equal', reason: 'compare' } },
+        { branch: true,
           on: { correct: correct() },
-          otherwise: WRONG.concat([{ input: { type: 'choice', correct: 'Not equal', retry: true } }]) }
+          otherwise: WRONG.concat([
+            { input: { type: 'choice', correct: 'Not equal', retry: true, quietMiss: true } },
+            { branch: true,
+              on: { correct: correct() },
+              otherwise: [
+                { juice: 'refuse', target: 'answer' }, { sfx: 'wrong' },
+                // (ON "equal" the answer is shown, and only it: Not equal green, Still equal gone —
+                // the user, screen 28 — the same one green answer as the inside/outside question)
+                { parallel: [
+                  { stage: { merge: 'Not equal', cue: 'equal' } },
+                  { swiftee: 'explain', at: 'polygon' },
+                  { say: 'The sides and angles changed, so they are not equal.', vo: 'p32r' }
+                ] },
+                { sfx: 'correct' },
+                { wait: 1200 }
+              ] }
+          ]) }
       ]
     },
 
@@ -990,22 +1264,65 @@
       // ABOVE. The pair fills the middle and its checks fill the foot, so
       // the band above them is the only place a sentence fits.
       swiftee: { pos: 'peek', size: 'small', purpose: 'concept'},
-      say: 'All sides AND all angles same: regular. Otherwise, it\u2019s irregular.',
+      /* THE USER'S TEXT (screen 29, three lines, word for word): the pair is introduced; the regular
+         one is shown equal — its side ticks on "sides", its angle arcs on "angles" — while the other
+         steps back; then the irregular one, the other way round, its unequal marks on the same
+         words; then the rule, each half on its words ("equal" / "unequal" light that card's marks),
+         and each name tag on its word ("regular" / "irregular", captionCue). One card at a time. */
+      say: 'Let\u2019s compare these two pentagons.',
+      lines: ['All the sides and angles are equal in this pentagon.',
+              'But this pentagon has unequal sides and unequal angles.',
+              'All sides and angles equal means a regular polygon. Sides and angles unequal means an irregular polygon.'],
       stage: {
         kind: 'compare',
+        // MEASURED CARDS (the user, screen 29): the shapes as big as the glass allows, and on their
+        // words each side's length in cm and each corner's degrees — the swipe card's own readings
+        // (stage.js compareReadings) — instead of ticks and arcs
+        measured: true,
         // each name tag on its word; the irregular one is the pentagon the
         // child stretched a screen ago (made), the stock stretch without it
-        left:  { sides: 5, caption: 'Regular pentagon',   tone: 'regular', captionCue: 'regular' },
-        right: { sides: 5, stretch: 0, made: 'irregular', caption: 'Irregular pentagon', tone: 'irregular', captionCue: 'irregular' }
+        // the PROPERTY compared, not the shape's name (the user, screen 29: "Regular" and "Irregular", not "Pentagon")
+        left:  { sides: 5, caption: 'Regular',   tone: 'regular', captionCue: 'regular' },
+        right: { sides: 5, stretch: 0, made: 'irregular', caption: 'Irregular', tone: 'irregular', captionCue: 'irregular' }
       },
+      /* THE USER'S SYNC BRIEF ("sides + angles → regular / irregular", one card at a time): both
+         pentagons, still, no marks, while he looks at them; then the first forward — its ticks on
+         "sides", its arcs on "angles"; then the turn on "But this pentagon…" — the second's
+         unequal ticks and arcs on the same words; then the rule, the first refocused on "All
+         sides…", "Regular" on its word, the second on the second "Sides…" with its unequal marks
+         emphasised, "Irregular" on its word. Nothing else lights (quietWords): no dots, no
+         diagonals, no pulse of both cards at once, no bounce. */
       beats: [
         { instruction: null },
         { stage: { kind: 'compare', enter: 'split' } },
+        { stage: { quietWords: true } },
         { sfx: 'menuWhoosh' },
         { wait: 300 },
-        // a rule goes in the book
+        // he looks at the pair
+        { swiftee: 'present', at: 'compare' },
+        { say: 'Let\u2019s compare these two pentagons.', vo: 'fb55' },
+        { wait: 500 },
+        // THE REGULAR ONE: forward, the other back; its evidence on its words
+        { focus: 'compare.left', style: 'lean' },
+        { stage: { onWord: [{ word: 'sides', evidence: { card: 'left', what: 'sides' } }, { word: 'angles', evidence: { card: 'left', what: 'angles' } }] } },
+        { say: 'All the sides and angles are equal in this pentagon.', vo: 'fb56' },
+        { wait: 500 },
+        // THE IRREGULAR ONE: the turn to it on "But this pentagon…", its unequal marks on the same words
+        { focus: 'compare.right', style: 'lean' },
+        { stage: { onWord: [{ word: 'sides', evidence: { card: 'right', what: 'sides' } }, { word: 'angles', evidence: { card: 'right', what: 'angles' } }] } },
+        { say: 'But this pentagon has unequal sides and unequal angles.', vo: 'fb57' },
+        { wait: 700 },
+        // THE RULE (a rule goes in the book): the first again for "All sides and angles equal…", the
+        // second on its own "Sides and angles unequal…" — the SECOND "sides" of the line — its
+        // unequal marks catching the light; the names arrive on their words (captionCue)
         { swiftee: 'note' },
-        { say: 'All sides AND all angles same: regular. Otherwise, it\u2019s irregular.', parts: ['All sides AND all angles same:', 'regular.', 'Otherwise, it\u2019s irregular.'], vo: 'p32c' },
+        { focus: 'compare.left', style: 'lean' },
+        { stage: { onWord: [{ word: 'sides', nth: 2, focus: 'right', glow: 'right' }] } },
+        { say: 'All sides and angles equal means a regular polygon. Sides and angles unequal means an irregular polygon.',
+          parts: ['All sides and angles equal', 'means a regular polygon.', 'Sides and angles unequal', 'means an irregular polygon.'], vo: 'fb58' },
+        // (the pair, evenly, both named: the final Regular / Irregular state)
+        { focus: 'compare', style: 'even' },
+        { wait: 700 },
         { input: { type: 'tap-anywhere' } }
       ]
     },
@@ -1062,6 +1379,19 @@
         items: ['pentagon', 'rhombus', 'triangle', 'stretched-hexagon', 'square', 'rectangle', 'hexagon', 'l-shape']
       },
       originalMechanic: 'swipe',
+      /* THE CARD TAUGHT UP CLOSE — the same card wrong twice (the user's swipe briefs: no
+         third try; "a short teaching spotlight": the play blurs and dims under the sheet, the
+         card comes forward, and he names which pile it belongs in and WHY, with the reason
+         lit on the card as he says it — the sides on "side(s)", the corners on "angle(s)" —
+         then the card goes into its own pile). Keyed by what the card's measurements show
+         (stage.js whyShape): every side and angle equal; the sides unequal; the angles
+         unequal though the sides match; both unequal. */
+      teach: {
+        regular: [{ say: 'This one is regular. Every side is equal, and every angle is equal too.', vo: 'fb48', shows: [{ what: 'sides', on: 5 }, { what: 'angles', on: 10 }] }],
+        sides:   [{ say: 'This one is irregular. Its sides are not all the same length.', vo: 'fb49', shows: [{ what: 'sides', on: 5 }] }],
+        angles:  [{ say: 'This one is irregular. Its sides match, but its angles are not all equal.', vo: 'fb50', shows: [{ what: 'sides', on: 5 }, { what: 'angles', on: 9 }] }],
+        both:    [{ say: 'This one is irregular. Its sides are not equal, and its angles are not equal either.', vo: 'fb51', shows: [{ what: 'sides', on: 5 }, { what: 'angles', on: 11 }] }]
+      },
       beats: [
         // Clear the card first. Without this the instruction from the screen
         // before stays up — "Drag the highlighted vertex." over a screen that
@@ -1109,7 +1439,7 @@
       swiftee: { pos: 'peek', size: 'small', purpose: 'celebrate' },
       instruction: null,
       say: SUMMARY[0].text,
-      lines: SUMMARY.slice(1).map(function (c) { return c.text; }).concat([SUMMARY_DONE.text]),
+      lines: [SUMMARY_OPEN.text].concat(SUMMARY.slice(1).map(function (c) { return c.text; }), [SUMMARY_DONE.text]),
       stage: { kind: 'summary', concepts: SUMMARY.map(function (c) { return { id: c.id, label: c.label }; }) },
       beats: summaryBeats(SUMMARY)
     }

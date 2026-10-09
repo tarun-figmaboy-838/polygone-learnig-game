@@ -144,7 +144,7 @@
      ]
     }
    ],
-   "file": "assets/swiftee/intro/sheet1.png"
+   "file": "assets/swiftee/intro/sheet1.webp"
   },
   "dismount": {
    "w": 1983,
@@ -325,7 +325,7 @@
      ]
     }
    ],
-   "file": "assets/swiftee/intro/sheet2.png"
+   "file": "assets/swiftee/intro/sheet2.webp"
   },
   "departure": {
    "w": 1774,
@@ -494,7 +494,7 @@
      ]
     }
    ],
-   "file": "assets/swiftee/intro/sheet3.png"
+   "file": "assets/swiftee/intro/sheet3.webp"
   }
  }
 };

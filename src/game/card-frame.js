@@ -93,9 +93,9 @@
       }
     },
     "regular": {
-      "src": "assets/ui/zone-regular.webp?v=5cd0058e",
-      "w": 640,
-      "h": 611,
+      "src": "assets/ui/zone-regular.webp?v=b52e2d9d",
+      "w": 1024,
+      "h": 1001,
       "pane": {
         "x": 0.06,
         "y": 0.06,
@@ -104,9 +104,9 @@
       }
     },
     "irregular": {
-      "src": "assets/ui/zone-irregular.webp?v=e11f2045",
-      "w": 640,
-      "h": 612,
+      "src": "assets/ui/zone-irregular.webp?v=3aed40b0",
+      "w": 1024,
+      "h": 979,
       "pane": {
         "x": 0.06,
         "y": 0.06,

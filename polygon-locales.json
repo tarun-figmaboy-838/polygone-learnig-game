@@ -1,0 +1,1763 @@
+{
+  "defaultLanguage": "en",
+  "languageLabels": {
+    "en": {
+      "en": "English",
+      "hi": "Hindi",
+      "mr": "Marathi",
+      "te": "Telugu",
+      "gu": "Gujarati",
+      "od": "Odia"
+    },
+    "hi": {
+      "en": "अंग्रेज़ी",
+      "hi": "हिन्दी",
+      "mr": "मराठी",
+      "te": "तेलुगु",
+      "gu": "गुजराती",
+      "od": "ओड़िया"
+    },
+    "mr": {
+      "en": "इंग्रजी",
+      "hi": "हिंदी",
+      "mr": "मराठी",
+      "te": "तेलुगू",
+      "gu": "गुजराती",
+      "od": "ओडिया"
+    },
+    "te": {
+      "en": "ఇంగ్లీష్",
+      "hi": "హిందీ",
+      "mr": "మరాఠీ",
+      "te": "తెలుగు",
+      "gu": "గుజరాతీ",
+      "od": "ఒడియా"
+    },
+    "gu": {
+      "en": "અંગ્રેજી",
+      "hi": "હિન્દી",
+      "mr": "મરાઠી",
+      "te": "તેલુગુ",
+      "gu": "ગુજરાતી",
+      "od": "ઓડિયા"
+    },
+    "od": {
+      "en": "ଇଂରାଜୀ",
+      "hi": "ହିନ୍ଦୀ",
+      "mr": "ମରାଠୀ",
+      "te": "ତେଲୁଗୁ",
+      "gu": "ଗୁଜରାଟୀ",
+      "od": "ଓଡ଼ିଆ"
+    }
+  },
+  "supportedLanguages": {
+    "en": "English",
+    "hi": "हिन्दी",
+    "mr": "मराठी",
+    "te": "తెలుగు",
+    "gu": "ગુજરાતી",
+    "od": "ଓଡ଼ିଆ"
+  },
+  "en": {
+    "lessonPageTitle": "Swiftee — Polygons",
+    "lessonTitle": "Swiftee & the Polygons",
+    "loadingLabel": "Loading…",
+    "loadingPercent": "Loading… {percent}%",
+    "startButton": "Start",
+    "nextButton": "Next",
+    "playAgainButton": "Play again",
+    "muteButton": "Mute",
+    "restartButton": "Restart",
+    "partTwoButton": "Part 2",
+    "playPartTwoButton": "Play Part 2",
+    "continuePartTwoLabel": "Continue to Part 2: Frozen Rush",
+    "rotateLabel": "Please turn your device sideways",
+    "rotateTitle": "Turn your device sideways",
+    "rotateMessage": "to play with Swiftee!",
+    "rewardXp": "+{xp} XP. Challenge complete.",
+    "badgeUnlocked": "Badge unlocked: {badge}.",
+    "badgeShapeScout": "Shape scout",
+    "badgeDiagonalDetective": "Diagonal detective",
+    "badgeDentDiscoverer": "Dent discoverer",
+    "badgePatternPro": "Pattern pro",
+    "badgePolygonChampion": "Polygon champion",
+    "languageSelectTitle": "Select Language",
+    "langPopupTitle": "Choose Your Language",
+    "langPopupSubtitle": "Select the language you want to use in the lesson.",
+    "applyButton": "Apply",
+    "cancelButton": "Cancel",
+    "langSelectedTitle": "Language Selected!",
+    "langSelectedMessageStart": "Your app is now in {language}.",
+    "langSelectedMessageEnd": "Let's get started!",
+    "p01": "Hi! I am Swiftee.",
+    "p02": "Remember we learned about polygons before.",
+    "p03": "Polygons are closed shapes made from straight lines.",
+    "p04": "Which of these are polygons?",
+    "p05": "Let’s play with this one.",
+    "p06": "Select any vertex.",
+    "p07i": "Let’s connect it to another vertex.",
+    "p09": "This is a side of the polygon.",
+    "p10i": "Let’s connect it to a different vertex.",
+    "p12": "Yay! You made a diagonal!",
+    "p13": "A line segment joining two non-adjacent vertices is a diagonal.",
+    "p14i": "Let’s draw another diagonal from the same vertex.",
+    "p14r": "A diagonal connects non-adjacent vertices.",
+    "p15": "Your turn! Let’s draw all the diagonals from this vertex.",
+    "p15i": "Let’s draw all the diagonals from this vertex.",
+    "p16b": "Let’s look at the diagonals of this pentagon.",
+    "p17i": "Are the diagonals inside or outside?",
+    "fb54": "The diagonals are inside.",
+    "p18": "Let’s make a change.",
+    "p19i": "Help me pull this vertex inside.",
+    "p20": "Whoa! One of the diagonals went outside.",
+    "fb52": "Whoa! Some of the diagonals went outside.",
+    "p21": "Let’s compare the diagonals in both the pentagons.",
+    "p22": "This one has all the diagonals inside.",
+    "p23": "But this one has atleast one diagonal outside.",
+    "p24": "All diagonals inside means convex polygon.",
+    "p25": "Atleast one diagonal outside means concave polygon.",
+    "p26i": "Drag any vertex to make this polygon concave.",
+    "fb32": "Try again!",
+    "p26r1": "The diagonals are still inside the shape, so it is still convex.",
+    "fb53": "Let me show you. Watch this corner.",
+    "p26r2": "Now one diagonal goes outside, so the polygon is concave.",
+    "fb03": "Great job!",
+    "p27": "Can you sort these polygons as convex or concave?",
+    "p27c": "Look! This corner goes inward.",
+    "p27v": "Look! No corner goes inward.",
+    "p28": "Hmm… The sides look suspiciously alike.",
+    "p29s": "Let’s measure the sides.",
+    "p30": "Every side is equal. But what about the angles?",
+    "p31m": "Let’s measure the angles.",
+    "p31": "The angles match too!",
+    "p32a": "Help me stretch this corner. Let’s see what happens to the sides and angles.",
+    "p32ai": "Drag the highlighted vertex.",
+    "p32b": "It’s still a pentagon. But are the sides and angles still equal?",
+    "p32bi": "Are the sides and angles still equal?",
+    "p32r": "The sides and angles changed, so they are not equal.",
+    "fb55": "Let’s compare these two pentagons.",
+    "fb56": "All the sides and angles are equal in this pentagon.",
+    "fb57": "But this pentagon has unequal sides and unequal angles.",
+    "fb58": "All sides and angles equal means a regular polygon. Sides and angles unequal means an irregular polygon.",
+    "p33": "Where does this polygon belong?",
+    "fb48": "This one is regular. Every side is equal, and every angle is equal too.",
+    "fb49": "This one is irregular. Its sides are not all the same length.",
+    "fb50": "This one is irregular. Its sides match, but its angles are not all equal.",
+    "fb51": "This one is irregular. Its sides are not equal, and its angles are not equal either.",
+    "p37o": "Let’s recall what we learned today.",
+    "p37a": "A vertex is a corner where two sides meet.",
+    "p37b": "A side is a straight line joining two vertices.",
+    "p37c": "An angle is formed where two sides meet.",
+    "p37d": "A diagonal joins two non-adjacent vertices.",
+    "p37e": "In a convex polygon, all diagonals stay inside.",
+    "p37f": "In a concave polygon, atleast one diagonal goes outside.",
+    "p37g": "A regular polygon has all sides and all angles equal.",
+    "p37h": "If the sides or angles are not all equal, the polygon is irregular.",
+    "p37i": "Amazing! You explored all these polygon ideas!",
+    "p39": "Now you know everything about polygons. You are ready to help Momo.",
+    "fb46": "Keep going!",
+    "fb47": "Amazing!",
+    "fb44": "Not quite. A circle is curved. A polygon has only straight sides.",
+    "fb45": "Not quite. This shape is open. A polygon must be closed.",
+    "fb41": "Try again! Compare the sides and angles now.",
+    "p38b": "You are a polygon adventurer!",
+    "fb15": "Drop it on a corner!",
+    "fb11": "Pull it in more!",
+    "fb40": "Try again! Stretch the corner a little further.",
+    "fb35": "Try again! Every side and every angle is equal.",
+    "fb36": "Try again! The sides are not all equal.",
+    "fb37": "Try again! The angles are not all equal.",
+    "fb38": "Try again! The sides and the angles are not all equal.",
+    "p03Parts": [
+      "Polygons are closed shapes",
+      "made from straight lines."
+    ],
+    "p13Parts": [
+      "A line segment joining",
+      "two non-adjacent vertices",
+      "is a diagonal."
+    ],
+    "p15Parts": [
+      "Your turn!",
+      "Let’s draw all the diagonals",
+      "from this vertex."
+    ],
+    "p16bParts": [
+      "Let’s look at the diagonals",
+      "of this pentagon."
+    ],
+    "p20Parts": [
+      "Whoa! One of the diagonals",
+      "went outside."
+    ],
+    "fb52Parts": [
+      "Whoa! Some of the diagonals",
+      "went outside."
+    ],
+    "p25Parts": [
+      "Atleast one diagonal outside",
+      "means concave polygon."
+    ],
+    "p28Parts": [
+      "Hmm…",
+      "The sides look suspiciously alike."
+    ],
+    "p30Parts": [
+      "Every side is equal.",
+      "But what about the angles?"
+    ],
+    "p32aParts": [
+      "Help me stretch this corner.",
+      "Let’s see what happens",
+      "to the sides and angles."
+    ],
+    "p32bParts": [
+      "It’s still a pentagon.",
+      "But are the sides",
+      "and angles still equal?"
+    ],
+    "fb58Parts": [
+      "All sides and angles equal",
+      "means a regular polygon.",
+      "Sides and angles unequal",
+      "means an irregular polygon."
+    ],
+    "labelVertex": "Vertex",
+    "labelSide": "Side",
+    "labelAngle": "Angle",
+    "labelDiagonal": "Diagonal",
+    "labelConvex": "Convex",
+    "labelConcave": "Concave",
+    "labelRegular": "Regular",
+    "labelIrregular": "Irregular",
+    "labelInside": "Inside",
+    "labelOutside": "Outside",
+    "labelStillEqual": "Still equal",
+    "labelNotEqual": "Not equal",
+    "unitCm": "cm",
+    "termPolygon": [
+      "polygon",
+      "polygons"
+    ],
+    "termVertex": [
+      "vertex",
+      "vertices"
+    ],
+    "termSide": [
+      "side",
+      "sides"
+    ],
+    "termDiagonal": [
+      "diagonal",
+      "diagonals"
+    ],
+    "termAngle": [
+      "angle",
+      "angles"
+    ],
+    "termConvex": [
+      "convex"
+    ],
+    "termConcave": [
+      "concave"
+    ],
+    "termRegular": [
+      "regular"
+    ],
+    "termIrregular": [
+      "irregular"
+    ],
+    "termDrag": [
+      "drag"
+    ],
+    "termDraw": [
+      "draw"
+    ],
+    "termInside": [
+      "inside"
+    ],
+    "termOutside": [
+      "outside"
+    ],
+    "termInward": [
+      "inward"
+    ],
+    "termEqual": [
+      "equal"
+    ],
+    "termLineSegment": [
+      "line segment"
+    ],
+    "termPentagon": [
+      "pentagon",
+      "pentagons"
+    ],
+    "termStill": [
+      "still"
+    ],
+    "nameMomo": [
+      "momo"
+    ],
+    "tutKeyWords": [
+      "friend",
+      "cross",
+      "watch",
+      "tap",
+      "jump",
+      "broken",
+      "right",
+      "fix",
+      "perfect",
+      "ice",
+      "rope",
+      "cut",
+      "swipe"
+    ],
+    "gamePageTitle": "Ice Age Mammoth Runner",
+    "gameCanvasLabel": "Ice Age mammoth runner game",
+    "playButton": "Play",
+    "pausedTitle": "Paused",
+    "pauseButton": "Pause",
+    "resumeButton": "Resume",
+    "startOverButton": "Start over",
+    "soundButton": "Sound",
+    "soundOn": "Sound on",
+    "soundOff": "Sound off",
+    "rotateDevice": "Rotate your device",
+    "tut-1-meet": "This is Momo. He needs to find his friend.",
+    "tut-2-goal": "Help Momo cross the Frozen Pass!",
+    "tut-3-watch": "Watch out!",
+    "tut-4-jump": "Tap to jump over obstacles.",
+    "tut-5-broken": "Oh no! The path is broken.",
+    "tut-6-use": "Use the right ice piece to fix the path.",
+    "tut-6b-piece": "Use the right piece to fix the path.",
+    "tut-7-fit": "Perfect fit! Keep going!",
+    "p2-1-diagonal": "Cut along a diagonal.",
+    "p2-2-diagonals": "Draw all the <strong>diagonals</strong>.",
+    "p2-3-samevertex": "Draw 2 diagonals from the same <strong>vertex</strong>.",
+    "p2-4-concave": "Cut the concave <strong>polygon</strong>.",
+    "p2-5-convex": "Cut the convex <strong>polygon</strong>.",
+    "p2-6-concave-pentagon": "Cut the concave <strong>pentagon</strong>.",
+    "p2-7-convex-hexagon": "Cut the convex <strong>hexagon</strong>.",
+    "p2-8-all-concave": "Cut all the concave <strong>ones</strong>.",
+    "p2-9-all-convex": "Cut all the convex <strong>ones</strong>.",
+    "hint-corners": "Connect two vertices.",
+    "hint-side": "That's a side — try a diagonal.",
+    "hint-short": "Cut right across, vertex to opposite vertex.",
+    "hint-already": "That one is done — find another.",
+    "hint-samevertex": "Start this one at the same vertex.",
+    "sw1": "Momo needs your help.",
+    "sw2": "But to help Momo, you need to learn about polygons.",
+    "sw3": "Now let’s help Momo."
+  },
+  "hi": {
+    "lessonPageTitle": "स्विफ्टी — बहुभुज",
+    "lessonTitle": "स्विफ्टी और बहुभुज",
+    "loadingLabel": "लोड हो रहा है…",
+    "loadingPercent": "लोड हो रहा है… {percent}%",
+    "startButton": "शुरू करें",
+    "nextButton": "अगला",
+    "playAgainButton": "फिर से खेलें",
+    "muteButton": "आवाज़ बंद करें",
+    "restartButton": "रीस्टार्ट करें",
+    "partTwoButton": "भाग 2",
+    "playPartTwoButton": "भाग 2 खेलें",
+    "continuePartTwoLabel": "भाग 2 पर जाएँ: फ्रोज़न रश",
+    "rotateLabel": "कृपया अपने डिवाइस को आड़ा घुमाएँ",
+    "rotateTitle": "अपने डिवाइस को आड़ा घुमाएँ",
+    "rotateMessage": "ताकि आप स्विफ्टी के साथ खेल सकें!",
+    "rewardXp": "+{xp} XP। चुनौती पूरी हुई।",
+    "badgeUnlocked": "बैज मिला: {badge}।",
+    "badgeShapeScout": "आकृति खोजी",
+    "badgeDiagonalDetective": "विकर्ण जासूस",
+    "badgeDentDiscoverer": "खाँच खोजी",
+    "badgePatternPro": "पैटर्न उस्ताद",
+    "badgePolygonChampion": "बहुभुज चैंपियन",
+    "languageSelectTitle": "भाषा चुनें",
+    "langPopupTitle": "अपनी भाषा चुनें",
+    "langPopupSubtitle": "पाठ में उपयोग करने के लिए भाषा चुनें।",
+    "applyButton": "लागू करें",
+    "cancelButton": "रद्द करें",
+    "langSelectedTitle": "भाषा चुनी गई!",
+    "langSelectedMessageStart": "आपका ऐप अब {language} में है।",
+    "langSelectedMessageEnd": "चलिए शुरू करते हैं!",
+    "p01": "नमस्ते! मैं स्विफ्टी हूँ।",
+    "p02": "याद है, हमने पहले बहुभुजों के बारे में सीखा था।",
+    "p03": "बहुभुज सीधी रेखाओं से बनी बंद आकृतियाँ हैं।",
+    "p04": "इनमें से कौन-से बहुभुज हैं?",
+    "p05": "चलिए, इसके साथ खेलते हैं।",
+    "p06": "कोई भी शीर्ष चुनें।",
+    "p07i": "चलिए, इसे किसी दूसरे शीर्ष से जोड़ते हैं।",
+    "p09": "यह बहुभुज की एक भुजा है।",
+    "p10i": "चलिए, इसे किसी अलग शीर्ष से जोड़ते हैं।",
+    "p12": "वाह! आपने एक विकर्ण बना दिया!",
+    "p13": "दो अनासन्न शीर्षों को जोड़ने वाला रेखाखंड विकर्ण कहलाता है।",
+    "p14i": "चलिए, उसी शीर्ष से एक और विकर्ण खींचते हैं।",
+    "p14r": "विकर्ण अनासन्न शीर्षों को जोड़ता है।",
+    "p15": "अब आपकी बारी! चलिए, इस शीर्ष से सभी विकर्ण खींचते हैं।",
+    "p15i": "चलिए, इस शीर्ष से सभी विकर्ण खींचते हैं।",
+    "p16b": "चलिए, इस पंचभुज के विकर्णों को देखते हैं।",
+    "p17i": "विकर्ण अंदर हैं या बाहर?",
+    "fb54": "विकर्ण अंदर हैं।",
+    "p18": "चलिए, कुछ बदलाव करते हैं।",
+    "p19i": "इस शीर्ष को अंदर खींचने में मेरी मदद करें।",
+    "p20": "अरे वाह! एक विकर्ण बाहर चला गया।",
+    "fb52": "अरे वाह! कुछ विकर्ण बाहर चले गए।",
+    "p21": "चलिए, दोनों पंचभुजों के विकर्णों की तुलना करते हैं।",
+    "p22": "इसके सभी विकर्ण अंदर हैं।",
+    "p23": "लेकिन इसका कम से कम एक विकर्ण बाहर है।",
+    "p24": "सभी विकर्ण अंदर हों, तो वह उत्तल बहुभुज है।",
+    "p25": "कम से कम एक विकर्ण बाहर हो, तो वह अवतल बहुभुज है।",
+    "p26i": "इस बहुभुज को अवतल बनाने के लिए कोई भी शीर्ष खींचें।",
+    "fb32": "फिर से प्रयास करें!",
+    "p26r1": "विकर्ण अभी भी आकृति के अंदर हैं, इसलिए यह अब भी उत्तल है।",
+    "fb53": "आइए, मैं आपको दिखाऊँ। इस कोने को देखें।",
+    "p26r2": "अब एक विकर्ण बाहर जाता है, इसलिए यह बहुभुज अवतल है।",
+    "fb03": "बहुत बढ़िया!",
+    "p27": "क्या आप इन बहुभुजों को उत्तल और अवतल में छाँट सकते हैं?",
+    "p27c": "देखिए! यह कोना अंदर की ओर जाता है।",
+    "p27v": "देखिए! कोई भी कोना अंदर की ओर नहीं जाता।",
+    "p28": "हम्म… सभी भुजाएँ कुछ ज़्यादा ही एक जैसी लग रही हैं।",
+    "p29s": "चलिए, भुजाओं को मापते हैं।",
+    "p30": "हर भुजा बराबर है। लेकिन कोणों का क्या?",
+    "p31m": "चलिए, कोणों को मापते हैं।",
+    "p31": "कोण भी बराबर हैं!",
+    "p32a": "इस कोने को खींचने में मेरी मदद करें। चलिए देखते हैं, भुजाओं और कोणों का क्या होता है।",
+    "p32ai": "चमकते हुए शीर्ष को खींचें।",
+    "p32b": "यह अब भी एक पंचभुज है। लेकिन क्या भुजाएँ और कोण अब भी बराबर हैं?",
+    "p32bi": "क्या भुजाएँ और कोण अब भी बराबर हैं?",
+    "p32r": "भुजाएँ और कोण बदल गए, इसलिए वे बराबर नहीं हैं।",
+    "fb55": "चलिए, इन दोनों पंचभुजों की तुलना करते हैं।",
+    "fb56": "इस पंचभुज की सभी भुजाएँ और सभी कोण बराबर हैं।",
+    "fb57": "लेकिन इस पंचभुज की भुजाएँ और कोण असमान हैं।",
+    "fb58": "सभी भुजाएँ और कोण बराबर हों, तो वह नियमित बहुभुज है। भुजाएँ और कोण असमान हों, तो वह अनियमित बहुभुज है।",
+    "p33": "यह बहुभुज किस ओर जाएगा?",
+    "fb48": "यह नियमित है। हर भुजा बराबर है, और हर कोण भी बराबर है।",
+    "fb49": "यह अनियमित है। इसकी सभी भुजाएँ एक जितनी लंबी नहीं हैं।",
+    "fb50": "यह अनियमित है। इसकी भुजाएँ बराबर हैं, लेकिन सभी कोण बराबर नहीं हैं।",
+    "fb51": "यह अनियमित है। इसकी भुजाएँ बराबर नहीं हैं, और कोण भी बराबर नहीं हैं।",
+    "p37o": "चलिए, याद करते हैं कि आज हमने क्या सीखा।",
+    "p37a": "शीर्ष वह कोना है जहाँ दो भुजाएँ मिलती हैं।",
+    "p37b": "भुजा दो शीर्षों को जोड़ने वाली एक सीधी रेखा है।",
+    "p37c": "जहाँ दो भुजाएँ मिलती हैं, वहाँ कोण बनता है।",
+    "p37d": "विकर्ण दो अनासन्न शीर्षों को जोड़ता है।",
+    "p37e": "उत्तल बहुभुज में सभी विकर्ण अंदर रहते हैं।",
+    "p37f": "अवतल बहुभुज में कम से कम एक विकर्ण बाहर जाता है।",
+    "p37g": "नियमित बहुभुज की सभी भुजाएँ और सभी कोण बराबर होते हैं।",
+    "p37h": "अगर सभी भुजाएँ या कोण बराबर नहीं हैं, तो बहुभुज अनियमित है।",
+    "p37i": "अद्भुत! आपने बहुभुज की ये सारी बातें खोज लीं!",
+    "p39": "अब आप बहुभुजों के बारे में सब कुछ जानते हैं। आप मोमो की मदद के लिए तैयार हैं।",
+    "fb46": "ऐसे ही आगे बढ़ते रहें!",
+    "fb47": "अद्भुत!",
+    "fb44": "पूरी तरह से सही नहीं। वृत्त घुमावदार होता है। बहुभुज की सभी भुजाएँ सीधी होती हैं।",
+    "fb45": "पूरी तरह से सही नहीं। यह आकृति खुली है। बहुभुज बंद होना चाहिए।",
+    "fb41": "फिर से प्रयास करें! अब भुजाओं और कोणों की तुलना करें।",
+    "p38b": "आप एक बहुभुज खोजी हैं!",
+    "fb15": "इसे किसी कोने पर छोड़ें!",
+    "fb11": "इसे और अंदर खींचें!",
+    "fb40": "फिर से प्रयास करें! कोने को थोड़ा और खींचें।",
+    "fb35": "फिर से प्रयास करें! हर भुजा और हर कोण बराबर है।",
+    "fb36": "फिर से प्रयास करें! सभी भुजाएँ बराबर नहीं हैं।",
+    "fb37": "फिर से प्रयास करें! सभी कोण बराबर नहीं हैं।",
+    "fb38": "फिर से प्रयास करें! सभी भुजाएँ और कोण बराबर नहीं हैं।",
+    "p03Parts": [
+      "बहुभुज सीधी रेखाओं से बनी",
+      "बंद आकृतियाँ हैं।"
+    ],
+    "p13Parts": [
+      "दो अनासन्न शीर्षों को",
+      "जोड़ने वाला रेखाखंड",
+      "विकर्ण कहलाता है।"
+    ],
+    "p15Parts": [
+      "अब आपकी बारी!",
+      "चलिए, इस शीर्ष से",
+      "सभी विकर्ण खींचते हैं।"
+    ],
+    "p16bParts": [
+      "चलिए, इस पंचभुज के",
+      "विकर्णों को देखते हैं।"
+    ],
+    "p20Parts": [
+      "अरे वाह! एक विकर्ण",
+      "बाहर चला गया।"
+    ],
+    "fb52Parts": [
+      "अरे वाह! कुछ विकर्ण",
+      "बाहर चले गए।"
+    ],
+    "p25Parts": [
+      "कम से कम एक विकर्ण बाहर हो,",
+      "तो वह अवतल बहुभुज है।"
+    ],
+    "p28Parts": [
+      "हम्म…",
+      "सभी भुजाएँ कुछ ज़्यादा ही एक जैसी लग रही हैं।"
+    ],
+    "p30Parts": [
+      "हर भुजा बराबर है।",
+      "लेकिन कोणों का क्या?"
+    ],
+    "p32aParts": [
+      "इस कोने को खींचने में मेरी मदद करें।",
+      "चलिए देखते हैं,",
+      "भुजाओं और कोणों का क्या होता है।"
+    ],
+    "p32bParts": [
+      "यह अब भी एक पंचभुज है।",
+      "लेकिन क्या भुजाएँ और कोण",
+      "अब भी बराबर हैं?"
+    ],
+    "fb58Parts": [
+      "सभी भुजाएँ और कोण बराबर हों,",
+      "तो वह नियमित बहुभुज है।",
+      "भुजाएँ और कोण असमान हों,",
+      "तो वह अनियमित बहुभुज है।"
+    ],
+    "labelVertex": "शीर्ष",
+    "labelSide": "भुजा",
+    "labelAngle": "कोण",
+    "labelDiagonal": "विकर्ण",
+    "labelConvex": "उत्तल",
+    "labelConcave": "अवतल",
+    "labelRegular": "नियमित",
+    "labelIrregular": "अनियमित",
+    "labelInside": "अंदर",
+    "labelOutside": "बाहर",
+    "labelStillEqual": "अब भी बराबर",
+    "labelNotEqual": "बराबर नहीं",
+    "unitCm": "सेमी",
+    "termPolygon": [
+      "बहुभुज*"
+    ],
+    "termVertex": [
+      "शीर्ष*"
+    ],
+    "termSide": [
+      "भुजा*"
+    ],
+    "termDiagonal": [
+      "विकर्ण*"
+    ],
+    "termAngle": [
+      "कोण*"
+    ],
+    "termConvex": [
+      "उत्तल"
+    ],
+    "termConcave": [
+      "अवतल"
+    ],
+    "termRegular": [
+      "नियमित"
+    ],
+    "termIrregular": [
+      "अनियमित"
+    ],
+    "termDrag": [
+      "खींचें"
+    ],
+    "termDraw": [
+      "खींचते",
+      "खींचें"
+    ],
+    "termInside": [
+      "अंदर"
+    ],
+    "termOutside": [
+      "बाहर"
+    ],
+    "termInward": [
+      "अंदर"
+    ],
+    "termEqual": [
+      "बराबर"
+    ],
+    "termLineSegment": [
+      "रेखाखंड*"
+    ],
+    "termPentagon": [
+      "पंचभुज*"
+    ],
+    "termStill": [
+      "अब",
+      "अभी"
+    ],
+    "nameMomo": [
+      "मोमो*"
+    ],
+    "tutKeyWords": [
+      "दोस्त*",
+      "पार",
+      "सावधान*",
+      "टैप",
+      "टूट*",
+      "सही",
+      "एकदम"
+    ],
+    "gamePageTitle": "हिमयुग मैमथ दौड़",
+    "gameCanvasLabel": "हिमयुग मैमथ दौड़ का खेल",
+    "playButton": "खेलें",
+    "pausedTitle": "रुका हुआ",
+    "pauseButton": "रोकें",
+    "resumeButton": "जारी रखें",
+    "startOverButton": "फिर से शुरू करें",
+    "soundButton": "आवाज़",
+    "soundOn": "आवाज़ चालू",
+    "soundOff": "आवाज़ बंद",
+    "rotateDevice": "अपना डिवाइस घुमाएँ",
+    "tut-1-meet": "यह मोमो है। उसे अपने दोस्त को ढूँढना है।",
+    "tut-2-goal": "मोमो को बर्फ़ीला दर्रा पार करने में मदद करें!",
+    "tut-3-watch": "सावधान!",
+    "tut-4-jump": "बाधाओं के ऊपर से कूदने के लिए टैप करें।",
+    "tut-5-broken": "अरे नहीं! रास्ता टूट गया है।",
+    "tut-6-use": "रास्ता ठीक करने के लिए सही बर्फ़ का टुकड़ा इस्तेमाल करें।",
+    "tut-6b-piece": "रास्ता ठीक करने के लिए सही टुकड़ा इस्तेमाल करें।",
+    "tut-7-fit": "एकदम सही फिट! ऐसे ही आगे बढ़ते रहें!",
+    "p2-1-diagonal": "एक विकर्ण पर काटें।",
+    "p2-2-diagonals": "सभी <strong>विकर्ण</strong> खींचें।",
+    "p2-3-samevertex": "एक ही <strong>शीर्ष</strong> से 2 विकर्ण खींचें।",
+    "p2-4-concave": "अवतल <strong>बहुभुज</strong> को काटें।",
+    "p2-5-convex": "उत्तल <strong>बहुभुज</strong> को काटें।",
+    "p2-6-concave-pentagon": "अवतल <strong>पंचभुज</strong> को काटें।",
+    "p2-7-convex-hexagon": "उत्तल <strong>षट्भुज</strong> को काटें।",
+    "p2-8-all-concave": "सभी अवतल <strong>बहुभुज</strong> काटें।",
+    "p2-9-all-convex": "सभी उत्तल <strong>बहुभुज</strong> काटें।",
+    "hint-corners": "दो शीर्षों को जोड़ें।",
+    "hint-side": "यह एक भुजा है — विकर्ण बनाकर देखें।",
+    "hint-short": "ठीक आर-पार काटें, एक शीर्ष से सामने वाले शीर्ष तक।",
+    "hint-already": "वह तो बन गया — कोई दूसरा ढूँढें।",
+    "hint-samevertex": "इसे भी उसी शीर्ष से शुरू करें।",
+    "sw1": "मोमो को आपकी मदद चाहिए।",
+    "sw2": "लेकिन मोमो की मदद करने के लिए, आपको बहुभुजों के बारे में सीखना होगा।",
+    "sw3": "अब चलिए, मोमो की मदद करते हैं।"
+  },
+  "mr": {
+    "lessonPageTitle": "स्विफ्टी — बहुभुजाकृती",
+    "lessonTitle": "स्विफ्टी आणि बहुभुजाकृती",
+    "loadingLabel": "लोड होत आहे…",
+    "loadingPercent": "लोड होत आहे… {percent}%",
+    "startButton": "सुरू करा",
+    "nextButton": "पुढे",
+    "playAgainButton": "पुन्हा खेळा",
+    "muteButton": "आवाज बंद करा",
+    "restartButton": "रीस्टार्ट करा",
+    "partTwoButton": "भाग 2",
+    "playPartTwoButton": "भाग 2 खेळा",
+    "continuePartTwoLabel": "भाग 2 कडे चला: फ्रोझन रश",
+    "rotateLabel": "कृपया तुमचे डिव्हाइस आडवे फिरवा",
+    "rotateTitle": "तुमचे डिव्हाइस आडवे फिरवा",
+    "rotateMessage": "स्विफ्टीसोबत खेळण्यासाठी!",
+    "rewardXp": "+{xp} XP. आव्हान पूर्ण झाले.",
+    "badgeUnlocked": "बॅज मिळाला: {badge}.",
+    "badgeShapeScout": "आकृती शोधक",
+    "badgeDiagonalDetective": "कर्ण गुप्तहेर",
+    "badgeDentDiscoverer": "खाच शोधक",
+    "badgePatternPro": "नमुना तज्ज्ञ",
+    "badgePolygonChampion": "बहुभुजाकृती विजेता",
+    "languageSelectTitle": "भाषा निवडा",
+    "langPopupTitle": "तुमची भाषा निवडा",
+    "langPopupSubtitle": "धड्यात वापरण्यासाठी भाषा निवडा.",
+    "applyButton": "लागू करा",
+    "cancelButton": "रद्द करा",
+    "langSelectedTitle": "भाषा निवडली!",
+    "langSelectedMessageStart": "तुमचा ॲप आता {language} मध्ये आहे.",
+    "langSelectedMessageEnd": "चला सुरू करूया!",
+    "p01": "नमस्कार! मी स्विफ्टी आहे.",
+    "p02": "आठवते ना, आपण आधी बहुभुजाकृतींबद्दल शिकलो होतो.",
+    "p03": "बहुभुजाकृती म्हणजे सरळ रेषांनी बनलेल्या बंद आकृती.",
+    "p04": "यांपैकी कोणत्या बहुभुजाकृती आहेत?",
+    "p05": "चला, याच्याशी खेळूया.",
+    "p06": "कोणताही एक शिरोबिंदू निवडा.",
+    "p07i": "चला, याला दुसऱ्या शिरोबिंदूशी जोडूया.",
+    "p09": "ही बहुभुजाकृतीची एक बाजू आहे.",
+    "p10i": "चला, याला वेगळ्या शिरोबिंदूशी जोडूया.",
+    "p12": "व्वा! तुम्ही एक कर्ण तयार केला!",
+    "p13": "दोन लगत नसलेल्या शिरोबिंदूंना जोडणारा रेषाखंड म्हणजे कर्ण.",
+    "p14i": "चला, त्याच शिरोबिंदूपासून आणखी एक कर्ण काढूया.",
+    "p14r": "कर्ण लगत नसलेल्या शिरोबिंदूंना जोडतो.",
+    "p15": "आता तुमची पाळी! चला, या शिरोबिंदूपासून सर्व कर्ण काढूया.",
+    "p15i": "चला, या शिरोबिंदूपासून सर्व कर्ण काढूया.",
+    "p16b": "चला, या पंचकोनाचे कर्ण पाहूया.",
+    "p17i": "कर्ण आत आहेत की बाहेर?",
+    "fb54": "कर्ण आत आहेत.",
+    "p18": "चला, थोडा बदल करूया.",
+    "p19i": "हा शिरोबिंदू आत ओढायला मला मदत करा.",
+    "p20": "अरेच्चा! एक कर्ण बाहेर गेला.",
+    "fb52": "अरेच्चा! काही कर्ण बाहेर गेले.",
+    "p21": "चला, दोन्ही पंचकोनांच्या कर्णांची तुलना करूया.",
+    "p22": "याचे सर्व कर्ण आत आहेत.",
+    "p23": "पण याचा किमान एक कर्ण बाहेर आहे.",
+    "p24": "सर्व कर्ण आत असतील, तर ती बहिर्वक्र बहुभुजाकृती आहे.",
+    "p25": "किमान एक कर्ण बाहेर असेल, तर ती अंतर्वक्र बहुभुजाकृती आहे.",
+    "p26i": "ही बहुभुजाकृती अंतर्वक्र करण्यासाठी कोणताही शिरोबिंदू ओढा.",
+    "fb32": "पुन्हा प्रयत्न करा!",
+    "p26r1": "कर्ण अजूनही आकृतीच्या आत आहेत, म्हणून ती अजूनही बहिर्वक्र आहे.",
+    "fb53": "चला, मी तुम्हाला दाखवू. हा कोपरा पाहा.",
+    "p26r2": "आता एक कर्ण बाहेर जातो, म्हणून ही बहुभुजाकृती अंतर्वक्र आहे.",
+    "fb03": "खूप छान!",
+    "p27": "तुम्ही या बहुभुजाकृतींची बहिर्वक्र आणि अंतर्वक्र अशी वर्गवारी करू शकता का?",
+    "p27c": "पाहा! हा कोपरा आत वळतो.",
+    "p27v": "पाहा! कोणताही कोपरा आत वळत नाही.",
+    "p28": "हम्म… सगळ्या बाजू जरा जास्तच सारख्या दिसत आहेत.",
+    "p29s": "चला, बाजू मोजूया.",
+    "p30": "प्रत्येक बाजू समान आहे. पण कोनांचे काय?",
+    "p31m": "चला, कोन मोजूया.",
+    "p31": "कोनही जुळतात!",
+    "p32a": "हा कोपरा ताणायला मला मदत करा. चला पाहूया, बाजू आणि कोनांचे काय होते.",
+    "p32ai": "उजळलेला शिरोबिंदू ओढा.",
+    "p32b": "हा अजूनही पंचकोनच आहे. पण बाजू आणि कोन अजूनही समान आहेत का?",
+    "p32bi": "बाजू आणि कोन अजूनही समान आहेत का?",
+    "p32r": "बाजू आणि कोन बदलले, म्हणून ते समान नाहीत.",
+    "fb55": "चला, या दोन पंचकोनांची तुलना करूया.",
+    "fb56": "या पंचकोनाच्या सर्व बाजू आणि सर्व कोन समान आहेत.",
+    "fb57": "पण या पंचकोनाच्या बाजू आणि कोन असमान आहेत.",
+    "fb58": "सर्व बाजू आणि कोन समान असतील, तर ती सुसम बहुभुजाकृती आहे. बाजू आणि कोन असमान असतील, तर ती असुसम बहुभुजाकृती आहे.",
+    "p33": "ही बहुभुजाकृती कोणत्या गटात जाईल?",
+    "fb48": "ही सुसम आहे. प्रत्येक बाजू समान आहे आणि प्रत्येक कोनही समान आहे.",
+    "fb49": "ही असुसम आहे. हिच्या सर्व बाजू सारख्या लांबीच्या नाहीत.",
+    "fb50": "ही असुसम आहे. हिच्या बाजू जुळतात, पण सर्व कोन समान नाहीत.",
+    "fb51": "ही असुसम आहे. हिच्या बाजू समान नाहीत आणि कोनही समान नाहीत.",
+    "p37o": "चला, आज आपण काय शिकलो ते आठवूया.",
+    "p37a": "शिरोबिंदू म्हणजे जिथे दोन बाजू मिळतात तो कोपरा.",
+    "p37b": "बाजू म्हणजे दोन शिरोबिंदूंना जोडणारी सरळ रेषा.",
+    "p37c": "जिथे दोन बाजू मिळतात, तिथे कोन तयार होतो.",
+    "p37d": "कर्ण दोन लगत नसलेल्या शिरोबिंदूंना जोडतो.",
+    "p37e": "बहिर्वक्र बहुभुजाकृतीत सर्व कर्ण आत राहतात.",
+    "p37f": "अंतर्वक्र बहुभुजाकृतीत किमान एक कर्ण बाहेर जातो.",
+    "p37g": "सुसम बहुभुजाकृतीच्या सर्व बाजू आणि सर्व कोन समान असतात.",
+    "p37h": "सर्व बाजू किंवा कोन समान नसतील, तर बहुभुजाकृती असुसम असते.",
+    "p37i": "अद्भुत! तुम्ही बहुभुजाकृतींच्या या सगळ्या कल्पना शोधल्या!",
+    "p39": "आता तुम्हाला बहुभुजाकृतींबद्दल सर्व काही माहीत आहे. तुम्ही मोमोला मदत करायला तयार आहात.",
+    "fb46": "असेच पुढे चला!",
+    "fb47": "अद्भुत!",
+    "fb44": "अगदी बरोबर नाही. वर्तुळ वक्र असते. बहुभुजाकृतीच्या सर्व बाजू सरळ असतात.",
+    "fb45": "अगदी बरोबर नाही. ही आकृती उघडी आहे. बहुभुजाकृती बंद असली पाहिजे.",
+    "fb41": "पुन्हा प्रयत्न करा! आता बाजू आणि कोनांची तुलना करा.",
+    "p38b": "तुम्ही बहुभुजाकृतींचे साहसवीर आहात!",
+    "fb15": "हे एखाद्या कोपऱ्यावर सोडा!",
+    "fb11": "हे आणखी आत ओढा!",
+    "fb40": "पुन्हा प्रयत्न करा! कोपरा थोडा आणखी ताणा.",
+    "fb35": "पुन्हा प्रयत्न करा! प्रत्येक बाजू आणि प्रत्येक कोन समान आहे.",
+    "fb36": "पुन्हा प्रयत्न करा! सर्व बाजू समान नाहीत.",
+    "fb37": "पुन्हा प्रयत्न करा! सर्व कोन समान नाहीत.",
+    "fb38": "पुन्हा प्रयत्न करा! सर्व बाजू आणि कोन समान नाहीत.",
+    "p03Parts": [
+      "बहुभुजाकृती म्हणजे",
+      "सरळ रेषांनी बनलेल्या बंद आकृती."
+    ],
+    "p13Parts": [
+      "दोन लगत नसलेल्या",
+      "शिरोबिंदूंना जोडणारा रेषाखंड",
+      "म्हणजे कर्ण."
+    ],
+    "p15Parts": [
+      "आता तुमची पाळी!",
+      "चला, या शिरोबिंदूपासून",
+      "सर्व कर्ण काढूया."
+    ],
+    "p16bParts": [
+      "चला, या पंचकोनाचे",
+      "कर्ण पाहूया."
+    ],
+    "p20Parts": [
+      "अरेच्चा! एक कर्ण",
+      "बाहेर गेला."
+    ],
+    "fb52Parts": [
+      "अरेच्चा! काही कर्ण",
+      "बाहेर गेले."
+    ],
+    "p25Parts": [
+      "किमान एक कर्ण बाहेर असेल,",
+      "तर ती अंतर्वक्र बहुभुजाकृती आहे."
+    ],
+    "p28Parts": [
+      "हम्म…",
+      "सगळ्या बाजू जरा जास्तच सारख्या दिसत आहेत."
+    ],
+    "p30Parts": [
+      "प्रत्येक बाजू समान आहे.",
+      "पण कोनांचे काय?"
+    ],
+    "p32aParts": [
+      "हा कोपरा ताणायला मला मदत करा.",
+      "चला पाहूया,",
+      "बाजू आणि कोनांचे काय होते."
+    ],
+    "p32bParts": [
+      "हा अजूनही पंचकोनच आहे.",
+      "पण बाजू आणि कोन",
+      "अजूनही समान आहेत का?"
+    ],
+    "fb58Parts": [
+      "सर्व बाजू आणि कोन समान असतील,",
+      "तर ती सुसम बहुभुजाकृती आहे.",
+      "बाजू आणि कोन असमान असतील,",
+      "तर ती असुसम बहुभुजाकृती आहे."
+    ],
+    "labelVertex": "शिरोबिंदू",
+    "labelSide": "बाजू",
+    "labelAngle": "कोन",
+    "labelDiagonal": "कर्ण",
+    "labelConvex": "बहिर्वक्र",
+    "labelConcave": "अंतर्वक्र",
+    "labelRegular": "सुसम",
+    "labelIrregular": "असुसम",
+    "labelInside": "आत",
+    "labelOutside": "बाहेर",
+    "labelStillEqual": "अजूनही समान",
+    "labelNotEqual": "समान नाही",
+    "unitCm": "सेमी",
+    "termPolygon": [
+      "बहुभुजाकृती*"
+    ],
+    "termVertex": [
+      "शिरोबिंदू*"
+    ],
+    "termSide": [
+      "बाजू"
+    ],
+    "termDiagonal": [
+      "कर्ण*"
+    ],
+    "termAngle": [
+      "कोन*"
+    ],
+    "termConvex": [
+      "बहिर्वक्र"
+    ],
+    "termConcave": [
+      "अंतर्वक्र"
+    ],
+    "termRegular": [
+      "सुसम"
+    ],
+    "termIrregular": [
+      "असुसम"
+    ],
+    "termDrag": [
+      "ओढा"
+    ],
+    "termDraw": [
+      "काढूया",
+      "काढा"
+    ],
+    "termInside": [
+      "आत"
+    ],
+    "termOutside": [
+      "बाहेर"
+    ],
+    "termInward": [
+      "आत"
+    ],
+    "termEqual": [
+      "समान"
+    ],
+    "termLineSegment": [
+      "रेषाखंड*"
+    ],
+    "termPentagon": [
+      "पंचकोन*"
+    ],
+    "termStill": [
+      "अजूनही"
+    ],
+    "nameMomo": [
+      "मोमो*"
+    ],
+    "tutKeyWords": [
+      "मित्र*",
+      "पार",
+      "सावधान*",
+      "टॅप",
+      "तुट*",
+      "योग्य",
+      "अगदी"
+    ],
+    "gamePageTitle": "हिमयुगातील मॅमथ धावपटू",
+    "gameCanvasLabel": "हिमयुगातील मॅमथ धावपटू खेळ",
+    "playButton": "खेळा",
+    "pausedTitle": "थांबवले",
+    "pauseButton": "थांबवा",
+    "resumeButton": "पुढे चालू ठेवा",
+    "startOverButton": "पुन्हा सुरू करा",
+    "soundButton": "आवाज",
+    "soundOn": "आवाज सुरू",
+    "soundOff": "आवाज बंद",
+    "rotateDevice": "आपले डिव्हाइस फिरवा",
+    "tut-1-meet": "हा मोमो आहे. त्याला त्याच्या मित्राला शोधायचे आहे.",
+    "tut-2-goal": "मोमोला बर्फाळ खिंड पार करायला मदत करा!",
+    "tut-3-watch": "सावधान!",
+    "tut-4-jump": "अडथळ्यांवरून उडी मारण्यासाठी टॅप करा.",
+    "tut-5-broken": "अरे बापरे! रस्ता तुटला आहे.",
+    "tut-6-use": "रस्ता दुरुस्त करण्यासाठी योग्य बर्फाचा तुकडा वापरा.",
+    "tut-6b-piece": "रस्ता दुरुस्त करण्यासाठी योग्य तुकडा वापरा.",
+    "tut-7-fit": "अगदी बरोबर बसले! असेच पुढे चला!",
+    "p2-1-diagonal": "एका कर्णावरून कापा.",
+    "p2-2-diagonals": "सर्व <strong>कर्ण</strong> काढा.",
+    "p2-3-samevertex": "एकाच <strong>शिरोबिंदू</strong>पासून 2 कर्ण काढा.",
+    "p2-4-concave": "अंतर्वक्र <strong>बहुभुजाकृती</strong> कापा.",
+    "p2-5-convex": "बहिर्वक्र <strong>बहुभुजाकृती</strong> कापा.",
+    "p2-6-concave-pentagon": "अंतर्वक्र <strong>पंचकोन</strong> कापा.",
+    "p2-7-convex-hexagon": "बहिर्वक्र <strong>षटकोन</strong> कापा.",
+    "p2-8-all-concave": "सर्व अंतर्वक्र <strong>बहुभुजाकृती</strong> कापा.",
+    "p2-9-all-convex": "सर्व बहिर्वक्र <strong>बहुभुजाकृती</strong> कापा.",
+    "hint-corners": "दोन शिरोबिंदू जोडा.",
+    "hint-side": "ही एक बाजू आहे — कर्ण काढून पाहा.",
+    "hint-short": "अगदी आरपार कापा, एका शिरोबिंदूपासून समोरच्या शिरोबिंदूपर्यंत.",
+    "hint-already": "तो तर झाला — दुसरा शोधा.",
+    "hint-samevertex": "हाही त्याच शिरोबिंदूपासून सुरू करा.",
+    "sw1": "मोमोला तुमच्या मदतीची गरज आहे.",
+    "sw2": "पण मोमोला मदत करण्यासाठी, तुम्हाला बहुभुजाकृतींबद्दल शिकावे लागेल.",
+    "sw3": "आता चला, मोमोला मदत करूया."
+  },
+  "te": {
+    "lessonPageTitle": "స్విఫ్టీ — బహుభుజులు",
+    "lessonTitle": "స్విఫ్టీ మరియు బహుభుజులు",
+    "loadingLabel": "లోడ్ అవుతోంది…",
+    "loadingPercent": "లోడ్ అవుతోంది… {percent}%",
+    "startButton": "ప్రారంభించండి",
+    "nextButton": "తదుపరి",
+    "playAgainButton": "మళ్ళీ ఆడండి",
+    "muteButton": "మ్యూట్ చేయండి",
+    "restartButton": "రీస్టార్ట్",
+    "partTwoButton": "భాగం 2",
+    "playPartTwoButton": "భాగం 2 ఆడండి",
+    "continuePartTwoLabel": "భాగం 2 కి వెళ్ళండి: ఫ్రోజెన్ రష్",
+    "rotateLabel": "దయచేసి మీ పరికరాన్ని అడ్డంగా తిప్పండి",
+    "rotateTitle": "మీ పరికరాన్ని అడ్డంగా తిప్పండి",
+    "rotateMessage": "స్విఫ్టీతో ఆడుకోవడానికి!",
+    "rewardXp": "+{xp} XP. సవాలు పూర్తయింది.",
+    "badgeUnlocked": "బ్యాడ్జ్ లభించింది: {badge}.",
+    "badgeShapeScout": "ఆకార అన్వేషి",
+    "badgeDiagonalDetective": "కర్ణ డిటెక్టివ్",
+    "badgeDentDiscoverer": "గుంట అన్వేషి",
+    "badgePatternPro": "నమూనా నిపుణులు",
+    "badgePolygonChampion": "బహుభుజి ఛాంపియన్",
+    "languageSelectTitle": "భాషను ఎంచుకోండి",
+    "langPopupTitle": "మీ భాషను ఎంచుకోండి",
+    "langPopupSubtitle": "పాఠంలో ఉపయోగించడానికి భాషను ఎంచుకోండి.",
+    "applyButton": "వర్తింపజేయి",
+    "cancelButton": "రద్దు చేయి",
+    "langSelectedTitle": "భాష ఎంపికైంది!",
+    "langSelectedMessageStart": "మీ యాప్ ఇప్పుడు {language} లో ఉంది.",
+    "langSelectedMessageEnd": "మొదలు పెడదాం!",
+    "p01": "హాయ్! నేను స్విఫ్టీని.",
+    "p02": "గుర్తుందా, మనం ఇంతకు ముందు బహుభుజుల గురించి నేర్చుకున్నాం.",
+    "p03": "బహుభుజులు సరళ రేఖలతో ఏర్పడిన మూసి ఉన్న ఆకారాలు.",
+    "p04": "వీటిలో ఏవి బహుభుజులు?",
+    "p05": "రండి, దీనితో ఆడుకుందాం.",
+    "p06": "ఏదైనా ఒక శీర్షాన్ని ఎంచుకోండి.",
+    "p07i": "రండి, దీన్ని మరో శీర్షంతో కలుపుదాం.",
+    "p09": "ఇది బహుభుజి యొక్క ఒక భుజం.",
+    "p10i": "రండి, దీన్ని వేరే శీర్షంతో కలుపుదాం.",
+    "p12": "హుర్రే! మీరు ఒక కర్ణం గీశారు!",
+    "p13": "ప్రక్కప్రక్కన లేని రెండు శీర్షాలను కలిపే రేఖాఖండమే కర్ణం.",
+    "p14i": "రండి, అదే శీర్షం నుండి మరో కర్ణం గీద్దాం.",
+    "p14r": "కర్ణం ప్రక్కప్రక్కన లేని శీర్షాలను కలుపుతుంది.",
+    "p15": "ఇప్పుడు మీ వంతు! రండి, ఈ శీర్షం నుండి అన్ని కర్ణాలు గీద్దాం.",
+    "p15i": "రండి, ఈ శీర్షం నుండి అన్ని కర్ణాలు గీద్దాం.",
+    "p16b": "రండి, ఈ పంచభుజి కర్ణాలను చూద్దాం.",
+    "p17i": "కర్ణాలు లోపల ఉన్నాయా, బయట ఉన్నాయా?",
+    "fb54": "కర్ణాలు లోపల ఉన్నాయి.",
+    "p18": "రండి, కొంచెం మార్పు చేద్దాం.",
+    "p19i": "ఈ శీర్షాన్ని లోపలికి లాగడంలో నాకు సహాయం చేయండి.",
+    "p20": "ఓహో! ఒక కర్ణం బయటకు వెళ్ళింది.",
+    "fb52": "ఓహో! కొన్ని కర్ణాలు బయటకు వెళ్ళాయి.",
+    "p21": "రండి, రెండు పంచభుజుల కర్ణాలను పోల్చి చూద్దాం.",
+    "p22": "దీని కర్ణాలన్నీ లోపల ఉన్నాయి.",
+    "p23": "కానీ దీనికి కనీసం ఒక కర్ణం బయట ఉంది.",
+    "p24": "కర్ణాలన్నీ లోపల ఉంటే, అది కుంభాకార బహుభుజి.",
+    "p25": "కనీసం ఒక కర్ణం బయట ఉంటే, అది పుటాకార బహుభుజి.",
+    "p26i": "ఈ బహుభుజిని పుటాకారంగా మార్చడానికి ఏదైనా శీర్షాన్ని లాగండి.",
+    "fb32": "మళ్ళీ ప్రయత్నించండి!",
+    "p26r1": "కర్ణాలు ఇంకా ఆకారం లోపలే ఉన్నాయి, కాబట్టి ఇది ఇంకా కుంభాకారమే.",
+    "fb53": "నేను మీకు చూపిస్తాను. ఈ మూలను చూడండి.",
+    "p26r2": "ఇప్పుడు ఒక కర్ణం బయటకు వెళ్తోంది, కాబట్టి ఈ బహుభుజి పుటాకారం.",
+    "fb03": "చాలా బాగా చేశారు!",
+    "p27": "ఈ బహుభుజులను కుంభాకార, పుటాకారంగా వేరు చేయగలరా?",
+    "p27c": "చూడండి! ఈ మూల లోపలికి వెళ్తుంది.",
+    "p27v": "చూడండి! ఏ మూలా లోపలికి వెళ్ళడం లేదు.",
+    "p28": "హ్మ్… భుజాలన్నీ అనుమానంగా ఒకేలా కనిపిస్తున్నాయి.",
+    "p29s": "రండి, భుజాలను కొలుద్దాం.",
+    "p30": "ప్రతి భుజం సమానంగా ఉంది. మరి కోణాల సంగతేమిటి?",
+    "p31m": "రండి, కోణాలను కొలుద్దాం.",
+    "p31": "కోణాలు కూడా సరిపోయాయి!",
+    "p32a": "ఈ మూలను సాగదీయడంలో నాకు సహాయం చేయండి. భుజాలకు, కోణాలకు ఏమవుతుందో చూద్దాం.",
+    "p32ai": "వెలుగుతున్న శీర్షాన్ని లాగండి.",
+    "p32b": "ఇది ఇంకా పంచభుజియే. కానీ భుజాలు, కోణాలు ఇంకా సమానంగా ఉన్నాయా?",
+    "p32bi": "భుజాలు, కోణాలు ఇంకా సమానంగా ఉన్నాయా?",
+    "p32r": "భుజాలు, కోణాలు మారిపోయాయి, కాబట్టి అవి సమానంగా లేవు.",
+    "fb55": "రండి, ఈ రెండు పంచభుజులను పోల్చి చూద్దాం.",
+    "fb56": "ఈ పంచభుజిలో అన్ని భుజాలు, అన్ని కోణాలు సమానం.",
+    "fb57": "కానీ ఈ పంచభుజిలో భుజాలు, కోణాలు అసమానంగా ఉన్నాయి.",
+    "fb58": "అన్ని భుజాలు, కోణాలు సమానమైతే, అది క్రమ బహుభుజి. భుజాలు, కోణాలు అసమానమైతే, అది అక్రమ బహుభుజి.",
+    "p33": "ఈ బహుభుజి ఏ వైపుకు చెందుతుంది?",
+    "fb48": "ఇది క్రమ బహుభుజి. ప్రతి భుజం సమానం, ప్రతి కోణం కూడా సమానం.",
+    "fb49": "ఇది అక్రమ బహుభుజి. దీని భుజాలన్నీ ఒకే పొడవు లేవు.",
+    "fb50": "ఇది అక్రమ బహుభుజి. దీని భుజాలు సరిపోతాయి, కానీ కోణాలన్నీ సమానం కావు.",
+    "fb51": "ఇది అక్రమ బహుభుజి. దీని భుజాలు సమానం కావు, కోణాలు కూడా సమానం కావు.",
+    "p37o": "రండి, ఈ రోజు మనం ఏమి నేర్చుకున్నామో గుర్తు చేసుకుందాం.",
+    "p37a": "రెండు భుజాలు కలిసే మూలనే శీర్షం అంటారు.",
+    "p37b": "రెండు శీర్షాలను కలిపే సరళ రేఖనే భుజం అంటారు.",
+    "p37c": "రెండు భుజాలు కలిసే చోట కోణం ఏర్పడుతుంది.",
+    "p37d": "కర్ణం ప్రక్కప్రక్కన లేని రెండు శీర్షాలను కలుపుతుంది.",
+    "p37e": "కుంభాకార బహుభుజిలో కర్ణాలన్నీ లోపలే ఉంటాయి.",
+    "p37f": "పుటాకార బహుభుజిలో కనీసం ఒక కర్ణం బయటకు వెళ్తుంది.",
+    "p37g": "క్రమ బహుభుజిలో అన్ని భుజాలు, అన్ని కోణాలు సమానంగా ఉంటాయి.",
+    "p37h": "భుజాలు లేదా కోణాలన్నీ సమానం కాకపోతే, ఆ బహుభుజి అక్రమ బహుభుజి.",
+    "p37i": "అద్భుతమైనది! మీరు బహుభుజుల ఈ ఆలోచనలన్నింటినీ తెలుసుకున్నారు!",
+    "p39": "ఇప్పుడు మీకు బహుభుజుల గురించి అంతా తెలుసు. మీరు మోమోకు సహాయం చేయడానికి సిద్ధంగా ఉన్నారు.",
+    "fb46": "ఇలాగే కొనసాగించండి!",
+    "fb47": "అద్భుతమైనది!",
+    "fb44": "సరిగ్గా లేదు. వృత్తం వంపుగా ఉంటుంది. బహుభుజికి సరళ భుజాలు మాత్రమే ఉంటాయి.",
+    "fb45": "సరిగ్గా లేదు. ఈ ఆకారం తెరిచి ఉంది. బహుభుజి మూసి ఉండాలి.",
+    "fb41": "మళ్ళీ ప్రయత్నించండి! ఇప్పుడు భుజాలను, కోణాలను పోల్చండి.",
+    "p38b": "మీరు ఒక బహుభుజి సాహసికులు!",
+    "fb15": "దీన్ని ఒక మూలపై వదలండి!",
+    "fb11": "దీన్ని ఇంకా లోపలికి లాగండి!",
+    "fb40": "మళ్ళీ ప్రయత్నించండి! మూలను ఇంకొంచెం సాగదీయండి.",
+    "fb35": "మళ్ళీ ప్రయత్నించండి! ప్రతి భుజం, ప్రతి కోణం సమానం.",
+    "fb36": "మళ్ళీ ప్రయత్నించండి! భుజాలన్నీ సమానం కావు.",
+    "fb37": "మళ్ళీ ప్రయత్నించండి! కోణాలన్నీ సమానం కావు.",
+    "fb38": "మళ్ళీ ప్రయత్నించండి! భుజాలు, కోణాలు అన్నీ సమానం కావు.",
+    "p03Parts": [
+      "బహుభుజులు సరళ రేఖలతో",
+      "ఏర్పడిన మూసి ఉన్న ఆకారాలు."
+    ],
+    "p13Parts": [
+      "ప్రక్కప్రక్కన లేని",
+      "రెండు శీర్షాలను కలిపే రేఖాఖండమే",
+      "కర్ణం."
+    ],
+    "p15Parts": [
+      "ఇప్పుడు మీ వంతు!",
+      "రండి, ఈ శీర్షం నుండి",
+      "అన్ని కర్ణాలు గీద్దాం."
+    ],
+    "p16bParts": [
+      "రండి, ఈ పంచభుజి",
+      "కర్ణాలను చూద్దాం."
+    ],
+    "p20Parts": [
+      "ఓహో! ఒక కర్ణం",
+      "బయటకు వెళ్ళింది."
+    ],
+    "fb52Parts": [
+      "ఓహో! కొన్ని కర్ణాలు",
+      "బయటకు వెళ్ళాయి."
+    ],
+    "p25Parts": [
+      "కనీసం ఒక కర్ణం బయట ఉంటే,",
+      "అది పుటాకార బహుభుజి."
+    ],
+    "p28Parts": [
+      "హ్మ్…",
+      "భుజాలన్నీ అనుమానంగా ఒకేలా కనిపిస్తున్నాయి."
+    ],
+    "p30Parts": [
+      "ప్రతి భుజం సమానంగా ఉంది.",
+      "మరి కోణాల సంగతేమిటి?"
+    ],
+    "p32aParts": [
+      "ఈ మూలను సాగదీయడంలో నాకు సహాయం చేయండి.",
+      "భుజాలకు, కోణాలకు",
+      "ఏమవుతుందో చూద్దాం."
+    ],
+    "p32bParts": [
+      "ఇది ఇంకా పంచభుజియే.",
+      "కానీ భుజాలు, కోణాలు",
+      "ఇంకా సమానంగా ఉన్నాయా?"
+    ],
+    "fb58Parts": [
+      "అన్ని భుజాలు, కోణాలు సమానమైతే,",
+      "అది క్రమ బహుభుజి.",
+      "భుజాలు, కోణాలు అసమానమైతే,",
+      "అది అక్రమ బహుభుజి."
+    ],
+    "labelVertex": "శీర్షం",
+    "labelSide": "భుజం",
+    "labelAngle": "కోణం",
+    "labelDiagonal": "కర్ణం",
+    "labelConvex": "కుంభాకారం",
+    "labelConcave": "పుటాకారం",
+    "labelRegular": "క్రమ",
+    "labelIrregular": "అక్రమ",
+    "labelInside": "లోపల",
+    "labelOutside": "బయట",
+    "labelStillEqual": "ఇంకా సమానం",
+    "labelNotEqual": "సమానం కాదు",
+    "unitCm": "సెం.మీ.",
+    "termPolygon": [
+      "బహుభుజ*"
+    ],
+    "termVertex": [
+      "శీర్ష*"
+    ],
+    "termSide": [
+      "భుజ*"
+    ],
+    "termDiagonal": [
+      "కర్ణ*"
+    ],
+    "termAngle": [
+      "కోణ*"
+    ],
+    "termConvex": [
+      "కుంభాకార*"
+    ],
+    "termConcave": [
+      "పుటాకార*"
+    ],
+    "termRegular": [
+      "క్రమ"
+    ],
+    "termIrregular": [
+      "అక్రమ"
+    ],
+    "termDrag": [
+      "లాగండి"
+    ],
+    "termDraw": [
+      "గీద్దాం",
+      "గీయండి"
+    ],
+    "termInside": [
+      "లోపల",
+      "లోపలే",
+      "లోపలికి"
+    ],
+    "termOutside": [
+      "బయట",
+      "బయటకు"
+    ],
+    "termInward": [
+      "లోపలికి"
+    ],
+    "termEqual": [
+      "సమాన*"
+    ],
+    "termLineSegment": [
+      "రేఖాఖండ*"
+    ],
+    "termPentagon": [
+      "పంచభుజ*"
+    ],
+    "termStill": [
+      "ఇంకా"
+    ],
+    "nameMomo": [
+      "మోమో*"
+    ],
+    "tutKeyWords": [
+      "స్నేహిత*",
+      "దాట*",
+      "జాగ్రత్త*",
+      "ట్యాప్",
+      "విరిగ*",
+      "సరైన",
+      "సరిగ్గా"
+    ],
+    "gamePageTitle": "మంచు యుగం మామత్ పరుగు",
+    "gameCanvasLabel": "మంచు యుగం మామత్ పరుగు ఆట",
+    "playButton": "ఆడండి",
+    "pausedTitle": "ఆపబడింది",
+    "pauseButton": "ఆపండి",
+    "resumeButton": "కొనసాగించండి",
+    "startOverButton": "మళ్ళీ మొదలుపెట్టండి",
+    "soundButton": "ధ్వని",
+    "soundOn": "ధ్వని ఆన్",
+    "soundOff": "ధ్వని ఆఫ్",
+    "rotateDevice": "మీ పరికరాన్ని తిప్పండి",
+    "tut-1-meet": "ఇతను మోమో. ఇతను తన స్నేహితుడిని వెతకాలి.",
+    "tut-2-goal": "మోమో మంచు కనుమను దాటడానికి సహాయం చేయండి!",
+    "tut-3-watch": "జాగ్రత్త!",
+    "tut-4-jump": "అడ్డంకుల మీదుగా దూకడానికి ట్యాప్ చేయండి.",
+    "tut-5-broken": "అయ్యో! దారి విరిగిపోయింది.",
+    "tut-6-use": "దారిని సరిచేయడానికి సరైన మంచు ముక్కను ఉపయోగించండి.",
+    "tut-6b-piece": "దారిని సరిచేయడానికి సరైన ముక్కను ఉపయోగించండి.",
+    "tut-7-fit": "సరిగ్గా సరిపోయింది! ఇలాగే కొనసాగించండి!",
+    "p2-1-diagonal": "ఒక కర్ణం వెంబడి కత్తిరించండి.",
+    "p2-2-diagonals": "అన్ని <strong>కర్ణాలు</strong> గీయండి.",
+    "p2-3-samevertex": "ఒకే <strong>శీర్షం</strong> నుండి 2 కర్ణాలు గీయండి.",
+    "p2-4-concave": "పుటాకార <strong>బహుభుజి</strong>ని కత్తిరించండి.",
+    "p2-5-convex": "కుంభాకార <strong>బహుభుజి</strong>ని కత్తిరించండి.",
+    "p2-6-concave-pentagon": "పుటాకార <strong>పంచభుజి</strong>ని కత్తిరించండి.",
+    "p2-7-convex-hexagon": "కుంభాకార <strong>షడ్భుజి</strong>ని కత్తిరించండి.",
+    "p2-8-all-concave": "అన్ని పుటాకార <strong>బహుభుజులను</strong> కత్తిరించండి.",
+    "p2-9-all-convex": "అన్ని కుంభాకార <strong>బహుభుజులను</strong> కత్తిరించండి.",
+    "hint-corners": "రెండు శీర్షాలను కలపండి.",
+    "hint-side": "ఇది ఒక భుజం — కర్ణం గీసి చూడండి.",
+    "hint-short": "పూర్తిగా అడ్డంగా కత్తిరించండి, ఒక శీర్షం నుండి ఎదురుగా ఉన్న శీర్షం వరకు.",
+    "hint-already": "అది అయిపోయింది — ఇంకొకటి వెతకండి.",
+    "hint-samevertex": "దీన్ని కూడా అదే శీర్షం నుండి మొదలుపెట్టండి.",
+    "sw1": "మోమోకు మీ సహాయం కావాలి.",
+    "sw2": "కానీ మోమోకు సహాయం చేయాలంటే, మీరు బహుభుజుల గురించి నేర్చుకోవాలి.",
+    "sw3": "ఇప్పుడు రండి, మోమోకు సహాయం చేద్దాం."
+  },
+  "gu": {
+    "lessonPageTitle": "સ્વિફ્ટી — બહુકોણ",
+    "lessonTitle": "સ્વિફ્ટી અને બહુકોણ",
+    "loadingLabel": "લોડ થઈ રહ્યું છે…",
+    "loadingPercent": "લોડ થઈ રહ્યું છે… {percent}%",
+    "startButton": "શરૂ કરો",
+    "nextButton": "આગળ",
+    "playAgainButton": "ફરીથી રમો",
+    "muteButton": "અવાજ બંધ કરો",
+    "restartButton": "રીસ્ટાર્ટ કરો",
+    "partTwoButton": "ભાગ 2",
+    "playPartTwoButton": "ભાગ 2 રમો",
+    "continuePartTwoLabel": "ભાગ 2 પર જાઓ: ફ્રોઝન રશ",
+    "rotateLabel": "કૃપા કરીને તમારું ઉપકરણ આડું ફેરવો",
+    "rotateTitle": "તમારું ઉપકરણ આડું ફેરવો",
+    "rotateMessage": "સ્વિફ્ટી સાથે રમવા માટે!",
+    "rewardXp": "+{xp} XP. પડકાર પૂર્ણ થયો.",
+    "badgeUnlocked": "બેજ મળ્યો: {badge}.",
+    "badgeShapeScout": "આકાર શોધક",
+    "badgeDiagonalDetective": "વિકર્ણ જાસૂસ",
+    "badgeDentDiscoverer": "ખાંચ શોધક",
+    "badgePatternPro": "પેટર્ન નિષ્ણાત",
+    "badgePolygonChampion": "બહુકોણ ચેમ્પિયન",
+    "languageSelectTitle": "ભાષા પસંદ કરો",
+    "langPopupTitle": "તમારી ભાષા પસંદ કરો",
+    "langPopupSubtitle": "પાઠમાં ઉપયોગ કરવા ભાષા પસંદ કરો.",
+    "applyButton": "લાગુ કરો",
+    "cancelButton": "રદ કરો",
+    "langSelectedTitle": "ભાષા પસંદ કરવામાં આવી!",
+    "langSelectedMessageStart": "તમારી એપ હવે {language} માં છે.",
+    "langSelectedMessageEnd": "ચાલો શરૂ કરીએ!",
+    "p01": "નમસ્તે! હું સ્વિફ્ટી છું.",
+    "p02": "યાદ છે, આપણે પહેલાં બહુકોણ વિશે શીખ્યા હતા.",
+    "p03": "બહુકોણ એ સીધી રેખાઓથી બનેલા બંધ આકાર છે.",
+    "p04": "આમાંથી કયા બહુકોણ છે?",
+    "p05": "ચાલો, આની સાથે રમીએ.",
+    "p06": "કોઈ પણ એક શિરોબિંદુ પસંદ કરો.",
+    "p07i": "ચાલો, તેને બીજા શિરોબિંદુ સાથે જોડીએ.",
+    "p09": "આ બહુકોણની એક બાજુ છે.",
+    "p10i": "ચાલો, તેને જુદા શિરોબિંદુ સાથે જોડીએ.",
+    "p12": "વાહ! તમે એક વિકર્ણ બનાવ્યો!",
+    "p13": "પાસપાસે ન હોય તેવાં બે શિરોબિંદુઓને જોડતો રેખાખંડ વિકર્ણ છે.",
+    "p14i": "ચાલો, એ જ શિરોબિંદુથી બીજો એક વિકર્ણ દોરીએ.",
+    "p14r": "વિકર્ણ પાસપાસે ન હોય તેવાં શિરોબિંદુઓને જોડે છે.",
+    "p15": "હવે તમારો વારો! ચાલો, આ શિરોબિંદુથી બધા વિકર્ણ દોરીએ.",
+    "p15i": "ચાલો, આ શિરોબિંદુથી બધા વિકર્ણ દોરીએ.",
+    "p16b": "ચાલો, આ પંચકોણના વિકર્ણ જોઈએ.",
+    "p17i": "વિકર્ણ અંદર છે કે બહાર?",
+    "fb54": "વિકર્ણ અંદર છે.",
+    "p18": "ચાલો, થોડો ફેરફાર કરીએ.",
+    "p19i": "આ શિરોબિંદુને અંદર ખેંચવામાં મને મદદ કરો.",
+    "p20": "અરે વાહ! એક વિકર્ણ બહાર ગયો.",
+    "fb52": "અરે વાહ! કેટલાક વિકર્ણ બહાર ગયા.",
+    "p21": "ચાલો, બંને પંચકોણના વિકર્ણની સરખામણી કરીએ.",
+    "p22": "આના બધા વિકર્ણ અંદર છે.",
+    "p23": "પણ આનો ઓછામાં ઓછો એક વિકર્ણ બહાર છે.",
+    "p24": "બધા વિકર્ણ અંદર હોય, તો તે બહિર્મુખ બહુકોણ છે.",
+    "p25": "ઓછામાં ઓછો એક વિકર્ણ બહાર હોય, તો તે અંતર્મુખ બહુકોણ છે.",
+    "p26i": "આ બહુકોણને અંતર્મુખ બનાવવા માટે કોઈ પણ શિરોબિંદુ ખેંચો.",
+    "fb32": "ફરી પ્રયાસ કરો!",
+    "p26r1": "વિકર્ણ હજુ પણ આકારની અંદર છે, તેથી તે હજુ પણ બહિર્મુખ છે.",
+    "fb53": "ચાલો, હું તમને બતાવું. આ ખૂણો જુઓ.",
+    "p26r2": "હવે એક વિકર્ણ બહાર જાય છે, તેથી આ બહુકોણ અંતર્મુખ છે.",
+    "fb03": "ખૂબ સરસ!",
+    "p27": "શું તમે આ બહુકોણને બહિર્મુખ અને અંતર્મુખમાં અલગ કરી શકો?",
+    "p27c": "જુઓ! આ ખૂણો અંદરની તરફ જાય છે.",
+    "p27v": "જુઓ! કોઈ પણ ખૂણો અંદરની તરફ જતો નથી.",
+    "p28": "હમ્મ… બધી બાજુઓ શંકા જાય એટલી સરખી લાગે છે.",
+    "p29s": "ચાલો, બાજુઓ માપીએ.",
+    "p30": "દરેક બાજુ સમાન છે. પણ ખૂણાઓનું શું?",
+    "p31m": "ચાલો, ખૂણા માપીએ.",
+    "p31": "ખૂણા પણ સરખા છે!",
+    "p32a": "આ ખૂણો ખેંચવામાં મને મદદ કરો. ચાલો જોઈએ, બાજુઓ અને ખૂણાઓનું શું થાય છે.",
+    "p32ai": "ચમકતા શિરોબિંદુને ખેંચો.",
+    "p32b": "આ હજુ પણ પંચકોણ જ છે. પણ શું બાજુઓ અને ખૂણા હજુ પણ સમાન છે?",
+    "p32bi": "શું બાજુઓ અને ખૂણા હજુ પણ સમાન છે?",
+    "p32r": "બાજુઓ અને ખૂણા બદલાઈ ગયા, તેથી તે સમાન નથી.",
+    "fb55": "ચાલો, આ બે પંચકોણની સરખામણી કરીએ.",
+    "fb56": "આ પંચકોણની બધી બાજુઓ અને બધા ખૂણા સમાન છે.",
+    "fb57": "પણ આ પંચકોણની બાજુઓ અને ખૂણા અસમાન છે.",
+    "fb58": "બધી બાજુઓ અને ખૂણા સમાન હોય, તો તે નિયમિત બહુકોણ છે. બાજુઓ અને ખૂણા અસમાન હોય, તો તે અનિયમિત બહુકોણ છે.",
+    "p33": "આ બહુકોણ ક્યાં જશે?",
+    "fb48": "આ નિયમિત છે. દરેક બાજુ સમાન છે, અને દરેક ખૂણો પણ સમાન છે.",
+    "fb49": "આ અનિયમિત છે. તેની બધી બાજુઓ સરખી લંબાઈની નથી.",
+    "fb50": "આ અનિયમિત છે. તેની બાજુઓ સરખી છે, પણ બધા ખૂણા સમાન નથી.",
+    "fb51": "આ અનિયમિત છે. તેની બાજુઓ સમાન નથી, અને ખૂણા પણ સમાન નથી.",
+    "p37o": "ચાલો, આજે આપણે શું શીખ્યા તે યાદ કરીએ.",
+    "p37a": "શિરોબિંદુ એ ખૂણો છે જ્યાં બે બાજુઓ મળે છે.",
+    "p37b": "બાજુ એ બે શિરોબિંદુઓને જોડતી સીધી રેખા છે.",
+    "p37c": "જ્યાં બે બાજુઓ મળે છે, ત્યાં ખૂણો બને છે.",
+    "p37d": "વિકર્ણ પાસપાસે ન હોય તેવાં બે શિરોબિંદુઓને જોડે છે.",
+    "p37e": "બહિર્મુખ બહુકોણમાં બધા વિકર્ણ અંદર રહે છે.",
+    "p37f": "અંતર્મુખ બહુકોણમાં ઓછામાં ઓછો એક વિકર્ણ બહાર જાય છે.",
+    "p37g": "નિયમિત બહુકોણની બધી બાજુઓ અને બધા ખૂણા સમાન હોય છે.",
+    "p37h": "જો બધી બાજુઓ અથવા ખૂણા સમાન ન હોય, તો બહુકોણ અનિયમિત છે.",
+    "p37i": "અદભુત! તમે બહુકોણના આ બધા વિચારો શોધી કાઢ્યા!",
+    "p39": "હવે તમે બહુકોણ વિશે બધું જાણો છો. તમે મોમોને મદદ કરવા તૈયાર છો.",
+    "fb46": "આમ જ આગળ વધો!",
+    "fb47": "અદભુત!",
+    "fb44": "બરાબર નથી. વર્તુળ વળાંકવાળું હોય છે. બહુકોણને ફક્ત સીધી બાજુઓ હોય છે.",
+    "fb45": "બરાબર નથી. આ આકાર ખુલ્લો છે. બહુકોણ બંધ હોવો જોઈએ.",
+    "fb41": "ફરી પ્રયાસ કરો! હવે બાજુઓ અને ખૂણાની સરખામણી કરો.",
+    "p38b": "તમે બહુકોણના સાહસિક છો!",
+    "fb15": "તેને કોઈ ખૂણા પર મૂકો!",
+    "fb11": "તેને હજુ વધુ અંદર ખેંચો!",
+    "fb40": "ફરી પ્રયાસ કરો! ખૂણાને થોડો વધુ ખેંચો.",
+    "fb35": "ફરી પ્રયાસ કરો! દરેક બાજુ અને દરેક ખૂણો સમાન છે.",
+    "fb36": "ફરી પ્રયાસ કરો! બધી બાજુઓ સમાન નથી.",
+    "fb37": "ફરી પ્રયાસ કરો! બધા ખૂણા સમાન નથી.",
+    "fb38": "ફરી પ્રયાસ કરો! બધી બાજુઓ અને ખૂણા સમાન નથી.",
+    "p03Parts": [
+      "બહુકોણ એ સીધી રેખાઓથી",
+      "બનેલા બંધ આકાર છે."
+    ],
+    "p13Parts": [
+      "પાસપાસે ન હોય તેવાં",
+      "બે શિરોબિંદુઓને જોડતો રેખાખંડ",
+      "વિકર્ણ છે."
+    ],
+    "p15Parts": [
+      "હવે તમારો વારો!",
+      "ચાલો, આ શિરોબિંદુથી",
+      "બધા વિકર્ણ દોરીએ."
+    ],
+    "p16bParts": [
+      "ચાલો, આ પંચકોણના",
+      "વિકર્ણ જોઈએ."
+    ],
+    "p20Parts": [
+      "અરે વાહ! એક વિકર્ણ",
+      "બહાર ગયો."
+    ],
+    "fb52Parts": [
+      "અરે વાહ! કેટલાક વિકર્ણ",
+      "બહાર ગયા."
+    ],
+    "p25Parts": [
+      "ઓછામાં ઓછો એક વિકર્ણ બહાર હોય,",
+      "તો તે અંતર્મુખ બહુકોણ છે."
+    ],
+    "p28Parts": [
+      "હમ્મ…",
+      "બધી બાજુઓ શંકા જાય એટલી સરખી લાગે છે."
+    ],
+    "p30Parts": [
+      "દરેક બાજુ સમાન છે.",
+      "પણ ખૂણાઓનું શું?"
+    ],
+    "p32aParts": [
+      "આ ખૂણો ખેંચવામાં મને મદદ કરો.",
+      "ચાલો જોઈએ,",
+      "બાજુઓ અને ખૂણાઓનું શું થાય છે."
+    ],
+    "p32bParts": [
+      "આ હજુ પણ પંચકોણ જ છે.",
+      "પણ શું બાજુઓ અને ખૂણા",
+      "હજુ પણ સમાન છે?"
+    ],
+    "fb58Parts": [
+      "બધી બાજુઓ અને ખૂણા સમાન હોય,",
+      "તો તે નિયમિત બહુકોણ છે.",
+      "બાજુઓ અને ખૂણા અસમાન હોય,",
+      "તો તે અનિયમિત બહુકોણ છે."
+    ],
+    "labelVertex": "શિરોબિંદુ",
+    "labelSide": "બાજુ",
+    "labelAngle": "ખૂણો",
+    "labelDiagonal": "વિકર્ણ",
+    "labelConvex": "બહિર્મુખ",
+    "labelConcave": "અંતર્મુખ",
+    "labelRegular": "નિયમિત",
+    "labelIrregular": "અનિયમિત",
+    "labelInside": "અંદર",
+    "labelOutside": "બહાર",
+    "labelStillEqual": "હજુ પણ સમાન",
+    "labelNotEqual": "સમાન નથી",
+    "unitCm": "સેમી",
+    "termPolygon": [
+      "બહુકોણ*"
+    ],
+    "termVertex": [
+      "શિરોબિંદુ*"
+    ],
+    "termSide": [
+      "બાજુ*"
+    ],
+    "termDiagonal": [
+      "વિકર્ણ*"
+    ],
+    "termAngle": [
+      "ખૂણ*"
+    ],
+    "termConvex": [
+      "બહિર્મુખ*"
+    ],
+    "termConcave": [
+      "અંતર્મુખ*"
+    ],
+    "termRegular": [
+      "નિયમિત"
+    ],
+    "termIrregular": [
+      "અનિયમિત"
+    ],
+    "termDrag": [
+      "ખેંચો"
+    ],
+    "termDraw": [
+      "દોરીએ",
+      "દોરો"
+    ],
+    "termInside": [
+      "અંદર"
+    ],
+    "termOutside": [
+      "બહાર"
+    ],
+    "termInward": [
+      "અંદરની"
+    ],
+    "termEqual": [
+      "સમાન"
+    ],
+    "termLineSegment": [
+      "રેખાખંડ*"
+    ],
+    "termPentagon": [
+      "પંચકોણ*"
+    ],
+    "termStill": [
+      "હજુ"
+    ],
+    "nameMomo": [
+      "મોમો*"
+    ],
+    "tutKeyWords": [
+      "મિત્ર*",
+      "પાર",
+      "સાવધાન*",
+      "ટૅપ",
+      "તૂટ*",
+      "સાચો",
+      "એકદમ"
+    ],
+    "gamePageTitle": "હિમયુગ મેમથ દોડ",
+    "gameCanvasLabel": "હિમયુગ મેમથ દોડની રમત",
+    "playButton": "રમો",
+    "pausedTitle": "થોભાવેલ",
+    "pauseButton": "થોભાવો",
+    "resumeButton": "ચાલુ રાખો",
+    "startOverButton": "ફરીથી શરૂ કરો",
+    "soundButton": "અવાજ",
+    "soundOn": "અવાજ ચાલુ",
+    "soundOff": "અવાજ બંધ",
+    "rotateDevice": "તમારું ઉપકરણ ફેરવો",
+    "tut-1-meet": "આ મોમો છે. તેને પોતાના મિત્રને શોધવાનો છે.",
+    "tut-2-goal": "મોમોને બરફીલો ઘાટ પાર કરવામાં મદદ કરો!",
+    "tut-3-watch": "સાવધાન!",
+    "tut-4-jump": "અવરોધો પરથી કૂદવા માટે ટૅપ કરો.",
+    "tut-5-broken": "અરે રે! રસ્તો તૂટી ગયો છે.",
+    "tut-6-use": "રસ્તો ઠીક કરવા માટે સાચો બરફનો ટુકડો વાપરો.",
+    "tut-6b-piece": "રસ્તો ઠીક કરવા માટે સાચો ટુકડો વાપરો.",
+    "tut-7-fit": "એકદમ બરાબર બેઠું! આમ જ આગળ વધો!",
+    "p2-1-diagonal": "એક વિકર્ણ પર કાપો.",
+    "p2-2-diagonals": "બધા <strong>વિકર્ણ</strong> દોરો.",
+    "p2-3-samevertex": "એક જ <strong>શિરોબિંદુ</strong>થી 2 વિકર્ણ દોરો.",
+    "p2-4-concave": "અંતર્મુખ <strong>બહુકોણ</strong> કાપો.",
+    "p2-5-convex": "બહિર્મુખ <strong>બહુકોણ</strong> કાપો.",
+    "p2-6-concave-pentagon": "અંતર્મુખ <strong>પંચકોણ</strong> કાપો.",
+    "p2-7-convex-hexagon": "બહિર્મુખ <strong>ષટ્કોણ</strong> કાપો.",
+    "p2-8-all-concave": "બધા અંતર્મુખ <strong>બહુકોણ</strong> કાપો.",
+    "p2-9-all-convex": "બધા બહિર્મુખ <strong>બહુકોણ</strong> કાપો.",
+    "hint-corners": "બે શિરોબિંદુઓ જોડો.",
+    "hint-side": "આ એક બાજુ છે — વિકર્ણ દોરી જુઓ.",
+    "hint-short": "બરાબર આરપાર કાપો, એક શિરોબિંદુથી સામેના શિરોબિંદુ સુધી.",
+    "hint-already": "એ તો થઈ ગયો — બીજો શોધો.",
+    "hint-samevertex": "આ પણ એ જ શિરોબિંદુથી શરૂ કરો.",
+    "sw1": "મોમોને તમારી મદદની જરૂર છે.",
+    "sw2": "પણ મોમોને મદદ કરવા માટે, તમારે બહુકોણ વિશે શીખવું પડશે.",
+    "sw3": "હવે ચાલો, મોમોને મદદ કરીએ."
+  },
+  "od": {
+    "lessonPageTitle": "ସ୍ୱିଫ୍ଟି — ବହୁଭୁଜ",
+    "lessonTitle": "ସ୍ୱିଫ୍ଟି ଓ ବହୁଭୁଜ",
+    "loadingLabel": "ଲୋଡ ହେଉଛି…",
+    "loadingPercent": "ଲୋଡ ହେଉଛି… {percent}%",
+    "startButton": "ଆରମ୍ଭ କରନ୍ତୁ",
+    "nextButton": "ପରବର୍ତ୍ତୀ",
+    "playAgainButton": "ପୁଣି ଖେଳନ୍ତୁ",
+    "muteButton": "ଶବ୍ଦ ବନ୍ଦ କରନ୍ତୁ",
+    "restartButton": "ପୁନଃ ଆରମ୍ଭ",
+    "partTwoButton": "ଭାଗ 2",
+    "playPartTwoButton": "ଭାଗ 2 ଖେଳନ୍ତୁ",
+    "continuePartTwoLabel": "ଭାଗ 2କୁ ଯାଆନ୍ତୁ: ଫ୍ରୋଜେନ୍ ରଶ୍",
+    "rotateLabel": "ଦୟାକରି ଆପଣଙ୍କ ଉପକରଣକୁ ଆଡ଼େଇ ଘୁଞ୍ଚାନ୍ତୁ",
+    "rotateTitle": "ଆପଣଙ୍କ ଉପକରଣକୁ ଆଡ଼େଇ ଘୁଞ୍ଚାନ୍ତୁ",
+    "rotateMessage": "ସ୍ୱିଫ୍ଟି ସହିତ ଖେଳିବା ପାଇଁ!",
+    "rewardXp": "+{xp} XP। ଆହ୍ୱାନ ସମ୍ପୂର୍ଣ୍ଣ।",
+    "badgeUnlocked": "ବ୍ୟାଜ୍ ମିଳିଲା: {badge}।",
+    "badgeShapeScout": "ଆକୃତି ସନ୍ଧାନୀ",
+    "badgeDiagonalDetective": "କର୍ଣ୍ଣ ଗୁଇନ୍ଦା",
+    "badgeDentDiscoverer": "ଖୋଳ ସନ୍ଧାନୀ",
+    "badgePatternPro": "ନମୁନା ବିଶେଷଜ୍ଞ",
+    "badgePolygonChampion": "ବହୁଭୁଜ ଚାମ୍ପିଅନ୍",
+    "languageSelectTitle": "ଭାଷା ଚୟନ କରନ୍ତୁ",
+    "langPopupTitle": "ଆପଣଙ୍କ ଭାଷା ଚୟନ କରନ୍ତୁ",
+    "langPopupSubtitle": "ପାଠରେ ବ୍ୟବହାର ପାଇଁ ଭାଷା ଚୟନ କରନ୍ତୁ।",
+    "applyButton": "ପ୍ରୟୋଗ",
+    "cancelButton": "ବାତିଲ",
+    "langSelectedTitle": "ଭାଷା ଚୟନ ହୋଇଗଲା!",
+    "langSelectedMessageStart": "ଆପଣଙ୍କ ଆପ ଏବେ {language}ରେ ଅଛି।",
+    "langSelectedMessageEnd": "ଆସନ୍ତୁ ଆରମ୍ଭ କରିବା!",
+    "p01": "ନମସ୍କାର! ମୁଁ ସ୍ୱିଫ୍ଟି।",
+    "p02": "ମନେ ଅଛି, ଆମେ ଆଗରୁ ବହୁଭୁଜ ବିଷୟରେ ଶିଖିଥିଲେ।",
+    "p03": "ବହୁଭୁଜ ହେଉଛି ସରଳ ରେଖାରେ ତିଆରି ବନ୍ଦ ଆକୃତି।",
+    "p04": "ଏଥିରୁ କେଉଁଗୁଡ଼ିକ ବହୁଭୁଜ?",
+    "p05": "ଆସନ୍ତୁ, ଏହା ସହିତ ଖେଳିବା।",
+    "p06": "ଯେକୌଣସି ଗୋଟିଏ ଶୀର୍ଷ ବାଛନ୍ତୁ।",
+    "p07i": "ଆସନ୍ତୁ, ଏହାକୁ ଆଉ ଏକ ଶୀର୍ଷ ସହିତ ଯୋଡ଼ିବା।",
+    "p09": "ଏହା ବହୁଭୁଜର ଗୋଟିଏ ବାହୁ।",
+    "p10i": "ଆସନ୍ତୁ, ଏହାକୁ ଅଲଗା ଶୀର୍ଷ ସହିତ ଯୋଡ଼ିବା।",
+    "p12": "ବାଃ! ଆପଣ ଗୋଟିଏ କର୍ଣ୍ଣ ତିଆରି କଲେ!",
+    "p13": "ପାଖାପାଖି ନଥିବା ଦୁଇଟି ଶୀର୍ଷକୁ ଯୋଡ଼ୁଥିବା ରେଖାଖଣ୍ଡ ହେଉଛି କର୍ଣ୍ଣ।",
+    "p14i": "ଆସନ୍ତୁ, ସେହି ଶୀର୍ଷରୁ ଆଉ ଏକ କର୍ଣ୍ଣ ଟାଣିବା।",
+    "p14r": "କର୍ଣ୍ଣ ପାଖାପାଖି ନଥିବା ଶୀର୍ଷଗୁଡ଼ିକୁ ଯୋଡ଼େ।",
+    "p15": "ଏବେ ଆପଣଙ୍କ ପାଳି! ଆସନ୍ତୁ, ଏହି ଶୀର୍ଷରୁ ସବୁ କର୍ଣ୍ଣ ଟାଣିବା।",
+    "p15i": "ଆସନ୍ତୁ, ଏହି ଶୀର୍ଷରୁ ସବୁ କର୍ଣ୍ଣ ଟାଣିବା।",
+    "p16b": "ଆସନ୍ତୁ, ଏହି ପଞ୍ଚଭୁଜର କର୍ଣ୍ଣଗୁଡ଼ିକ ଦେଖିବା।",
+    "p17i": "କର୍ଣ୍ଣଗୁଡ଼ିକ ଭିତରେ ଅଛି ନା ବାହାରେ?",
+    "fb54": "କର୍ଣ୍ଣଗୁଡ଼ିକ ଭିତରେ ଅଛି।",
+    "p18": "ଆସନ୍ତୁ, ଟିକେ ବଦଳାଇବା।",
+    "p19i": "ଏହି ଶୀର୍ଷକୁ ଭିତରକୁ ଟାଣିବାରେ ମୋତେ ସାହାଯ୍ୟ କରନ୍ତୁ।",
+    "p20": "ଆରେ! ଗୋଟିଏ କର୍ଣ୍ଣ ବାହାରକୁ ଚାଲିଗଲା।",
+    "fb52": "ଆରେ! କିଛି କର୍ଣ୍ଣ ବାହାରକୁ ଚାଲିଗଲା।",
+    "p21": "ଆସନ୍ତୁ, ଦୁଇଟି ପଞ୍ଚଭୁଜର କର୍ଣ୍ଣଗୁଡ଼ିକୁ ତୁଳନା କରିବା।",
+    "p22": "ଏହାର ସବୁ କର୍ଣ୍ଣ ଭିତରେ ଅଛି।",
+    "p23": "କିନ୍ତୁ ଏହାର ଅନ୍ତତଃ ଗୋଟିଏ କର୍ଣ୍ଣ ବାହାରେ ଅଛି।",
+    "p24": "ସବୁ କର୍ଣ୍ଣ ଭିତରେ ଥିଲେ, ତାହା ଉତ୍ତଳ ବହୁଭୁଜ।",
+    "p25": "ଅନ୍ତତଃ ଗୋଟିଏ କର୍ଣ୍ଣ ବାହାରେ ଥିଲେ, ତାହା ଅବତଳ ବହୁଭୁଜ।",
+    "p26i": "ଏହି ବହୁଭୁଜକୁ ଅବତଳ କରିବା ପାଇଁ ଯେକୌଣସି ଶୀର୍ଷକୁ ଟାଣନ୍ତୁ।",
+    "fb32": "ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ!",
+    "p26r1": "କର୍ଣ୍ଣଗୁଡ଼ିକ ଏବେ ବି ଆକୃତି ଭିତରେ ଅଛି, ତେଣୁ ଏହା ଏବେ ବି ଉତ୍ତଳ।",
+    "fb53": "ମୁଁ ଆପଣଙ୍କୁ ଦେଖାଉଛି। ଏହି କୋଣକୁ ଦେଖନ୍ତୁ।",
+    "p26r2": "ଏବେ ଗୋଟିଏ କର୍ଣ୍ଣ ବାହାରକୁ ଯାଉଛି, ତେଣୁ ଏହି ବହୁଭୁଜ ଅବତଳ।",
+    "fb03": "ଖୁବ ଭଲ!",
+    "p27": "ଆପଣ ଏହି ବହୁଭୁଜଗୁଡ଼ିକୁ ଉତ୍ତଳ ଓ ଅବତଳରେ ଅଲଗା କରିପାରିବେ କି?",
+    "p27c": "ଦେଖନ୍ତୁ! ଏହି କୋଣ ଭିତର ଆଡ଼କୁ ଯାଇଛି।",
+    "p27v": "ଦେଖନ୍ତୁ! କୌଣସି କୋଣ ଭିତର ଆଡ଼କୁ ଯାଇନାହିଁ।",
+    "p28": "ହମ୍… ସବୁ ବାହୁ ସନ୍ଦେହଜନକ ଭାବେ ଏକାପରି ଦେଖାଯାଉଛି।",
+    "p29s": "ଆସନ୍ତୁ, ବାହୁଗୁଡ଼ିକ ମାପିବା।",
+    "p30": "ପ୍ରତ୍ୟେକ ବାହୁ ସମାନ। କିନ୍ତୁ କୋଣଗୁଡ଼ିକର କଥା କ'ଣ?",
+    "p31m": "ଆସନ୍ତୁ, କୋଣଗୁଡ଼ିକ ମାପିବା।",
+    "p31": "କୋଣଗୁଡ଼ିକ ମଧ୍ୟ ମେଳ ଖାଉଛି!",
+    "p32a": "ଏହି କୋଣକୁ ଟାଣି ବଢ଼ାଇବାରେ ମୋତେ ସାହାଯ୍ୟ କରନ୍ତୁ। ଦେଖିବା, ବାହୁ ଓ କୋଣଗୁଡ଼ିକର କ'ଣ ହୁଏ।",
+    "p32ai": "ଆଲୋକିତ ଶୀର୍ଷକୁ ଟାଣନ୍ତୁ।",
+    "p32b": "ଏହା ଏବେ ବି ପଞ୍ଚଭୁଜ। କିନ୍ତୁ ବାହୁ ଓ କୋଣଗୁଡ଼ିକ ଏବେ ବି ସମାନ କି?",
+    "p32bi": "ବାହୁ ଓ କୋଣଗୁଡ଼ିକ ଏବେ ବି ସମାନ କି?",
+    "p32r": "ବାହୁ ଓ କୋଣଗୁଡ଼ିକ ବଦଳିଗଲା, ତେଣୁ ସେଗୁଡ଼ିକ ସମାନ ନୁହେଁ।",
+    "fb55": "ଆସନ୍ତୁ, ଏହି ଦୁଇଟି ପଞ୍ଚଭୁଜକୁ ତୁଳନା କରିବା।",
+    "fb56": "ଏହି ପଞ୍ଚଭୁଜର ସବୁ ବାହୁ ଓ ସବୁ କୋଣ ସମାନ।",
+    "fb57": "କିନ୍ତୁ ଏହି ପଞ୍ଚଭୁଜର ବାହୁ ଓ କୋଣଗୁଡ଼ିକ ଅସମାନ।",
+    "fb58": "ସବୁ ବାହୁ ଓ କୋଣ ସମାନ ଥିଲେ, ତାହା ସୁଷମ ବହୁଭୁଜ। ବାହୁ ଓ କୋଣ ଅସମାନ ଥିଲେ, ତାହା ଅସୁଷମ ବହୁଭୁଜ।",
+    "p33": "ଏହି ବହୁଭୁଜ କେଉଁ ପାଖକୁ ଯିବ?",
+    "fb48": "ଏହା ସୁଷମ। ପ୍ରତ୍ୟେକ ବାହୁ ସମାନ, ଏବଂ ପ୍ରତ୍ୟେକ କୋଣ ମଧ୍ୟ ସମାନ।",
+    "fb49": "ଏହା ଅସୁଷମ। ଏହାର ସବୁ ବାହୁ ସମାନ ଲମ୍ବର ନୁହେଁ।",
+    "fb50": "ଏହା ଅସୁଷମ। ଏହାର ବାହୁଗୁଡ଼ିକ ମେଳ ଖାଉଛି, କିନ୍ତୁ ସବୁ କୋଣ ସମାନ ନୁହେଁ।",
+    "fb51": "ଏହା ଅସୁଷମ। ଏହାର ବାହୁ ସମାନ ନୁହେଁ, ଏବଂ କୋଣ ମଧ୍ୟ ସମାନ ନୁହେଁ।",
+    "p37o": "ଆସନ୍ତୁ, ଆଜି ଆମେ କ'ଣ ଶିଖିଲେ ମନେ ପକାଇବା।",
+    "p37a": "ଶୀର୍ଷ ହେଉଛି ସେହି ବିନ୍ଦୁ ଯେଉଁଠାରେ ଦୁଇଟି ବାହୁ ମିଳନ୍ତି।",
+    "p37b": "ବାହୁ ହେଉଛି ଦୁଇଟି ଶୀର୍ଷକୁ ଯୋଡ଼ୁଥିବା ଏକ ସରଳ ରେଖା।",
+    "p37c": "ଯେଉଁଠାରେ ଦୁଇଟି ବାହୁ ମିଳନ୍ତି, ସେଠାରେ କୋଣ ସୃଷ୍ଟି ହୁଏ।",
+    "p37d": "କର୍ଣ୍ଣ ପାଖାପାଖି ନଥିବା ଦୁଇଟି ଶୀର୍ଷକୁ ଯୋଡ଼େ।",
+    "p37e": "ଉତ୍ତଳ ବହୁଭୁଜରେ ସବୁ କର୍ଣ୍ଣ ଭିତରେ ରହେ।",
+    "p37f": "ଅବତଳ ବହୁଭୁଜରେ ଅନ୍ତତଃ ଗୋଟିଏ କର୍ଣ୍ଣ ବାହାରକୁ ଯାଏ।",
+    "p37g": "ସୁଷମ ବହୁଭୁଜର ସବୁ ବାହୁ ଓ ସବୁ କୋଣ ସମାନ।",
+    "p37h": "ଯଦି ସବୁ ବାହୁ କିମ୍ବା କୋଣ ସମାନ ନୁହେଁ, ତେବେ ବହୁଭୁଜଟି ଅସୁଷମ।",
+    "p37i": "ଅଦ୍ଭୁତ! ଆପଣ ବହୁଭୁଜର ଏହି ସବୁ ଧାରଣା ଜାଣିଲେ!",
+    "p39": "ଏବେ ଆପଣ ବହୁଭୁଜ ବିଷୟରେ ସବୁକିଛି ଜାଣନ୍ତି। ଆପଣ ମୋମୋକୁ ସାହାଯ୍ୟ କରିବାକୁ ପ୍ରସ୍ତୁତ।",
+    "fb46": "ଏମିତି ଆଗକୁ ବଢ଼ନ୍ତୁ!",
+    "fb47": "ଅଦ୍ଭୁତ!",
+    "fb44": "ଠିକ ନୁହଁ। ବୃତ୍ତ ବକ୍ର ହୋଇଥାଏ। ବହୁଭୁଜର କେବଳ ସରଳ ବାହୁ ଥାଏ।",
+    "fb45": "ଠିକ ନୁହଁ। ଏହି ଆକୃତି ଖୋଲା। ବହୁଭୁଜ ବନ୍ଦ ହେବା ଦରକାର।",
+    "fb41": "ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ! ଏବେ ବାହୁ ଓ କୋଣଗୁଡ଼ିକୁ ତୁଳନା କରନ୍ତୁ।",
+    "p38b": "ଆପଣ ଜଣେ ବହୁଭୁଜ ଅଭିଯାତ୍ରୀ!",
+    "fb15": "ଏହାକୁ ଗୋଟିଏ କୋଣ ଉପରେ ଛାଡ଼ନ୍ତୁ!",
+    "fb11": "ଏହାକୁ ଆହୁରି ଭିତରକୁ ଟାଣନ୍ତୁ!",
+    "fb40": "ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ! କୋଣକୁ ଆଉ ଟିକେ ଟାଣନ୍ତୁ।",
+    "fb35": "ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ! ପ୍ରତ୍ୟେକ ବାହୁ ଓ ପ୍ରତ୍ୟେକ କୋଣ ସମାନ।",
+    "fb36": "ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ! ସବୁ ବାହୁ ସମାନ ନୁହେଁ।",
+    "fb37": "ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ! ସବୁ କୋଣ ସମାନ ନୁହେଁ।",
+    "fb38": "ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ! ସବୁ ବାହୁ ଓ କୋଣ ସମାନ ନୁହେଁ।",
+    "p03Parts": [
+      "ବହୁଭୁଜ ହେଉଛି",
+      "ସରଳ ରେଖାରେ ତିଆରି ବନ୍ଦ ଆକୃତି।"
+    ],
+    "p13Parts": [
+      "ପାଖାପାଖି ନଥିବା",
+      "ଦୁଇଟି ଶୀର୍ଷକୁ ଯୋଡ଼ୁଥିବା ରେଖାଖଣ୍ଡ",
+      "ହେଉଛି କର୍ଣ୍ଣ।"
+    ],
+    "p15Parts": [
+      "ଏବେ ଆପଣଙ୍କ ପାଳି!",
+      "ଆସନ୍ତୁ, ଏହି ଶୀର୍ଷରୁ",
+      "ସବୁ କର୍ଣ୍ଣ ଟାଣିବା।"
+    ],
+    "p16bParts": [
+      "ଆସନ୍ତୁ, ଏହି ପଞ୍ଚଭୁଜର",
+      "କର୍ଣ୍ଣଗୁଡ଼ିକ ଦେଖିବା।"
+    ],
+    "p20Parts": [
+      "ଆରେ! ଗୋଟିଏ କର୍ଣ୍ଣ",
+      "ବାହାରକୁ ଚାଲିଗଲା।"
+    ],
+    "fb52Parts": [
+      "ଆରେ! କିଛି କର୍ଣ୍ଣ",
+      "ବାହାରକୁ ଚାଲିଗଲା।"
+    ],
+    "p25Parts": [
+      "ଅନ୍ତତଃ ଗୋଟିଏ କର୍ଣ୍ଣ ବାହାରେ ଥିଲେ,",
+      "ତାହା ଅବତଳ ବହୁଭୁଜ।"
+    ],
+    "p28Parts": [
+      "ହମ୍…",
+      "ସବୁ ବାହୁ ସନ୍ଦେହଜନକ ଭାବେ ଏକାପରି ଦେଖାଯାଉଛି।"
+    ],
+    "p30Parts": [
+      "ପ୍ରତ୍ୟେକ ବାହୁ ସମାନ।",
+      "କିନ୍ତୁ କୋଣଗୁଡ଼ିକର କଥା କ'ଣ?"
+    ],
+    "p32aParts": [
+      "ଏହି କୋଣକୁ ଟାଣି ବଢ଼ାଇବାରେ ମୋତେ ସାହାଯ୍ୟ କରନ୍ତୁ।",
+      "ଦେଖିବା,",
+      "ବାହୁ ଓ କୋଣଗୁଡ଼ିକର କ'ଣ ହୁଏ।"
+    ],
+    "p32bParts": [
+      "ଏହା ଏବେ ବି ପଞ୍ଚଭୁଜ।",
+      "କିନ୍ତୁ ବାହୁ ଓ କୋଣଗୁଡ଼ିକ",
+      "ଏବେ ବି ସମାନ କି?"
+    ],
+    "fb58Parts": [
+      "ସବୁ ବାହୁ ଓ କୋଣ ସମାନ ଥିଲେ,",
+      "ତାହା ସୁଷମ ବହୁଭୁଜ।",
+      "ବାହୁ ଓ କୋଣ ଅସମାନ ଥିଲେ,",
+      "ତାହା ଅସୁଷମ ବହୁଭୁଜ।"
+    ],
+    "labelVertex": "ଶୀର୍ଷ",
+    "labelSide": "ବାହୁ",
+    "labelAngle": "କୋଣ",
+    "labelDiagonal": "କର୍ଣ୍ଣ",
+    "labelConvex": "ଉତ୍ତଳ",
+    "labelConcave": "ଅବତଳ",
+    "labelRegular": "ସୁଷମ",
+    "labelIrregular": "ଅସୁଷମ",
+    "labelInside": "ଭିତରେ",
+    "labelOutside": "ବାହାରେ",
+    "labelStillEqual": "ଏବେ ବି ସମାନ",
+    "labelNotEqual": "ସମାନ ନୁହେଁ",
+    "unitCm": "ସେ.ମି.",
+    "termPolygon": [
+      "ବହୁଭୁଜ*"
+    ],
+    "termVertex": [
+      "ଶୀର୍ଷ*"
+    ],
+    "termSide": [
+      "ବାହୁ*"
+    ],
+    "termDiagonal": [
+      "କର୍ଣ୍ଣ*"
+    ],
+    "termAngle": [
+      "କୋଣ*"
+    ],
+    "termConvex": [
+      "ଉତ୍ତଳ*"
+    ],
+    "termConcave": [
+      "ଅବତଳ*"
+    ],
+    "termRegular": [
+      "ସୁଷମ"
+    ],
+    "termIrregular": [
+      "ଅସୁଷମ"
+    ],
+    "termDrag": [
+      "ଟାଣନ୍ତୁ"
+    ],
+    "termDraw": [
+      "ଟାଣିବା",
+      "ଟାଣନ୍ତୁ"
+    ],
+    "termInside": [
+      "ଭିତରେ",
+      "ଭିତରକୁ"
+    ],
+    "termOutside": [
+      "ବାହାରେ",
+      "ବାହାରକୁ"
+    ],
+    "termInward": [
+      "ଭିତର"
+    ],
+    "termEqual": [
+      "ସମାନ"
+    ],
+    "termLineSegment": [
+      "ରେଖାଖଣ୍ଡ*"
+    ],
+    "termPentagon": [
+      "ପଞ୍ଚଭୁଜ*"
+    ],
+    "termStill": [
+      "ଏବେ"
+    ],
+    "nameMomo": [
+      "ମୋମୋ*"
+    ],
+    "tutKeyWords": [
+      "ସାଙ୍ଗ*",
+      "ପାର",
+      "ସାବଧାନ*",
+      "ଟ୍ୟାପ",
+      "ଭାଙ୍ଗ*",
+      "ଠିକ*"
+    ],
+    "gamePageTitle": "ହିମଯୁଗ ମାମଥ୍ ଦୌଡ଼",
+    "gameCanvasLabel": "ହିମଯୁଗ ମାମଥ୍ ଦୌଡ଼ ଖେଳ",
+    "playButton": "ଖେଳନ୍ତୁ",
+    "pausedTitle": "ବିରତ",
+    "pauseButton": "ବିରତି",
+    "resumeButton": "ଜାରି ରଖନ୍ତୁ",
+    "startOverButton": "ପୁଣି ଆରମ୍ଭ କରନ୍ତୁ",
+    "soundButton": "ଧ୍ୱନି",
+    "soundOn": "ଧ୍ୱନି ଚାଲୁ",
+    "soundOff": "ଧ୍ୱନି ବନ୍ଦ",
+    "rotateDevice": "ଆପଣଙ୍କ ଉପକରଣ ଘୁଞ୍ଚାନ୍ତୁ",
+    "tut-1-meet": "ଏ ହେଉଛି ମୋମୋ। ତାକୁ ତା'ର ସାଙ୍ଗକୁ ଖୋଜିବାକୁ ପଡ଼ିବ।",
+    "tut-2-goal": "ମୋମୋକୁ ବରଫ ଘାଟି ପାର ହେବାରେ ସାହାଯ୍ୟ କରନ୍ତୁ!",
+    "tut-3-watch": "ସାବଧାନ!",
+    "tut-4-jump": "ବାଧା ଉପରେ ଡେଇଁବା ପାଇଁ ଟ୍ୟାପ କରନ୍ତୁ।",
+    "tut-5-broken": "ହାୟ! ରାସ୍ତା ଭାଙ୍ଗିଯାଇଛି।",
+    "tut-6-use": "ରାସ୍ତା ଠିକ କରିବା ପାଇଁ ଠିକ ବରଫ ଖଣ୍ଡ ବ୍ୟବହାର କରନ୍ତୁ।",
+    "tut-6b-piece": "ରାସ୍ତା ଠିକ କରିବା ପାଇଁ ଠିକ ଖଣ୍ଡ ବ୍ୟବହାର କରନ୍ତୁ।",
+    "tut-7-fit": "ଠିକ୍ ଖାପ ଖାଇଲା! ଏମିତି ଆଗକୁ ବଢ଼ନ୍ତୁ!",
+    "p2-1-diagonal": "ଗୋଟିଏ କର୍ଣ୍ଣ ଦେଇ କାଟନ୍ତୁ।",
+    "p2-2-diagonals": "ସବୁ <strong>କର୍ଣ୍ଣ</strong> ଟାଣନ୍ତୁ।",
+    "p2-3-samevertex": "ଗୋଟିଏ <strong>ଶୀର୍ଷ</strong>ରୁ 2ଟି କର୍ଣ୍ଣ ଟାଣନ୍ତୁ।",
+    "p2-4-concave": "ଅବତଳ <strong>ବହୁଭୁଜ</strong>କୁ କାଟନ୍ତୁ।",
+    "p2-5-convex": "ଉତ୍ତଳ <strong>ବହୁଭୁଜ</strong>କୁ କାଟନ୍ତୁ।",
+    "p2-6-concave-pentagon": "ଅବତଳ <strong>ପଞ୍ଚଭୁଜ</strong>କୁ କାଟନ୍ତୁ।",
+    "p2-7-convex-hexagon": "ଉତ୍ତଳ <strong>ଷଡ଼ଭୁଜ</strong>କୁ କାଟନ୍ତୁ।",
+    "p2-8-all-concave": "ସବୁ ଅବତଳ <strong>ବହୁଭୁଜ</strong>କୁ କାଟନ୍ତୁ।",
+    "p2-9-all-convex": "ସବୁ ଉତ୍ତଳ <strong>ବହୁଭୁଜ</strong>କୁ କାଟନ୍ତୁ।",
+    "hint-corners": "ଦୁଇଟି ଶୀର୍ଷକୁ ଯୋଡ଼ନ୍ତୁ।",
+    "hint-side": "ଏହା ଗୋଟିଏ ବାହୁ — କର୍ଣ୍ଣ ଟାଣି ଦେଖନ୍ତୁ।",
+    "hint-short": "ସିଧା ଆରପାର କାଟନ୍ତୁ, ଗୋଟିଏ ଶୀର୍ଷରୁ ବିପରୀତ ଶୀର୍ଷ ପର୍ଯ୍ୟନ୍ତ।",
+    "hint-already": "ସେଇଟା ହୋଇଗଲା — ଆଉ ଗୋଟିଏ ଖୋଜନ୍ତୁ।",
+    "hint-samevertex": "ଏହାକୁ ମଧ୍ୟ ସେହି ଶୀର୍ଷରୁ ଆରମ୍ଭ କରନ୍ତୁ।",
+    "sw1": "ମୋମୋକୁ ଆପଣଙ୍କ ସାହାଯ୍ୟ ଦରକାର।",
+    "sw2": "କିନ୍ତୁ ମୋମୋକୁ ସାହାଯ୍ୟ କରିବାକୁ, ଆପଣଙ୍କୁ ବହୁଭୁଜ ବିଷୟରେ ଶିଖିବାକୁ ପଡ଼ିବ।",
+    "sw3": "ଏବେ ଆସନ୍ତୁ, ମୋମୋକୁ ସାହାଯ୍ୟ କରିବା।"
+  }
+}

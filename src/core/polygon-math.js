@@ -308,6 +308,14 @@
    * a dent is always a dent and never a pinch. */
   function clearOf(v, i, gap) {
     var n = v.length, prev = (i - 1 + n) % n, next = (i + 1) % n, p = v[i];
+    /* AND CLEAR OF ITS OWN NEIGHBOURS. Nothing here kept the corner off the two corners beside
+       it: dragged at one, it sat on top of it — a side of zero length, a pentagon drawn with
+       four visible corners, told "it's still a pentagon". Each of its two sides keeps at least
+       0.4 of the shape's mean radius, and no corner of the three it moves becomes a needle. */
+    var minSide = sizeOf(v) * 0.4;
+    if (Math.hypot(p.x - v[prev].x, p.y - v[prev].y) < minSide || Math.hypot(p.x - v[next].x, p.y - v[next].y) < minSide) return false;
+    var ang = interiorAngles(v), needle = function (a) { return a < 20 || a > 340; };   // a spike out, or a slit in
+    if (needle(ang[prev]) || needle(ang[i]) || needle(ang[next])) return false;
     for (var j = 0; j < n; j++) {
       var k = (j + 1) % n;
       if (j === i || k === i) continue;                                  // the corner's own sides

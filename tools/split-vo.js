@@ -6,6 +6,10 @@
  *       reads docs/vo-timeline.json (tools/align-vo.js), writes
  *       assets/vo/<id>.mp3 + .ogg for every line in it, their word starts into
  *       assets/vo/word-timings.json, and rebuilds assets/vo/index.json.
+ *   node tools/split-vo.js --master <name>
+ *       the same for one master take (tools/vo-masters.js): reads
+ *       docs/vo-masters/<name>.json, cuts its lines at the take's own tempo, never
+ *       removes another clip, and skips a second reading (`<id>~2`).
  *
  * ONE VOICE. A lesson clip (p…) in assets/vo that the take does not voice is
  * removed (--keep-others keeps it): it is the earlier generated voice, and
@@ -57,7 +61,7 @@
  * lagging behind the voice.
  *
  * Encoded as every clip in assets/vo is, straight from the take: mono, 64k mp3 for
- * Safari, Vorbis q1 for everyone else.
+ * Safari, Opus at 40k for everyone else.
  */
 'use strict';
 const fs = require('node:fs');
@@ -67,18 +71,25 @@ const { execFileSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const VO = path.join(ROOT, 'assets', 'vo');
-const SRC = path.resolve(ROOT, process.argv.slice(2).find((a) => !a.startsWith('--')) || 'assets/source/gamevo.mp3');
-const TIMELINE = path.join(ROOT, 'docs', 'vo-timeline.json');
-const ROOM = 0.06, POST = 0.28, HUSH = 0.15, QUIET_DB = -45, LEAD = 60, TEMPO = 0.88;
+const mi = process.argv.indexOf('--master'), MASTER = mi > 0 ? process.argv[mi + 1] : null;
+const master = MASTER ? require('./vo-masters').find((m) => m.name === MASTER) : null;
+if (MASTER && !master) throw new Error('no master take "' + MASTER + '" in tools/vo-masters.js');
+const SRC = path.resolve(ROOT, master ? master.source : (process.argv.slice(2).find((a) => !a.startsWith('--')) || 'assets/source/gamevo.mp3'));
+const TIMELINE = master ? path.join(ROOT, 'docs', 'vo-masters', master.name + '.json') : path.join(ROOT, 'docs', 'vo-timeline.json');
+const ROOM = 0.06, POST = 0.28, HUSH = 0.15, QUIET_DB = -45, LEAD = 60, TEMPO = master ? (master.tempo || 1) : 0.88;
 const TARGET = -20.5, MATCH = 0.8, MAX_DB = 3, PEAK_DB = -1.5;
 const LOUD_DB = -35;                                // a word's sound has begun
-const STRETCH = 'rubberband=tempo=' + TEMPO + ':detector=soft:formant=preserved:pitchq=quality:window=standard';
-const KEEP_OTHERS = process.argv.includes('--keep-others');
+const STRETCH = TEMPO === 1 ? null : 'rubberband=tempo=' + TEMPO + ':detector=soft:formant=preserved:pitchq=quality:window=standard';
+// (a master take voices only its own lines: every other clip is left as it is)
+const KEEP_OTHERS = !!master || process.argv.includes('--keep-others');
 const rel = (p) => path.relative(ROOT, p).replace(/\\/g, '/');
 const ff = (args) => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args]);
 
 const tl = JSON.parse(fs.readFileSync(TIMELINE, 'utf8'));
+// (a line the take reads twice is cut from its first reading; the second, `<id>~2`, only keeps
+// the lines either side of it honest about where the sound is)
 const lines = tl.lines;
+const cutIt = (l) => !/~/.test(l.id);
 // feedback the take says inside a lesson line (align-vo.js DERIVED): [id, line, first word, last word]
 const DERIVED = (tl.derived || []).map((d) => [d.id, d.from, d.words[0], d.words[1]]);
 
@@ -130,7 +141,7 @@ DERIVED.forEach(([id, from, a, b]) => {
               before: a ? l.words[a - 1].end : (i ? lines[i - 1].end : 0),
               after: l.words[b + 1] ? l.words[b + 1].start : (lines[i + 1] ? lines[i + 1].start : null) });
 });
-const cuts = segs.map((l) => {
+const cuts = segs.filter(cutIt).map((l) => {
   // the start: the latest quiet stretch (30 ms) that ends before the first word
   let start = null;
   // (and up to ROOM more before it, only as far as the quiet goes: a breath
@@ -180,18 +191,23 @@ function levelOf(a, b) {
   const I = /I:\s+(-?[\d.]+) LUFS\s*\n\s*Threshold/.exec(log), P = /Peak:\s+(-?[\d.]+) dBFS/.exec(log.slice(log.lastIndexOf('Summary')));
   return { lufs: I ? parseFloat(I[1]) : null, peak: P ? parseFloat(P[1]) : null };
 }
+/* A MASTER'S OWN LEVEL. The old take sat 2 dB over TARGET, and its limits are centred there; a
+   master is measured whole, and its lines go to TARGET keeping a fifth of how far each was from
+   the take's own mean — the same shape, around its own centre. */
+const takeLevel = master ? levelOf(0, pcm.length / 44100) : null;
+const centre = takeLevel && takeLevel.lufs != null ? TARGET - takeLevel.lufs : -2;
 cuts.forEach((c) => {
   const dur = c.end - c.start, out = dur / TEMPO;
   const lv = levelOf(c.start, c.end);
-  let gain = lv.lufs == null ? TARGET + 18.4 : (TARGET - lv.lufs) * MATCH;
-  gain = Math.max(-MAX_DB - 2, Math.min(MAX_DB - 2, gain));        // (around the take's own -2 dB offset)
+  let gain = lv.lufs == null ? TARGET + 18.4 : master ? (TARGET - lv.lufs) * MATCH + centre * (1 - MATCH) : (TARGET - lv.lufs) * MATCH;
+  gain = Math.max(-MAX_DB + centre, Math.min(MAX_DB + centre, gain));   // (around the take's own offset: -2 dB for the old one)
   if (lv.peak != null) gain = Math.min(gain, PEAK_DB - lv.peak);
   c.gain = gain; c.lufs = lv.lufs;
-  const af = STRETCH + ',volume=' + gain.toFixed(2) + 'dB,afade=t=in:st=0:d=0.015,afade=t=out:st=' + Math.max(0, out - 0.06).toFixed(3) + ':d=0.06' +
+  const af = (STRETCH ? STRETCH + ',' : '') + 'volume=' + gain.toFixed(2) + 'dB,afade=t=in:st=0:d=0.015,afade=t=out:st=' + Math.max(0, out - 0.06).toFixed(3) + ':d=0.06' +
              (c.pad > 0.005 ? ',apad=pad_dur=' + (c.pad / TEMPO).toFixed(3) : '');
   const common = ['-ss', c.start.toFixed(3), '-t', dur.toFixed(3), '-i', wav, '-af', af, '-ac', '1'];
   ff(common.concat(['-c:a', 'libmp3lame', '-b:a', '64k', path.join(VO, c.id + '.mp3')]));
-  ff(common.concat(['-c:a', 'libvorbis', '-q:a', '1', path.join(VO, c.id + '.ogg')]));
+  ff(common.concat(['-c:a', 'libopus', '-b:a', '40k', '-vbr', 'on', '-application', 'voip', path.join(VO, c.id + '.ogg')]));
   timings[c.id] = c.words.map((w) => Math.max(0, Math.round((w.start - c.start) * 1000 / TEMPO - w.lead)));
   c.snaps = c.words.filter((w) => !w.lead).length;
   console.log(c.id.padEnd(6) + ' ' + c.start.toFixed(2).padStart(7) + ' +' + (out + c.pad / TEMPO).toFixed(2) + 's  first word at ' +

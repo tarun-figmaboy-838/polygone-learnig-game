@@ -1,0 +1,154 @@
+{
+ "source": "assets/source/vo-masters/swiftee-visit.mp3",
+ "seconds": 8.803,
+ "model": "Xenova/wav2vec2-base-960h",
+ "frameMs": 20,
+ "note": "Word times in seconds from the start of the take, by CTC forced alignment (tools/align-vo.js). tools/split-vo.js cuts the clips from this and writes their word starts into assets/vo/word-timings.json.",
+ "silences": [
+  [
+   1.422,
+   1.53
+  ],
+  [
+   1.569,
+   2.273
+  ],
+  [
+   2.488,
+   2.59
+  ],
+  [
+   3.46,
+   3.768
+  ],
+  [
+   4.86,
+   4.99
+  ],
+  [
+   5.779,
+   6.843
+  ],
+  [
+   8.612,
+   8.803
+  ]
+ ],
+ "derived": [],
+ "lines": [
+  {
+   "id": "sw1",
+   "text": "Momo needs your help.",
+   "start": 0.1,
+   "end": 1.46,
+   "words": [
+    {
+     "text": "Momo",
+     "start": 0.1,
+     "end": 0.44
+    },
+    {
+     "text": "needs",
+     "start": 0.62,
+     "end": 0.88
+    },
+    {
+     "text": "your",
+     "start": 0.94,
+     "end": 1.14
+    },
+    {
+     "text": "help.",
+     "start": 1.24,
+     "end": 1.46
+    }
+   ]
+  },
+  {
+   "id": "sw2",
+   "text": "But to help Momo, you need to learn about polygons.",
+   "start": 2.34,
+   "end": 5.6,
+   "words": [
+    {
+     "text": "But",
+     "start": 2.34,
+     "end": 2.52
+    },
+    {
+     "text": "to",
+     "start": 2.58,
+     "end": 2.66
+    },
+    {
+     "text": "help",
+     "start": 2.74,
+     "end": 2.92
+    },
+    {
+     "text": "Momo,",
+     "start": 3.04,
+     "end": 3.34
+    },
+    {
+     "text": "you",
+     "start": 3.8,
+     "end": 3.9
+    },
+    {
+     "text": "need",
+     "start": 3.98,
+     "end": 4.12
+    },
+    {
+     "text": "to",
+     "start": 4.18,
+     "end": 4.26
+    },
+    {
+     "text": "learn",
+     "start": 4.32,
+     "end": 4.52
+    },
+    {
+     "text": "about",
+     "start": 4.58,
+     "end": 4.82
+    },
+    {
+     "text": "polygons.",
+     "start": 4.98,
+     "end": 5.6
+    }
+   ]
+  },
+  {
+   "id": "sw3",
+   "text": "Now let’s help Momo.",
+   "start": 6.94,
+   "end": 8.6,
+   "words": [
+    {
+     "text": "Now",
+     "start": 6.94,
+     "end": 7.18
+    },
+    {
+     "text": "let’s",
+     "start": 7.38,
+     "end": 7.66
+    },
+    {
+     "text": "help",
+     "start": 7.76,
+     "end": 7.96
+    },
+    {
+     "text": "Momo.",
+     "start": 8.14,
+     "end": 8.6
+    }
+   ]
+  }
+ ]
+}

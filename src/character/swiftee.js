@@ -216,7 +216,6 @@
     // held for the whole line: he keeps the book open while it is read
     recall:      { rig: 'reading',     hold: true, seated: 'think', level: 2, tier: 'present' },
     note:        { rig: 'writing',     hold: true, seated: 'explain', level: 2, tier: 'present' },
-    investigate: { rig: 'learning',    loops: 1, seated: 'inspect', level: 2, tier: 'present' },
     // held while the child measures the angles: the same glass, looking with them
     examine:     { rig: 'learning',    hold: true, seated: 'inspect', level: 2, tier: 'present' },
     build:       { rig: 'puzzleing',   loops: 1, seated: 'point', level: 2, tier: 'present' },
@@ -249,14 +248,16 @@
     // No flight rig exists either. He waves as he goes, and travels on the
     // liveliest loop the set has.
     exit:        { rig: 'flapping',    hold: true },   // he flies off, wings going
+    // onto the log arc at the left of the ground: a short curved flight and a landing (MOVES.perch)
+    perch:       { rig: 'flapping',    hold: true },
     move:        { rig: 'flapping',    hold: true }
   };
 
   /**
-   * Warmed before the start button is released: the resting loop, the
+   * Decoded before the start button is released: the resting loop, the
    * greeting and the narration loop — the only clips screen 1 can reach.
-   * Everything else is fetched the first time it is asked for, which costs
-   * one 400ms grace period per expression, once per session.
+   * (Every sheet is fetched before Start, sheetUrls; these are the ones that
+   * are also decoded and pinned, so screen 1 never waits on a decode.)
    */
   var PRELOAD = ['blinking',
                  'wave_start', 'waving', 'wave_stop',
@@ -290,14 +291,9 @@
    * are the two that would otherwise be evicted and reloaded constantly.
    */
   var SHEET_BUDGET = 10;
-  /* THE RESTING LOOP WAS NOT THE ONE BEING PINNED.
-   *
-   * `blinking` is pinned here and warmed above, and nothing plays it: the
-   * state table's `idle` points at `listening`, and has since the "wings not
-   * moving" fix. So the one loop he spends most of the lesson in held no slot
-   * at all — it was evicted by the forty-odd other clips competing for ten,
-   * and every return to rest paid a fetch and a grace period, over and over,
-   * while a pinned slot sat on a sheet that is never drawn. */
+  /* THE RESTING LOOP IS PINNED. `blinking` is the state table's `idle` — the loop he spends
+     most of the lesson in — so it holds a slot for good, with the talking clips and the
+     flight, and never pays a fetch or a grace period on a return to rest. */
   var PINNED = { blinking: 1, talking: 1, talk_start: 1, talk_stop: 1, flapping: 1 };
 
   var IDLE_DAYDREAM_MS = 30000;
@@ -308,6 +304,20 @@
    * ------------------------------------------------------------------ */
 
   var el = null, cellEl = null, shadowEl = null, flightEl = null;
+  /* THE CELL IS DRAWN, NOT SWAPPED (the production glitch). Each frame used to be the cell's CSS
+     background, and a new clip swapped that background to its sheet whether or not the sheet
+     had arrived: awaitSheet waits 400 ms at most, then the clip starts regardless. A CSS
+     background pointing at an image that is still downloading — or loaded but not yet decoded
+     — paints NOTHING, so on a real network Swiftee went blank between states (measured on the
+     deployed build: every state change on screens 1–4 blank on a slow line with the cache off,
+     and a one-frame blank on a clean load). Now every frame is drawn on a canvas from an Image
+     that has loaded AND decoded; a frame whose sheet is not ready is not drawn, so the last good
+     frame stays on screen until it is (`held`, retried every tick). The canvas is a fixed 512
+     square (the @2x cell), so a change of sheet resolution never clears it. Where there is no
+     canvas (jsdom), the old background path is kept. */
+  var canvasEl = null, cctx = null, held = null, drawnOnce = false;
+  var flightReady = false, flightHold = null;   // the inspection flight's art: decoded, and kept
+  var CANVAS_PX = 512;
   var flightArt = null;
   var layout = null;                  // function(pos, size) -> { x, y, scale }
   var pos = 'left', size = 'medium';
@@ -357,7 +367,15 @@
     rec.promise = new Promise(function (resolve) {
       if (!global.Image) { resolve(false); return; }
       var img = new global.Image();
-      img.onload = function () { rec.ok = true; everLoaded[u] = true; resolve(true); };
+      // READY MEANS DECODED: a loaded image can still cost a decode on first paint
+      var ready = function () {
+        if (rec.ok) return;
+        rec.ok = true; everLoaded[u] = true; resolve(true);
+        if (held) paint(held.name, held.frame);
+      };
+      img.onload = function () {
+        if (img.decode) img.decode().then(ready, ready); else ready();
+      };
       img.onerror = function () {
         // Do not cache a failure. A sheet can fail for reasons that pass —
         // a device briefly out of resources, a flaky connection — and a
@@ -370,7 +388,7 @@
       };
       img.src = u;
       rec.img = img;
-      if (img.complete && img.naturalWidth) { rec.ok = true; resolve(true); }
+      if (img.complete && img.naturalWidth) { if (img.decode) img.decode().then(ready, ready); else ready(); }
     });
     sheets[u] = rec;
     evict();
@@ -381,7 +399,10 @@
   function evict() {
     var keys = Object.keys(sheets);
     if (keys.length <= SHEET_BUDGET) return;
-    keys.filter(function (k) { return !sheets[k].pinned && sheets[k].url !== painted; })
+    // (never one still in flight: dropping its Image cancels the download, and it would only be
+    // asked for again — nor the sheet a held frame is waiting on)
+    var waiting = held && pagesOf(held.name) ? pagesOf(held.name).map(function (pg) { return url(pg.image); }) : [];
+    keys.filter(function (k) { return !sheets[k].pinned && sheets[k].url !== painted && sheets[k].ok && waiting.indexOf(k) < 0; })
         .sort(function (a, b) { return sheets[a].used - sheets[b].used; })
         .slice(0, keys.length - SHEET_BUDGET)
         .forEach(function (k) {
@@ -441,9 +462,24 @@
     var local = frame - page.first;
     var col = local % page.cols, row = Math.floor(local / page.cols);
 
+    var u = url(page.image);
+    if (cctx) {
+      var rec = sheets[u] || sheet(page.image, name);
+      rec.used = ++sheetClock;
+      // NOT READY: nothing is drawn, so the last good frame stays up — never a blank cell
+      if (!rec.ok || !rec.img || !rec.img.naturalWidth) { held = { name: name, frame: frame }; return; }
+      held = null;
+      var img = rec.img, sw = img.naturalWidth / page.cols, sh = img.naturalHeight / page.rows;
+      cctx.clearRect(0, 0, CANVAS_PX, CANVAS_PX);
+      cctx.drawImage(img, col * sw, row * sh, sw, sh, 0, 0, CANVAS_PX, CANVAS_PX);
+      if (painted !== u) { painted = u; cellEl.setAttribute('data-sheet', page.image); }
+      cellEl.setAttribute('data-frame', String(frame));
+      // the first real frame reveals the cell: before it, nothing (never a wrong or empty frame)
+      if (!drawnOnce) { drawnOnce = true; canvasEl.style.visibility = 'visible'; }
+      return;
+    }
     // Only touch background-image when the page actually changes; the
     // position is the per-frame work and it is a single style write.
-    var u = url(page.image);
     if (painted !== u) {
       cellEl.style.backgroundImage = 'url("' + u + '")';
       cellEl.style.backgroundSize = (page.cols * CELL_PX) + 'px ' + (page.rows * CELL_PX) + 'px';
@@ -468,7 +504,7 @@
       var frame = Math.floor((t - flightArt.start) / 110) % 4;
       if (frame !== flightArt.frame) {
         flightArt.frame = frame;
-        flightEl.style.backgroundPosition = (3 - frame * 250) + 'px -38px';
+        if (flightHold) flightHold.style.left = (3 - frame * 250) + 'px';
         var r = el.getBoundingClientRect();
         var dx = flightArt.target.x - (r.left + r.width / 2);
         var dy = flightArt.target.y - (r.top + r.height / 2);
@@ -477,6 +513,7 @@
         flightEl.style.transform = 'scaleX(' + facing + ') rotate(' + (pitch * facing).toFixed(1) + 'deg)';
       }
     }
+    if (held) paint(held.name, held.frame);
     if (!active) return;
     active.acc += dt;
     var step = 1000 / F.fps;
@@ -499,6 +536,60 @@
     for (i = 0; i < c.frames; i++) out.push(i);
     if (c.pingpong) for (i = c.frames - 2; i > 0; i--) out.push(i);
     return out;
+  }
+
+  /* NO FRAME WITH TWO OF HIM (the user: "why u add 2 swiftee layers?"). The rig was rendered
+     from Rive, and its transitions CROSS-FADE one pose into the next: the middle frames of most
+     start / stop clips (and four stretches of `excited`, the finale's) hold both poses at once,
+     half see-through — two Swiftees, one over the other, for a fifth of a second. Found by
+     measuring every cell of every sheet: on a clean frame about 3.5 per cent of his body is half-
+     transparent (its soft edge), on these 8 to 54 (and the faint frame either side of such a run).
+     Each is drawn as the nearest clean frame instead — the first half of a run holds the pose
+     before it, the second half the pose after — so a change of pose is one clean cut, and every
+     clip keeps its length, so nothing timed against it moves. */
+  var BLENDED = {
+    celebrate_start: [1,  2,  3,  4],
+    celebrate_stop: [2,  3,  4,  5,  6,  7],
+    confused_start: [1,  2,  3,  4,  5],
+    confused_stop: [1,  2,  3,  4],
+    curious_start: [1,  2,  3,  4,  5,  6],
+    curious_stop: [1,  2,  3,  4,  5,  6,  7],
+    driving: [45,  46,  47],
+    excited: [5,  6,  7,  8,  9,  10,  11,  12,  25,  26,  27,  28,  29,  30,  31,  41,  42,  43,  44,  45,  46,  63,  64,  65,  66,  67],
+    focussed_start: [1,  2,  3,  4,  5],
+    focussed_stop: [1,  2,  3,  4,  5],
+    learning_start: [1,  2,  3,  4,  5,  6,  7,  8,  9],
+    learning_stop: [0,  1,  2,  3,  4,  5,  6,  7,  8],
+    playful_start: [1,  2,  3,  4,  5,  6],
+    playful_stop: [1,  2,  3,  4,  5,  6,  7,  8],
+    proud_start: [1,  2,  3,  4,  5],
+    proud_stop: [1,  2,  3,  4,  5],
+    puzzle_start: [1,  2,  3,  4,  5],
+    puzzle_stop: [1,  2,  3,  4,  5],
+    reading_start: [1,  2,  3,  4,  5,  6],
+    reading_stop: [1,  2,  3,  4,  5,  6],
+    relieved_start: [1,  2,  3,  4,  5,  6],
+    relieved_stop: [1,  2,  3,  4,  5,  6],
+    thinking_start: [7,  8],
+    thinking_stop: [1,  2],
+    wave_start: [1,  2,  3,  4,  5],
+    wave_stop: [1,  2,  3,  4,  5],
+    write_start: [1,  2,  3,  4,  5],
+    write_stop: [1,  2,  3,  4]
+  };
+  function solidOrder(name, list) {
+    var b = BLENDED[name], c = F.clips[name], n = c && c.frames;
+    if (!b || !n) return list;
+    return list.map(function (f) {
+      if (b.indexOf(f) < 0) return f;
+      var lo = f, hi = f;
+      while (b.indexOf(lo - 1) >= 0) lo--;
+      while (b.indexOf(hi + 1) >= 0) hi++;
+      var before = lo - 1, after = hi + 1;
+      if (before < 0) return after < n ? after : f;
+      if (after >= n) return before;
+      return (f - lo) < (hi - lo + 1) / 2 ? before : after;
+    });
   }
 
   function advance() {
@@ -529,11 +620,12 @@
     }
     if (active && active.resolve) active.resolve({ interrupted: true });
     active = null;
+    preload([name]);   // every page of it, not only the first
 
     return awaitSheet(name).then(function () {
       return new Promise(function (resolve) {
         var a = {
-          name: name, order: frames || order(c), i: 0, passes: 0,
+          name: name, order: solidOrder(name, frames || order(c)), i: 0, passes: 0,
           repeats: repeats == null ? 1 : repeats, acc: 0, resolve: resolve
         };
         active = a;
@@ -726,7 +818,7 @@
   }
   function flyAround(o, g) {
     place(pos, size);
-    stateName = 'enter';
+    stateName = o.state || 'enter';
     var stops = (o.tour || []).filter(function (p) { return p && isFinite(p.x) && isFinite(p.y); });
     if (reduced || !el.animate || !stops.length) { el.style.opacity = '1'; return rest(); }
     cancelAll();
@@ -755,7 +847,8 @@
     // (o.from is the word 'air'; the start is off the upper left unless a point is given)
     var start = (o.start && isFinite(o.start.x)) ? o.start : { x: -Math.max(160, b.width), y: Math.max(40, b.height * 0.5), scale: 0.6, tilt: 10 };
     var land = { x: home.x, y: home.y, scale: 1, tilt: 0 };
-    var approach = { x: home.x - 10, y: home.y - 34, scale: 0.97, tilt: 0 };
+    // (down onto his mark from the side he is flying in from)
+    var approach = { x: home.x + (start.x > home.x ? 10 : -10), y: home.y - 34, scale: 0.97, tilt: 0 };
     var P = [start].concat(stops).concat([approach, land]);
     var cr = function (p0, p1, p2, p3, u) {
       var u2 = u * u, u3 = u2 * u;
@@ -787,7 +880,9 @@
         v -= dip * Math.exp(-d * d);
       }
       v = Math.max(0.12, v);
-      v *= 0.55 + 0.45 * smooth(sAt / 120);                        // already flying as he comes on
+      // already flying as he comes on — or, taking off from where he stood (o.fromRest), from
+      // a standstill: the first stretch gathers speed rather than starting at it
+      v *= o.fromRest ? Math.max(0.15, smooth(sAt / 110)) : 0.55 + 0.45 * smooth(sAt / 120);
       v *= Math.max(0.05, smooth((pathLen - sAt) / 150));             // and down to nothing at his mark
       return v;
     };
@@ -840,7 +935,8 @@
       var tilt = (bank * 0.8 + look * 0.6) * (1 - landing);
       keys.push(frame({ x: x, y: y + bob, scale: sc, tilt: +tilt.toFixed(2) }, { offset: +(fN / FRAMES).toFixed(4) }));
     }
-    keys[0].opacity = 0; keys[1].opacity = 1;
+    // (in from off the stage he fades in; taking off from where he stood, he is there already)
+    if (!o.fromRest) { keys[0].opacity = 0; keys[1].opacity = 1; }
     // a flight that cannot be computed is not played as a bird standing still
     if (!isFinite(dur) || keys.some(function (k) { return /NaN/.test(k.transform); })) throw new Error('flight');
     keys[keys.length - 1] = frame(land, { offset: 1 });
@@ -848,19 +944,19 @@
     airborne = true;
     if (shadowEl) shadowEl.style.opacity = '0';
     clip('flapping', Infinity);
+    /* ONE DRAWING OF HIM AT A TIME (the user: "why swiftee flying animation have 2 layer of
+       swiftee?"). Taking off and landing, the standing bird and the flying one were cross-faded —
+       170 ms out, 230 ms in — and for those moments both were on screen, half see-through, one
+       over the other. Now each is a clean change: to the flying drawing as he lifts (startFlightArt
+       hides the cell), and back to the standing one a sixth of a second before his feet arrive —
+       where the fade used to be half way — so the timing of the landing is as it was. */
     startFlightArt(o.look || { x: stops[0].x, y: stops[0].y });
     setTimeout(function () {
       if (stale(g) || !flightArt || !cellEl || !flightEl) return;
-      cellEl.style.visibility = 'visible';
-      cellEl.style.opacity = '0';
-      cellEl.style.transition = 'opacity 230ms ease';
-      flightEl.style.transition = 'opacity 230ms ease';
-      (global.requestAnimationFrame || setTimeout)(function () {
-        if (!flightArt || stale(g)) return;
-        cellEl.style.opacity = '1';
-        flightEl.style.opacity = '0';
-      }, 16);
-    }, Math.max(0, dur - 270));
+      cellEl.style.transition = ''; flightEl.style.transition = '';
+      cellEl.style.visibility = 'visible'; cellEl.style.opacity = '1';
+      flightEl.style.opacity = '0';
+    }, Math.max(0, dur - 160));
     // the shadow comes back under him as his feet arrive, not after
     setTimeout(function () {
       if (!shadowEl || stale(g)) return;
@@ -870,7 +966,10 @@
     var total = dur;
     var a = anim(keys, { duration: total, easing: 'linear', composite: 'replace' });
     // (the shadow has already come back under his feet, above)
-    var touchDown = function () { airborne = false; if (shadowEl) shadowEl.style.opacity = ''; stopFlightArt(); };
+    var touchDown = function () {
+      airborne = false; if (shadowEl) shadowEl.style.opacity = ''; stopFlightArt();
+      if (typeof o.onLand === 'function') { try { o.onLand(); } catch (e) {} }
+    };
     return a.finished.then(function () {
       touchDown();
       if (stale(g)) return null;
@@ -966,7 +1065,7 @@
     el.style.left = L.x + 'px';
     el.style.top = L.y + 'px';
     el.style.transform = 'translate(-50%,-' + (F.baselineY * 100).toFixed(1) + '%) scale(' + L.scale + ')';
-    chooseScale(L.scale);
+    chooseScale(L.scale / (L.cam || 1));   // the sheet for his usual size, not the camera's (game.js applyCam)
     clipY = L.clip == null ? null : L.clip;
     applyClip();
     airborne = !!L.air;
@@ -994,7 +1093,9 @@
     if (want === scale) return;
     scale = want;
     painted = null;                                    // force a background-image swap
-    sheets = {};                                       // the other scale's pages are dead weight
+    // the other scale's pages are dead weight — but the one on screen (and on the canvas) stays
+    // until the new scale's page is drawn over it
+    Object.keys(sheets).forEach(function (k) { if (!sheets[k].ok || !cctx) delete sheets[k]; });
     if (active) paint(active.name, active.order[active.i]);
   }
 
@@ -1075,10 +1176,18 @@
   }
 
   function startFlightArt(target) {
-    if (!flightEl || !cellEl || reduced) return;
+    // NOT BEFORE ITS ART IS IN: the flight hides the cell and shows the flight art, and art that
+    // has not arrived is an empty box — he flew as nothing (the production glitch). Without it the
+    // cell's own flapping clip carries the flight, which is always there (pinned, preloaded).
+    if (!flightEl || !cellEl || reduced || !flightReady) return;
     flightArt = { target: target, start: nowMs(), frame: -1 };
-    cellEl.style.visibility = 'hidden';
-    cellEl.style.opacity = '1';
+    /* HIDDEN BY ITS OPACITY, NOT ITS VISIBILITY (the user, screen 23: "why u add extra swiftee
+       sticker on flying animation?"). The cell's canvas carries visibility: visible of its own
+       (set on its first frame, paint()), and a child that says visible is shown inside a parent
+       that says hidden — so the standing bird's flapping clip flew under the flight art the whole
+       way, a second Swiftee showing at his edges. Opacity cannot be undone by a child. */
+    cellEl.style.transition = '';
+    cellEl.style.opacity = '0';
     flightEl.style.display = 'block';
     flightEl.style.opacity = '1';
   }
@@ -1360,6 +1469,34 @@
      * the truth and the bubble can be placed against it the moment this
      * resolves.
      */
+    /** ONTO THE LOG ARC (the 'log' mark), FLYING (the user: "a proper flying transition").
+        The same flight his arrival by air is (flyAround): the flying drawing, wings going and a
+        wingbeat's lift the whole way, banking into the turn, up and over on one smooth curve
+        from where he stands — gathering speed off the ground — easing down onto the log from
+        the side he comes from, the landing squash, and settled. o.size, o.ms, o.bow (how far
+        the curve rises over the higher of its two ends, px). A move with nowhere to fly from,
+        or with reduced motion, is the plain move. */
+    perch: function (o) {
+      o = o || {};
+      var b0 = el && api.bounds();
+      if (!layout || !b0 || reduced || !el.animate) return MOVES.move(Object.assign({}, o, { to: 'log' }));
+      var from = { x: (b0.left + b0.right) / 2, y: (b0.top + b0.bottom) / 2 };
+      var g = fresh();
+      pos = 'log'; size = o.size || size;
+      place(pos, size);
+      var b1 = api.bounds();
+      var to = { x: (b1.left + b1.right) / 2, y: (b1.top + b1.bottom) / 2 };
+      var bow = Math.max(40, +o.bow || 110);
+      var dir = to.x < from.x ? -1 : 1;
+      try {
+        return flyAround({ start: { x: from.x, y: from.y, scale: 1, tilt: 0 },
+                           tour: [{ x: from.x + (to.x - from.x) * 0.5, y: Math.min(from.y, to.y) - bow, hold: 0 }],
+                           ms: o.ms || 1300, fromRest: true, state: 'perch', onLand: o.onLand,
+                           // he faces the way he is going, the whole way
+                           look: { x: to.x + dir * 480, y: to.y } }, g);
+      } catch (e) { place(pos, size); return rest(); }
+    },
+
     move: function (o) {
       if (!layout) return Promise.resolve();
       var fromP = layout(pos, size);
@@ -1369,22 +1506,49 @@
       el.style.opacity = toPos === 'off' ? '0' : '1';
 
       var g = fresh(); stateName = 'move'; rigLoop = null;
+      /* A FLIGHT, NOT A SLIDE (o.arc, px): up and over along one smooth curve — bowed up by
+         `arc` at its middle, eased in and out — and down onto the new mark with the landing
+         squash (BODY.land), in o.ms. Without it, the move it always was. */
+      var arc = Math.max(0, +o.arc || 0), ms = Math.max(200, +o.ms || 680);
       clip('flapping', Infinity);
-      liftShadow(680);
+      liftShadow(arc ? ms : 680);
       place(pos, size);
       // The clip belongs to where he lands, not to the flight: cut at the
       // rim while still in the air he would arrive in two pieces.
       var landingClip = clipY; clipY = null; applyClip();
 
-      var dx = toP.x - fromP.x, dy = toP.y - fromP.y, ds = fromP.scale / toP.scale;
-      var a = anim([
-        { transform: 'translate(' + (-dx) + 'px,' + (-dy) + 'px) scale(' + ds + ')' },
-        { transform: 'translate(0,0) scale(1)' }
-      ], { duration: 680, easing: 'cubic-bezier(.22,1,.36,1)' });
+      /* IN HIS OWN PIXELS. The movement is ADDED to his resting transform (anim: composite
+         'add'), and that ends in his scale — so a translate added after it is multiplied by
+         the scale on its way to the screen. Taken as screen pixels, every move started that
+         many times too far from where he stood: at 1080p the flight to the log began with a
+         jump to the lower right, half off the screen. Divided by it, the first frame is
+         exactly where he was, and the bow is the height it was asked for. */
+      var S = toP.scale || 1;
+      var dx = (toP.x - fromP.x) / S, dy = (toP.y - fromP.y) / S, ds = fromP.scale / toP.scale;
+      var bow = arc / S;
+      var keys;
+      if (arc) {
+        keys = [];
+        for (var k = 0; k <= 20; k++) {
+          var t = k / 20, e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+          var px = -dx * (1 - e), py = -dy * (1 - e) - bow * 4 * e * (1 - e), sc = ds + (1 - ds) * e;
+          keys.push({ transform: 'translate(' + px.toFixed(2) + 'px,' + py.toFixed(2) + 'px) scale(' + sc.toFixed(4) + ')', offset: t });
+        }
+      } else {
+        keys = [
+          { transform: 'translate(' + (-dx) + 'px,' + (-dy) + 'px) scale(' + ds + ')' },
+          { transform: 'translate(0,0) scale(1)' }
+        ];
+      }
+      var a = anim(keys, { duration: arc ? ms : 680, easing: arc ? 'linear' : 'cubic-bezier(.22,1,.36,1)' });
       var land = function () { clipY = landingClip; applyClip(); };
       return a.finished.then(function () {
         land();
         if (stale(g)) return;
+        // (touchdown: whoever put something at his feet to land in is told now — the squash
+        // happens there, not a beat later)
+        if (typeof o.onLand === 'function') { try { o.onLand(); } catch (e) {} }
+        if (arc) return bounce('land').then(function () { return stale(g) ? null : rest(); });
         return rest();
       }, land);
     }
@@ -1459,6 +1623,16 @@
       if (shiftAnim) { try { shiftAnim.cancel(); } catch (e) {} }
       shiftAnim = anim([{ transform: 'translateX(0)' }, { transform: 'translateX(' + def.shift + 'px)' }],
                        { duration: 520, easing: 'ease-out', fill: 'forwards' });
+    }
+
+    /* THE SAME HELD STATE, ASKED FOR AGAIN, IS NOT RESTARTED (as rest() already does). Every
+       play() ran the state from the top, so a second request for the pose he was already
+       holding reset its loop to the first frame — a visible twitch, and on a slow line a wait on
+       a sheet he was already showing. A held loop that is running stays running; opts.restart
+       asks for the old behaviour. */
+    if (def.hold && state === stateName && !opts.restart && !busy && rigLoop === def.rig &&
+        active && active.repeats === Infinity && active.name === triad(def.rig).loop) {
+      return Promise.resolve({ holding: true, same: true });
     }
 
     var g = fresh();
@@ -1542,7 +1716,8 @@
     else if (def.again && opts && opts.misses > 1 && STATES[def.again]) state = def.again;
     else if (def.variants && def.variants.length) state = def.variants[hashOf(opts && opts.key) % def.variants.length];
     def = STATES[state];
-    if (def && def.seated && airborne && STATES[def.seated]) state = def.seated;
+    // (and on the log: those prop drawings sit on the ground, and he is sitting on a log)
+    if (def && def.seated && (airborne || pos === 'log') && STATES[def.seated]) state = def.seated;
     return state;
   }
 
@@ -1664,10 +1839,14 @@
     // standing on the ice rather than floating above it. It squashes and
     // fades with him, which is most of what sells a hop as a hop.
     shadowEl = document.createElement('div');
+    /* SOFT, WIDE AND LIGHT (the user: "the shadow on Swiftee when he stands on the stone does
+       not look natural"): snow is the brightest ground there is and throws light back up, so
+       the shadow under a bird on it is a pale, wide, soft pool right at his feet — not the
+       small dark disc this was, which sat on the stone's white cap like a stain. */
     shadowEl.style.cssText =
       'position:absolute;left:50%;top:' + (F.baselineY * 100).toFixed(1) + '%;' +
-      'width:50%;height:8%;transform:translate(-50%,-35%);border-radius:50%;transition:opacity 320ms ease;' +
-      'background:radial-gradient(closest-side, rgba(24,52,96,.42), rgba(24,52,96,.14) 62%, rgba(24,52,96,0));';
+      'width:58%;height:9%;transform:translate(-50%,-40%);border-radius:50%;transition:opacity 320ms ease;' +
+      'background:radial-gradient(closest-side, rgba(30,60,110,.26), rgba(30,60,110,.10) 55%, rgba(30,60,110,0));';
 
     cellEl = document.createElement('div');
     // A SHADOW, NOT A GLOW. He used to carry a white rim — two white
@@ -1678,15 +1857,27 @@
     // does the separating on its own: it follows the sprite's alpha, so it
     // traces the bird rather than boxing the cell, and it reads as weight
     // rather than as an effect.
+    // (close under him and faint: the 7px drop it had put a second, dark shadow of each wing
+    // on the snow beside his feet — two shadows from two suns)
     cellEl.style.cssText =
       'position:absolute;inset:0;background-repeat:no-repeat;image-rendering:auto;' +
-      'filter: drop-shadow(0 7px 11px rgba(24,52,96,.30));';
+      'filter: drop-shadow(0 3px 5px rgba(24,52,96,.20));';
+    // (not under jsdom, which has no 2D context and says so on the console)
+    var jsdom = /jsdom/i.test((global.navigator && global.navigator.userAgent) || '');
+    if (!jsdom && global.HTMLCanvasElement) {
+      canvasEl = document.createElement('canvas');
+      canvasEl.width = CANVAS_PX; canvasEl.height = CANVAS_PX;
+      canvasEl.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;visibility:hidden;pointer-events:none;';
+      try { cctx = canvasEl.getContext('2d'); } catch (e) { cctx = null; }
+      if (cctx) { cctx.imageSmoothingEnabled = true; cctx.imageSmoothingQuality = 'high'; cellEl.appendChild(canvasEl); }
+      else canvasEl = null;
+    }
 
     flightEl = document.createElement('div');
+    // (the flight art is the decoded Image itself, placed inside — see flightHold below — not a
+    // CSS background, which asked for the file again and showed nothing until it came)
     flightEl.style.cssText =
-      'position:absolute;inset:0;display:none;pointer-events:none;background-repeat:no-repeat;' +
-      'background-image:url("' + url('swiftee-inspect-flight.webp') + '");' +
-      'background-size:1000px 333px;background-position:3px -38px;transform-origin:50% 50%;' +
+      'position:absolute;inset:0;display:none;pointer-events:none;overflow:hidden;transform-origin:50% 50%;' +
       'filter:drop-shadow(0 7px 11px rgba(24,52,96,.24));';
 
     el.appendChild(shadowEl);
@@ -1696,7 +1887,19 @@
 
     if (opts.layout) layout = opts.layout;
     preload(PRELOAD);
-    if (global.Image) { var flightImage = new Image(); flightImage.src = url('swiftee-inspect-flight.webp'); }
+    // (and it is only used once it has loaded and decoded — flightReady, startFlightArt)
+    if (global.Image) {
+      var flightImage = new Image();
+      var flightOk = function () { flightReady = true; };
+      flightImage.onload = function () { if (flightImage.decode) flightImage.decode().then(flightOk, flightOk); else flightOk(); };
+      flightImage.src = global.Preload && Preload.pick ? Preload.pick(url('swiftee-inspect-flight.webp')) : url('swiftee-inspect-flight.webp');
+      flightHold = flightImage;   // (held, so the decoded art stays in memory)
+      // the strip of four frames, 1000 x 333, stepped by moving it (tick): the same pixels the
+      // background used to show, from an image already in hand
+      flightImage.alt = ''; flightImage.draggable = false;
+      flightImage.style.cssText = 'position:absolute;left:3px;top:-38px;width:1000px;height:333px;max-width:none;pointer-events:none;';
+      flightEl.appendChild(flightImage);
+    }
     // Decode the one-off arrival art while the title screen is waiting. The
     // three large sheets used to start loading only after Start was pressed,
     // which presented an empty canvas as a visible pause before the sleigh.
@@ -1797,10 +2000,22 @@
         warms the reaction set — what a tap can reach. */
     warm: function (names) { preload(names || REACTIONS); },
 
+    /** Every sheet page at the resolution chosen for this screen, and the inspection flight:
+        what the loading bar fetches before Start (src/core/preload.js). */
+    sheetUrls: function () {
+      var out = {};
+      Object.keys(F.clips).forEach(function (n) { (pagesOf(n) || []).forEach(function (p) { out[url(p.image)] = 1; }); });
+      out[url('swiftee-inspect-flight.webp')] = 1;
+      return Object.keys(out);
+    },
+
     get el() { return el; },
     get pos() { return pos; },
     /** Has the sleigh been? Read by the suites and probes. */
     get arrived() { return arrived; },
+    /** The review tool's jump past the opening: the sled ride is the opening's alone, so a
+        lesson entered part way through brings him on with the ordinary walk-on (game.js goTo). */
+    markArrived: function () { arrived = true; },
     get size() { return size; },
     get state() { return stateName; },
     get scale() { return scale; },

@@ -1,0 +1,117 @@
+{
+  "assets/bg/ice-vista.webp": {
+    "q": 75,
+    "webp": "5c7e6adb",
+    "avif": "0a5a529b"
+  },
+  "assets/bg/ledge-r.webp": {
+    "q": 80,
+    "webp": "5ceca85d",
+    "avif": "cbcf0194"
+  },
+  "assets/bg/stone-snowy.webp": {
+    "q": 76,
+    "webp": "fc9d8c2f",
+    "avif": "49cb0741"
+  },
+  "assets/swiftee/intro/sheet1.webp": {
+    "q": 88,
+    "webp": "a4ce4020",
+    "avif": "8fcb2fd8"
+  },
+  "assets/swiftee/intro/sheet2.webp": {
+    "q": 88,
+    "webp": "1cb417b6",
+    "avif": "3fdf766c"
+  },
+  "assets/swiftee/intro/sheet3.webp": {
+    "q": 91,
+    "webp": "8cfce542",
+    "avif": "271dcbe7"
+  },
+  "assets/swiftee/swiftee-angle-intact-v4.webp": {
+    "q": 86,
+    "webp": "0086e8a1",
+    "avif": "c75abed1"
+  },
+  "assets/swiftee/swiftee-inspect-flight.webp": {
+    "q": 78,
+    "webp": "6afa3c49",
+    "avif": "d4079cc6"
+  },
+  "assets/swiftee/swiftee-measuring.webp": {
+    "q": 90,
+    "webp": "246d8e62",
+    "avif": "bc2b7e46"
+  },
+  "assets/ui/bin-concave.webp": {
+    "q": 78,
+    "webp": "182f77d5",
+    "avif": "aac17c8a"
+  },
+  "assets/ui/bin-convex.webp": {
+    "q": 82,
+    "webp": "3da12bf1",
+    "avif": "f8936457"
+  },
+  "assets/ui/btn-uiDanger.webp": {
+    "q": 84,
+    "webp": "13d5490e",
+    "avif": "c2c85bb2"
+  },
+  "assets/ui/btn-uiNav.webp": {
+    "q": 84,
+    "webp": "dbbb52c5",
+    "avif": "0530955a"
+  },
+  "assets/ui/btn-uiPrimary.webp": {
+    "q": 83,
+    "webp": "d8ec3af2",
+    "avif": "d8f6defc"
+  },
+  "assets/ui/btn-uiSuccess.webp": {
+    "q": 84,
+    "webp": "708e08a2",
+    "avif": "520b2707"
+  },
+  "assets/ui/card.webp": {
+    "q": 82,
+    "webp": "bcc5169a",
+    "avif": "222c8340"
+  },
+  "assets/ui/compare.webp": {
+    "q": 68,
+    "webp": "7cc66c2b",
+    "avif": "76d4907c"
+  },
+  "assets/ui/hand.webp": {
+    "q": 83,
+    "webp": "53c5fa4e",
+    "avif": "e8bc3ee8"
+  },
+  "assets/ui/measure.webp": {
+    "q": 80,
+    "webp": "6f507de8",
+    "avif": "5bc8d8dc"
+  },
+  "assets/ui/panel.webp": {
+    "q": 82,
+    "webp": "0e45767f",
+    "avif": "366d16e6"
+  },
+  "assets/ui/plank.webp": {
+    "q": 84,
+    "webp": "ef53d389",
+    "avif": "cc10196e"
+  },
+  "assets/ui/zone-irregular.webp": {
+    "q": 70,
+    "webp": "3aed40b0",
+    "avif": "664ceb71"
+  },
+  "assets/ui/zone-regular.webp": {
+    "q": 72,
+    "webp": "b52e2d9d",
+    "avif": "aa47cc12"
+  }
+}

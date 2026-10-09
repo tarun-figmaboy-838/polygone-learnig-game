@@ -151,6 +151,11 @@ const p15 = Screens.byId['hexagon-your-turn'];
 t('page 15 exists', !!p15);
 t('the "your turn" screen ships no ghost answers',
   !allBeats(p15).some((b) => b.stage && b.stage.ghost), allBeats(p15).filter((b) => b.stage && b.stage.ghost));
+// (the user: "remove the Hexagon name tag … do not replace it with another shape-name tag")
+t('the hexagon card carries no name tag', ![p15.stage].concat(allBeats(p15).map((b) => b.stage)).some((sg) => sg && sg.label && sg.label.text),
+  [p15.stage].concat(allBeats(p15).map((b) => b.stage)).filter((sg) => sg && sg.label));
+// (and a line to a neighbour there is a side, its end disabled — never a wrong answer: stage.js sidesOk)
+t('the hexagon takes a side on the way to its diagonals', allBeats(p15).some((b) => b.input && b.input.type === 'draw-diagonals' && b.input.sidesOk === true));
 
 t('Screens.flags() reports every deviation from the deck', Screens.flags().length >= 8, Screens.flags().length);
 t('flags name the answer leak', Screens.flags().some((f) => f.kind === 'answer-leak'));
@@ -180,7 +185,8 @@ t('no screen claims page 34 or 36', !S.some((s) => s.page === 34 || s.page === 3
  * from `choice` would otherwise hide behind these.
  */
 const JUDGING = ['draw-diagonal', 'draw-diagonals', 'choice', 'multi-select', 'sort', 'swipe'];
-const OPEN = ['vertex-pick', 'drag-vertex', 'tap-each', 'tap-anywhere'];
+// (summary-review: the summary looked back at — tap a card to hear it again, Next to go on; nothing to get wrong)
+const OPEN = ['vertex-pick', 'drag-vertex', 'tap-each', 'tap-anywhere', 'summary-review'];
 
 const inputsOf = (s) => allBeats(s).filter((b) => b.input).map((b) => b.input.type);
 const judged = S.filter((s) => inputsOf(s).some((ty) => JUDGING.indexOf(ty) >= 0));
@@ -189,18 +195,24 @@ t('there are judged screens to check', judged.length >= 8, judged.length);
 t('every interaction is either judging or open, with nothing unclassified',
   S.every((s) => inputsOf(s).every((ty) => JUDGING.indexOf(ty) >= 0 || OPEN.indexOf(ty) >= 0)),
   S.flatMap(inputsOf).filter((ty) => JUDGING.indexOf(ty) < 0 && OPEN.indexOf(ty) < 0));
+// (a drag whose tries are counted — `attempts`, the user's two-attempt teach on screen 21 — DOES
+// reach its wrong path: a corner let go short of the answer ends the try)
+const counted = (s) => allBeats(s).some((b) => b.input && b.input.attempts);
 t('no open interaction ships a wrong path it can never reach',
-  S.filter((s) => inputsOf(s).length && inputsOf(s).every((ty) => OPEN.indexOf(ty) >= 0))
+  S.filter((s) => inputsOf(s).length && inputsOf(s).every((ty) => OPEN.indexOf(ty) >= 0) && !counted(s))
    .every((s) => wrongBeats(s).length === 0),
-  S.filter((s) => inputsOf(s).length && inputsOf(s).every((ty) => OPEN.indexOf(ty) >= 0) && wrongBeats(s).length).map((s) => s.id));
+  S.filter((s) => inputsOf(s).length && inputsOf(s).every((ty) => OPEN.indexOf(ty) >= 0) && !counted(s) && wrongBeats(s).length).map((s) => s.id));
 
 t('every judged screen offers a wrong path',
   judged.every((s) => wrongBeats(s).length > 0 || (s.perTap && s.perTap.wrong)),
   judged.filter((s) => wrongBeats(s).length === 0 && !(s.perTap && s.perTap.wrong)).map((s) => s.id));
 
+// (except the explanations the user asked for on a two-attempt screen, each declared in the
+// screen's `lines`, and the task shown again after one)
 const verbalWrong = [];
 S.forEach((s) => {
-  wrongBeats(s).forEach((b) => { if (b.say != null || b.instruction != null) verbalWrong.push(s.id); });
+  const declared = (s.lines || []).concat(s.instruction ? [s.instruction] : []);
+  wrongBeats(s).forEach((b) => { if ((b.say != null && declared.indexOf(b.say) < 0) || (b.instruction != null && declared.indexOf(b.instruction) < 0)) verbalWrong.push(s.id); });
   if (s.perTap && s.perTap.wrong) {
     s.perTap.wrong.forEach((b) => { if (b.say != null || b.instruction != null) verbalWrong.push(s.id + ':perTap'); });
   }
@@ -224,14 +236,29 @@ t('no wrong path ever contains words — the deck has no wrong-answer copy and t
     if (!earlier && !own) bad.push(s.id);
   });
   t('a reminder is a line already taught in its own voice, or its own line in the VO script', bad.length === 0, bad);
-  // (the user's per-card rule: the first miss on a card is a short nudge; the
-  // second on the SAME card is the stronger word, then what a polygon is)
-  t('the first question reminds the child what a polygon is, on the second miss of the same card',
-    !!Screens.byId['which-polygons'].remind && /closed shapes made from straight lines/.test(Screens.byId['which-polygons'].remind.say) &&
-    Screens.byId['which-polygons'].remind.perCard === true && Screens.byId['which-polygons'].remind.after === 2);
+  // (the user's Level 1 bug list: the FIRST miss on a card is met at once with "Not quite." and
+  // what is true of that shape — game.js CLUES, by the card's `reason` — and the card is put
+  // out after it; the child is not made to miss twice before the explanation comes)
+  {
+    const wp = Screens.byId['which-polygons'];
+    const input = allBeats(wp).map((b) => b.input).filter((x) => x && x.type === 'multi-select')[0] || {};
+    const wrongs = wp.stage.options.filter((o) => !o.correct);
+    const gameSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'game', 'game.js'), 'utf8');
+    const clueOf = (r) => (new RegExp(r + ":\\s*\\{ t: '([^']+)'")).exec(gameSrc);
+    t('Level 1 explains a miss at once: "Not quite." and why that shape is not a polygon; the card is out after the second',
+      !wp.remind && input.outAfter === 2 && wrongs.length > 0 &&
+      wrongs.every((o) => o.reason && clueOf(o.reason) && /^Not quite\. /.test(clueOf(o.reason)[1])),
+      wrongs.map((o) => o.reason + ': ' + ((clueOf(o.reason) || [])[1])));
+    t('Level 1 cheers "Keep going!" on the way and "Great job!" only when the level is complete',
+      !!input.cheer && input.cheer.more === 'keepGoing' && input.cheer.last === 'levelDone' &&
+      /keepGoing:\s*\{ t: 'Keep going!'/.test(gameSrc) && /levelDone:\s*\{ t: 'Great job!'/.test(gameSrc));
+  }
   const diag = ['another-diagonal', 'hexagon-your-turn'].map((id) => Screens.byId[id].remind || {});
-  t('both screens where the child draws diagonals say what a diagonal is, from the second miss',
-    diag.every((r) => r.say === 'A diagonal connects non-adjacent vertices.' && r.after === 2 && r.vo === 'p14r'), diag);
+  t('both screens where the child draws diagonals say what a diagonal is, from the first miss',
+    diag.every((r) => r.say === 'A diagonal connects non-adjacent vertices.' && r.after === 1 && r.vo === 'p14r'), diag);
+  // the wrong cards of the first question each carry their own clue
+  const opts = (Screens.byId['which-polygons'].stage.options || []).filter((o) => !o.correct);
+  t('each wrong card of the first question names its own clue', opts.length === 2 && opts.every((o) => !!o.reason), opts);
 }
 
 t('every wrong path still reacts — Swiftee, a cue, or an effect',
@@ -293,12 +320,13 @@ t('every wrong path re-opens the input or is judged per tap',
 // 'excited' since the sprite sheets landed, and a storyboard beat that used
 // it failed a test whose message said it was not implemented.
 const SWIFTEE = require('../src/character/swiftee.js').states;
+// (summary-review is the game's own, not the stage's: game.js reviewSummary)
 const INPUTS = ['tap-anywhere', 'vertex-pick', 'draw-diagonal', 'draw-diagonals',
-                'drag-vertex', 'choice', 'multi-select', 'tap-each', 'sort', 'swipe'];
+                'drag-vertex', 'choice', 'multi-select', 'tap-each', 'sort', 'swipe', 'summary-review'];
 const KINDS = ['vista', 'polygon', 'choice-grid', 'compare', 'sort', 'swipe-sort', 'summary'];
 const SFX = ['boing', 'correct', 'honk', 'levelUp', 'menuWhoosh', 'pop', 'select', 'slice',
              'slideWhistle', 'sparkle', 'tick', 'wrong', 'zip', 'drumroll'];
-const JUICE = ['celebrate', 'collect', 'confetti', 'pop', 'refuse', 'wobble', 'flash', 'squash', 'tada'];
+const JUICE = ['celebrate', 'collect', 'confetti', 'pop', 'refuse', 'wobble', 'buzz', 'flash'];
 
 const used = { swiftee: new Set(), input: new Set(), kind: new Set(), sfx: new Set(), juice: new Set() };
 S.forEach((s) => {
@@ -361,7 +389,8 @@ t('every juice effect referenced exists', unknown(used.juice, JUICE).length === 
 // 11: the drag-a-side's-end interaction (the old page 11) is gone — the child
 // now draws the diagonal from their own corner
 // 10: and the builder's stepper went with the builder
-t('all 10 interaction types are actually used somewhere', used.input.size === INPUTS.length, [...used.input]);
+// 11: the summary's review (tap a card to replay it, Next to go on) — the final pass
+t('all 11 interaction types are actually used somewhere', used.input.size === INPUTS.length, [...used.input]);
 t('all 7 stage kinds are actually used somewhere', used.kind.size === 7, [...used.kind]);
 
 /* ------------------------------------------------------------------ *
@@ -401,7 +430,9 @@ t('all 7 stage kinds are actually used somewhere', used.kind.size === 7, [...use
     t('a card only comes in once the one before it has been collected', nextStarts);
     const fin = at((b) => b.stage && b.stage.summary && b.stage.summary.final);
     const last = at((b) => b.stage && b.stage.summary && b.stage.summary.collect === 'irregular');
-    t('the finale comes after the last card is collected, and ends on Next', fin > last && beats[beats.length - 1].input && beats[beats.length - 1].input.type === 'tap-anywhere');
+    // (ends on the review: Next, and a tap on any card to hear it again — the final pass)
+    const endIn = beats[beats.length - 1].input;
+    t('the finale comes after the last card is collected, and ends on Next', fin > last && endIn && endIn.type === 'summary-review' && (endIn.cards || []).length === want.length && endIn.cards.every((c) => c.say === lines[c.id] && !!c.vo));
     t('the completion line is said at the finale', beats.some((b, i) => i > fin && b.say === 'Amazing! You explored all these polygon ideas!'));
 
     const G = (id) => Stage.summaryGeometry(id);
@@ -445,7 +476,7 @@ t('every perTap bucket is a list of beats',
 /* Kept in step with the map in game.js layout(). A position the screens use
    and the layout does not know silently falls back to left-low, which is how
    a screen can ask for a corner and get the middle of the left edge. */
-const POSITIONS = ['left', 'left-low', 'top-left', 'centre', 'middle', 'peek', 'corner', 'off'];
+const POSITIONS = ['left', 'left-low', 'top-left', 'centre', 'middle', 'peek', 'corner', 'log', 'off'];
 
 t('Swiftee positions are ones the layout knows',
   S.every((s) => !s.swiftee || POSITIONS.indexOf(s.swiftee.pos) >= 0),
@@ -477,17 +508,30 @@ const intentsIn = (list) => {
 };
 const levelOf = (st) => { const d = RIG[st]; return d ? (d.level || 1) : 0; };
 
-/* A WRONG ANSWER CANNOT MOVE THE LESSON ON. Every branch whose wrong arm asks
-   again has `until: 'correct'`, so the retry's own answer is branched on:
-   a right retry gets the right arm, a wrong one is asked again. */
+/* A WRONG ANSWER CANNOT MOVE THE LESSON ON UNANSWERED. Every branch whose wrong
+   arm asks again has its retry's own answer branched on: either `until:
+   'correct'` (asked until right), or — a TWO-TRY question (the user's rule: the
+   first miss is "Try again!", the second is explained and the answer shown) — a
+   branch after the retry with a right arm and a last wrong arm that asks nothing
+   more and SHOWS the answer (a reveal or a teaching line). */
 {
   const loose = [];
+  const lastTry = (arm) => {
+    const i = (arm || []).findIndex((x) => x && x.input);
+    const nb = (arm || []).slice(i + 1).find((x) => x && x.branch);
+    if (!nb || !(nb.on && nb.on.correct)) return false;
+    const last = nb.otherwise || [];
+    const shows = JSON.stringify(last);
+    // (a `continue` input is not a third attempt: the answer is shown and the tap goes on — the
+    // inside / outside question's merged "Inside")
+    return !last.some((x) => x && x.input && !x.input['continue']) && /"reveal"|"say"|"autoConcave"|"teach"/.test(shows);
+  };
   S.forEach((s) => (s.beats || []).forEach((b) => {
     if (!b || !b.branch) return;
     const asksAgain = (b.otherwise || []).some((x) => x && x.input);
-    if (asksAgain && b.until !== 'correct') loose.push(s.id);
+    if (asksAgain && b.until !== 'correct' && !lastTry(b.otherwise)) loose.push(s.id);
   }));
-  t('every retry is branched on until the answer is right', loose.length === 0, loose);
+  t('every retry is branched on: until the answer is right, or shown on the last try', loose.length === 0, loose);
 }
 
 /* THE REACTION MATCHES THE VERDICT. No right-answer face in a wrong arm,
@@ -496,9 +540,14 @@ const levelOf = (st) => { const d = RIG[st]; return d ? (d.level || 1) : 0; };
   const crossed = [];
   const GLAD = /^(happySmall|nice|chuffed|wink|phew|celebrate|excited|delight|nod|proud|happy)$/;
   S.forEach((s) => {
+    // (a wrong arm's own intents — not those of a right arm nested in it, a retry's)
+    const missIntents = (list) => { const out = []; (function walk(bs) { (bs || []).forEach((x) => {
+      if (!x || typeof x !== 'object') return; if (x.swiftee) out.push(x.swiftee);
+      ['feedback', 'parallel', 'otherwise'].forEach((k) => { if (x[k]) walk(x[k]); });
+      if (x.on) Object.keys(x.on).forEach((k) => { if (k !== 'correct') walk(x.on[k]); }); }); })(list); return out; };
     (s.beats || []).forEach((b) => {
       if (!b || !b.branch) return;
-      intentsIn(b.otherwise).forEach((i) => { if (GLAD.test(i)) crossed.push(s.id + ' wrong arm: ' + i); });
+      missIntents(b.otherwise).forEach((i) => { if (GLAD.test(i)) crossed.push(s.id + ' wrong arm: ' + i); });
       intentsIn((b.on || {}).correct).forEach((i) => { if (/^(oops|rethink|confused)$/.test(i)) crossed.push(s.id + ' right arm: ' + i); });
     });
     ((s.perTap || {}).wrong || []).forEach((x) => { if (x.swiftee && GLAD.test(x.swiftee)) crossed.push(s.id + ' per-tap wrong: ' + x.swiftee); });
@@ -527,15 +576,17 @@ const levelOf = (st) => { const d = RIG[st]; return d ? (d.level || 1) : 0; };
 
 /* THE SIDE-MEASURING SCREEN IS PROTECTED. Its choreography is the dedicated
    measuring walk (stage.js measureSide, its own sheet); nothing generic was
-   given to it. Beat for beat as it was, and no per-tap face. */
+   given to it. Beat for beat as it is — since the Part 1 review he measures
+   the sides himself ("Let's measure.", then the walk round all five, no taps
+   taken: auto) — and no per-tap face. */
 {
   const m = Screens.byId['measure-sides'];
   t('the side-measuring screen is unchanged', !!m && JSON.stringify(m.beats) === JSON.stringify([
     { stage: { kind: 'polygon' } },
-    { instruction: 'Tap the sides to measure them.', vo: 'p29i' },
+    { instruction: null },
     { swiftee: 'inspect' },
-    { focus: 'polygon.sides', style: 'pulse' },
-    { input: { type: 'tap-each', targets: 'sides', reveal: 'length', count: 5 } },
+    { say: 'Let\u2019s measure the sides.', vo: 'p29s' },
+    { input: { type: 'tap-each', targets: 'sides', reveal: 'length', count: 5, auto: true, praise: false } },
     { feedback: [{ sfx: 'correct' }, { swiftee: 'proud' }] }
   ]), m && m.beats);
   t('no generic face is asked for per measured side',
@@ -626,10 +677,50 @@ const levelOf = (st) => { const d = RIG[st]; return d ? (d.level || 1) : 0; };
     });
   });
   t('every answer, tag, bin and control that waits for a word hears it on its own screen', deaf.length === 0, deaf);
-  t('the word-and-thing sync is used across the lesson, not on one screen', held >= 10, held);
-  const io = Screens.byId['inside-or-outside'].beats;
-  t('"Inside" and "Outside" are built before the question is asked, so they can arrive with its words',
-    io.findIndex((b) => b.stage && b.stage.choices) < io.findIndex((b) => b.say || typeof b.instruction === 'string'));
+  t('the word-and-thing sync is used across the lesson, not on one screen', held >= 8, held);
+  /* THE QUESTION INTRODUCES ITS ANSWERS (the user: "never expose an interaction before the
+     learner has been introduced to it" — and then: "the buttons are delayed; deal them when the
+     VO says 'inside or outside'"). On both answer screens the two buttons arrive on the
+     question's own words — the instruction and the choices in one `parallel`, each answer
+     waiting for its word (`cue`) — and never from a beat before the question, nor from the
+     screen-level stage (a rebuild would put them up ahead of it). */
+  // THE INSIDE / OUTSIDE SECOND MISS (the user's 2-wrong brief, and screen 12's fix): "The diagonals
+  // are inside.", and ON "inside" the two answers merge into one green "Inside" — then on by itself,
+  // no tap, no third attempt, no "Try again!"
+  {
+    const s = Screens.byId['inside-or-outside'];
+    const last = JSON.stringify(s.beats);
+    const arm = (function find(list) { for (const b of list || []) { if (b && b.branch && b.otherwise && b.otherwise.some((x) => x && x.stage && x.stage.merge)) return b.otherwise; const r = b && (find(b.otherwise) || (b.on && find(b.on.correct))); if (r) return r; } return null; })(s.beats);
+    const iLine = arm ? arm.findIndex((x) => x.say === 'The diagonals are inside.') : -1;
+    // (lit ON its word: an onWord cue set before the line)
+    const iLit = arm ? arm.findIndex((x) => x.stage && [].concat(x.stage.onWord || []).some((w) => w.word === 'diagonals' && w.lit === 'diagonals')) : -1;
+    // (the merge waits for its word — `cue: 'inside'` — so it is set before the line, like the lighting)
+    const iMerge = arm ? arm.findIndex((x) => x.stage && x.stage.merge === 'Inside' && x.stage.cue === 'inside') : -1;
+    const iTap = arm ? arm.findIndex((x) => x.input) : -1;
+    t('inside-or-outside second miss: diagonals lit, "The diagonals are inside.", ONE merged Inside on "inside", then on by itself (no tap)',
+      !!arm && iLit >= 0 && iLit < iLine && iMerge >= 0 && iMerge < iLine && iTap < 0 && !arm.some((x) => x.say && /Try again/.test(x.say)) && /fb54/.test(last),
+      { iLit, iLine, iMerge, iTap });
+  }
+  // THE SORT'S EXPLANATIONS SHOW EACH CONCEPT ON ITS OWN WORD (the explanation brief): the corner on
+  // "corner", the diagonal on "diagonal(s)", its inside / outside emphasis on "inside" / "outside"
+  {
+    const teach = Screens.byId['sort-convex-concave'].teach, bad = [];
+    const WORD = { notch: /^corner/, corners: /^corner/, outside: /^diagonal/, inside: /^diagonal/, outsideGlow: /^outside/, insideGlow: /^inside/ };
+    Object.keys(teach).forEach((k) => teach[k].forEach((ln) => {
+      const shows = ln.shows || (ln.show ? [{ what: ln.show, on: ln.on || 0 }] : []);
+      const words = ln.say.split(/\s+/).map((w) => w.replace(/[^a-z]/gi, '').toLowerCase());
+      shows.forEach((sh) => { if (!WORD[sh.what] || !WORD[sh.what].test(words[sh.on || 0] || '')) bad.push(k + ':' + sh.what + '@' + (words[sh.on || 0] || '?')); });
+    }));
+    t('the convex / concave explanations light each concept on the word that names it', bad.length === 0, bad);
+  }
+  ['inside-or-outside', 'stayed-changed'].forEach((id) => {
+    const s = Screens.byId[id], bs = s.beats;
+    const par = bs.find((b) => b.parallel && b.parallel.some((x) => typeof x.instruction === 'string') &&
+                               b.parallel.some((x) => x.stage && x.stage.choices && x.stage.cue));
+    const early = par ? bs.slice(0, bs.indexOf(par)).some((b) => b.stage && b.stage.choices) : true;
+    const onStage = !!(s.stage && s.stage.choices);
+    t(id + ': the answers are dealt on the question’s own words — with it, never before it', !!par && !early && !onStage, { par: !!par, early, onStage });
+  });
 }
 
 /* EVERY WORD THE BUBBLE LETTERS HAS A MEANING ON THE BOARD. The vocabulary's
@@ -642,8 +733,11 @@ const levelOf = (st) => { const d = RIG[st]; return d ? (d.level || 1) : 0; };
   const unmapped = nouns.filter((n) => src.indexOf("case '" + n + "'") < 0);
   t('every vocabulary noun has a reaction on the board', unmapped.length === 0, unmapped);
   t('the bubble letters every one of those nouns', nouns.every((n) => /dc-term/.test(DC.markup('the ' + n + ' here'))), nouns.filter((n) => !/dc-term/.test(DC.markup('the ' + n + ' here'))));
-  t('the grid lights every card for "polygons", never the right ones',
-    /case 'polygon':[\s\S]{0,200}kind === 'grid'\) return warmPulse\(st\.cards, \{ together: true/.test(src));
+  // (the user: "remove the pulse animation from the answer cards — they remain stable until
+  // the user interacts": the word lights nothing on the grid, and no idle hint swells them)
+  t('the answer cards do not pulse — not for the word "polygons", not while the child decides',
+    /case 'polygon':[\s\S]{0,300}kind === 'grid'\) return 0;/.test(src) &&
+    !/'multi-select'[\s\S]{0,1200}hintLadder\(/.test(src));
 }
 
 /* THE VOICE SCRIPT IS THE STORYBOARD. docs/VO.md is generated from the

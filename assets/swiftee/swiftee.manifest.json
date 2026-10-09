@@ -2371,63 +2371,6 @@
       },
       "exitsCell": false
     },
-    "calling": {
-      "name": "Calling",
-      "frames": 27,
-      "fps": 20,
-      "durationMs": 1333,
-      "loop": true,
-      "pingpong": false,
-      "timeline": {
-        "frames": 80,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 80,
-        "y": 21,
-        "w": 414,
-        "h": 423
-      },
-      "exitsCell": false
-    },
-    "callstart": {
-      "name": "Callstart",
-      "frames": 7,
-      "fps": 20,
-      "durationMs": 333,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 20,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 80,
-        "y": 26,
-        "w": 413,
-        "h": 418
-      },
-      "exitsCell": false
-    },
-    "callstop": {
-      "name": "Callstop",
-      "frames": 7,
-      "fps": 20,
-      "durationMs": 333,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 20,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 80,
-        "y": 26,
-        "w": 413,
-        "h": 418
-      },
-      "exitsCell": false
-    },
     "celebrate_start": {
       "name": "Celebrate start",
       "frames": 8,
@@ -2482,63 +2425,6 @@
         "y": 16,
         "w": 497,
         "h": 434
-      },
-      "exitsCell": false
-    },
-    "confident": {
-      "name": "Confident",
-      "frames": 45,
-      "fps": 20,
-      "durationMs": 2250,
-      "loop": true,
-      "pingpong": true,
-      "timeline": {
-        "frames": 135,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 80,
-        "y": 45,
-        "w": 347,
-        "h": 398
-      },
-      "exitsCell": false
-    },
-    "confident_start": {
-      "name": "Confident start",
-      "frames": 10,
-      "fps": 20,
-      "durationMs": 500,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 30,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 80,
-        "y": 49,
-        "w": 357,
-        "h": 400
-      },
-      "exitsCell": false
-    },
-    "confident_stop": {
-      "name": "Confident stop",
-      "frames": 10,
-      "fps": 20,
-      "durationMs": 500,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 30,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 80,
-        "y": 49,
-        "w": 357,
-        "h": 400
       },
       "exitsCell": false
     },
@@ -2655,82 +2541,6 @@
         "h": 404
       },
       "exitsCell": false
-    },
-    "daydream_start": {
-      "name": "Daydream start",
-      "frames": 8,
-      "fps": 20,
-      "durationMs": 417,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 25,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 74,
-        "y": 58,
-        "w": 365,
-        "h": 403
-      },
-      "exitsCell": false
-    },
-    "daydreaming": {
-      "name": "Daydreaming",
-      "frames": 40,
-      "fps": 20,
-      "durationMs": 2000,
-      "loop": true,
-      "pingpong": false,
-      "timeline": {
-        "frames": 120,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 78,
-        "y": 93,
-        "w": 328,
-        "h": 368
-      },
-      "exitsCell": false
-    },
-    "daydreaming_stop": {
-      "name": "Daydreaming stop",
-      "frames": 7,
-      "fps": 20,
-      "durationMs": 333,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 20,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 73,
-        "y": 58,
-        "w": 365,
-        "h": 403
-      },
-      "exitsCell": false
-    },
-    "drive_away": {
-      "name": "Drive away",
-      "frames": 20,
-      "fps": 20,
-      "durationMs": 1000,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 60,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 0,
-        "y": 0,
-        "w": 512,
-        "h": 481
-      },
-      "exitsCell": true
     },
     "driving": {
       "name": "Driving",
@@ -2960,82 +2770,6 @@
       },
       "exitsCell": false
     },
-    "honk": {
-      "name": "Honk",
-      "frames": 27,
-      "fps": 20,
-      "durationMs": 1333,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 80,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 33,
-        "y": 88,
-        "w": 407,
-        "h": 393
-      },
-      "exitsCell": false
-    },
-    "laptop": {
-      "name": "Laptop",
-      "frames": 40,
-      "fps": 20,
-      "durationMs": 2000,
-      "loop": true,
-      "pingpong": true,
-      "timeline": {
-        "frames": 120,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 80,
-        "y": 59,
-        "w": 378,
-        "h": 386
-      },
-      "exitsCell": false
-    },
-    "laptop_start": {
-      "name": "Laptop start",
-      "frames": 8,
-      "fps": 20,
-      "durationMs": 417,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 25,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 80,
-        "y": 58,
-        "w": 378,
-        "h": 401
-      },
-      "exitsCell": false
-    },
-    "laptop_stop": {
-      "name": "Laptop stop",
-      "frames": 8,
-      "fps": 20,
-      "durationMs": 417,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 25,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 80,
-        "y": 58,
-        "w": 378,
-        "h": 400
-      },
-      "exitsCell": false
-    },
     "learning": {
       "name": "Learning",
       "frames": 50,
@@ -3090,63 +2824,6 @@
         "y": 58,
         "w": 362,
         "h": 417
-      },
-      "exitsCell": false
-    },
-    "listening": {
-      "name": "Listening",
-      "frames": 40,
-      "fps": 20,
-      "durationMs": 2000,
-      "loop": true,
-      "pingpong": false,
-      "timeline": {
-        "frames": 120,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 76,
-        "y": 53,
-        "w": 343,
-        "h": 409
-      },
-      "exitsCell": false
-    },
-    "listening_start": {
-      "name": "Listening start",
-      "frames": 8,
-      "fps": 20,
-      "durationMs": 417,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 25,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 76,
-        "y": 58,
-        "w": 370,
-        "h": 404
-      },
-      "exitsCell": false
-    },
-    "listening_stop": {
-      "name": "Listening stop",
-      "frames": 7,
-      "fps": 20,
-      "durationMs": 333,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 20,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 76,
-        "y": 58,
-        "w": 369,
-        "h": 404
       },
       "exitsCell": false
     },
@@ -3206,63 +2883,6 @@
         "h": 391
       },
       "exitsCell": false
-    },
-    "peeping": {
-      "name": "Peeping",
-      "frames": 40,
-      "fps": 20,
-      "durationMs": 2000,
-      "loop": true,
-      "pingpong": false,
-      "timeline": {
-        "frames": 120,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 5,
-        "y": 3,
-        "w": 467,
-        "h": 507
-      },
-      "exitsCell": false
-    },
-    "peeping_start": {
-      "name": "Peeping start",
-      "frames": 10,
-      "fps": 20,
-      "durationMs": 500,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 30,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 0,
-        "y": 3,
-        "w": 472,
-        "h": 507
-      },
-      "exitsCell": true
-    },
-    "peeping_stop": {
-      "name": "Peeping stop",
-      "frames": 10,
-      "fps": 20,
-      "durationMs": 500,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 30,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 0,
-        "y": 3,
-        "w": 472,
-        "h": 507
-      },
-      "exitsCell": true
     },
     "playful": {
       "name": "Playful",
@@ -3549,63 +3169,6 @@
       },
       "exitsCell": false
     },
-    "reset": {
-      "name": "Reset",
-      "frames": 3,
-      "fps": 20,
-      "durationMs": 167,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 10,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 84,
-        "y": 58,
-        "w": 353,
-        "h": 391
-      },
-      "exitsCell": false
-    },
-    "sleep_start": {
-      "name": "Sleep Start",
-      "frames": 17,
-      "fps": 20,
-      "durationMs": 833,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 50,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 57,
-        "y": 59,
-        "w": 455,
-        "h": 417
-      },
-      "exitsCell": true
-    },
-    "sleeping": {
-      "name": "Sleeping",
-      "frames": 40,
-      "fps": 20,
-      "durationMs": 2000,
-      "loop": true,
-      "pingpong": false,
-      "timeline": {
-        "frames": 120,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 80,
-        "y": 118,
-        "w": 374,
-        "h": 326
-      },
-      "exitsCell": false
-    },
     "surprised": {
       "name": "Surprised",
       "frames": 47,
@@ -3777,25 +3340,6 @@
       },
       "exitsCell": false
     },
-    "wake": {
-      "name": "Wake",
-      "frames": 10,
-      "fps": 20,
-      "durationMs": 500,
-      "loop": false,
-      "pingpong": false,
-      "timeline": {
-        "frames": 30,
-        "fps": 60
-      },
-      "opaqueBoundsUnion": {
-        "x": 57,
-        "y": 59,
-        "w": 455,
-        "h": 417
-      },
-      "exitsCell": true
-    },
     "wave_start": {
       "name": "Wave start",
       "frames": 7,
@@ -3912,16 +3456,6 @@
     }
   },
   "states": {
-    "calling": {
-      "start": "callstart",
-      "loop": "calling",
-      "stop": "callstop",
-      "play": [
-        "callstart",
-        "calling",
-        "callstop"
-      ]
-    },
     "celebrating": {
       "start": "celebrate_start",
       "loop": "celebrating",
@@ -3930,16 +3464,6 @@
         "celebrate_start",
         "celebrating",
         "celebrate_stop"
-      ]
-    },
-    "confident": {
-      "start": "confident_start",
-      "loop": "confident",
-      "stop": "confident_stop",
-      "play": [
-        "confident_start",
-        "confident",
-        "confident_stop"
       ]
     },
     "confused": {
@@ -3960,16 +3484,6 @@
         "curious_start",
         "curious",
         "curious_stop"
-      ]
-    },
-    "daydreaming": {
-      "start": "daydream_start",
-      "loop": "daydreaming",
-      "stop": "daydreaming_stop",
-      "play": [
-        "daydream_start",
-        "daydreaming",
-        "daydreaming_stop"
       ]
     },
     "driving": {
@@ -4011,16 +3525,6 @@
         "happy_stop"
       ]
     },
-    "laptop": {
-      "start": "laptop_start",
-      "loop": "laptop",
-      "stop": "laptop_stop",
-      "play": [
-        "laptop_start",
-        "laptop",
-        "laptop_stop"
-      ]
-    },
     "learning": {
       "start": "learning_start",
       "loop": "learning",
@@ -4031,16 +3535,6 @@
         "learning_stop"
       ]
     },
-    "listening": {
-      "start": "listening_start",
-      "loop": "listening",
-      "stop": "listening_stop",
-      "play": [
-        "listening_start",
-        "listening",
-        "listening_stop"
-      ]
-    },
     "love": {
       "start": "love_start",
       "loop": "love",
@@ -4049,16 +3543,6 @@
         "love_start",
         "love",
         "love_stop"
-      ]
-    },
-    "peeping": {
-      "start": "peeping_start",
-      "loop": "peeping",
-      "stop": "peeping_stop",
-      "play": [
-        "peeping_start",
-        "peeping",
-        "peeping_stop"
       ]
     },
     "playful": {
@@ -4109,15 +3593,6 @@
         "relieved_start",
         "relieved",
         "relieved_stop"
-      ]
-    },
-    "sleeping": {
-      "start": "sleep_start",
-      "loop": "sleeping",
-      "stop": null,
-      "play": [
-        "sleep_start",
-        "sleeping"
       ]
     },
     "surprised": {
@@ -4173,11 +3648,7 @@
   },
   "standalone": [
     "blinking",
-    "drive_away",
-    "flapping",
-    "honk",
-    "reset",
-    "wake"
+    "flapping"
   ],
   "contentUnion": {
     "x": 5,
@@ -4195,12 +3666,7 @@
     "space": "@2x cell (512px)"
   },
   "exitsCell": [
-    "drive_away",
-    "driving",
-    "peeping_start",
-    "peeping_stop",
-    "sleep_start",
-    "wake"
+    "driving"
   ],
   "baselineY": {
     "y": 449,

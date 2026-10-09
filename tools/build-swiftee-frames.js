@@ -81,6 +81,20 @@ if (missing.length) {
   process.exit(1);
 }
 
+/* EVERY SHEET CARRIES ITS OWN CONTENT HASH (?v=), as the rest of the art does. The sheets are
+   cached for an hour (vercel.json) under names that never change, so a redrawn sheet could meet
+   a browser still holding the old one — new frame data, old drawing. The hash changes when the
+   file does, so an updated sheet is a new URL and can never be served stale; an unchanged one
+   keeps its URL and its cache. The renderer, the loading bar (Swiftee.sheetUrls) and the paint
+   all read this one string, so they always ask for the same URL. */
+const crypto = require('crypto');
+const hashOf = (rel) => crypto.createHash('md5').update(fs.readFileSync(path.join(ROOT, ASSETS, rel))).digest('hex').slice(0, 8);
+for (const name of Object.keys(clips)) {
+  for (const sc of ['1x', '2x']) {
+    (clips[name].sheets[sc] || []).forEach((pg) => { pg.image = pg.image + '?v=' + hashOf(pg.image); });
+  }
+}
+
 const out =
 `/*!
  * swiftee-frames.js — GENERATED, DO NOT EDIT.

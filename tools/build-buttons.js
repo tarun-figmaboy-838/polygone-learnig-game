@@ -4,8 +4,8 @@
  *
  *   node tools/build-buttons.js
  *
- * assets/source/image.png is twenty finished capsules on a black background;
- * assets/source/new plus-minus.png is the stepper's pair of keys.
+ * assets/source/image.avif is twenty finished capsules on a black background;
+ * assets/source/new plus-minus.avif is the stepper's pair of keys.
  *
  * WHY SLICE RATHER THAN STRETCH. The buttons in this game are every width
  * from a 64-unit stepper key to a 184-unit answer, and the sheet is one
@@ -63,7 +63,7 @@ const SHEETS = [
        row 3  pink  magenta red     coral     rose
        row 4  green lime    teal    turquoise slate
   */
-  { src: 'assets/source/image.png', want: [
+  { src: 'assets/source/image.avif', want: [
     { cell: 0,  tone: 'uiPrimary',   role: 'Primary action' },
     { cell: 6,  tone: 'uiNav',       role: 'Navigation' },
     { cell: 15, tone: 'uiSuccess',   role: 'Success feedback' },
@@ -72,7 +72,7 @@ const SHEETS = [
 ];
 
 function serve() {
-  const TY = { '.html': 'text/html', '.png': 'image/png' };
+  const TY = { '.html': 'text/html', '.png': 'image/png', '.avif': 'image/avif' };
   const srv = http.createServer((q, r) => {
     let p = decodeURIComponent(q.url.split('?')[0]);
     if (p === '/') { r.writeHead(200, { 'Content-Type': 'text/html' }); return r.end('<!doctype html><title>x</title>'); }

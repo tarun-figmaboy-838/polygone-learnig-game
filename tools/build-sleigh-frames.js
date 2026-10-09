@@ -34,14 +34,16 @@ const OUT = path.join(ROOT, 'src/character/sleigh-frames.js');
 
 /* The cell counts are the only hint given, and they are used ONLY to split the
    sheet into search regions — every box inside them is measured. */
+/* `file` is the PNG master that is measured; `serve` is the WebP the game loads, made from
+   it by tools/encode-sprites.js (near-lossless, so every measurement here holds for it). */
 const SHEETS = [
-  { key: 'ride',      file: 'assets/swiftee/intro/sheet1.png', cols: 4, rows: 2 },
-  { key: 'dismount',  file: 'assets/swiftee/intro/sheet2.png', cols: 5, rows: 2 },
-  { key: 'departure', file: 'assets/swiftee/intro/sheet3.png', cols: 4, rows: 2 }
+  { key: 'ride',      file: 'assets/source/intro/sheet1.avif', serve: 'assets/swiftee/intro/sheet1.webp', cols: 4, rows: 2 },
+  { key: 'dismount',  file: 'assets/source/intro/sheet2.avif', serve: 'assets/swiftee/intro/sheet2.webp', cols: 5, rows: 2 },
+  { key: 'departure', file: 'assets/source/intro/sheet3.avif', serve: 'assets/swiftee/intro/sheet3.webp', cols: 4, rows: 2 }
 ];
 
 function serve() {
-  const TY = { '.html': 'text/html', '.png': 'image/png' };
+  const TY = { '.html': 'text/html', '.png': 'image/png', '.avif': 'image/avif' };
   const srv = http.createServer((q, r) => {
     let p = decodeURIComponent(q.url.split('?')[0]);
     if (p === '/') { r.writeHead(200, { 'Content-Type': 'text/html' }); return r.end('<!doctype html><title>x</title>'); }
@@ -142,7 +144,7 @@ const MEASURE = function (opts) {
       url: `http://127.0.0.1:${port}/${s.file.split(path.sep).join('/')}`,
       cols: s.cols, rows: s.rows
     });
-    data[s.key].file = s.file;
+    data[s.key].file = s.serve;
     const n = data[s.key].frames.filter(Boolean).length;
     console.log('  ' + s.key.padEnd(10) + n + ' frames   ' + data[s.key].w + 'x' + data[s.key].h);
   }

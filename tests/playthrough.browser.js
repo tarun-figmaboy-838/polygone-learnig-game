@@ -39,7 +39,7 @@ const SHOT_DIR = (() => { const i = process.argv.indexOf('--shots'); return i > 
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp',
+  '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp', '.avif': 'image/avif',
   '.svg': 'image/svg+xml', '.mp3': 'audio/mpeg'
 };
 
@@ -74,7 +74,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   };
 
   const { server, port } = await serve();
-  const URL = `http://127.0.0.1:${port}/index.html`;
+  // ?story=0: this plays the lesson; the story before it is played by tests/playthrough.jsdom.js
+  // LAN=hi (mr, te, gu, od): the same lesson in that language (src/core/i18n.js)
+  const URL = `http://127.0.0.1:${port}/index.html?story=0` + (process.env.LAN ? '&lan=' + process.env.LAN : '');
 
   const browser = await chromium.launch({
     channel: 'chrome',
@@ -124,7 +126,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true });
     });
     const P = HTMLMediaElement.prototype, play = P.play, pause = P.pause;
-    const idOf = (el) => (el.currentSrc || el.src || '').split('/').pop().split('?')[0].replace(/\.(ogg|mp3)$/, '');
+    // (a clip played from its copy in memory has a blob: address with no name in it — it is the
+    // line VO has just put on air, VO.id, which is set before the element plays; without the name
+    // its spoken length is unknown and a stop in the silent tail read as a cut)
+    const idOf = (el) => { const u = el.currentSrc || el.src || ''; if (/^blob:/.test(u) && window.VO && window.VO.id) return window.VO.id;
+                           return u.split('/').pop().split('?')[0].replace(/\.(ogg|mp3)$/, ''); };
     P.play = function () {
       const rec = { id: idOf(this), at: Math.round(performance.now()), end: null, screen: window.Game && window.Game.screen };
       V.clips.push(rec); this.__rec = rec;
@@ -150,7 +156,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
           const open = In.mode() === 'polygon' && G.director.state === 'WAITING_FOR_USER';
           const scr = G.screen + ' ' + ((window.Screens.list[G.screen] || {}).id || '');
           if (open && speaking) note(V.openWhileSpeaking, scr + ' (' + id + ')');
-          const hinting = document.querySelector('.gesture-ghost, .hand-hint, .swipe-ghost');
+          const hinting = document.querySelector('.gesture-ghost, .hint-hand, .swipe-ghost');
           if (hinting && speaking) note(V.hintOverVoice, scr + ' (' + id + ')');
           const n = (sel) => document.querySelectorAll(sel).length;
           const d = [['.swiftee', 1], ['#bubble', 1], ['.teach-sheet', 1], ['.peek-rim', 1]].filter(([sel, max]) => n(sel) > max).map(([sel]) => sel + ' x' + n(sel));
@@ -257,7 +263,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const may = window.Screens.wantsBuddyAt ? window.Screens.wantsBuddyAt(s)
                   : (window.Screens.wantsBuddy ? window.Screens.wantsBuddy(scr) : must);
         // Leaving at the end of his screen, or away measuring a side, is not absence.
-        const leaving = st === 'exit', measuring = !!document.querySelector('.swiftee-measuring');
+        // (the walk owns him — its lock — until he has flown home: fading back in on his mark,
+        // with the walker already gone, is still the walk)
+        const leaving = st === 'exit', measuring = !!document.querySelector('.swiftee-measuring, .swiftee-angle-measuring') || /measuring/.test((window.Swiftee && window.Swiftee.locked) || '');
         const bad = must ? !(on || leaving || measuring) : (!may && on && !leaving);
         if (bad) window.__buddy.push((s + 1) + ':' + (on ? 'on' : 'off'));
       }, 1400);
@@ -312,13 +320,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // sleep passes on a fast machine and fails on a busy one, which says
   // nothing about the game and everything about the box it ran on.
   await safe(() => page.waitForFunction(
-    () => window.Swiftee.state !== 'enter' &&
-          !getComputedStyle(window.Swiftee.el.lastChild).backgroundImage.includes('flapping'),
+    () => { const c = window.Swiftee.el.lastChild; return window.Swiftee.state !== 'enter' &&
+          !((c.getAttribute('data-sheet') || '') + getComputedStyle(c).backgroundImage).includes('flapping'); },
     null, { timeout: 20000 }));
   const landed = await safe(() => page.evaluate(() => ({
     visible: getComputedStyle(window.Swiftee.el).opacity !== '0',
     state: window.Swiftee.state,
-    grounded: !getComputedStyle(window.Swiftee.el.lastChild).backgroundImage.includes('flapping')
+    grounded: !(((c) => (c.getAttribute('data-sheet') || '') + getComputedStyle(c).backgroundImage)(window.Swiftee.el.lastChild)).includes('flapping')
   })), {});
   t('he lands and settles into talking', landed.visible && landed.grounded, JSON.stringify(landed));
 
@@ -384,15 +392,27 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const bub = document.querySelector('#bubble');
       if (!bub || !bub.classList.contains('show')) return;
       if (parseFloat(getComputedStyle(bub).opacity) < 0.05) return;
+      // NOR ONE BEHIND THE "TURN YOUR DEVICE" SCREEN. The portrait check below narrows the window
+      // to an upright phone, where #rotate covers the lesson; a line that is up at that moment wraps
+      // at a width nobody plays at (the hand-over line, four rows at 400 px, in a voiced run).
+      const turn = document.getElementById('rotate');
+      if (turn && getComputedStyle(turn).display !== 'none') return;
       // LAYOUT BOXES, NOT CLIENT RECTS. Each word rises a few pixels into
       // place as it arrives, and a client rect includes that travel — so a
       // line sampled half way through its reveal reported twice the rows it
       // lays out on. offsetTop is the row the word is actually in.
+      // AND A WORD BELONGS TO THE ROW ITS MIDDLE IS IN (game.js lineRows): a key word sits a
+      // pixel or two off the plain words beside it, and bucketing tops counted one row as two —
+      // the taller letters of Telugu put "అది క్రమ బహుభుజి." at 0, 1, 33, 34, 67 and 68.
       const kids = [].slice.call(line.childNodes).filter((n) => n.nodeType === 1 && n.offsetWidth);
       if (!kids.length) return;
-      const tops = {};
-      kids.forEach((n) => { tops[Math.round(n.offsetTop / 2) * 2] = 1; });
-      const n = Object.keys(tops).length;
+      const rows = [];
+      kids.forEach((k) => {
+        const top = k.offsetTop, bottom = top + k.offsetHeight, mid = (top + bottom) / 2;
+        const row = rows.find((r) => mid > r.top && mid < r.bottom);
+        if (row) { row.top = Math.min(row.top, top); row.bottom = Math.max(row.bottom, bottom); } else rows.push({ top, bottom });
+      });
+      const n = rows.length;
       const s = window.Game.screen;
       window.__rows[s] = Math.max(window.__rows[s] || 0, n);
     };
@@ -439,7 +459,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const st = () => page.evaluate(() => {
     const s = window.Stage.state;
-    return { verts: s.verts, n: s.n, picked: s.picked, segment: s.segment,
+    return { verts: s.verts, n: s.n, picked: s.picked, segment: s.segment, sidesDone: (s.sidesDone || []).length,
              diagonals: (s.diagonals || []).map((d) => [d[0], d[1]]) };
   });
 
@@ -453,10 +473,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const free = () => page.waitForFunction(() => window.Input.mode() !== 'locked', null, { timeout: 15000 }).catch(() => {});
 
     switch (spec.type) {
-      case 'tap-anywhere':
-        await page.waitForSelector('#next.show', { timeout: 8000 });
+      // the end of a screen: the lesson goes on by itself (game.js autoAdvance) — nothing is
+      // pressed, and a Next button showing in the lesson is a fault
+      // the summary's review (the final pass): Next shows once every card has been explained; press it
+      case 'summary-review': {
+        await page.waitForSelector('#next.show', { timeout: 60000 });
         await page.click('#next');
+        await page.waitForFunction(() => !document.querySelector('#next.show'), null, { timeout: 10000 });
         return;
+      }
+      case 'tap-anywhere': {
+        const scr = await page.evaluate(() => window.Game.screen);
+        // (on to the next screen — or, after the last one, the finale)
+        await page.waitForFunction(s => window.Game.screen !== s || window.Input.mode() !== 'dialogue' ||
+          !!document.querySelector('#hud .replay.show'), scr, { timeout: 30000 });
+        if (await page.evaluate(() => !!document.querySelector('#next.show'))) throw new Error('a Next button showed in the lesson on screen ' + scr);
+        return;
+      }
 
       case 'vertex-pick':
         await page.waitForFunction(() => window.Stage.svg.querySelectorAll('.vertex').length > 0, null, { timeout: 8000 });
@@ -467,9 +500,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       case 'draw-diagonals': {
         const s = await st();
         const from = spec.from === 'picked' ? s.picked : spec.from;
-        // connecting (sides): the first try goes to a neighbour — a side, named,
-        // and asked again — and the retry draws the diagonal
-        if (spec.sides && !spec.retry) { await dragPath(s.verts[from], s.verts[(from + 1) % s.n]); return; }
+        // connecting (sides — the Screen 7 vertex brief): a neighbour, a side, named; the other
+        // neighbour, the second side; and only then the diagonal
+        if (spec.sides && s.sidesDone === 0) { await dragPath(s.verts[from], s.verts[(from + 1) % s.n]); return; }
+        if (spec.sides && s.sidesDone === 1) { await dragPath(s.verts[from], s.verts[(from + s.n - 1) % s.n]); return; }
         const used = new Set(s.diagonals.map((d) => d.slice().sort((a, b) => a - b).join('-')));
         const adj = (i, j) => Math.abs(i - j) === 1 || Math.abs(i - j) === s.n - 1;
         const targets = [];
@@ -491,8 +525,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
         const s = await st();
         const i = spec.vertex === 'any' ? 0 : spec.vertex;
         const c = s.verts.reduce((a, p) => ({ x: a.x + p.x / s.verts.length, y: a.y + p.y / s.verts.length }), { x: 0, y: 0 });
+        const tt = s.verts.length === 4 ? 1.35 : 0.9;   // (a quadrilateral's dent is past its middle)
         const to = spec.until === 'concave'
-          ? { x: s.verts[i].x + (c.x - s.verts[i].x) * 0.9, y: s.verts[i].y + (c.y - s.verts[i].y) * 0.9 }
+          ? { x: s.verts[i].x + (c.x - s.verts[i].x) * tt, y: s.verts[i].y + (c.y - s.verts[i].y) * tt }
           : { x: s.verts[i].x + 30, y: s.verts[i].y - 80 };
         await dragPath(s.verts[i], to, 16);
         return;
@@ -693,7 +728,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // stop for this check, and a reading from after a screen change is a
     // reading of a different pose at a different size on a different mark —
     // which looks exactly like the shift this exists to catch.
-    const screenOf = () => (window.Game && window.Game.screen);
+    // (and with the mark he is on: the lesson goes on by itself now, so it can move him to his
+    // next mark in the middle of these readings — that is a walk, not a face shifting him)
+    const screenOf = () => (window.Game && window.Game.screen) + '|' + (window.Swiftee && (window.Swiftee.pos + ':' + window.Swiftee.size));
     // A MILESTONE MAY HOP; A FACE MAY NOT MOVE HIM. A celebration lifts him
     // off the ice for a moment (swiftee.js BODY.cheer) and lands him where he
     // stood; what this guards is his REGISTRATION — the pivot and baseline a
@@ -724,8 +761,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   const sprite = await safe(() => page.evaluate(async () => {
     const cell = window.Swiftee.el.lastChild, seen = new Set();
-    for (let i = 0; i < 12; i++) { seen.add(getComputedStyle(cell).backgroundPosition); await new Promise((r) => setTimeout(r, 60)); }
-    return { frames: seen.size, image: getComputedStyle(cell).backgroundImage, scale: window.Swiftee.scale };
+    // (the frame and the sheet are the cell's data-frame / data-sheet when drawn on the canvas)
+    for (let i = 0; i < 12; i++) { seen.add(cell.getAttribute('data-frame') || getComputedStyle(cell).backgroundPosition); await new Promise((r) => setTimeout(r, 60)); }
+    return { frames: seen.size, image: cell.getAttribute('data-sheet') || getComputedStyle(cell).backgroundImage, scale: window.Swiftee.scale };
   }), { frames: 0, image: '' });
   t('the sprite sheet is loaded and advancing frames',
     sprite.frames > 2 && /swiftee_/.test(sprite.image), JSON.stringify(sprite).slice(0, 120));
@@ -825,7 +863,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     t('Swiftee is on screen only where he has a purpose', buddy.length === 0, buddy.join(' '));
     // 10: the storyboard no longer drags a side's loose end (drag-endpoint),
     // and the builder's stepper went with the builder
-    t('all 10 interaction types were exercised', new Set(asked).size === 10, [...new Set(asked)].join(','));
+  // (11: the summary's review — Next, and a tap on a card to hear it again)
+    t('all 11 interaction types were exercised', new Set(asked).size === 11, [...new Set(asked)].join(','));
     t('correct cues fired', cues.correct > 0, JSON.stringify(cues));
     t('never stalled on a screen', stalls === 0, stalled ? JSON.stringify(stalled) : '');
     if (VOICED) {

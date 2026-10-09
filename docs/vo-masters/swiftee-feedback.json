@@ -1,0 +1,95 @@
+{
+ "source": "assets/source/vo-masters/swiftee-feedback.mp3",
+ "seconds": 5.146,
+ "model": "Xenova/wav2vec2-base-960h",
+ "frameMs": 20,
+ "note": "Word times in seconds from the start of the take, by CTC forced alignment (tools/align-vo.js). tools/split-vo.js cuts the clips from this and writes their word starts into assets/vo/word-timings.json.",
+ "silences": [
+  [
+   0.817,
+   1.423
+  ],
+  [
+   2.252,
+   2.79
+  ],
+  [
+   3.603,
+   4.102
+  ],
+  [
+   4.928,
+   5.146
+  ]
+ ],
+ "derived": [],
+ "lines": [
+  {
+   "id": "fb46",
+   "text": "Keep going!",
+   "start": 0.08,
+   "end": 0.74,
+   "words": [
+    {
+     "text": "Keep",
+     "start": 0.08,
+     "end": 0.28
+    },
+    {
+     "text": "going!",
+     "start": 0.38,
+     "end": 0.74
+    }
+   ]
+  },
+  {
+   "id": "fb47",
+   "text": "Amazing!",
+   "start": 1.5,
+   "end": 2.16,
+   "words": [
+    {
+     "text": "Amazing!",
+     "start": 1.5,
+     "end": 2.16
+    }
+   ]
+  },
+  {
+   "id": "fb03",
+   "text": "Great job!",
+   "start": 2.88,
+   "end": 3.5,
+   "words": [
+    {
+     "text": "Great",
+     "start": 2.88,
+     "end": 3.14
+    },
+    {
+     "text": "job!",
+     "start": 3.24,
+     "end": 3.5
+    }
+   ]
+  },
+  {
+   "id": "fb32",
+   "text": "Try again!",
+   "start": 4.12,
+   "end": 4.86,
+   "words": [
+    {
+     "text": "Try",
+     "start": 4.12,
+     "end": 4.3
+    },
+    {
+     "text": "again!",
+     "start": 4.44,
+     "end": 4.86
+    }
+   ]
+  }
+ ]
+}

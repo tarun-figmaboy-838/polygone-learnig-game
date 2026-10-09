@@ -1,0 +1,270 @@
+{
+ "source": "assets/source/vo-masters/swiftee-extra.mp3",
+ "seconds": 16.196,
+ "model": "Xenova/wav2vec2-base-960h",
+ "frameMs": 20,
+ "note": "Word times in seconds from the start of the take, by CTC forced alignment (tools/align-vo.js). tools/split-vo.js cuts the clips from this and writes their word starts into assets/vo/word-timings.json.",
+ "silences": [
+  [
+   0.786,
+   1.043
+  ],
+  [
+   2.595,
+   2.76
+  ],
+  [
+   3.48,
+   4.303
+  ],
+  [
+   6.283,
+   6.843
+  ],
+  [
+   10.631,
+   11.143
+  ],
+  [
+   11.928,
+   12.083
+  ],
+  [
+   13.754,
+   14.202
+  ],
+  [
+   15.401,
+   15.512
+  ],
+  [
+   16.042,
+   16.196
+  ]
+ ],
+ "derived": [],
+ "lines": [
+  {
+   "id": "p01b~unused",
+   "text": "But for that, first you need to learn about polygons.",
+   "start": 0.1,
+   "end": 3.36,
+   "words": [
+    {
+     "text": "But",
+     "start": 0.1,
+     "end": 0.22
+    },
+    {
+     "text": "for",
+     "start": 0.3,
+     "end": 0.4
+    },
+    {
+     "text": "that,",
+     "start": 0.48,
+     "end": 0.7
+    },
+    {
+     "text": "first",
+     "start": 1.16,
+     "end": 1.44
+    },
+    {
+     "text": "you",
+     "start": 1.5,
+     "end": 1.6
+    },
+    {
+     "text": "need",
+     "start": 1.66,
+     "end": 1.84
+    },
+    {
+     "text": "to",
+     "start": 1.9,
+     "end": 1.98
+    },
+    {
+     "text": "learn",
+     "start": 2.06,
+     "end": 2.3
+    },
+    {
+     "text": "about",
+     "start": 2.38,
+     "end": 2.62
+    },
+    {
+     "text": "polygons.",
+     "start": 2.74,
+     "end": 3.36
+    }
+   ]
+  },
+  {
+   "id": "p37o",
+   "text": "Let’s recall what we learned today.",
+   "start": 4.34,
+   "end": 6.2,
+   "words": [
+    {
+     "text": "Let’s",
+     "start": 4.34,
+     "end": 4.6
+    },
+    {
+     "text": "recall",
+     "start": 4.66,
+     "end": 5.02
+    },
+    {
+     "text": "what",
+     "start": 5.12,
+     "end": 5.26
+    },
+    {
+     "text": "we",
+     "start": 5.32,
+     "end": 5.38
+    },
+    {
+     "text": "learned",
+     "start": 5.5,
+     "end": 5.76
+    },
+    {
+     "text": "today.",
+     "start": 5.88,
+     "end": 6.2
+    }
+   ]
+  },
+  {
+   "id": "unused~names",
+   "text": "Polygons have different names based on their number of sides.",
+   "start": 6.82,
+   "end": 10.52,
+   "words": [
+    {
+     "text": "Polygons",
+     "start": 6.82,
+     "end": 7.48
+    },
+    {
+     "text": "have",
+     "start": 7.6,
+     "end": 7.74
+    },
+    {
+     "text": "different",
+     "start": 7.84,
+     "end": 8.22
+    },
+    {
+     "text": "names",
+     "start": 8.32,
+     "end": 8.66
+    },
+    {
+     "text": "based",
+     "start": 8.86,
+     "end": 9.14
+    },
+    {
+     "text": "on",
+     "start": 9.24,
+     "end": 9.28
+    },
+    {
+     "text": "their",
+     "start": 9.36,
+     "end": 9.52
+    },
+    {
+     "text": "number",
+     "start": 9.62,
+     "end": 9.88
+    },
+    {
+     "text": "of",
+     "start": 9.96,
+     "end": 10
+    },
+    {
+     "text": "sides.",
+     "start": 10.12,
+     "end": 10.52
+    }
+   ]
+  },
+  {
+   "id": "p39",
+   "text": "Now you know everything about polygons. You are ready to help Momo.",
+   "start": 11.22,
+   "end": 16.04,
+   "words": [
+    {
+     "text": "Now",
+     "start": 11.22,
+     "end": 11.42
+    },
+    {
+     "text": "you",
+     "start": 11.54,
+     "end": 11.64
+    },
+    {
+     "text": "know",
+     "start": 11.72,
+     "end": 11.86
+    },
+    {
+     "text": "everything",
+     "start": 12.18,
+     "end": 12.64
+    },
+    {
+     "text": "about",
+     "start": 12.72,
+     "end": 12.96
+    },
+    {
+     "text": "polygons.",
+     "start": 13.02,
+     "end": 13.62
+    },
+    {
+     "text": "You",
+     "start": 14.22,
+     "end": 14.32
+    },
+    {
+     "text": "are",
+     "start": 14.46,
+     "end": 14.56
+    },
+    {
+     "text": "ready",
+     "start": 14.68,
+     "end": 14.92
+    },
+    {
+     "text": "to",
+     "start": 15.04,
+     "end": 15.14
+    },
+    {
+     "text": "help",
+     "start": 15.22,
+     "end": 15.4
+    },
+    {
+     "text": "Momo.",
+     "start": 15.56,
+     "end": 16.04
+    }
+   ]
+  }
+ ]
+}

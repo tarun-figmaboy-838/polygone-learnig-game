@@ -27,10 +27,16 @@
  * take's (a 262 Hz median; about 128 words a minute, the pace split-vo cuts
  * the take to). Any Edge voice can be tried with --voice.
  *
+ * THE STORY'S VOICES. The Momo and Popo story before the lesson (src/story)
+ * is not Swiftee's to say: its lines (kind 'story' in vo-lines.js) are spoken
+ * in STORY's three voices below — a storyteller, Momo and Popo — slowed to a
+ * reading-aloud pace, with long pauses closed up and the silence after the last
+ * word cut short (tighten, trimTail), until the story is recorded.
+ *
  * THE LEVEL. Each clip is brought to TARGET LUFS, the level the take's clips
  * are cut at (split-vo.js), so a cheer is never louder than the line before
  * it — and written straight out in the game's formats (mono 64k mp3 for
- * Safari, Vorbis q1 for everyone else), so no encode step follows.
+ * Safari, Opus at 40k for everyone else), so no encode step follows.
  *
  * THE WORDS SHOWN AND THE WORDS SPOKEN can differ ("Atleast" is said "at
  * least"; "Hmm…" is said "Hmm"). Each word of the bubble takes the start of
@@ -59,6 +65,26 @@ const PITCH = arg('pitch', '-11%');
 // -5%: on the take's lines Ana at her own rate runs 5% quicker than the
 // take cut to its unhurried ~128 words a minute; this brings her level with it
 const RATE = arg('rate', '-5%');
+const SWIFTEE = { voice: VOICE, pitch: PITCH, rate: RATE };
+/* THE STORY'S THREE VOICES (src/story/story-data.js; tools/vo-lines.js marks its lines
+   kind 'story' with their speaker). The story is told before Swiftee arrives, so none of
+   it is in his voice: a warm grown-up storyteller, and two children, one each for Momo
+   and Popo and plainly not the same child — Momo lower and rounder (Ana, well down from
+   where Swiftee's cheers sit), Popo brighter and British (Maisie). Stand-ins until the
+   story is recorded: a clip saved over one of these is simply the clip that plays. */
+// The rates bring all three to a story's reading-aloud pace, near the lesson's ~130 words a
+// minute — at their own rates they measured 200-300 ("make sure vo not look very fast").
+// `gap` is the longest pause left between two words (tighten, below): slowed that far, a
+// voice slows its pauses as well, and "Great idea, Momo!" stopped for 1.4s at the comma.
+// `tail` is the room left after the last word: the service ends every clip on up to a
+// second of silence, which in a story is a second of nobody speaking between two friends
+// (docs/VO.md asks for no more than 0.2s at either end).
+const STORY = {
+  narrator: { voice: 'en-US-AndrewNeural', pitch: '+0%', rate: '-38%', gap: 420, tail: 220 },
+  momo:     { voice: 'en-US-AnaNeural', pitch: '-24%', rate: '-24%', gap: 300, tail: 220 },
+  popo:     { voice: 'en-GB-MaisieNeural', pitch: '+2%', rate: '-30%', gap: 300, tail: 220 }
+};
+const voiceOf = (l) => (l.kind === 'story' ? STORY[l.speaker] || null : SWIFTEE);
 const { spawnSync, execFileSync } = require('node:child_process');
 const TARGET = -20.5, PEAK_DB = -1.5;                 // as tools/split-vo.js cuts the take
 const TMP = path.join(VO, '.make-vo.tmp.mp3');
@@ -114,6 +140,53 @@ function snapCues(cs, file) {
   });
   return out;
 }
+/* NO PAUSE LONGER THAN `max` BETWEEN TWO WORDS. A gap wider than that (the service's own
+   word boundaries: where one word ends and the next begins) is closed to `max` by cutting
+   the middle out of its silence — the cut is in silence, so it cannot be heard — and every
+   word after it moves up by what was cut. Returns the file to encode from and the words. */
+function tighten(file, words, max) {
+  const cuts = [];
+  for (let i = 0; i + 1 < words.length; i++) {
+    const end = words[i].ms + words[i].dur, next = words[i + 1].ms, gap = next - end;
+    if (gap > max) { const mid = (end + next) / 2, cut = gap - max; cuts.push([mid - cut / 2, mid + cut / 2]); }
+  }
+  if (!cuts.length) return { file: file, words: words };
+  const keep = []; let at = 0;
+  cuts.forEach((c) => { keep.push([at, c[0]]); at = c[1]; });
+  keep.push([at, null]);
+  const fc = keep.map((k, i) => '[0:a]atrim=start=' + (k[0] / 1000).toFixed(3) + (k[1] != null ? ':end=' + (k[1] / 1000).toFixed(3) : '') +
+                                ',asetpts=PTS-STARTPTS[p' + i + ']').join(';') +
+             ';' + keep.map((k, i) => '[p' + i + ']').join('') + 'concat=n=' + keep.length + ':v=0:a=1[out]';
+  const out = file.replace(/\.mp3$/, '.wav');
+  ff(['-i', file, '-filter_complex', fc, '-map', '[out]', out]);
+  return {
+    file: out,
+    words: words.map((w) => {
+      let shift = 0;
+      cuts.forEach((c) => { if (w.ms >= c[1]) shift += c[1] - c[0]; });
+      return Object.assign({}, w, { ms: Math.round(w.ms - shift) });
+    })
+  };
+}
+
+/* AND NO LONG SILENCE AFTER THE LAST WORD: the clip ends `keep` ms after the speech does
+   (the start of the silence that runs to the end), with a short fade so the cut is not heard. */
+function trimTail(file, keep) {
+  const r = spawnSync('ffmpeg', ['-hide_banner', '-i', file, '-af', 'silencedetect=noise=-40dB:d=0.15', '-f', 'null', '-'], { encoding: 'utf8' });
+  const log = (r.stderr || '') + (r.stdout || '');
+  const starts = [...log.matchAll(/silence_start: ([\d.]+)/g)].map((m) => parseFloat(m[1]));
+  const ends = [...log.matchAll(/silence_end: ([\d.]+)/g)].map((m) => parseFloat(m[1]));
+  const dur = parseFloat((/Duration: (\d+):(\d+):([\d.]+)/.exec(log) || []).slice(1).reduce((a, v, i) => a + v * [3600, 60, 1][i], 0));
+  if (!starts.length || !(dur > 0)) return file;
+  const last = starts[starts.length - 1];
+  const toEnd = ends.length < starts.length || dur - ends[ends.length - 1] < 0.12;
+  const cut = last + keep / 1000;
+  if (!toEnd || last < 0.3 || cut >= dur - 0.05) return file;
+  const out = file.replace(/(\.\w+)$/, '.tail.wav');
+  ff(['-i', file, '-af', 'atrim=end=' + cut.toFixed(3) + ',afade=t=out:st=' + (cut - 0.06).toFixed(3) + ':d=0.06', out]);
+  return out;
+}
+
 const ALL = process.argv.includes('--all');
 const only = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !(all[i - 1] || '').startsWith('--'));
 
@@ -138,8 +211,8 @@ function spoken(text) {
     .replace(/…/g, '...');
 }
 
-/** One line: its audio and its word boundaries (ms from the start of the audio). */
-function speak(text) {
+/** One line, in voice `v` ({ voice, pitch, rate }): its audio and its word boundaries (ms from the start of the audio). */
+function speak(text, v) {
   return new Promise((resolve, reject) => {
     const url = WSS + '?TrustedClientToken=' + TOKEN + '&Sec-MS-GEC=' + secGec() + '&Sec-MS-GEC-Version=1-' + EDGE + '&ConnectionId=' + uid();
     const ws = new WebSocket(url, { headers: {
@@ -155,8 +228,8 @@ function speak(text) {
     ws.onopen = () => {
       ws.send('X-Timestamp:' + stamp() + '\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n' +
         '{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"true"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}\r\n');
-      const ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='" + VOICE + "'>" +
-                   "<prosody pitch='" + PITCH + "' rate='" + RATE + "' volume='+0%'>" + xml(spoken(text)) + '</prosody></voice></speak>';
+      const ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'><voice name='" + v.voice + "'>" +
+                   "<prosody pitch='" + v.pitch + "' rate='" + v.rate + "' volume='+0%'>" + xml(spoken(text)) + '</prosody></voice></speak>';
       ws.send('X-RequestId:' + uid() + '\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:' + stamp() + 'Z\r\nPath:ssml\r\n\r\n' + ssml);
     };
     ws.onmessage = (ev) => {
@@ -213,28 +286,33 @@ function cues(text, heard) {
       return t.lines.map((l) => l.id).concat((t.derived || []).map((d) => d.id));
     } catch (e) { return []; }
   })());
-  const todo = lines().filter((l) => l.text && !taken.has(l.id) && (only.length ? only.includes(l.id) : (ALL || !fs.existsSync(path.join(VO, l.id + '.mp3')))));
-  console.log('voice ' + VOICE + ' (pitch ' + PITCH + ', rate ' + RATE + '), ' + todo.length + ' line' + (todo.length === 1 ? '' : 's'));
+  const todo = lines().filter((l) => l.text && !taken.has(l.id) && voiceOf(l) && (only.length ? only.includes(l.id) : (ALL || !fs.existsSync(path.join(VO, l.id + '.mp3')))));
+  console.log('Swiftee: ' + VOICE + ' (pitch ' + PITCH + ', rate ' + RATE + '); the story: its own three voices. ' + todo.length + ' line' + (todo.length === 1 ? '' : 's'));
   let ok = 0, unsynced = [];
   for (const l of todo) {
     let res = null, err = null;
     for (let attempt = 0; attempt < 3 && !res; attempt++) {
-      try { res = await speak(l.text); } catch (e) { err = e; await new Promise((r) => setTimeout(r, 800 * (attempt + 1))); }
+      try { res = await speak(l.text, voiceOf(l)); } catch (e) { err = e; await new Promise((r) => setTimeout(r, 800 * (attempt + 1))); }
     }
     if (!res || !res.audio.length) { console.log('  FAILED ' + l.id + ': ' + (err && err.message)); continue; }
     // at the take's level, in the game's formats
     fs.writeFileSync(TMP, res.audio);
-    const lv = levelOf(TMP);
+    const v = voiceOf(l);
+    const t = v.gap ? tighten(TMP, res.words, v.gap) : { file: TMP, words: res.words };
+    res.words = t.words;
+    if (v.tail) { const f = trimTail(t.file, v.tail); if (f !== t.file) { if (t.file !== TMP) { try { fs.unlinkSync(t.file); } catch (e) {} } t.file = f; } }
+    const lv = levelOf(t.file);
     let gain = lv.lufs == null ? 0 : TARGET - lv.lufs;
     if (lv.peak != null) gain = Math.min(gain, PEAK_DB - lv.peak);
     const af = 'volume=' + gain.toFixed(2) + 'dB';
-    ff(['-i', TMP, '-af', af, '-ac', '1', '-c:a', 'libmp3lame', '-b:a', '64k', path.join(VO, l.id + '.mp3')]);
-    ff(['-i', TMP, '-af', af, '-ac', '1', '-c:a', 'libvorbis', '-q:a', '1', path.join(VO, l.id + '.ogg')]);
+    ff(['-i', t.file, '-af', af, '-ac', '1', '-c:a', 'libmp3lame', '-b:a', '64k', path.join(VO, l.id + '.mp3')]);
+    ff(['-i', t.file, '-af', af, '-ac', '1', '-c:a', 'libopus', '-b:a', '40k', '-vbr', 'on', '-application', 'voip', path.join(VO, l.id + '.ogg')]);
+    if (t.file !== TMP) { try { fs.unlinkSync(t.file); } catch (e) {} }
     const c0 = cues(l.text, res.words);
     const c = c0 ? snapCues(c0, path.join(VO, l.id + '.ogg')) : null;
     if (c) timings[l.id] = c; else { delete timings[l.id]; unsynced.push(l.id); }
     ok++;
-    console.log('  ' + l.id.padEnd(5) + ' ' + (c ? c.length + ' words' : 'NO WORD SYNC') + '  "' + l.text + '"');
+    console.log('  ' + l.id.padEnd(5) + ' ' + (c ? c.length + ' words' : 'NO WORD SYNC') + '  ' + voiceOf(l).voice.replace(/^\w\w-\w\w-|Neural$/g, '') + '  "' + l.text + '"');
     await new Promise((r) => setTimeout(r, 250));
   }
   const sorted = {};

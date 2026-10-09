@@ -277,6 +277,27 @@
         noise({ f: 180 + Math.random() * 90, dur: 0.05, q: 1.1, filter: 'lowpass',
                 gain: 0.05 + i * 0.0035, delay: i * 0.045 });
       }
+    },
+
+    /* THE STORY'S OWN (src/story/story.js). Small and soft on purpose: the story is told
+       by the pictures and the words, and these are only the world they happen in. */
+
+    /** Wood or rope taking weight: a short, low, bowed groan. */
+    creak: function (o) {
+      var f = (o && o.f) || 150;
+      tone({ f: f, to: f * 0.82, dur: 0.4, type: 'sawtooth', gain: 0.03, attack: 0.06, glide: 'exp' });
+      noise({ f: f * 6, to: f * 4, dur: 0.36, q: 9, gain: 0.05, attack: 0.05 });
+    },
+
+    /** Ice ringing: two high partials and a long soft tail. */
+    chime: function () {
+      tone({ f: note(4, 2), dur: 1.1, type: 'sine', gain: 0.07 });
+      tone({ f: note(1, 3), dur: 0.8, type: 'sine', gain: 0.045, delay: 0.06 });
+    },
+
+    /** Cold air in a cave: one slow, low swell of breath, gone in under three seconds. */
+    air: function () {
+      noise({ f: 520, to: 240, dur: 2.6, q: 0.7, filter: 'lowpass', gain: 0.045, attack: 0.9 });
     }
   };
 

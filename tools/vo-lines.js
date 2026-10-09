@@ -15,11 +15,13 @@
  * cannot drift, because a line the game cannot reach is not in the list and a
  * line it can reach always is.
  *
- * Three places carry a clip id:
+ * Four places carry a clip id:
+ *   src/story/story-data.js  the story before the lesson: narrator, Momo, Popo
  *   src/game/screens.js   every beat with `vo:` — the narration and the
  *                         instructions, nested inside on/otherwise/feedback
  *   src/game/game.js      PRAISE and NUDGE, the answers to right and wrong
  *   src/game/stage.js     the reasons a particular try fell short
+ *   src/opening/runner-stage.js  Swiftee's lines over Frozen Rush, at the broken path and the ditch
  */
 'use strict';
 const fs = require('node:fs');
@@ -49,6 +51,8 @@ function fromDeck() {
       if (b.otherwise) walk(b.otherwise);
       if (b.feedback) walk(b.feedback);
       if (b.parallel) walk(b.parallel);
+      // a line's alternative, chosen by what is on screen (director `alt`)
+      if (b.alt && b.alt.vo) walk([b.alt]);
     });
     walk(s.beats);
     // the shape taught up close after a second miss (screens.js `teach`)
@@ -78,10 +82,35 @@ function fromPairs(file, where) {
   return out;
 }
 
+/* THE STORY BEFORE THE LESSON (src/story/story-data.js): its lines, each with who says
+   it — the narrator, Momo or Popo, who are not Swiftee and do not speak in his voice
+   (tools/make-vo.js STORY). Run the same way as the deck: a plain script over window. */
+function fromStory() {
+  const g = {};
+  // (the story is kept outside the repository, in POLYGON-1/story-draft (its README says how to bring it back) — the user: "remove the story part and add on draft" —
+  // and while it is, the game says none of its lines)
+  const file = path.join(ROOT, 'src', 'story', 'story-data.js');
+  if (!fs.existsSync(file)) return [];
+  const src = fs.readFileSync(file, 'utf8');
+  new Function('window', src)(g);
+  const out = [];
+  ((g.StoryData && g.StoryData.scenes) || []).forEach((s, i) => {
+    (s.lines || []).forEach((l) => {
+      if (!l.vo) return;
+      out.push({ id: l.vo, text: String(l.text), kind: 'story', speaker: l.who,
+                 where: 'story scene ' + (i + 1) + ', ' + l.who });
+    });
+  });
+  return out;
+}
+
 function lines() {
-  const all = fromDeck()
+  const all = fromStory()
+    .concat(fromDeck())
     .concat(fromPairs('game.js', 'said after an answer (game.js)'))
-    .concat(fromPairs('stage.js', 'said when a try falls short (stage.js)'));
+    .concat(fromPairs('stage.js', 'said when a try falls short (stage.js)'))
+    // Swiftee over Frozen Rush, before the lesson and after it (the game-lesson kit)
+    .concat(fromPairs('../opening/runner-stage.js', 'said by Swiftee over Frozen Rush (src/opening/runner-stage.js)'));
   // one row per id; keep the first place it is used and note the rest
   const byId = new Map();
   all.forEach((r) => {
